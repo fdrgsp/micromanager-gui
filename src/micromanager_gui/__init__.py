@@ -1,4 +1,5 @@
 """A Micro-Manager GUI based on pymmcore-widgets and pymmcore-plus."""
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:
