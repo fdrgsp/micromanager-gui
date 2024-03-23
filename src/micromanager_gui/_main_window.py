@@ -15,6 +15,7 @@ from qtpy.QtWidgets import (
 )
 
 from ._core_link import _CoreLink
+from ._core_link_with_napari import _CoreLinkWithNapari
 from ._init_system_config import InitializeSystemConfigurations
 from ._toolbar import MainToolBar
 from ._util import load_sys_config_dialog, save_sys_config_dialog
@@ -39,8 +40,11 @@ class MicroManagerGUI(QMainWindow):
         *,
         mmcore: CMMCorePlus | None = None,
         config: str | None = None,
+        use_napari: bool = False,
     ) -> None:
         super().__init__(parent)
+
+        self._use_napari: bool = use_napari
 
         self._mmc = mmcore or CMMCorePlus.instance()
 
@@ -58,18 +62,34 @@ class MicroManagerGUI(QMainWindow):
 
         # add central widget
         central_widget = QWidget()
-        central_widget.setLayout(QVBoxLayout())
+        central_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
+
+        self._wizard: HardwareConfigWizard | None = None
 
         # set tabbed dockwidgets tabs to the top
         self.setTabPosition(
             Qt.DockWidgetArea.AllDockWidgetAreas, QTabWidget.TabPosition.North
         )
 
-        # link to the core
-        self._core_link = _CoreLink(self, mmcore=self._mmc)
+        # add napari to the central widget
+        if self._use_napari:
+            try:
+                import napari
+            except ImportError as e:
+                raise ImportError(
+                    "`napari` is not installed. Please run: pip install napari."
+                ) from e
 
-        self._wizard: HardwareConfigWizard | None = None
+            self.napari_viewer = napari.Viewer()
+            central_layout.addWidget(self.napari_viewer.window._qt_window)
+            # link to the core
+            self._core_link = _CoreLinkWithNapari(
+                self, mmcore=self._mmc, viewer=self.napari_viewer
+            )
+        else:
+            # link to the core
+            self._core_link = _CoreLink(self, mmcore=self._mmc)
 
         # load latest layout
         self._toolbar._widgets_toolbar._load_layout()
@@ -128,6 +148,9 @@ class MicroManagerGUI(QMainWindow):
             self._wizard.show()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._use_napari:
+            return
+
         # close all viewers
         for viewer in self._core_link._viewers:
             viewer.close()
