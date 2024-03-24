@@ -35,6 +35,5 @@ You also need to install the `Micro-Manager` device adapters and C++ core provid
 python -m micromanager_gui
 ```
 
-set the `-c` flag to the path of the `Micro-Manager` configuration file to directly load the configuration.
-set the `-n` flag to `True` to use `napari` as the viewer (e.g., `python -m micromanager_gui -n True`)
-
+- set the `-c` flag to the path of the `Micro-Manager` configuration file to directly load the configuration.
+- set the `-n` flag to `True` to use `napari` as the viewer (e.g., `python -m micromanager_gui -n True`)
