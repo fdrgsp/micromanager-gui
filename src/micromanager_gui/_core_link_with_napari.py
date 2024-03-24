@@ -8,7 +8,7 @@ import numpy as np
 from pymmcore_plus import CMMCorePlus
 from qtpy.QtCore import QObject, Qt, QTimerEvent
 
-from ._widgets._mda._napari_viewer import _NapariViewer
+from ._mda_viewers._napari_viewer import _NapariViewer
 
 if TYPE_CHECKING:
     import napari.viewer
