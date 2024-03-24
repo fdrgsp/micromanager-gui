@@ -8,8 +8,18 @@
 
 A Micro-Manager GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/pymmcore-widgets/) and [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/).
 
+#
+
 <img width="1728" alt="Screenshot 2024-03-19 at 2 42 00 PM" src="https://github.com/fdrgsp/micromanager-gui/assets/70725613/57224b3f-0e84-4f1c-a604-734a05b7547a">
 
+&nbsp;
+
+<figure>
+  <img width="1728" alt="Screenshot 2024-03-23 at 8 21 40 PM" src="https://github.com/fdrgsp/micromanager-gui/assets/70725613/3d501382-c601-42ea-97d0-c71a97d7690b">
+  <figcaption>This version uses napari as a viewer (set the -n flag to True).</figcaption>
+</figure>
+
+#
 
 ## Installation
 
