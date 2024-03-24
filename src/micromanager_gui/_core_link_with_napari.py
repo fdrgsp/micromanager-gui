@@ -63,7 +63,7 @@ class _CoreLinkWithNapari(QObject):
 
     def _image_snapped(self) -> None:
         # If we are in the middle of an MDA, don't update the preview viewer.
-        if not self._mda_viewer._is_mda_running:
+        if not self._mda_viewer._mda_running:
             self._update_viewer(self._mmc.getImage())
 
     def _start_live(self) -> None:

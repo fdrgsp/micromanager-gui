@@ -37,7 +37,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
 
         self._layer_name: str = EXP
 
-        self._is_mda_running: bool = False
+        self._mda_running: bool = False
 
         # connections
         ev = self._mmc.mda.events
@@ -56,7 +56,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
 
     def sequenceStarted(self, sequence: useq.MDASequence) -> None:
         """On sequence started, simply store the sequence."""
-        self._is_mda_running = True
+        self._mda_running = True
 
         # create a new group for the sequence within the same store by creating a
         # subfolder named with the sequence uid
@@ -155,7 +155,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
 
     def sequenceFinished(self, seq: useq.MDASequence) -> None:
         """On sequence finished, clear the current sequence."""
-        self._is_mda_running = False
+        self._mda_running = False
 
         super().sequenceFinished(seq)
 
