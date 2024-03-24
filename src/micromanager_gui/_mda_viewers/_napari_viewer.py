@@ -96,7 +96,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
             return
 
         # get the current layer
-        layer = self._get_layer()
+        layer = self._get_layer(key)
 
         # add new layer or update it if it exists
         if layer is None:
@@ -105,20 +105,20 @@ class _NapariViewer(QObject, OMEZarrWriter):
             layer.data = self.position_arrays[key]
             self._update_slider(event, p_index)
 
-    def _get_layer(self) -> Image | None:
-        """Get the layer if it has the same `uid` as the current sequence."""
+    def _get_layer(self, key: str) -> Image | None:
+        """Get the layer if it has the same `uid` and `key` as the current sequence."""
         if self.current_sequence is None:
             return None
 
-        layer = next(
+        return next(
             (
                 layer
                 for layer in self._viewer.layers
-                if layer.metadata.get("uid") == self.current_sequence.uid
+                if (layer.metadata.get("uid"), layer.metadata.get("key"))
+                == (self.current_sequence.uid, key)
             ),
             None,
         )
-        return layer
 
     def _add_new_layer(self, key: str) -> None:
         """Add a new layer to the viewer."""
@@ -130,6 +130,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
         layer.scale = self._get_scale(key)
         self._viewer.dims.axis_labels = data.attrs["_ARRAY_DIMENSIONS"]
         layer.metadata = {
+            "key": key,
             "uid": self.current_sequence.uid,
             "sequence": self.current_sequence,
             "dims": data.attrs["_ARRAY_DIMENSIONS"],
