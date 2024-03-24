@@ -97,7 +97,6 @@ class _NapariViewer(QObject, OMEZarrWriter):
             layer.metadata["sequence"] = self.current_sequence
         # if the layer exists, update the data
         else:
-            # layer = cast("Image", self._viewer.layers[key])
             layer = cast("Image", self._viewer.layers[layer_name])
             layer.data = self.position_arrays[key]
             index = tuple(event.index[k] for k in self.position_sizes[p_index])
