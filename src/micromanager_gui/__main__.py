@@ -1,3 +1,12 @@
+"""Run micromanager-gui as a script with ``python -m napari_micromanager``.
+
+set the `-c` flag to the path of the `Micro-Manager` configuration file to directly
+load the configuration.
+
+set the `-n` flag to `True` to use `napari` as the viewer
+(e.g., `python -mmicromanager_gui -n True`)
+"""
+
 from __future__ import annotations
 
 import argparse
