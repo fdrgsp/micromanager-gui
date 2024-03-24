@@ -87,6 +87,9 @@ class MicroManagerGUI(QMainWindow):
             self._core_link = _CoreLinkWithNapari(
                 self, mmcore=self._mmc, viewer=self._viewer
             )
+            # push the core to the napari console
+            if console := getattr(self._viewer.window._qt_viewer, "console", None):
+                console.push({"mmc": self._mmc})
         else:
             # link to the core
             self._core_link = _CoreLink(self, mmcore=self._mmc)
