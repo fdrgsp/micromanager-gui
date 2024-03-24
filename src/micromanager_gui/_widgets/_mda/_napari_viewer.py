@@ -13,7 +13,7 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject
 from zarr.storage import TempStore
 
-EXP = "experiment"
+EXP = "MDA"
 
 
 class _NapariViewer(QObject, OMEZarrWriter):
