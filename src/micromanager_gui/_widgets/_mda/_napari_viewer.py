@@ -92,7 +92,7 @@ class _NapariViewer(QObject, OMEZarrWriter):
         p_index = event.index.get("p", 0)
         key = f"{POS_PREFIX}{p_index}"
 
-        if key not in self.position_arrays:
+        if key not in self.position_arrays or not self.current_sequence:
             return
 
         # get the current layer
@@ -107,6 +107,9 @@ class _NapariViewer(QObject, OMEZarrWriter):
 
     def _get_layer(self) -> Image | None:
         """Get the layer if it has the same `uid` as the current sequence."""
+        if self.current_sequence is None:
+            return None
+
         layer = next(
             (
                 layer
@@ -119,6 +122,9 @@ class _NapariViewer(QObject, OMEZarrWriter):
 
     def _add_new_layer(self, key: str) -> None:
         """Add a new layer to the viewer."""
+        if self.current_sequence is None:
+            return
+
         data = self.position_arrays[key]
         layer = self._viewer.add_image(data, name=f"{self._layer_name}_{key}")
         layer.scale = self._get_scale(key)
