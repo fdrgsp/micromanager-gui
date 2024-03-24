@@ -16,6 +16,14 @@ def main(args: Sequence[str] | None = None) -> None:
 
     parser = argparse.ArgumentParser(description="Enter string")
     parser.add_argument(
+        "-n",
+        "--napari",
+        type=bool,
+        default=False,
+        help="Use napari as the viewer",
+        nargs="?",
+    )
+    parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -26,7 +34,7 @@ def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parser.parse_args(args)
 
     app = QApplication([])
-    win = MicroManagerGUI(config=parsed_args.config)
+    win = MicroManagerGUI(config=parsed_args.config, use_napari=parsed_args.napari)
     win.show()
     app.exec_()
 
