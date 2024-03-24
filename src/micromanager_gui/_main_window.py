@@ -81,18 +81,17 @@ class MicroManagerGUI(QMainWindow):
                     "`napari` is not installed. Please run: pip install napari."
                 ) from e
 
-            self.napari_viewer = napari.Viewer()
-            central_layout.addWidget(self.napari_viewer.window._qt_window)
+            self._viewer = napari.Viewer()
+            central_layout.addWidget(self._viewer.window._qt_window)
             # link to the core
             self._core_link = _CoreLinkWithNapari(
-                self, mmcore=self._mmc, viewer=self.napari_viewer
+                self, mmcore=self._mmc, viewer=self._viewer
             )
         else:
             # link to the core
             self._core_link = _CoreLink(self, mmcore=self._mmc)
-
-        # load latest layout
-        self._toolbar._widgets_toolbar._load_layout()
+            # load latest layout
+            self._toolbar._widgets_toolbar._load_layout()
 
         # handle the system configurations at startup.
         # with this we create/updatethe list of the Micro-Manager hardware system

@@ -8,6 +8,7 @@ import zarr
 from pymmcore_plus import CMMCorePlus
 from pymmcore_plus.mda.handlers import OMEZarrWriter
 from pymmcore_plus.mda.handlers._ome_zarr_writer import POS_PREFIX
+from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject
 from zarr.storage import TempStore
 
@@ -30,14 +31,13 @@ class _NapariViewer(QObject, OMEZarrWriter):
         QObject.__init__(self, parent)
         OMEZarrWriter.__init__(self)
 
-        self.count = -1
+        self._count = -1
 
         self._mmc = mmcore or CMMCorePlus.instance()
 
         self._viewer = viewer
 
         self._is_mda_running: bool = False
-        # self._largest_idx: dict[str, tuple[int, ...]] = {}
 
         # connections
         ev = self._mmc.mda.events
@@ -70,41 +70,45 @@ class _NapariViewer(QObject, OMEZarrWriter):
         self.position_arrays.clear()
         self.position_sizes.clear()
 
-        self.count += 1
+        self._count += 1
 
         super().sequenceStarted(seq)
 
     def frameReady(self, image: np.ndarray, event: useq.MDAEvent, meta: dict) -> None:
         super().frameReady(image, event, meta)
 
+        # get position index and key
         p_index = event.index.get("p", 0)
         key = f"{POS_PREFIX}{p_index}"
 
         if key not in self.position_arrays:
             return
 
-        # TODO: use metadata save name and sequence uid instead of count
-        # if key not in self._viewer.layers:
-        if f"{key}_{self.count}" not in self._viewer.layers:
+        # set the layer name (get it from the metadata if available))
+        meta = self.current_sequence.metadata.get(PYMMCW_METADATA_KEY)
+        layer_name = meta.get("save_name", f"experiment_{self._count:03d}")
+
+        # if the layer does not exist, create it
+        if layer_name not in self._viewer.layers:
             data = self.position_arrays[key]
-            # layer = self._viewer.add_image(data, name=key, blending="additive")
-            layer = self._viewer.add_image(
-                data, name=f"{key}_{self.count}", blending="additive"
-            )
+            layer = self._viewer.add_image(data, name=layer_name, blending="additive")
             layer.scale = self._get_scale(key)
             self._viewer.dims.axis_labels = data.attrs["_ARRAY_DIMENSIONS"]
             layer.metadata["sequence"] = self.current_sequence
+        # if the layer exists, update the data
         else:
             # layer = cast("Image", self._viewer.layers[key])
-            layer = cast("Image", self._viewer.layers[f"{key}_{self.count}"])
+            layer = cast("Image", self._viewer.layers[layer_name])
             layer.data = self.position_arrays[key]
-
-            # update the slider position
-            cs = list(self._viewer.dims.current_step)
             index = tuple(event.index[k] for k in self.position_sizes[p_index])
-            for a, v in enumerate(index):
-                cs[a] = v
-            self._viewer.dims.current_step = cs
+            self._update_slider(index)
+
+    def _update_slider(self, index: tuple[int, ...]) -> None:
+        """Update the slider to the current position."""
+        cs = list(self._viewer.dims.current_step)
+        for a, v in enumerate(index):
+            cs[a] = v
+        self._viewer.dims.current_step = cs
 
     def _get_scale(self, key: str) -> list[float]:
         """Get the scale for the layer."""
