@@ -13,4 +13,4 @@ __email__ = "federico.gasparoli@gmail.com"
 
 from ._main_window import MicroManagerGUI
 
-__all__ = ["MicroManagerGUI"]
+__all__ = ["__version__", "MicroManagerGUI"]
