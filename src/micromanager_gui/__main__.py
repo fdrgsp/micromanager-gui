@@ -1,4 +1,4 @@
-"""Run micromanager-gui as a script with ``python -m napari_micromanager``.
+"""Run micromanager-gui as a script with `python -m micromanager_gui`.
 
 set the `-c` flag to the path of the `Micro-Manager` configuration file to directly
 load the configuration.

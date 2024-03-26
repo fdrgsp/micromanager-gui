@@ -39,6 +39,14 @@ pip install PyQt6
 
 You also need to install the `Micro-Manager` device adapters and C++ core provided by [mmCoreAndDevices](https://github.com/micro-manager/mmCoreAndDevices#mmcoreanddevices). This can be done by following the steps described in the `pymmcore-plus` [documentation page](https://pymmcore-plus.github.io/pymmcore-plus/install/#installing-micro-manager-device-adapters).
 
+### Installing napari
+
+To use `napari` as the viewer, also run:
+
+```bash
+pip install napari
+```
+
 ## To run the GUI
 
 ```bash
