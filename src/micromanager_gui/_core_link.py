@@ -7,7 +7,7 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
 from qtpy.QtWidgets import QApplication
 
-from ._widgets._mda._mda_viewer import MDAViewer
+from ._mda_viewers._mda_viewer_widget import MDAViewer
 from ._widgets._preview import Preview
 
 DIALOG = Qt.WindowType.Dialog
