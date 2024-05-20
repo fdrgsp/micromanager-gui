@@ -33,34 +33,39 @@ class _MenuBar(QMenuBar):
         self._px_cfg.setWindowFlags(FLAGS)
 
         # configurations_menu
-        configurations_menu = self.addMenu("System Configurations")
+        self._configurations_menu = self.addMenu("System Configurations")
         # hardware cfg wizard
-        self.act_cfg_wizard = QAction("Hardware Configuration Wizard", self)
-        self.act_cfg_wizard.triggered.connect(self._show_config_wizard)
-        configurations_menu.addAction(self.act_cfg_wizard)
+        self._act_cfg_wizard = QAction("Hardware Configuration Wizard", self)
+        self._act_cfg_wizard.triggered.connect(self._show_config_wizard)
+        self._configurations_menu.addAction(self._act_cfg_wizard)
         # save cfg
-        self.act_save_configuration = QAction("Save Configuration", self)
-        self.act_save_configuration.triggered.connect(self._save_cfg)
-        configurations_menu.addAction(self.act_save_configuration)
+        self._act_save_configuration = QAction("Save Configuration", self)
+        self._act_save_configuration.triggered.connect(self._save_cfg)
+        self._configurations_menu.addAction(self._act_save_configuration)
         # load cfg
-        self.act_load_configuration = QAction("Load Configuration", self)
-        self.act_load_configuration.triggered.connect(self._load_cfg)
-        configurations_menu.addAction(self.act_load_configuration)
+        self._act_load_configuration = QAction("Load Configuration", self)
+        self._act_load_configuration.triggered.connect(self._load_cfg)
+        self._configurations_menu.addAction(self._act_load_configuration)
 
         # widgets_menu
-        widgets_menu = self.addMenu("Widgets")
+        self._widgets_menu = self.addMenu("Widgets")
         # property browser
-        self.act_property_browser = QAction("Property Browser", self)
-        self.act_property_browser.triggered.connect(self._show_property_browser)
-        widgets_menu.addAction(self.act_property_browser)
+        self._act_property_browser = QAction("Property Browser", self)
+        self._act_property_browser.triggered.connect(self._show_property_browser)
+        self._widgets_menu.addAction(self._act_property_browser)
         # stage control
-        self.act_stage_control = QAction("Stage Control", self)
-        self.act_stage_control.triggered.connect(self._show_stage_control)
-        widgets_menu.addAction(self.act_stage_control)
+        self._act_stage_control = QAction("Stage Control", self)
+        self._act_stage_control.triggered.connect(self._show_stage_control)
+        self._widgets_menu.addAction(self._act_stage_control)
         # pixel configuration
-        self.act_pixel_configuration = QAction("Pixel Configuration", self)
-        self.act_pixel_configuration.triggered.connect(self._show_px_cfg)
-        widgets_menu.addAction(self.act_pixel_configuration)
+        self._act_pixel_configuration = QAction("Pixel Configuration", self)
+        self._act_pixel_configuration.triggered.connect(self._show_px_cfg)
+        self._widgets_menu.addAction(self._act_pixel_configuration)
+
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the actions."""
+        self._configurations_menu.setEnabled(enable)
+        self._widgets_menu.setEnabled(enable)
 
     def _save_cfg(self) -> None:
         (filename, _) = QFileDialog.getSaveFileName(

@@ -86,7 +86,8 @@ class MicroManagerGUI(QMainWindow):
         self._mda_link = MDAViewersLink(self, mmcore=self._mmc)
 
         # add the menu bar
-        self.setMenuBar(_MenuBar(parent=self, mmcore=self._mmc))
+        self._menu_bar = _MenuBar(parent=self, mmcore=self._mmc)
+        self.setMenuBar(self._menu_bar)
 
         # add toolbar
         self._shutters_toolbar = _ShuttersToolbar(parent=self, mmcore=self._mmc)
