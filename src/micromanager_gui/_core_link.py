@@ -29,8 +29,6 @@ class MDAViewersLink(QObject):
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         """Show the MDAViewer when the MDA sequence starts."""
-        self._is_mda_running = True
-
         # pause until the viewer is ready
         self._mmc.mda.toggle_pause()
         # setup the viewer
@@ -56,8 +54,8 @@ class MDAViewersLink(QObject):
         self._current_viewer.data.sequenceStarted(sequence)
 
         # disable the LUT drop down and the mono/composite button (temporary)
-        self._current_viewer._lut_drop.setEnabled(False)
-        self._current_viewer._channel_mode_btn.setEnabled(False)
+        # self._current_viewer._lut_drop.setEnabled(False)
+        # self._current_viewer._channel_mode_btn.setEnabled(False)
 
         # connect the signals
         self._connect_viewer(self._current_viewer)
@@ -68,8 +66,8 @@ class MDAViewersLink(QObject):
             return
 
         # enable the LUT drop down and the mono/composite button (temporary)
-        self._current_viewer._lut_drop.setEnabled(True)
-        self._current_viewer._channel_mode_btn.setEnabled(True)
+        # self._current_viewer._lut_drop.setEnabled(True)
+        # self._current_viewer._channel_mode_btn.setEnabled(True)
 
         self._disconnect_viewer(self._current_viewer)
 
