@@ -12,6 +12,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
+    QScrollArea,
     QSizePolicy,
     QTabBar,
     QTabWidget,
@@ -65,15 +66,21 @@ class MicroManagerGUI(QMainWindow):
         # Tab widget for the widgets
         self.widget_tab = QTabWidget()
         self._central_wdg_layout.addWidget(self.widget_tab, 0, 1)
-        self.widget_tab.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
-
         # main widgets
         self._group_preset = GroupPresetTableWidget()
         self.widget_tab.addTab(self._group_preset, "Groups and Presets")
+        self._mdaScrollArea = QScrollArea()
         self._mda = MDAWidget()
-        self.widget_tab.addTab(self._mda, "MDA Acquisition")
+        self._mdaScrollArea.setWidget(self._mda)
+        self._mdaScrollArea.setWidgetResizable(True)
+        self.widget_tab.addTab(self._mdaScrollArea, "MDA Acquisition")
+        # set fixed scroll area size
+        self.widget_tab.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        width = self._mda.sizeHint().width()
+        # set setFixedWidth to (width + 2%width)
+        self._mdaScrollArea.setFixedWidth(width + width // 50)
 
         # link the MDA viewers
         self._mda_link = MDAViewersLink(self, mmcore=self._mmc)
