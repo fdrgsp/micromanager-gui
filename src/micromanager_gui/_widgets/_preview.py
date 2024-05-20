@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-# import tifffile
 from fonticon_mdi6 import MDI6
+
+# import tifffile
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets import ImagePreview
+from pymmcore_widgets import ImagePreview, LiveButton, SnapButton
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
     QCheckBox,
@@ -13,6 +14,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -20,11 +22,8 @@ from superqt import QLabeledDoubleRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import signals_blocked
 
-from ._snap_and_live import Live, Snap
-
 if TYPE_CHECKING:
     import numpy as np
-    from qtpy.QtGui import QCloseEvent
 
 BTN_SIZE = (60, 40)
 
@@ -65,19 +64,20 @@ class Preview(QWidget):
         parent: QWidget | None = None,
         *,
         mmcore: CMMCorePlus | None = None,
-        canvas_size: tuple[int, int] | None = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Image Preview")
 
         self._mmc = mmcore or CMMCorePlus.instance()
-        self._canvas_size = canvas_size
 
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
         # preview
         self._image_preview = _ImagePreview(self, mmcore=self._mmc, preview_widget=self)
+        self._image_preview.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         main_layout.addWidget(self._image_preview)
 
         # buttons
@@ -144,12 +144,6 @@ class Preview(QWidget):
                 self._lut_slider.setRange(0, 2**bit - 1)
                 self._lut_slider.setValue((0, 2**bit - 1))
 
-        # set the canvas size to half of the image size
-        self._image_preview._canvas.size = self._canvas_size or (
-            int(self._mmc.getImageWidth()),
-            int(self._mmc.getImageHeight()),
-        )
-
     def _reset(self) -> None:
         """Reset the preview."""
         x = (0, self._mmc.getImageWidth()) if self._mmc.getImageWidth() else None
@@ -181,8 +175,30 @@ class Preview(QWidget):
     #         return
     #     tifffile.imwrite(path, self._image_preview.image._data, imagej=True)
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:
-        # stop live acquisition if running
-        if self._mmc.isSequenceRunning():
-            self._mmc.stopSequenceAcquisition()
-        super().closeEvent(event)
+
+class Snap(SnapButton):
+    """A SnapButton."""
+
+    def __init__(
+        self, parent: QWidget | None = None, *, mmcore: CMMCorePlus | None = None
+    ) -> None:
+        super().__init__(parent=parent, mmcore=mmcore)
+        self.setToolTip("Snap Image")
+        self.setIcon(icon(MDI6.camera_outline))
+        self.setText("")
+        self.setFixedSize(*BTN_SIZE)
+
+
+class Live(LiveButton):
+    """A LiveButton."""
+
+    def __init__(
+        self, parent: QWidget | None = None, *, mmcore: CMMCorePlus | None = None
+    ) -> None:
+        super().__init__(parent=parent, mmcore=mmcore)
+        self.setToolTip("Live Mode")
+        self.button_text_on = ""
+        self.button_text_off = ""
+        self.icon_color_on = ()
+        self.icon_color_off = "magenta"
+        self.setFixedSize(*BTN_SIZE)
