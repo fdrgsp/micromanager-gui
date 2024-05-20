@@ -15,7 +15,7 @@ A Micro-Manager minimal GUI based on [pymmcore-widgets](https://pymmcore-plus.gi
 ## Installation
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui
+pip install git+https://github.com/fdrgsp/micromanager-gui@minimal
 ```
 
 ### Installing PyQt or PySide
