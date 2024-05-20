@@ -55,15 +55,25 @@ class MDAViewersLink(QObject):
         # emitted already
         self._current_viewer.data.sequenceStarted(sequence)
 
+        # disable the LUT drop down and the mono/composite button (temporary)
+        self._current_viewer._lut_drop.setEnabled(False)
+        self._current_viewer._channel_mode_btn.setEnabled(False)
+
         # connect the signals
         self._connect_viewer(self._current_viewer)
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         """Hide the MDAViewer when the MDA sequence finishes."""
-        self._is_mda_running = False
         if self._current_viewer is None:
             return
+
+        # enable the LUT drop down and the mono/composite button (temporary)
+        self._current_viewer._lut_drop.setEnabled(True)
+        self._current_viewer._channel_mode_btn.setEnabled(True)
+
         self._disconnect_viewer(self._current_viewer)
+
+        self._current_viewer = None
 
     def _connect_viewer(self, viewer: MDAViewer) -> None:
         self._mmc.mda.events.sequenceFinished.connect(viewer.data.sequenceFinished)
