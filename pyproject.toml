@@ -31,7 +31,10 @@ dependencies = [
     "qtpy",
     "vispy",
     "zarr",
-    "tifffile"
+    "tifffile",
+    "pyfirmata2",
+    "cmap",
+    "pyconify"
 ]
 
 # extras
