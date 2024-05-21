@@ -9,8 +9,6 @@ from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets import ImagePreview, LiveButton, SnapButton
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
-    QCheckBox,
-    # QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -18,7 +16,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from superqt import QLabeledDoubleRangeSlider
+from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import signals_blocked
 
@@ -26,6 +24,36 @@ if TYPE_CHECKING:
     import numpy as np
 
 BTN_SIZE = (60, 40)
+SS = """
+QSlider::groove:horizontal {
+    height: 15px;
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 rgba(128, 128, 128, 0.25),
+        stop:1 rgba(128, 128, 128, 0.1)
+    );
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    width: 38px;
+    background: #999999;
+    border-radius: 3px;
+}
+
+QLabel { font-size: 12px; }
+
+QRangeSlider { qproperty-barColor: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 rgba(100, 80, 120, 0.2),
+        stop:1 rgba(100, 80, 120, 0.4)
+    )}
+
+SliderLabel {
+    font-size: 12px;
+    color: white;
+}
+"""
 
 
 class _ImagePreview(ImagePreview):
@@ -52,8 +80,8 @@ class _ImagePreview(ImagePreview):
         if self.image is None:
             return
 
-        with signals_blocked(self._preview_wdg._lut_slider):
-            self._preview_wdg._lut_slider.setValue(self.image.clim)
+        with signals_blocked(self._preview_wdg._clims):
+            self._preview_wdg._clims.setValue(self.image.clim)
 
 
 class Preview(QWidget):
@@ -84,16 +112,22 @@ class Preview(QWidget):
         btn_wdg = QGroupBox()
         btn_wdg_layout = QHBoxLayout(btn_wdg)
         btn_wdg_layout.setContentsMargins(0, 0, 0, 0)
+
         # auto contrast checkbox
-        self._auto = QCheckBox("Auto")
-        self._auto.setChecked(True)
-        self._auto.setToolTip("Auto Contrast")
-        self._auto.setFixedSize(*BTN_SIZE)
-        self._auto.toggled.connect(self._clims_auto)
+        self._auto_clim = QPushButton("Auto")
+        self._auto_clim.setMaximumWidth(42)
+        self._auto_clim.setCheckable(True)
+        self._auto_clim.setChecked(True)
+        self._auto_clim.toggled.connect(self._clims_auto)
         # LUT slider
-        self._lut_slider = QLabeledDoubleRangeSlider()
-        self._lut_slider.setDecimals(0)
-        self._lut_slider.valueChanged.connect(self._on_range_changed)
+        self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
+        self._clims.setStyleSheet(SS)
+        self._clims.setHandleLabelPosition(
+            QLabeledRangeSlider.LabelPosition.LabelsOnHandle
+        )
+        self._clims.setEdgeLabelMode(QLabeledRangeSlider.EdgeLabelMode.NoLabel)
+        self._clims.setRange(0, 2**8)
+        self._clims.valueChanged.connect(self._on_clims_changed)
         # snap and live buttons
         self._snap = Snap(mmcore=self._mmc)
         self._snap.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -116,8 +150,8 @@ class Preview(QWidget):
         # self._save.setIconSize(QSize(25, 25))
         # self._save.setFixedSize(*BTN_SIZE)
 
-        btn_wdg_layout.addWidget(self._lut_slider)
-        btn_wdg_layout.addWidget(self._auto)
+        btn_wdg_layout.addWidget(self._clims)
+        btn_wdg_layout.addWidget(self._auto_clim)
         btn_wdg_layout.addWidget(self._snap)
         btn_wdg_layout.addWidget(self._live)
         btn_wdg_layout.addWidget(self._reset_view)
@@ -140,9 +174,9 @@ class Preview(QWidget):
         """Update the LUT slider range and the canvas size."""
         # update the LUT slider range
         if bit := self._mmc.getImageBitDepth():
-            with signals_blocked(self._lut_slider):
-                self._lut_slider.setRange(0, 2**bit - 1)
-                self._lut_slider.setValue((0, 2**bit - 1))
+            with signals_blocked(self._clims):
+                self._clims.setRange(0, 2**bit - 1)
+                self._clims.setValue((0, 2**bit - 1))
 
     def _reset(self) -> None:
         """Reset the preview."""
@@ -150,18 +184,18 @@ class Preview(QWidget):
         y = (0, self._mmc.getImageHeight()) if self._mmc.getImageHeight() else None
         self._image_preview.view.camera.set_range(x, y, margin=0)
 
-    def _on_range_changed(self, range: tuple[float, float]) -> None:
+    def _on_clims_changed(self, range: tuple[float, float]) -> None:
         """Update the LUT range."""
         self._image_preview.clims = range
-        self._auto.setChecked(False)
+        self._auto_clim.setChecked(False)
 
     def _clims_auto(self, state: bool) -> None:
         """Set the LUT range to auto."""
-        self._image_preview.clims = "auto" if state else self._lut_slider.value()
+        self._image_preview.clims = "auto" if state else self._clims.value()
         if self._image_preview.image is not None:
             data = self._image_preview.image._data
-            with signals_blocked(self._lut_slider):
-                self._lut_slider.setValue((data.min(), data.max()))
+            with signals_blocked(self._clims):
+                self._clims.setValue((data.min(), data.max()))
 
     # def _on_save(self) -> None:
     #     """Save the image as tif."""
