@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 FRAME_KEY = "frame"
 
 
-class TifSequenceWriter(ImageSequenceWriter):
+class TiffSequenceWriter(ImageSequenceWriter):
     """Write each frame of an MDA to a directory as individual image files.
 
     This writer assumes very little about the sequence, and simply writes each frame

@@ -14,7 +14,7 @@ META = "_metadata.json"
 SEQ = "_useq_MDASequence.json"
 
 
-class OMETifWriter(OMETiffWriter):
+class _OMETiffWriter(OMETiffWriter):
     """MDA handler that writes to a 5D OME-TIFF file.
 
     Positions will be split into different files.

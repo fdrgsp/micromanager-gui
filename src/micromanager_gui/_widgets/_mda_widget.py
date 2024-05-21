@@ -7,8 +7,9 @@ from pymmcore_widgets.mda import MDAWidget
 from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
-from ._writers._ome_tiff import OMETifWriter
-from ._writers._tiff_sequence import TifSequenceWriter
+from micromanager_gui._writers._ome_tiff import _OMETiffWriter
+from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
+from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
 
 METADATA_KEY = "micromanager_gui"
 
@@ -77,7 +78,9 @@ class _MDAWidget(MDAWidget):
 
         sequence = self.value()
 
-        save_path: Path | OMETifWriter | TifSequenceWriter | None = None
+        save_path: (
+            Path | _OMETiffWriter | _OMETiffWriter | TiffSequenceWriter | None
+        ) = None
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
             save_path = self._update_save_path_from_metadata(
@@ -95,10 +98,12 @@ class _MDAWidget(MDAWidget):
                     # we need to add the ".ome.tif" to correctly use the OMETifWriter
                     if not save_path.name.endswith(".ome.tif"):
                         save_path = save_path.with_suffix(".ome.tif")
-                    save_path = OMETifWriter(save_path)
+                    save_path = _OMETiffWriter(save_path)
+                elif "ome-zarr" in save_format:
+                    save_path = _OMEZarrWriter(save_path)
                 # use internal tif sequence writer if selected
                 elif "ome" not in save_format and "zarr-tensorstore" not in save_format:
-                    save_path = TifSequenceWriter(save_path)
+                    save_path = TiffSequenceWriter(save_path)
 
         # run the MDA experiment asynchronously
         self._mmc.run_mda(sequence, output=save_path)
