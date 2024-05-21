@@ -4,7 +4,7 @@ import numpy as np
 import tifffile
 from fonticon_mdi6 import MDI6
 from pymmcore_plus import CMMCorePlus, Metadata
-from pymmcore_widgets import ImagePreview, LiveButton, SnapButton
+from pymmcore_widgets import ImagePreview
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
     QFileDialog,
@@ -18,6 +18,8 @@ from qtpy.QtWidgets import (
 from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import signals_blocked
+
+from ._snap_live_buttons import Live, Snap
 
 BTN_SIZE = (40, 40)
 SS = """
@@ -226,31 +228,3 @@ class Preview(QWidget):
             imagej=True,
             # description=self._image_preview._meta, # TODO: ome-tiff
         )
-
-
-class Snap(SnapButton):
-    """A SnapButton."""
-
-    def __init__(
-        self, parent: QWidget | None = None, *, mmcore: CMMCorePlus | None = None
-    ) -> None:
-        super().__init__(parent=parent, mmcore=mmcore)
-        self.setToolTip("Snap Image")
-        self.setIcon(icon(MDI6.camera_outline))
-        self.setText("")
-        self.setFixedSize(*BTN_SIZE)
-
-
-class Live(LiveButton):
-    """A LiveButton."""
-
-    def __init__(
-        self, parent: QWidget | None = None, *, mmcore: CMMCorePlus | None = None
-    ) -> None:
-        super().__init__(parent=parent, mmcore=mmcore)
-        self.setToolTip("Live Mode")
-        self.button_text_on = ""
-        self.button_text_off = ""
-        self.icon_color_on = ()
-        self.icon_color_off = "magenta"
-        self.setFixedSize(*BTN_SIZE)

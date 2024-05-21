@@ -7,6 +7,8 @@ from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
 
+from ._widgets._preview import Preview
+
 DIALOG = Qt.WindowType.Dialog
 
 if TYPE_CHECKING:
@@ -15,14 +17,24 @@ if TYPE_CHECKING:
     from ._main_window import MicroManagerGUI
 
 
-class MDAViewersLink(QObject):
+class CoreViewersLink(QObject):
     def __init__(self, parent: MicroManagerGUI, *, mmcore: CMMCorePlus | None = None):
         super().__init__(parent)
 
         self._main_window = parent
         self._mmc = mmcore or CMMCorePlus.instance()
 
+        # create the preview tab
+        self._preview = Preview(self._main_window, mmcore=self._mmc)
+        self._main_window._viewer_tab.addTab(self._preview, "Preview")
+        self._main_window._viewer_tab.tabBar().setTabVisible(0, False)
+
+        # keep track of the current mda viewer
         self._current_viewer: MDAViewer | None = None
+
+        # show the preview tab when the snap or live button is clicked
+        self._main_window._snap_live_toolbar._snap.clicked.connect(self._show_preview)
+        self._main_window._snap_live_toolbar._live.clicked.connect(self._show_preview)
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
@@ -94,3 +106,11 @@ class MDAViewersLink(QObject):
 
         self._current_viewer._lut_drop.setEnabled(state)
         self._current_viewer._channel_mode_btn.setEnabled(state)
+
+    def _show_preview(self) -> None:
+        """Show the preview tab."""
+        preview_tab = self._main_window._viewer_tab.widget(0)
+        if preview_tab.isHidden():
+            preview_tab.show()
+            self._main_window._viewer_tab.tabBar().setTabVisible(0, True)
+            self._main_window._viewer_tab.setCurrentWidget(preview_tab)

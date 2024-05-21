@@ -11,17 +11,16 @@ from qtpy.QtWidgets import (
     QMainWindow,
     QScrollArea,
     QSizePolicy,
-    QTabBar,
     QTabWidget,
     QWidget,
 )
 
-from ._core_link import MDAViewersLink
+from ._core_link import CoreViewersLink
 from ._menubar._main_menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
+from ._toolbar._snap_live import _SnapLive
 from ._widgets._mda_widget import _MDAWidget
-from ._widgets._preview import Preview
 
 FLAGS = Qt.WindowType.Dialog
 
@@ -53,17 +52,12 @@ class MicroManagerGUI(QMainWindow):
         self._central_wdg_layout = QGridLayout(central_wdg)
         self.setCentralWidget(central_wdg)
 
-        # Tab widget for the viewers
+        # Tab widget for the viewers (preview and MDA)
         self._viewer_tab = QTabWidget()
         # Enable the close button on tabs
         self._viewer_tab.setTabsClosable(True)
         self._viewer_tab.tabCloseRequested.connect(self._close_tab)
         self._central_wdg_layout.addWidget(self._viewer_tab, 0, 0)
-        # Preview tab
-        self._preview = Preview(self, mmcore=self._mmc)
-        self._viewer_tab.addTab(self._preview, "Preview")
-        # remove the close button from the preview tab
-        self._viewer_tab.tabBar().setTabButton(0, QTabBar.ButtonPosition.LeftSide, None)
 
         # Tab widget for the widgets
         self.widget_tab = QTabWidget()
@@ -84,9 +78,6 @@ class MicroManagerGUI(QMainWindow):
         # set setFixedWidth to (width + 2%width)
         self._mdaScrollArea.setFixedWidth(width + width // 50)
 
-        # link the MDA viewers
-        self._mda_link = MDAViewersLink(self, mmcore=self._mmc)
-
         # add the menu bar
         self._menu_bar = _MenuBar(parent=self, mmcore=self._mmc)
         self.setMenuBar(self._menu_bar)
@@ -94,6 +85,11 @@ class MicroManagerGUI(QMainWindow):
         # add toolbar
         self._shutters_toolbar = _ShuttersToolbar(parent=self, mmcore=self._mmc)
         self.addToolBar(self._shutters_toolbar)
+        self._snap_live_toolbar = _SnapLive(parent=self, mmcore=self._mmc)
+        self.addToolBar(self._snap_live_toolbar)
+
+        # link the MDA viewers
+        self._core_link = CoreViewersLink(self, mmcore=self._mmc)
 
         if config is not None:
             try:
@@ -105,6 +101,12 @@ class MicroManagerGUI(QMainWindow):
 
     def _close_tab(self, index: int) -> None:
         """Close the tab at the given index."""
+        if index == 0:  # always the preview tab, just hide it
+            # hide the tab
+            self._viewer_tab.tabBar().setTabVisible(index, False)
+            # hide the widget
+            self._viewer_tab.widget(index).hide()
+            return
         widget = self._viewer_tab.widget(index)
         self._viewer_tab.removeTab(index)
         widget.deleteLater()
