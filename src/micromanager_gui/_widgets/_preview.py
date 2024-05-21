@@ -19,7 +19,7 @@ from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import signals_blocked
 
-BTN_SIZE = (60, 40)
+BTN_SIZE = (40, 40)
 SS = """
 QSlider::groove:horizontal {
     height: 15px;
