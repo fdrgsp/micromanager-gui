@@ -27,14 +27,22 @@ class CoreViewersLink(QObject):
         # create the preview tab
         self._preview = Preview(self._main_window, mmcore=self._mmc)
         self._main_window._viewer_tab.addTab(self._preview, "Preview")
-        self._main_window._viewer_tab.tabBar().setTabVisible(0, False)
+        self._preview_tab = self._main_window._viewer_tab.widget(0)
+        self._set_preview_tab_visible(False)
 
         # keep track of the current mda viewer
         self._current_viewer: MDAViewer | None = None
 
+        self._mda_running: bool = False
+
         # show the preview tab when the snap or live button is clicked
         self._main_window._snap_live_toolbar._snap.clicked.connect(self._show_preview)
         self._main_window._snap_live_toolbar._live.clicked.connect(self._show_preview)
+
+        self._mmc.events.continuousSequenceAcquisitionStarted.connect(
+            self._show_preview
+        )
+        self._mmc.events.imageSnapped.connect(self._show_preview)
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
@@ -42,6 +50,8 @@ class CoreViewersLink(QObject):
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         """Show the MDAViewer when the MDA sequence starts."""
+        self._mda_running = True
+
         # disable the menu bar
         self._main_window._menu_bar._enable(False)
 
@@ -79,6 +89,8 @@ class CoreViewersLink(QObject):
         """Hide the MDAViewer when the MDA sequence finishes."""
         self._main_window._menu_bar._enable(True)
 
+        self._mda_running = False
+
         if self._current_viewer is None:
             return
 
@@ -109,8 +121,14 @@ class CoreViewersLink(QObject):
 
     def _show_preview(self) -> None:
         """Show the preview tab."""
-        preview_tab = self._main_window._viewer_tab.widget(0)
-        if preview_tab.isHidden():
-            preview_tab.show()
-            self._main_window._viewer_tab.tabBar().setTabVisible(0, True)
-            self._main_window._viewer_tab.setCurrentWidget(preview_tab)
+        if self._mda_running:
+            return
+        if self._preview_tab.isHidden():
+            self._set_preview_tab_visible(True)
+
+    def _set_preview_tab_visible(self, state: bool) -> None:
+        """Hide the preview tab."""
+        self._preview_tab.show() if state else self._preview_tab.hide()
+        self._main_window._viewer_tab.tabBar().setTabVisible(0, state)
+        if state:
+            self._main_window._viewer_tab.setCurrentWidget(self._preview_tab)
