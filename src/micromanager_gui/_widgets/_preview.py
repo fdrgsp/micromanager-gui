@@ -213,7 +213,6 @@ class Preview(QWidget):
 
     def _on_save(self) -> None:
         """Save the image as tif."""
-        # TODO: ome-tiff
         if self._image_preview.image is None:
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -225,7 +224,7 @@ class Preview(QWidget):
             path,
             self._image_preview.image._data,
             imagej=True,
-            description=self._image_preview._meta,
+            # description=self._image_preview._meta, # TODO: ome-tiff
         )
 
 
