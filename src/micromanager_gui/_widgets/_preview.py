@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+import numpy as np
 from fonticon_mdi6 import MDI6
+from pymmcore_plus import CMMCorePlus, Metadata
 
 # import tifffile
-from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets import ImagePreview, LiveButton, SnapButton
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
@@ -19,9 +18,6 @@ from qtpy.QtWidgets import (
 from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import signals_blocked
-
-if TYPE_CHECKING:
-    import numpy as np
 
 BTN_SIZE = (60, 40)
 SS = """
@@ -74,7 +70,25 @@ class _ImagePreview(ImagePreview):
 
         self._preview_wdg = preview_widget
 
-    def _update_image(self, image: np.ndarray) -> None:
+        # the metadata associated with the image
+        self._meta: Metadata | dict = {}
+
+    def _on_image_snapped(self) -> None:
+        if self._mmc.mda.is_running() and not self._use_with_mda:
+            return
+        self._update_image(self._mmc.getTaggedImage())
+
+    def _on_streaming_stop(self) -> None:
+        self.streaming_timer.stop()
+        self._meta = self._mmc.getTags()
+
+    def _update_image(self, data: tuple[np.ndarray, Metadata] | np.ndarray) -> None:
+        """Update the image and the _clims slider."""
+        if isinstance(data, np.ndarray):
+            image = data
+        else:
+            image, self._meta = data
+
         super()._update_image(image)
 
         if self.image is None:
