@@ -21,6 +21,7 @@ from qtpy.QtWidgets import (
 
 from ._core_link import MDAViewersLink
 from ._menubar._main_menubar import _MenuBar
+from ._mmcore_engine._engine import ArduinoEngine
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._widgets._preview import Preview
 
@@ -44,7 +45,10 @@ class MicroManagerGUI(QMainWindow):
         # extend size to fill the screen
         self.showMaximized()
 
-        self._mmc = mmcore or CMMCorePlus.instance()
+        # get global CMMCorePlus instance
+        self._mmc = CMMCorePlus.instance()
+        # set the engine
+        self._mmc.mda.set_engine(ArduinoEngine(self._mmc))
 
         # central widget
         central_wdg = QWidget(self)
