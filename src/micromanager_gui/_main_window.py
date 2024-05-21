@@ -4,10 +4,7 @@ from warnings import warn
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets import (
-    GroupPresetTableWidget,
-    MDAWidget,
-)
+from pymmcore_widgets import GroupPresetTableWidget
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGridLayout,
@@ -23,6 +20,7 @@ from ._core_link import MDAViewersLink
 from ._menubar._main_menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
+from ._widgets._mda_widget import _MDAWidget
 from ._widgets._preview import Preview
 
 FLAGS = Qt.WindowType.Dialog
@@ -74,7 +72,7 @@ class MicroManagerGUI(QMainWindow):
         self._group_preset = GroupPresetTableWidget()
         self.widget_tab.addTab(self._group_preset, "Groups and Presets")
         self._mdaScrollArea = QScrollArea()
-        self._mda = MDAWidget()
+        self._mda = _MDAWidget()
         self._mdaScrollArea.setWidget(self._mda)
         self._mdaScrollArea.setWidgetResizable(True)
         self.widget_tab.addTab(self._mdaScrollArea, "MDA Acquisition")
