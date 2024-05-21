@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
+import tifffile
 from fonticon_mdi6 import MDI6
 from pymmcore_plus import CMMCorePlus, Metadata
-
-# import tifffile
 from pymmcore_widgets import ImagePreview, LiveButton, SnapButton
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -156,20 +156,20 @@ class Preview(QWidget):
         self._reset_view.setIconSize(QSize(25, 25))
         self._reset_view.setFixedSize(*BTN_SIZE)
         # save button
-        # self._save = QPushButton()
-        # self._save.clicked.connect(self._on_save)
-        # self._save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        # self._save.setToolTip("Save Image")
-        # self._save.setIcon(icon(MDI6.content_save_outline))
-        # self._save.setIconSize(QSize(25, 25))
-        # self._save.setFixedSize(*BTN_SIZE)
+        self._save = QPushButton()
+        self._save.clicked.connect(self._on_save)
+        self._save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._save.setToolTip("Save Image")
+        self._save.setIcon(icon(MDI6.content_save_outline))
+        self._save.setIconSize(QSize(25, 25))
+        self._save.setFixedSize(*BTN_SIZE)
 
         btn_wdg_layout.addWidget(self._clims)
         btn_wdg_layout.addWidget(self._auto_clim)
         btn_wdg_layout.addWidget(self._snap)
         btn_wdg_layout.addWidget(self._live)
         btn_wdg_layout.addWidget(self._reset_view)
-        # btn_wdg_layout.addWidget(self._save)
+        btn_wdg_layout.addWidget(self._save)
         main_layout.addWidget(btn_wdg)
 
         # connections
@@ -211,17 +211,22 @@ class Preview(QWidget):
             with signals_blocked(self._clims):
                 self._clims.setValue((data.min(), data.max()))
 
-    # def _on_save(self) -> None:
-    #     """Save the image as tif."""
-    #     # TODO: add metadata
-    #     if self._image_preview.image is None:
-    #         return
-    #     path, _ = QFileDialog.getSaveFileName(
-    #         self, "Save Image", "", "TIFF (*.tif *.tiff)"
-    #     )
-    #     if not path:
-    #         return
-    #     tifffile.imwrite(path, self._image_preview.image._data, imagej=True)
+    def _on_save(self) -> None:
+        """Save the image as tif."""
+        # TODO: ome-tiff
+        if self._image_preview.image is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Image", "", "TIFF (*.tif *.tiff)"
+        )
+        if not path:
+            return
+        tifffile.imwrite(
+            path,
+            self._image_preview.image._data,
+            imagej=True,
+            description=self._image_preview._meta,
+        )
 
 
 class Snap(SnapButton):
