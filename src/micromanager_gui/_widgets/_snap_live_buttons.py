@@ -12,7 +12,7 @@ if TYPE_CHECKING:
         QWidget,
     )
 
-BTN_SIZE = (40, 40)
+BTN_SIZE = (50, 45)
 
 
 class Snap(SnapButton):

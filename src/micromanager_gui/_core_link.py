@@ -116,7 +116,7 @@ class CoreViewersLink(QObject):
         if self._current_viewer is None:
             return
 
-        self._current_viewer._lut_drop.setEnabled(state)
+        # self._current_viewer._lut_drop.setEnabled(state)
         self._current_viewer._channel_mode_btn.setEnabled(state)
 
     def _show_preview(self) -> None:

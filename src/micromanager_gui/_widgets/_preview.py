@@ -21,7 +21,7 @@ from superqt.utils import signals_blocked
 
 from ._snap_live_buttons import Live, Snap
 
-BTN_SIZE = (40, 40)
+BTN_SIZE = (50, 45)
 SS = """
 QSlider::groove:horizontal {
     height: 15px;
@@ -125,9 +125,9 @@ class Preview(QWidget):
         main_layout.addWidget(self._image_preview)
 
         # buttons
-        btn_wdg = QGroupBox()
-        btn_wdg_layout = QHBoxLayout(btn_wdg)
-        btn_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_wdg = QGroupBox()
+        bottom_wdg_layout = QHBoxLayout(bottom_wdg)
+        bottom_wdg_layout.setContentsMargins(0, 0, 0, 0)
 
         # auto contrast checkbox
         self._auto_clim = QPushButton("Auto")
@@ -144,11 +144,19 @@ class Preview(QWidget):
         self._clims.setEdgeLabelMode(QLabeledRangeSlider.EdgeLabelMode.NoLabel)
         self._clims.setRange(0, 2**8)
         self._clims.valueChanged.connect(self._on_clims_changed)
+
+        # buttons widget
+        btns_wdg = QWidget()
+        btns_layout = QHBoxLayout(btns_wdg)
+        btns_layout.setContentsMargins(0, 0, 0, 0)
+        btns_layout.setSpacing(5)
         # snap and live buttons
         self._snap = Snap(mmcore=self._mmc)
         self._snap.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btns_layout.addWidget(self._snap)
         self._live = Live(mmcore=self._mmc)
         self._live.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btns_layout.addWidget(self._live)
         # reset view button
         self._reset_view = QPushButton()
         self._reset_view.clicked.connect(self._reset)
@@ -157,6 +165,7 @@ class Preview(QWidget):
         self._reset_view.setIcon(icon(MDI6.home_outline))
         self._reset_view.setIconSize(QSize(25, 25))
         self._reset_view.setFixedSize(*BTN_SIZE)
+        btns_layout.addWidget(self._reset_view)
         # save button
         self._save = QPushButton()
         self._save.clicked.connect(self._on_save)
@@ -165,14 +174,12 @@ class Preview(QWidget):
         self._save.setIcon(icon(MDI6.content_save_outline))
         self._save.setIconSize(QSize(25, 25))
         self._save.setFixedSize(*BTN_SIZE)
+        btns_layout.addWidget(self._save)
 
-        btn_wdg_layout.addWidget(self._clims)
-        btn_wdg_layout.addWidget(self._auto_clim)
-        btn_wdg_layout.addWidget(self._snap)
-        btn_wdg_layout.addWidget(self._live)
-        btn_wdg_layout.addWidget(self._reset_view)
-        btn_wdg_layout.addWidget(self._save)
-        main_layout.addWidget(btn_wdg)
+        bottom_wdg_layout.addWidget(self._clims)
+        bottom_wdg_layout.addWidget(self._auto_clim)
+        bottom_wdg_layout.addWidget(btns_wdg)
+        main_layout.addWidget(bottom_wdg)
 
         # connections
         self._mmc.events.systemConfigurationLoaded.connect(self._on_sys_cfg_loaded)
