@@ -23,8 +23,7 @@ class _MenuBar(QMenuBar):
         self._mmc = mmcore or CMMCorePlus.instance()
 
         # widgets
-        self._wizard = ConfigWizard(parent=self, core=self._mmc)
-        self._wizard.setWindowFlags(FLAGS)
+        self._wizard: ConfigWizard | None = None
         self._prop_browser = PropertyBrowser(parent=self, mmcore=self._mmc)
         self._prop_browser.setWindowFlags(FLAGS)
         self._stage_wdg = _StagesControlWidget(parent=self, mmcore=self._mmc)
@@ -87,6 +86,9 @@ class _MenuBar(QMenuBar):
 
     def _show_config_wizard(self) -> None:
         """Show the Micro-Manager Hardware Configuration Wizard."""
+        if self._wizard is None:
+            self._wizard = ConfigWizard(parent=self, core=self._mmc)
+            self._wizard.setWindowFlags(FLAGS)
         if self._wizard.isVisible():
             self._wizard.raise_()
         else:
