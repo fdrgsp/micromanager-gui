@@ -11,6 +11,7 @@ from qtpy.QtCore import QObject, Qt
 from ._widgets._preview import Preview
 
 DIALOG = Qt.WindowType.Dialog
+VIEWER_TEMP_DIR = None
 
 if TYPE_CHECKING:
     import useq
@@ -57,7 +58,7 @@ class CoreViewersLink(QObject):
         self._mmc.mda.toggle_pause()
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
-        datastore = TensorStoreHandler.in_tmpdir(prefix="mm_gui_")
+        datastore = TensorStoreHandler.in_tmpdir(prefix="mm_gui_", dir=VIEWER_TEMP_DIR)
         self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
