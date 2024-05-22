@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from fonticon_mdi6 import MDI6
 from pymmcore_widgets import LiveButton, SnapButton
+from qtpy.QtCore import QSize
 from superqt.fonticon import icon
 
 if TYPE_CHECKING:
@@ -12,7 +13,8 @@ if TYPE_CHECKING:
         QWidget,
     )
 
-BTN_SIZE = (50, 45)
+BTN_SIZE = 30
+ICON_SIZE = QSize(25, 25)
 
 
 class Snap(SnapButton):
@@ -25,7 +27,8 @@ class Snap(SnapButton):
         self.setToolTip("Snap Image")
         self.setIcon(icon(MDI6.camera_outline))
         self.setText("")
-        self.setFixedSize(*BTN_SIZE)
+        self.setFixedWidth(BTN_SIZE)
+        self.setIconSize(ICON_SIZE)
 
 
 class Live(LiveButton):
@@ -40,4 +43,5 @@ class Live(LiveButton):
         self.button_text_off = ""
         self.icon_color_on = ()
         self.icon_color_off = "magenta"
-        self.setFixedSize(*BTN_SIZE)
+        self.setFixedWidth(BTN_SIZE)
+        self.setIconSize(ICON_SIZE)

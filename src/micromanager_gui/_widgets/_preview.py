@@ -20,7 +20,8 @@ from superqt.utils import signals_blocked
 
 from ._snap_live_buttons import Live, Snap
 
-BTN_SIZE = (50, 45)
+BTN_SIZE = 30
+ICON_SIZE = QSize(25, 25)
 SS = """
 QSlider::groove:horizontal {
     height: 15px;
@@ -162,8 +163,8 @@ class Preview(QWidget):
         self._reset_view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._reset_view.setToolTip("Reset View")
         self._reset_view.setIcon(icon(MDI6.home_outline))
-        self._reset_view.setIconSize(QSize(25, 25))
-        self._reset_view.setFixedSize(*BTN_SIZE)
+        self._reset_view.setIconSize(ICON_SIZE)
+        self._reset_view.setFixedWidth(BTN_SIZE)
         btns_layout.addWidget(self._reset_view)
         # save button
         self._save = QPushButton()
@@ -171,8 +172,8 @@ class Preview(QWidget):
         self._save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._save.setToolTip("Save Image")
         self._save.setIcon(icon(MDI6.content_save_outline))
-        self._save.setIconSize(QSize(25, 25))
-        self._save.setFixedSize(*BTN_SIZE)
+        self._save.setIconSize(ICON_SIZE)
+        self._save.setFixedWidth(BTN_SIZE)
         btns_layout.addWidget(self._save)
 
         bottom_wdg_layout.addWidget(self._clims)
