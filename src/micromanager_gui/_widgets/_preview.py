@@ -8,7 +8,6 @@ from pymmcore_widgets import ImagePreview
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtWidgets import (
     QFileDialog,
-    QGroupBox,
     QHBoxLayout,
     QPushButton,
     QSizePolicy,
@@ -125,7 +124,7 @@ class Preview(QWidget):
         main_layout.addWidget(self._image_preview)
 
         # buttons
-        bottom_wdg = QGroupBox()
+        bottom_wdg = QWidget()
         bottom_wdg_layout = QHBoxLayout(bottom_wdg)
         bottom_wdg_layout.setContentsMargins(0, 0, 0, 0)
 
