@@ -82,7 +82,11 @@ class CoreViewersLink(QObject):
         self._mmc.mda.toggle_pause()
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
-        self._current_viewer = MDAViewer(parent=self._main_window)
+        """Setup the MDAViewer."""
+        datastore = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get(
+            "datastore", None
+        )
+        self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
         save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))

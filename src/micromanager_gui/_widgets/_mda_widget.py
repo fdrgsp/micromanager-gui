@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets.mda import MDAWidget
 from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -37,13 +38,13 @@ class _MDAWidget(MDAWidget):
         time_layout = cast("QVBoxLayout", self.time_plan.layout())
         time_layout.setContentsMargins(10, 10, 10, 10)
 
-    def _on_mda_finished(self, sequence: MDASequence) -> None:
-        # if there are more sequences to run, run the next one
-        if self._to_run:
-            self._mmc.waitForSystem()
-            self._run(*self._to_run.pop(0))
-        else:
-            super()._on_mda_finished(sequence)
+    # def _on_mda_finished(self, sequence: MDASequence) -> None:
+    #     # if there are more sequences to run, run the next one
+    #     if self._to_run:
+    #         self._mmc.waitForSystem()
+    #         self._run(*self._to_run.pop(0))
+    #     else:
+    #         super()._on_mda_finished(sequence)
 
     def run_mda(self) -> None:
         """Run the MDA sequence experiment."""
@@ -85,74 +86,111 @@ class _MDAWidget(MDAWidget):
             # enable the Arduino board and the LED pin in the MDA engine
             self._set_arduino_props(arduino, led)
 
-        self._to_run = self._prepare_sequences(self.value())
+        sequence = self.value()
 
-        self._run(*self._to_run.pop(0))
+        save_path: (
+            Path | _OMETiffWriter | _OMETiffWriter | TiffSequenceWriter | None
+        ) = None
+        # technically, this is in the metadata as well, but isChecked is more direct
+        if self.save_info.isChecked():
+            save_path = self._update_save_path_from_metadata(
+                sequence, update_metadata=True
+            )
+        # get save format from metadata
+        save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        save_format = save_meta.get("format")
+        if isinstance(save_path, Path):
+            # use internal OME-TIFF writer if selected
+            if "ome-tif" in save_format:
+                # if OME-TIFF, save_path should be a directory without extension, so
+                # we need to add the ".ome.tif" to correctly use the OMETifWriter
+                if not save_path.name.endswith(".ome.tif"):
+                    save_path = save_path.with_suffix(".ome.tif")
+                save_path = _OMETiffWriter(save_path)
+            elif "ome-zarr" in save_format:
+                save_path = _OMEZarrWriter(save_path)
+            elif "zarr-tensorstore" in save_format:
+                save_path = TensorStoreHandler(path=save_path, delete_existing=True)
+                sequence.metadata[PYMMCW_METADATA_KEY]["datastore"] = save_path
+            # use internal tif sequence writer if selected
+            else:
+                save_path = TiffSequenceWriter(save_path)
 
-    def _prepare_sequences(
-        self, sequence: MDASequence
-    ) -> list[tuple[MDASequence, Path | None]]:
-        """Prepare the MDA sequences for running."""
-        to_run: list[tuple[MDASequence, Path | None]] = []
+        # run the MDA experiment asynchronously
+        out = None if isinstance(save_path, TensorStoreHandler) else save_path
+        self._mmc.run_mda(sequence, output=out)
 
-        save_path = self._update_save_path_from_metadata(sequence, update_metadata=True)
+        # self._to_run = self._prepare_sequences(self.value())
 
-        if save_path is None:
-            to_run.append((sequence, None))
-            return to_run
+        # self._run(*self._to_run.pop(0))
 
-        # if more than POS_LIMIT positions, divide the sequence into chunks
-        pos = sequence.stage_positions
-        if len(pos) > POS_LIMIT:
-            # make a folder
-            save_path.mkdir(exist_ok=True)
-            # get save name and extension
-            save_name, ext = self._get_name_and_extension(save_path)
-            # divide pos into chunks of POS_LIMIT
-            pos_chunks = [pos[i : i + POS_LIMIT] for i in range(0, len(pos), POS_LIMIT)]
-            for idx, chunk in enumerate(pos_chunks):
-                # replace the positions in the sequence with the current chunk
-                sequence = sequence.replace(stage_positions=chunk)
-                # update the save name in the metadata
-                new_save_name = f"{save_name}_{idx+1}{ext}"
-                sequence.metadata[PYMMCW_METADATA_KEY]["save_name"] = new_save_name
-                to_run.append((sequence, Path(save_path) / f"{new_save_name}"))
-        else:
-            to_run.append((sequence, save_path))
+    # def _prepare_sequences(
+    #     self, sequence: MDASequence
+    # ) -> list[tuple[MDASequence, Path | None]]:
+    #     """Prepare the MDA sequences for running."""
+    #     to_run: list[tuple[MDASequence, Path | None]] = []
 
-        return to_run
+    #     save_path = self._update_save_path_from_metadata(sequence,
+    # update_metadata=True)
 
-    def _get_name_and_extension(self, save_path: Path) -> tuple[str, str]:
-        """Get the name and extension of the save path."""
-        ext = save_path.suffix
-        stem = save_path.stem
-        if stem.endswith(".ome"):
-            stem = stem[:-4]
-            ext = f".ome{ext}"
-        return stem, ext
+    #     if save_path is None:
+    #         to_run.append((sequence, None))
+    #         return to_run
 
-    def _run(self, sequence: MDASequence, save_path: Path | None) -> None:
-        """Run the MDA sequence experiment."""
-        if save_path is not None:
-            # get save format from metadata
-            save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-            save_format = save_meta.get("format")
+    #     # if more than POS_LIMIT positions, divide the sequence into chunks
+    #     pos = sequence.stage_positions
+    #     if len(pos) > POS_LIMIT:
+    #         # make a folder
+    #         save_path.mkdir(exist_ok=True)
+    #         # get save name and extension
+    #         save_name, ext = self._get_name_and_extension(save_path)
+    #         # divide pos into chunks of POS_LIMIT
+    #         pos_chunks = [pos[i : i + POS_LIMIT] for i in range(0, len(pos),
+    # POS_LIMIT)]
+    #         for idx, chunk in enumerate(pos_chunks):
+    #             # replace the positions in the sequence with the current chunk
+    #             sequence = sequence.replace(stage_positions=chunk)
+    #             # update the save name in the metadata
+    #             new_save_name = f"{save_name}_{idx+1}{ext}"
+    #             sequence.metadata[PYMMCW_METADATA_KEY]["save_name"] = new_save_name
+    #             to_run.append((sequence, Path(save_path) / f"{new_save_name}"))
+    #     else:
+    #         to_run.append((sequence, save_path))
 
-            if isinstance(save_path, Path):
-                # use internal OME-TIFF writer if selected
-                if "ome-tif" in save_format:
-                    # if OME-TIFF, save_path should be a directory without extension, so
-                    # we need to add the ".ome.tif" to correctly use the OMETifWriter
-                    if not save_path.name.endswith(".ome.tif"):
-                        save_path = save_path.with_suffix(".ome.tif")
-                    save_path = _OMETiffWriter(save_path)
-                elif "ome-zarr" in save_format:
-                    save_path = _OMEZarrWriter(save_path)
-                # use internal tif sequence writer if selected
-                elif "ome" not in save_format and "zarr-tensorstore" not in save_format:
-                    save_path = TiffSequenceWriter(save_path)
+    #     return to_run
 
-        self._mmc.run_mda(sequence, output=save_path)
+    # def _get_name_and_extension(self, save_path: Path) -> tuple[str, str]:
+    #     """Get the name and extension of the save path."""
+    #     ext = save_path.suffix
+    #     stem = save_path.stem
+    #     if stem.endswith(".ome"):
+    #         stem = stem[:-4]
+    #         ext = f".ome{ext}"
+    #     return stem, ext
+
+    # def _run(self, sequence: MDASequence, save_path: Path | None) -> None:
+    #     """Run the MDA sequence experiment."""
+    #     if save_path is not None:
+    #         # get save format from metadata
+    #         save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+    #         save_format = save_meta.get("format")
+
+    #         if isinstance(save_path, Path):
+    #             # use internal OME-TIFF writer if selected
+    #             if "ome-tif" in save_format:
+    #                 # if OME-TIFF, save_path should be a directory without extension,
+    #                 # so we need to add the ".ome.tif" to correctly use the
+    # OMETifWriter
+    #                 if not save_path.name.endswith(".ome.tif"):
+    #                     save_path = save_path.with_suffix(".ome.tif")
+    #                 save_path = _OMETiffWriter(save_path)
+    #             elif "ome-zarr" in save_format:
+    #                 save_path = _OMEZarrWriter(save_path)
+    #             # use internal tif sequence writer if selected
+    #          elif "ome" not in save_format and "zarr-tensorstore" not in save_format:
+    #                 save_path = TiffSequenceWriter(save_path)
+
+    #     self._mmc.run_mda(sequence, output=save_path)
 
     def _update_save_path_from_metadata(
         self,
