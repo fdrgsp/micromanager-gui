@@ -162,7 +162,7 @@ class Preview(QWidget):
         self._reset_view.clicked.connect(self._reset)
         self._reset_view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._reset_view.setToolTip("Reset View")
-        self._reset_view.setIcon(icon(MDI6.home_outline))
+        self._reset_view.setIcon(icon(MDI6.fullscreen))
         self._reset_view.setIconSize(ICON_SIZE)
         self._reset_view.setFixedWidth(BTN_SIZE)
         btns_layout.addWidget(self._reset_view)
