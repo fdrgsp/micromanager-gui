@@ -7,11 +7,14 @@ from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
+from qtpy.QtWidgets import QTabBar
 
 from ._widgets._preview import Preview
 
 DIALOG = Qt.WindowType.Dialog
 VIEWER_TEMP_DIR = None
+NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
+NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
 
 if TYPE_CHECKING:
     import useq
@@ -26,18 +29,22 @@ class CoreViewersLink(QObject):
         self._main_window = parent
         self._mmc = mmcore or CMMCorePlus.instance()
 
+        # preview tab
+        self._preview = Preview(self._main_window, mmcore=self._mmc)
+        self._main_window._viewer_tab.addTab(self._preview, "Preview")
+        # remove the preview tab close button
+        # self._main_window._viewer_tab.tabBar().setTabButton(0, 2, None)
+        self._main_window._viewer_tab.tabBar().setTabButton(*NO_R_BTN)
+        self._main_window._viewer_tab.tabBar().setTabButton(*NO_L_BTN)
+
         # keep track of the current mda viewer
         self._current_viewer: MDAViewer | None = None
 
         self._mda_running: bool = False
 
-        # show the preview tab when the snap or live button is clicked
-        self._main_window._snap_live_toolbar._snap.clicked.connect(self._show_preview)
-        self._main_window._snap_live_toolbar._live.clicked.connect(self._show_preview)
-        self._mmc.events.continuousSequenceAcquisitionStarted.connect(
-            self._show_preview
-        )
-        self._mmc.events.imageSnapped.connect(self._show_preview)
+        ev = self._mmc.events
+        ev.continuousSequenceAcquisitionStarted.connect(self._set_preview_tab)
+        ev.imageSnapped.connect(self._set_preview_tab)
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
@@ -130,17 +137,23 @@ class CoreViewersLink(QObject):
         # self._current_viewer._lut_drop.setEnabled(state)
         self._current_viewer._channel_mode_btn.setEnabled(state)
 
-    def _show_preview(self) -> None:
-        """Show the preview tab."""
+    def _set_preview_tab(self) -> None:
+        """Set the preview tab."""
         if self._mda_running:
             return
+        self._main_window._viewer_tab.setCurrentWidget(self._preview)
 
-        preview_tab = self._main_window._viewer_tab.widget(0)
-        if isinstance(preview_tab, Preview):
-            return
+    # def _show_preview(self) -> None:
+    #     """Show the preview tab."""
+    #     if self._mda_running:
+    #         return
 
-        _preview = Preview(self._main_window, mmcore=self._mmc)
-        self._main_window._viewer_tab.insertTab(0, _preview, "Preview")
+    #     preview_tab = self._main_window._viewer_tab.widget(0)
+    #     if isinstance(preview_tab, Preview):
+    #         return
 
-        if self._mmc.isSequenceRunning():
-            _preview._image_preview._on_streaming_start()
+    #     _preview = Preview(self._main_window, mmcore=self._mmc)
+    #     self._main_window._viewer_tab.insertTab(0, _preview, "Preview")
+
+    #     if self._mmc.isSequenceRunning():
+    #         _preview._image_preview._on_streaming_start()

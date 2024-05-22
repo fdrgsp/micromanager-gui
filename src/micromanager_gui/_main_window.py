@@ -43,7 +43,7 @@ class MicroManagerGUI(QMainWindow):
         self.showMaximized()
 
         # get global CMMCorePlus instance
-        self._mmc = CMMCorePlus.instance()
+        self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
         self._mmc.mda.set_engine(ArduinoEngine(self._mmc))
 
@@ -101,6 +101,8 @@ class MicroManagerGUI(QMainWindow):
 
     def _close_tab(self, index: int) -> None:
         """Close the tab at the given index."""
+        if index == 0:
+            return
         widget = self._viewer_tab.widget(index)
         self._viewer_tab.removeTab(index)
         widget.deleteLater()
