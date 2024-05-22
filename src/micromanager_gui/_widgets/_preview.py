@@ -64,7 +64,7 @@ class _ImagePreview(ImagePreview):
         parent: QWidget | None = None,
         *,
         mmcore: CMMCorePlus | None = None,
-        preview_widget: Preview,  # TODO: to fix, use parent instead
+        preview_widget: Preview,
         use_with_mda: bool = False,
     ):
         super().__init__(parent=parent, mmcore=mmcore, use_with_mda=use_with_mda)
