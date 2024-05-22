@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from pymmcore_plus import CMMCorePlus
+from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
@@ -24,12 +25,6 @@ class CoreViewersLink(QObject):
         self._main_window = parent
         self._mmc = mmcore or CMMCorePlus.instance()
 
-        # create the preview tab
-        self._preview = Preview(self._main_window, mmcore=self._mmc)
-        self._main_window._viewer_tab.addTab(self._preview, "Preview")
-        self._preview_tab = self._main_window._viewer_tab.widget(0)
-        self._set_preview_tab_visible(False)
-
         # keep track of the current mda viewer
         self._current_viewer: MDAViewer | None = None
 
@@ -38,7 +33,6 @@ class CoreViewersLink(QObject):
         # show the preview tab when the snap or live button is clicked
         self._main_window._snap_live_toolbar._snap.clicked.connect(self._show_preview)
         self._main_window._snap_live_toolbar._live.clicked.connect(self._show_preview)
-
         self._mmc.events.continuousSequenceAcquisitionStarted.connect(
             self._show_preview
         )
@@ -63,7 +57,8 @@ class CoreViewersLink(QObject):
         self._mmc.mda.toggle_pause()
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
-        self._current_viewer = MDAViewer(parent=self._main_window)
+        datastore = TensorStoreHandler.in_tmpdir(prefix="mm_gui_")
+        self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
         save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
@@ -123,12 +118,13 @@ class CoreViewersLink(QObject):
         """Show the preview tab."""
         if self._mda_running:
             return
-        if self._preview_tab.isHidden():
-            self._set_preview_tab_visible(True)
 
-    def _set_preview_tab_visible(self, state: bool) -> None:
-        """Hide the preview tab."""
-        self._preview_tab.show() if state else self._preview_tab.hide()
-        self._main_window._viewer_tab.tabBar().setTabVisible(0, state)
-        if state:
-            self._main_window._viewer_tab.setCurrentWidget(self._preview_tab)
+        preview_tab = self._main_window._viewer_tab.widget(0)
+        if isinstance(preview_tab, Preview):
+            return
+
+        _preview = Preview(self._main_window, mmcore=self._mmc)
+        self._main_window._viewer_tab.insertTab(0, _preview, "Preview")
+
+        if self._mmc.isSequenceRunning():
+            _preview._image_preview._on_streaming_start()

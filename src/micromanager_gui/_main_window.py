@@ -101,12 +101,6 @@ class MicroManagerGUI(QMainWindow):
 
     def _close_tab(self, index: int) -> None:
         """Close the tab at the given index."""
-        if index == 0:  # always the preview tab, just hide it
-            # hide the tab
-            self._viewer_tab.tabBar().setTabVisible(index, False)
-            # hide the widget
-            self._viewer_tab.widget(index).hide()
-            return
         widget = self._viewer_tab.widget(index)
         self._viewer_tab.removeTab(index)
         widget.deleteLater()
