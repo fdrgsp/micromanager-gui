@@ -65,6 +65,8 @@ class CoreViewersLink(QObject):
         save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         save_name = save_meta.get("save_name")
         number_of_tabs = self._main_window._viewer_tab.count() - 1
+
+        # TODO: loop through the tabs to get the proper number
         save_name = (
             save_name if save_name is not None else f"MDA Viewer {number_of_tabs + 1}"
         )
