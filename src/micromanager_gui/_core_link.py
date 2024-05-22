@@ -141,18 +141,3 @@ class CoreViewersLink(QObject):
         if self._mda_running:
             return
         self._main_window._viewer_tab.setCurrentWidget(self._preview)
-
-    # def _show_preview(self) -> None:
-    #     """Show the preview tab."""
-    #     if self._mda_running:
-    #         return
-
-    #     preview_tab = self._main_window._viewer_tab.widget(0)
-    #     if isinstance(preview_tab, Preview):
-    #         return
-
-    #     _preview = Preview(self._main_window, mmcore=self._mmc)
-    #     self._main_window._viewer_tab.insertTab(0, _preview, "Preview")
-
-    #     if self._mmc.isSequenceRunning():
-    #         _preview._image_preview._on_streaming_start()
