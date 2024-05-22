@@ -63,14 +63,8 @@ class CoreViewersLink(QObject):
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
         save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
-        save_name = save_meta.get("save_name")
-        number_of_tabs = self._main_window._viewer_tab.count() - 1
-
-        # TODO: loop through the tabs to get the proper number
-        save_name = (
-            save_name if save_name is not None else f"MDA Viewer {number_of_tabs + 1}"
-        )
-        self._main_window._viewer_tab.addTab(self._current_viewer, save_name)
+        viewer_name = self._get_viewer_name(save_meta.get("save_name"))
+        self._main_window._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._main_window._viewer_tab.setCurrentWidget(self._current_viewer)
 
         # call it manually insted in _connect_viewer because this signal has been
@@ -82,6 +76,25 @@ class CoreViewersLink(QObject):
 
         # connect the signals
         self._connect_viewer(self._current_viewer)
+
+    def _get_viewer_name(self, viewer_name: str | None) -> str:
+        """Get the viewer name from the metadata.
+
+        If viewer_name is None, get the highest index for the viewer name. Otherwise,
+        return the viewer name.
+        """
+        if viewer_name:
+            return viewer_name
+
+        # loop through the tabs and get the highest index for the viewer name
+        index = 0
+        for v in range(self._main_window._viewer_tab.count()):
+            tab_name = self._main_window._viewer_tab.tabText(v)
+            if tab_name.startswith("MDA Viewer"):
+                idx = tab_name.replace("MDA Viewer ", "")
+                if idx.isdigit():
+                    index = max(index, int(idx))
+        return f"MDA Viewer {index + 1}"
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         """Hide the MDAViewer when the MDA sequence finishes."""
