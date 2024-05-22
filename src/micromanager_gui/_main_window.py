@@ -52,13 +52,6 @@ class MicroManagerGUI(QMainWindow):
         self._central_wdg_layout = QGridLayout(central_wdg)
         self.setCentralWidget(central_wdg)
 
-        # Tab widget for the viewers (preview and MDA)
-        self._viewer_tab = QTabWidget()
-        # Enable the close button on tabs
-        self._viewer_tab.setTabsClosable(True)
-        self._viewer_tab.tabCloseRequested.connect(self._close_tab)
-        self._central_wdg_layout.addWidget(self._viewer_tab, 0, 0)
-
         # Tab widget for the widgets
         self.widget_tab = QTabWidget()
         self._central_wdg_layout.addWidget(self.widget_tab, 0, 1)
@@ -98,11 +91,3 @@ class MicroManagerGUI(QMainWindow):
             except FileNotFoundError:
                 # don't crash if the user passed an invalid config
                 warn(f"Config file {config} not found. Nothing loaded.", stacklevel=2)
-
-    def _close_tab(self, index: int) -> None:
-        """Close the tab at the given index."""
-        if index == 0:
-            return
-        widget = self._viewer_tab.widget(index)
-        self._viewer_tab.removeTab(index)
-        widget.deleteLater()

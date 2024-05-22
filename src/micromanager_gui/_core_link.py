@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from pymmcore_plus import CMMCorePlus
-from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
-from qtpy.QtWidgets import QTabBar
+from qtpy.QtWidgets import QTabBar, QTabWidget
 
 from ._widgets._preview import Preview
 
@@ -29,12 +28,19 @@ class CoreViewersLink(QObject):
         self._main_window = parent
         self._mmc = mmcore or CMMCorePlus.instance()
 
+        # Tab widget for the viewers (preview and MDA)
+        self._viewer_tab = QTabWidget()
+        # Enable the close button on tabs
+        self._viewer_tab.setTabsClosable(True)
+        self._viewer_tab.tabCloseRequested.connect(self._close_tab)
+        self._main_window._central_wdg_layout.addWidget(self._viewer_tab, 0, 0)
+
         # preview tab
         self._preview = Preview(self._main_window, mmcore=self._mmc)
-        self._main_window._viewer_tab.addTab(self._preview, "Preview")
+        self._viewer_tab.addTab(self._preview, "Preview")
         # remove the preview tab close button
-        self._main_window._viewer_tab.tabBar().setTabButton(*NO_R_BTN)
-        self._main_window._viewer_tab.tabBar().setTabButton(*NO_L_BTN)
+        self._viewer_tab.tabBar().setTabButton(*NO_R_BTN)
+        self._viewer_tab.tabBar().setTabButton(*NO_L_BTN)
 
         # keep track of the current mda viewer
         self._current_viewer: MDAViewer | None = None
@@ -48,6 +54,18 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
         self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
+
+    def _close_tab(self, index: int) -> None:
+        """Close the tab at the given index."""
+        if index == 0:
+            return
+        widget = self._viewer_tab.widget(index)
+        self._viewer_tab.removeTab(index)
+        widget.deleteLater()
+
+        # Delete the current viewer
+        del self._current_viewer
+        self._current_viewer = None
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         """Show the MDAViewer when the MDA sequence starts."""
@@ -64,14 +82,13 @@ class CoreViewersLink(QObject):
         self._mmc.mda.toggle_pause()
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
-        datastore = TensorStoreHandler.in_tmpdir(prefix="mm_gui_", dir=VIEWER_TEMP_DIR)
-        self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
+        self._current_viewer = MDAViewer(parent=self._main_window)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
         save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         viewer_name = self._get_viewer_name(save_meta.get("save_name"))
-        self._main_window._viewer_tab.addTab(self._current_viewer, viewer_name)
-        self._main_window._viewer_tab.setCurrentWidget(self._current_viewer)
+        self._viewer_tab.addTab(self._current_viewer, viewer_name)
+        self._viewer_tab.setCurrentWidget(self._current_viewer)
 
         # call it manually insted in _connect_viewer because this signal has been
         # emitted already
@@ -94,8 +111,8 @@ class CoreViewersLink(QObject):
 
         # loop through the tabs and get the highest index for the viewer name
         index = 0
-        for v in range(self._main_window._viewer_tab.count()):
-            tab_name = self._main_window._viewer_tab.tabText(v)
+        for v in range(self._viewer_tab.count()):
+            tab_name = self._viewer_tab.tabText(v)
             if tab_name.startswith("MDA Viewer"):
                 idx = tab_name.replace("MDA Viewer ", "")
                 if idx.isdigit():
@@ -140,4 +157,4 @@ class CoreViewersLink(QObject):
         """Set the preview tab."""
         if self._mda_running:
             return
-        self._main_window._viewer_tab.setCurrentWidget(self._preview)
+        self._viewer_tab.setCurrentWidget(self._preview)
