@@ -33,7 +33,6 @@ class CoreViewersLink(QObject):
         self._preview = Preview(self._main_window, mmcore=self._mmc)
         self._main_window._viewer_tab.addTab(self._preview, "Preview")
         # remove the preview tab close button
-        # self._main_window._viewer_tab.tabBar().setTabButton(0, 2, None)
         self._main_window._viewer_tab.tabBar().setTabButton(*NO_R_BTN)
         self._main_window._viewer_tab.tabBar().setTabButton(*NO_L_BTN)
 

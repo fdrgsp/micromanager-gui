@@ -12,7 +12,7 @@ from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
 from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
 
 METADATA_KEY = "micromanager_gui"
-POS_LIMIT = 5
+POS_LIMIT = 4
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
@@ -38,10 +38,12 @@ class _MDAWidget(MDAWidget):
         time_layout.setContentsMargins(10, 10, 10, 10)
 
     def _on_mda_finished(self, sequence: MDASequence) -> None:
-        super()._on_mda_finished(sequence)
         # if there are more sequences to run, run the next one
         if self._to_run:
+            self._mmc.waitForSystem()
             self._run(*self._to_run.pop(0))
+        else:
+            super()._on_mda_finished(sequence)
 
     def run_mda(self) -> None:
         """Run the MDA sequence experiment."""
