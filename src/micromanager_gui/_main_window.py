@@ -116,7 +116,7 @@ class MicroManagerGUI(QMainWindow):
             # if is a dir, open it as a tensorstore
             try:
                 reader = TensorstoreZarrReader(path)
-                s = StackViewer(reader.store)
+                s = StackViewer(reader.store, parent=self)
                 self._core_link._viewer_tab.addTab(s, f"Zarr Tensorstore_{idx}")
                 self._core_link._viewer_tab.setCurrentWidget(s)
             except Exception as e:
