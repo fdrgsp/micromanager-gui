@@ -102,18 +102,27 @@ class _MDAWidget(MDAWidget):
             elif "ome-zarr" in save_format:
                 save_path = _OMEZarrWriter(save_path)
             elif "zarr-tensorstore" in save_format:
-                save_path = TensorStoreHandler(path=save_path, delete_existing=True)
-                sequence.metadata[PYMMCW_METADATA_KEY]["datastore"] = save_path
+                save_path = TensorStoreHandler(
+                    path=save_path,
+                    delete_existing=True,
+                    spec={
+                        # Use 2GB in-memory cache.
+                        "context": {"cache_pool": {"total_bytes_limit": 2_000_000_000}},
+                    },
+                )
             # use internal tif sequence writer if selected
             else:
                 save_path = TiffSequenceWriter(save_path)
 
-        # pass the save_path to the MDA engine only if is not a TensorStoreHandler.
+        # pass the save_path to the MDA engine only if is a TiffSequenceWriter.
         # This is because if it is, the MDA Viewer will use it to save and visualize
-        # the data, and we don't want to create the TensorStoreHandler twice.
-        out = None if isinstance(save_path, TensorStoreHandler) else save_path
+        # the data, and we don't want to create the writer twice. We will get it from
+        # the sequence metadata and use it in the MDA Viewer.
+        output = save_path if isinstance(save_path, TiffSequenceWriter) else None
+        if output is None:
+            sequence.metadata[PYMMCW_METADATA_KEY]["datastore"] = save_path
         # run the MDA experiment asynchronously
-        self._mmc.run_mda(sequence, output=out)
+        self._mmc.run_mda(sequence, output=output)
 
     def _update_save_path_from_metadata(
         self,

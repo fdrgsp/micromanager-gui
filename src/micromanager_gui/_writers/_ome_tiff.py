@@ -110,6 +110,11 @@ class _OMETiffWriter(OMETiffWriter):
         # save sequence
         with open(self._folder / SEQ, "w") as f:
             if self.current_sequence is not None:
+                if self.current_sequence.metadata.get("pymmcore_widgets"):
+                    # pop the datastore key from the metadata, it is not serializable
+                    self.current_sequence.metadata["pymmcore_widgets"].pop(
+                        "datastore", None
+                    )
                 f.write(
                     self.current_sequence.model_dump_json(exclude_unset=True, indent=4)
                 )

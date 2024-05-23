@@ -83,14 +83,12 @@ class CoreViewersLink(QObject):
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
         """Setup the MDAViewer."""
-        datastore = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get(
-            "datastore", None
-        )
+        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        datastore = meta.get("datastore")
         self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
-        save_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
-        viewer_name = self._get_viewer_name(save_meta.get("save_name"))
+        viewer_name = self._get_viewer_name(meta.get("save_name"))
         self._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._viewer_tab.setCurrentWidget(self._current_viewer)
 

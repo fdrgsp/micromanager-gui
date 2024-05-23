@@ -131,8 +131,15 @@ class _OMEZarrWriter(OMEZarrWriter):
         scales.append(self._multiscales_item(ary.path, ary.path, dims))
         self._group.attrs["multiscales"] = scales
         ary.attrs["_ARRAY_DIMENSIONS"] = dims
-        if seq := self.current_sequence:
-            ary.attrs["useq_MDASequence"] = json.loads(seq.json(exclude_unset=True))
+        if self.current_sequence is not None:
+            if self.current_sequence.metadata.get("pymmcore_widgets"):
+                # pop the datastore key from the metadata, it is not serializable
+                self.current_sequence.metadata["pymmcore_widgets"].pop(
+                    "datastore", None
+                )
+            ary.attrs["useq_MDASequence"] = json.loads(
+                self.current_sequence.model_dump_json(exclude_unset=True)
+            )
         return ary
 
     def _get_current_pos_name(self, position_key: str) -> str:
