@@ -5,6 +5,8 @@ from typing import Mapping
 import numpy as np
 import tensorstore as ts
 import useq
+from tifffile import imwrite
+from tqdm import tqdm
 
 
 class TensorstoreZarrReader:
@@ -88,7 +90,77 @@ class TensorstoreZarrReader:
             indexers[axis] if axis in indexers else slice(None) for axis in axis_order
         )
 
-    def isel(self, indexers: Mapping[str, int]) -> np.ndarray:
-        """Select data from the array."""
+    def isel(
+        self, indexers: Mapping[str, int], metadata: bool = False
+    ) -> np.ndarray | tuple[np.ndarray, dict]:
+        """Select data from the array.
+
+        Parameters
+        ----------
+        indexers : Mapping[str, int]
+            The indexers to select the data.
+        metadata : bool
+            If True, return the metadata as well as a list of dictionaries. By default,
+            False.
+        """
         index = self._get_axis_index(indexers)
-        return self.store[index].read().result().squeeze()
+        data = self.store[index].read().result().squeeze()
+        if metadata:
+            meta = self._get_metadata_from_index(indexers)
+            return data, meta
+        return data
+
+    def _get_metadata_from_index(self, indexers: Mapping[str, int]) -> list[dict]:
+        """Return the metadata for the given indexers."""
+        metadata = []
+        for meta in self._metadata.get("frame_metadatas", []):
+            event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
+            if indexers.items() <= event_index.items():
+                metadata.append(meta)
+        return metadata
+
+    def write_tiff(
+        self,
+        path: str | Path,
+        indexers: Mapping[str, int] | list[Mapping[str, int]] | None = None,
+    ) -> None:
+        """Write the data to a tiff file.
+
+        Parameters
+        ----------
+        path : str | Path
+            The path to the tiff file. If `indexers` is a Mapping of axis and index,
+            the path should be a file path (e.g. 'path/to/file.tif'). Otherwise, it
+            should be a directory path (e.g. 'path/to/directory').
+        indexers : Mapping[str, int] | list[Mapping[str, int]] | None
+            The indexers to select the data. If None, write all the data per position
+            to a tiff file. If a list of Mapping of axis and index
+            (e.g. [{"p": 0, "t": 1}, {"p": 1, "t": 0}]), write the data for the given
+            indexes to a tiff file. If a Mapping of axis and index (e.g.
+            {"p": 0, "t": 1}), write the data for the given index to a tiff file.
+        """
+        # TODO: add metadata
+        if indexers is None:
+            if pos := len(self.sequence.stage_positions):
+                with tqdm(total=pos) as pbar:
+                    for i in range(pos):
+                        data, metadata = self.isel({"p": i}, metadata=True)
+                        imwrite(Path(path) / f"p{i}.tif", data, imagej=True)
+                        pbar.update(1)
+
+        elif isinstance(indexers, list):
+            for index in indexers:
+                data, metadata = self.isel(index, metadata=True)
+                name = "_".join(f"{k}{v}" for k, v in index.items())
+                imwrite(Path(path) / f"{name}.tif", data, imagej=True)
+
+        else:
+            data, metadata = self.isel(indexers, metadata=True)
+            imj = len(data.shape) <= 5
+            try:
+                imwrite(path, data, imagej=imj)
+            except IsADirectoryError as e:
+                raise IsADirectoryError(
+                    "The path should be a file path, not a directory! "
+                    "(e.g. 'path/to/file.tif')"
+                ) from e
