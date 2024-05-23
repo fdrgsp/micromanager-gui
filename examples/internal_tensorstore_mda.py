@@ -18,7 +18,7 @@ sequence = MDASequence(
 )
 
 writer = _TensorStoreHandler(
-    path="/Users/fdrgsp/Desktop/test/example_ts",
+    path="/example_ts",
     delete_existing=True,
     driver="zarr",
     # Use 2GB in-memory cache.
