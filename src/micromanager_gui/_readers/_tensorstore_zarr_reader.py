@@ -7,7 +7,7 @@ import tensorstore as ts
 import useq
 
 
-class TensorZarrReader:
+class TensorstoreZarrReader:
     """Read data from a tensorstore zarr file.
 
     Parameters
