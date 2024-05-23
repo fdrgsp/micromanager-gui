@@ -52,8 +52,6 @@ class TensorstoreZarrReader:
         if metadata_json := self.store.kvstore.read(".zattrs").result().value:
             self._metadata = json.loads(metadata_json)
 
-        self._axis_max: dict[str, int] = {}
-
     @property
     def path(self) -> Path:
         """Return the path."""
