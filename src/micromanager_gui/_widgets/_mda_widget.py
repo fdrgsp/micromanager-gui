@@ -3,13 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets.mda import MDAWidget
 from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
 from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
+from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
 from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
 
 METADATA_KEY = "micromanager_gui"
@@ -102,7 +102,8 @@ class _MDAWidget(MDAWidget):
             elif "ome-zarr" in save_format:
                 save_path = _OMEZarrWriter(save_path)
             elif "zarr-tensorstore" in save_format:
-                save_path = TensorStoreHandler(
+                save_path = _TensorStoreHandler(
+                    driver="zarr",
                     path=save_path,
                     delete_existing=True,
                     spec={

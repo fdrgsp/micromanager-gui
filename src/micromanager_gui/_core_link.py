@@ -133,6 +133,13 @@ class CoreViewersLink(QObject):
         # enable the LUT drop down and the mono/composite button (temporary)
         self._enable_gui(True)
 
+        if sequence.metadata.get("pymmcore_widgets"):
+            # pop the datastore key from the metadata, it is not serializable
+            sequence.metadata["pymmcore_widgets"].pop("datastore", None)
+        # call it because it before we disconnect the signals because othrwise
+        # it will not be called
+        self._current_viewer.data.sequenceFinished(sequence)
+
         self._disconnect_viewer(self._current_viewer)
 
         self._current_viewer = None
@@ -143,8 +150,8 @@ class CoreViewersLink(QObject):
 
     def _disconnect_viewer(self, viewer: MDAViewer) -> None:
         """Disconnect the signals."""
-        self._mmc.mda.events.sequenceFinished.disconnect(viewer.data.sequenceFinished)
         self._mmc.mda.events.frameReady.disconnect(viewer.data.frameReady)
+        self._mmc.mda.events.sequenceFinished.disconnect(viewer.data.sequenceFinished)
 
     def _enable_gui(self, state: bool) -> None:
         """Pause the viewer when the MDA sequence is paused."""
