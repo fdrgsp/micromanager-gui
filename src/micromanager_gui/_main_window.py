@@ -5,7 +5,9 @@ from warnings import warn
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets import GroupPresetTableWidget
+from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QDragEnterEvent, QDropEvent
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -13,6 +15,10 @@ from qtpy.QtWidgets import (
     QSizePolicy,
     QTabWidget,
     QWidget,
+)
+
+from micromanager_gui._readers._tensorstore_zarr_reader import (
+    TensorstoreZarrReader,
 )
 
 from ._core_link import CoreViewersLink
@@ -91,3 +97,30 @@ class MicroManagerGUI(QMainWindow):
             except FileNotFoundError:
                 # don't crash if the user passed an invalid config
                 warn(f"Config file {config} not found. Nothing loaded.", stacklevel=2)
+
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        """Open a tensorstore from a directory dropped in the window."""
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            # if is not a dir, continue
+            if not Path(path).is_dir():
+                continue
+
+            # if is a dir, open it as a tensorstore
+            try:
+                reader = TensorstoreZarrReader(path)
+                s = StackViewer(reader.store)
+                self._core_link._viewer_tab.addTab(s, "Zarr Tensorstore")
+                self._core_link._viewer_tab.setCurrentWidget(s)
+            except Exception as e:
+                warn(f"Error opening tensorstore: {e}!", stacklevel=2)
+
+        super().dropEvent(event)
