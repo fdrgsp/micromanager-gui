@@ -42,6 +42,7 @@ class MicroManagerGUI(QMainWindow):
         config: str | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setAcceptDrops(True)
 
         self.setWindowTitle("Micro-Manager")
 
@@ -97,8 +98,6 @@ class MicroManagerGUI(QMainWindow):
             except FileNotFoundError:
                 # don't crash if the user passed an invalid config
                 warn(f"Config file {config} not found. Nothing loaded.", stacklevel=2)
-
-        self.setAcceptDrops(True)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
