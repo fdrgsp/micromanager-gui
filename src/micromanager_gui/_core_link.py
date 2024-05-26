@@ -83,11 +83,11 @@ class CoreViewersLink(QObject):
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
         """Setup the MDAViewer."""
-        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
-        datastore = meta.get("datastore")
+        datastore = self._main_window._mda.writer
         self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
+        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         viewer_name = self._get_viewer_name(meta.get("save_name"))
         self._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._viewer_tab.setCurrentWidget(self._current_viewer)
@@ -133,11 +133,7 @@ class CoreViewersLink(QObject):
         # enable the LUT drop down and the mono/composite button (temporary)
         self._enable_gui(True)
 
-        if sequence.metadata.get("pymmcore_widgets"):
-            # pop the datastore key from the metadata, it is not serializable
-            sequence.metadata["pymmcore_widgets"].pop("datastore", None)
-        # call it because it before we disconnect the signals because othrwise
-        # it will not be called
+        # call it before we disconnect the signals or it will not be called
         self._current_viewer.data.sequenceFinished(sequence)
 
         self._disconnect_viewer(self._current_viewer)

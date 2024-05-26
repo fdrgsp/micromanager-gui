@@ -45,10 +45,6 @@ class _TensorStoreHandler(TensorStoreHandler):
             meta["Event"] = json.loads(js)
             data.append(meta)
 
-        if self.current_sequence.metadata.get("pymmcore_widgets"):
-            # pop the datastore key from the metadata, it is not serializable
-            self.current_sequence.metadata["pymmcore_widgets"].pop("datastore", None)
-
         metadata = {
             "useq_MDASequence": self.current_sequence.model_dump_json(
                 exclude_defaults=True

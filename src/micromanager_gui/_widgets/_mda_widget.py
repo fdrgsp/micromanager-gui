@@ -32,6 +32,18 @@ class _MDAWidget(MDAWidget):
     ) -> None:
         super().__init__(parent=parent, mmcore=mmcore)
 
+        # writer for saving the MDA sequence. This is used by the MDAViewer to set its
+        # internal datastore. If _writer is None, the MDAViewer will use its default
+        # internal datastore.
+        self.writer: (
+            Path
+            | _OMETiffWriter
+            | _OMETiffWriter
+            | _TensorStoreHandler
+            | TiffSequenceWriter
+            | None
+        ) = None
+
         # setContentsMargins
         pos_layout = cast("QVBoxLayout", self.stage_positions.layout())
         pos_layout.setContentsMargins(10, 10, 10, 10)
@@ -80,50 +92,44 @@ class _MDAWidget(MDAWidget):
 
         sequence = self.value()
 
-        save_path: (
-            Path | _OMETiffWriter | _OMETiffWriter | TiffSequenceWriter | None
-        ) = None
+        # reset the writer
+        self.writer = None
+
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
-            save_path = self._update_save_path_from_metadata(
+            self.writer = self._update_save_path_from_metadata(
                 sequence, update_metadata=True
             )
-        # get save format from metadata
-        save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-        save_format = save_meta.get("format")
-        if isinstance(save_path, Path):
-            # use internal OME-TIFF writer if selected
-            if "ome-tif" in save_format:
-                # if OME-TIFF, save_path should be a directory without extension, so
-                # we need to add the ".ome.tif" to correctly use the OMETifWriter
-                if not save_path.name.endswith(".ome.tif"):
-                    save_path = save_path.with_suffix(".ome.tif")
-                save_path = _OMETiffWriter(save_path)
-            elif "ome-zarr" in save_format:
-                save_path = _OMEZarrWriter(save_path)
-            elif "zarr-tensorstore" in save_format:
-                save_path = _TensorStoreHandler(
-                    driver="zarr",
-                    path=save_path,
-                    delete_existing=True,
-                    spec={
-                        # Use 2GB in-memory cache.
-                        "context": {"cache_pool": {"total_bytes_limit": 2_000_000_000}},
-                    },
-                )
-            # use internal tif sequence writer if selected
-            else:
-                save_path = TiffSequenceWriter(save_path)
+            # get save format from metadata
+            save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+            save_format = save_meta.get("format")
+            if isinstance(self.writer, Path):
+                # use internal OME-TIFF writer if selected
+                if "ome-tif" in save_format:
+                    # if OME-TIFF, save_path should be a directory without extension, so
+                    # we need to add the ".ome.tif" to correctly use the OMETifWriter
+                    if not self.writer.name.endswith(".ome.tif"):
+                        self.writer = self.writer.with_suffix(".ome.tif")
+                    self.writer = _OMETiffWriter(self.writer)
+                elif "ome-zarr" in save_format:
+                    self.writer = _OMEZarrWriter(self.writer)
+                elif "zarr-tensorstore" in save_format:
+                    self.writer = _TensorStoreHandler(
+                        driver="zarr",
+                        path=self.writer,
+                        delete_existing=True,
+                        spec={
+                            # Use 2GB in-memory cache.
+                            "context": {
+                                "cache_pool": {"total_bytes_limit": 2_000_000_000}
+                            },
+                        },
+                    )
+                # use internal tif sequence writer if selected
+                else:
+                    self.writer = TiffSequenceWriter(self.writer)
 
-        # pass the save_path to the MDA engine only if is a TiffSequenceWriter.
-        # This is because if it is, the MDA Viewer will use it to save and visualize
-        # the data, and we don't want to create the writer twice. We will get it from
-        # the sequence metadata and use it in the MDA Viewer.
-        output = save_path if isinstance(save_path, TiffSequenceWriter) else None
-        if output is None:
-            sequence.metadata[PYMMCW_METADATA_KEY]["datastore"] = save_path
-        # run the MDA experiment asynchronously
-        self._mmc.run_mda(sequence, output=output)
+        self._mmc.run_mda(sequence, output=self.writer)
 
     def _update_save_path_from_metadata(
         self,
