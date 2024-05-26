@@ -12,6 +12,7 @@ from pymmcore_widgets.mda._save_widget import (
     ZARR_TESNSORSTORE,
 )
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
+from useq import MDASequence
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
 from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
@@ -54,6 +55,11 @@ class _MDAWidget(MDAWidget):
         pos_layout.setContentsMargins(10, 10, 10, 10)
         time_layout = cast("QVBoxLayout", self.time_plan.layout())
         time_layout.setContentsMargins(10, 10, 10, 10)
+
+    def _on_mda_finished(self, sequence: MDASequence) -> None:
+        """Handle the end of the MDA sequence."""
+        self.writer = None
+        super()._on_mda_finished(sequence)
 
     def run_mda(self) -> None:
         """Run the MDA sequence experiment."""
@@ -105,10 +111,10 @@ class _MDAWidget(MDAWidget):
             self.writer = self._update_save_path_from_metadata(
                 sequence, update_metadata=True
             )
-            # get save format from metadata
-            save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-            save_format = save_meta.get("format")
             if isinstance(self.writer, Path):
+                # get save format from metadata
+                save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+                save_format = save_meta.get("format")
                 # use internal OME-TIFF writer if selected
                 if OME_TIFF in save_format:
                     # if OME-TIFF, save_path should be a directory without extension, so
@@ -134,7 +140,10 @@ class _MDAWidget(MDAWidget):
                 else:
                     self.writer = TiffSequenceWriter(self.writer)
 
-        self._mmc.run_mda(sequence, output=self.writer)
+        # pass the writer to the MDA engine only if it is a TiffSequenceWriter. If it is
+        # any other type, the MDAViewer will handle the writer.
+        output = self.writer if isinstance(self.writer, TiffSequenceWriter) else None
+        self._mmc.run_mda(sequence, output=output)
 
     def _update_save_path_from_metadata(
         self,

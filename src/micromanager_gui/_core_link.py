@@ -127,6 +127,9 @@ class CoreViewersLink(QObject):
 
         self._mda_running = False
 
+        # reset the mda writer to None
+        self._main_window._mda.writer = None
+
         if self._current_viewer is None:
             return
 

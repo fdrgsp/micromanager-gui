@@ -4,6 +4,7 @@ import json
 import time
 from typing import TYPE_CHECKING, Literal, Mapping, TypeAlias
 
+from pymmcore_plus._logger import logger
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class _TensorStoreHandler(TensorStoreHandler):
         if self.ts_driver.startswith("zarr"):
             store.kvstore.write(".zattrs", json.dumps(metadata))
             attrs = store.kvstore.read(".zattrs").result().value
+            logger.info("Writing 'tensorstore_zarr' store 'zattrs' to disk.")
             start_time = time.time()
             # HACK: wait for attrs to be written. If we don't have the while loop,
             # most of the time the attrs will not be written. To avoid looping forever,
@@ -68,6 +70,7 @@ class _TensorStoreHandler(TensorStoreHandler):
             while not attrs and not time.time() - start_time > WAIT_TIME:
                 store.kvstore.write(".zattrs", json.dumps(metadata))
                 attrs = store.kvstore.read(".zattrs").result().value
+            logger.info("'tensorstore_zarr' 'zattrs' written to disk.")
 
         elif self.ts_driver == "n5":
             attrs = json.loads(store.kvstore.read("attributes.json").result().value)
