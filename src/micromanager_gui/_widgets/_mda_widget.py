@@ -5,6 +5,12 @@ from typing import TYPE_CHECKING, cast
 
 from pymmcore_widgets.mda import MDAWidget
 from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
+from pymmcore_widgets.mda._save_widget import (
+    OME_TIFF,
+    OME_ZARR,
+    WRITERS,
+    ZARR_TESNSORSTORE,
+)
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
@@ -12,8 +18,7 @@ from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
 from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
 from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
 
-METADATA_KEY = "micromanager_gui"
-POS_LIMIT = 4
+OME_TIFFS = tuple(WRITERS[OME_TIFF])
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
@@ -105,15 +110,15 @@ class _MDAWidget(MDAWidget):
             save_format = save_meta.get("format")
             if isinstance(self.writer, Path):
                 # use internal OME-TIFF writer if selected
-                if "ome-tif" in save_format:
+                if OME_TIFF in save_format:
                     # if OME-TIFF, save_path should be a directory without extension, so
-                    # we need to add the ".ome.tif" to correctly use the OMETifWriter
-                    if not self.writer.name.endswith(".ome.tif"):
-                        self.writer = self.writer.with_suffix(".ome.tif")
+                    # we need to add the ".ome.tif" to correctly use the _OMETiffWriter
+                    if not self.writer.name.endswith(OME_TIFFS):
+                        self.writer = self.writer.with_suffix(OME_TIFF)
                     self.writer = _OMETiffWriter(self.writer)
-                elif "ome-zarr" in save_format:
+                elif OME_ZARR in save_format:
                     self.writer = _OMEZarrWriter(self.writer)
-                elif "zarr-tensorstore" in save_format:
+                elif ZARR_TESNSORSTORE in save_format:
                     self.writer = _TensorStoreHandler(
                         driver="zarr",
                         path=self.writer,
