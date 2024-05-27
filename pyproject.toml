@@ -33,6 +33,7 @@ dependencies = [
     "zarr",
     "tifffile",
     "tqdm",
+    "yaml",
     "pyfirmata2",
 ]
 
