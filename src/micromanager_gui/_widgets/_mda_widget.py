@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from pymmcore_plus.mda.handlers import OMEZarrWriter
 from pymmcore_widgets.mda import MDAWidget
 from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.mda._save_widget import (
@@ -15,7 +16,6 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from useq import MDASequence
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
-from micromanager_gui._writers._ome_zarr import _OMEZarrWriter
 from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
 from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
 
@@ -127,7 +127,7 @@ class _MDAWidget(MDAWidget):
 
     def _create_mda_viewer_writer(
         self, save_format: str, save_path: Path
-    ) -> _OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None:
+    ) -> OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None:
         """Create a writer for the MDAViewer based on the save format."""
         # use internal OME-TIFF writer if selected
         if OME_TIFF in save_format:
@@ -137,7 +137,7 @@ class _MDAWidget(MDAWidget):
                 save_path = save_path.with_suffix(OME_TIFF)
             return _OMETiffWriter(save_path)
         elif OME_ZARR in save_format:
-            return _OMEZarrWriter(save_path)
+            return OMEZarrWriter(save_path)
         elif ZARR_TESNSORSTORE in save_format:
             return self._create_zarr_tensorstore(save_path)
         # cannot use the TiffSequenceWriter here because the MDAViewer will not be
