@@ -4,16 +4,11 @@ from warnings import warn
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets import GroupPresetTableWidget
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
-from qtpy.QtCore import Qt
 from qtpy.QtGui import QDragEnterEvent, QDropEvent
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
-    QScrollArea,
-    QSizePolicy,
-    QTabWidget,
     QWidget,
 )
 
@@ -22,13 +17,10 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 )
 
 from ._core_link import CoreViewersLink
-from ._menubar._main_menubar import _MenuBar
+from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
-from ._widgets._mda_widget import _MDAWidget
-
-FLAGS = Qt.WindowType.Dialog
 
 
 class MicroManagerGUI(QMainWindow):
@@ -59,26 +51,7 @@ class MicroManagerGUI(QMainWindow):
         self._central_wdg_layout = QGridLayout(central_wdg)
         self.setCentralWidget(central_wdg)
 
-        # Tab widget for the widgets
-        self.widget_tab = QTabWidget()
-        self._central_wdg_layout.addWidget(self.widget_tab, 0, 1)
-        # main widgets
-        self._group_preset = GroupPresetTableWidget()
-        self.widget_tab.addTab(self._group_preset, "Groups and Presets")
-        self._mdaScrollArea = QScrollArea()
-        self._mda = _MDAWidget()
-        self._mdaScrollArea.setWidget(self._mda)
-        self._mdaScrollArea.setWidgetResizable(True)
-        self.widget_tab.addTab(self._mdaScrollArea, "MDA Acquisition")
-        # set fixed scroll area size
-        self.widget_tab.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
-        width = self._mda.sizeHint().width()
-        # set setFixedWidth to (width + 2%width)
-        self._mdaScrollArea.setFixedWidth(width + width // 50)
-
-        # add the menu bar
+        # add the menu bar (and the logic to create/show widgets)
         self._menu_bar = _MenuBar(parent=self, mmcore=self._mmc)
         self.setMenuBar(self._menu_bar)
 

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     import useq
 
     from ._main_window import MicroManagerGUI
+    from ._widgets._mda_widget import _MDAWidget
 
 
 class CoreViewersLink(QObject):
@@ -46,6 +47,9 @@ class CoreViewersLink(QObject):
         self._current_viewer: MDAViewer | None = None
 
         self._mda_running: bool = False
+
+        # the _MDAWidget. It should have been set in the _MenuBar at startup
+        self._mda = cast("_MDAWidget", self._main_window._menu_bar._mda)
 
         ev = self._mmc.events
         ev.continuousSequenceAcquisitionStarted.connect(self._set_preview_tab)
@@ -83,7 +87,8 @@ class CoreViewersLink(QObject):
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
         """Setup the MDAViewer."""
-        datastore = self._main_window._mda.writer
+        # get the MDAWidget writer
+        datastore = self._mda.writer if self._mda is not None else None
         self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
@@ -128,7 +133,7 @@ class CoreViewersLink(QObject):
         self._mda_running = False
 
         # reset the mda writer to None
-        self._main_window._mda.writer = None
+        self._mda.writer = None
 
         if self._current_viewer is None:
             return
