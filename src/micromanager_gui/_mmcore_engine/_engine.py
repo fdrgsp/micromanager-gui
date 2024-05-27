@@ -97,9 +97,7 @@ class ArduinoEngine(MDAEngine):
                 logger.warning("Hardware autofocus failed. %s", e)
                 self._af_succeeded = False
                 if self._slack_bot is not None:
-                    self._slack_bot.send_slack_message(
-                        f"⚠️ Hardware autofocus failed: {e}! ⚠️"
-                    )
+                    self._slack_bot.send_message(f"⚠️ Hardware autofocus failed: {e}! ⚠️")
             else:
                 # store correction for this position index
                 p_idx = event.index.get("p", None)
@@ -188,7 +186,7 @@ class ArduinoEngine(MDAEngine):
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
             if self._slack_bot is not None:
-                self._slack_bot.send_slack_message("🚨 Buffer Overflowed! 🚨")
+                self._slack_bot.send_message("🚨 Buffer Overflowed! 🚨")
             raise MemoryError("Buffer overflowed")
 
         while self._mmc.getRemainingImageCount():

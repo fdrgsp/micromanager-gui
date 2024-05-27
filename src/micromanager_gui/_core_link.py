@@ -81,7 +81,7 @@ class CoreViewersLink(QObject):
         # slack bot message
         if self._mda.save_info.isChecked():
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_slack_message(
+            self._slack_bot.send_message(
                 f"❌ MDA Sequence Cancelled! (file: {file_name}) ❌"
             )
 
@@ -102,7 +102,7 @@ class CoreViewersLink(QObject):
         # slack bot message
         if self._mda.save_info.isChecked():
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_slack_message(
+            self._slack_bot.send_message(
                 f"🚀 MDA Sequence Started! (file: {file_name}) 🚀"
             )
 
@@ -159,7 +159,7 @@ class CoreViewersLink(QObject):
         # slack bot message
         if self._mda.save_info.isChecked():
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_slack_message(
+            self._slack_bot.send_message(
                 f"🏁 MDA Sequence Finished! (file: {file_name}) 🏁"
             )
 

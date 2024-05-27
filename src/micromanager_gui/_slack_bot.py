@@ -39,7 +39,7 @@ class SlackBot:
     def channel_id(self) -> str:
         return self.CHANNEL_ID
 
-    def send_slack_message(self, text: str) -> None:
+    def send_message(self, text: str) -> None:
         if self.slack_client is None:
             return
         try:
