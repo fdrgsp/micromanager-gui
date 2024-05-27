@@ -127,7 +127,7 @@ class _MDAWidget(MDAWidget):
 
     def _create_mda_viewer_writer(
         self, save_format: str, save_path: Path
-    ) -> _OMETiffWriter | _OMETiffWriter | _TensorStoreHandler | None:
+    ) -> _OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None:
         """Create a writer for the MDAViewer based on the save format."""
         # use internal OME-TIFF writer if selected
         if OME_TIFF in save_format:
