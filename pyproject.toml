@@ -33,8 +33,6 @@ dependencies = [
     "zarr",
     "tifffile",
     "pyfirmata2",
-    "cmap",
-    "pyconify"
 ]
 
 # extras
