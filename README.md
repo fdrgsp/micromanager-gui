@@ -9,7 +9,8 @@
 A Micro-Manager minimal GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/pymmcore-widgets/) and [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/).
 
 
-<img width="1840" alt="Screenshot 2024-05-22 at 11 52 59 PM" src="https://github.com/fdrgsp/micromanager-gui/assets/70725613/e8e93652-8f9a-4ae3-90e9-3677df357019">
+<img width="1840" alt="Screenshot 2024-05-27 at 11 54 30 AM" src="https://github.com/fdrgsp/micromanager-gui/assets/70725613/a66fb674-efea-4356-8be8-387e93248f2e">
+
 
 
 ## Installation
