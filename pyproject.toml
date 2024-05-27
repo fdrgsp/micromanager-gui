@@ -27,7 +27,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@calcium",
-    "pymmcore-plus@git+https://github.com/fdrgsp/pymmcore-plus.git@calcium",
+    "pymmcore-plus@git+https://github.com/fdrgsp/pymmcore-plus.git@add_tensorstore_to_runner",
     "qtpy",
     "vispy",
     "zarr",
