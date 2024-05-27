@@ -3,6 +3,8 @@ from pathlib import Path
 from warnings import warn
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
+from pathlib import Path
+
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
 from qtpy.QtGui import QDragEnterEvent, QDropEvent
@@ -19,6 +21,7 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
+from ._slack_bot import SlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
 
@@ -34,6 +37,10 @@ class MicroManagerGUI(QMainWindow):
         config: str | None = None,
     ) -> None:
         super().__init__(parent)
+
+        # slack bot to handle slack messages
+        self._slack_bot = SlackBot()
+
         self.setAcceptDrops(True)
 
         self.setWindowTitle("Micro-Manager")
@@ -44,7 +51,7 @@ class MicroManagerGUI(QMainWindow):
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
-        self._mmc.mda.set_engine(ArduinoEngine(self._mmc))
+        self._mmc.mda.set_engine(ArduinoEngine(self._mmc, slack_bot=self._slack_bot))
 
         # central widget
         central_wdg = QWidget(self)

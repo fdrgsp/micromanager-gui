@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
 
+    from micromanager_gui._slack_bot import SlackBot
+
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
 
@@ -34,8 +36,10 @@ class ArduinoEngine(MDAEngine):
         use_hardware_sequencing: bool = True,
         arduino_board: Arduino | None = None,
         arduino_led_pin: Pin | None = None,
+        slack_bot: SlackBot | None = None,
     ) -> None:
         super().__init__(mmc, use_hardware_sequencing)
+        self._slack_bot = slack_bot
 
         # for LED stimulation
         self._arduino_board = arduino_board
@@ -92,6 +96,10 @@ class ArduinoEngine(MDAEngine):
             except RuntimeError as e:
                 logger.warning("Hardware autofocus failed. %s", e)
                 self._af_succeeded = False
+                if self._slack_bot is not None:
+                    self._slack_bot.send_slack_message(
+                        f"⚠️ Hardware autofocus failed: {e}! ⚠️"
+                    )
             else:
                 # store correction for this position index
                 p_idx = event.index.get("p", None)
@@ -145,6 +153,55 @@ class ArduinoEngine(MDAEngine):
         time.sleep(led_pulse_duration)
         # switch off the LED
         self._arduino_led_pin.write(0)
+
+    def exec_sequenced_event(self, event: SequencedEvent) -> Iterable[PImagePayload]:
+        """Execute a sequenced (triggered) event and return the image data.
+
+        This method is not part of the PMDAEngine protocol (it is called by
+        `exec_event`, which *is* part of the protocol), but it is made public
+        in case a user wants to subclass this engine and override this method.
+        """
+        # TODO: add support for multiple camera devices
+        n_events = len(event.events)
+
+        # Start sequence
+        # Note that the overload of startSequenceAcquisition that takes a camera
+        # label does NOT automatically initialize a circular buffer.  So if this call
+        # is changed to accept the camera in the future, that should be kept in mind.
+        self._mmc.startSequenceAcquisition(
+            n_events,
+            0,  # intervalMS  # TODO: add support for this
+            True,  # stopOnOverflow
+        )
+
+        self.post_sequence_started(event)
+
+        count = 0
+        iter_events = iter(event.events)
+        # block until the sequence is done, popping images in the meantime
+        while self._mmc.isSequenceRunning():
+            if self._mmc.getRemainingImageCount():
+                yield self._next_img_payload(next(iter_events))
+                count += 1
+            else:
+                time.sleep(0.001)
+
+        if self._mmc.isBufferOverflowed():  # pragma: no cover
+            if self._slack_bot is not None:
+                self._slack_bot.send_slack_message("🚨 Buffer Overflowed! 🚨")
+            raise MemoryError("Buffer overflowed")
+
+        while self._mmc.getRemainingImageCount():
+            yield self._next_img_payload(next(iter_events))
+            count += 1
+
+        if count != n_events:
+            logger.warning(
+                "Unexpected number of images returned from sequence. "
+                "Expected %s, got %s",
+                n_events,
+                count,
+            )
 
     def _next_img_payload(self, event: MDAEvent) -> PImagePayload:
         """Grab next image from the circular buffer and return it as an ImagePayload."""
