@@ -14,14 +14,15 @@ from rich import print
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+CHANNEL = "C074WAU4L3Z"
 CHANNEL_ID = "#calcium"
 PORT = 3000
 
 
 class SlackBot(QObject):
-    slackBotSignal = Signal(str)
-
     """Slack bot for sending messages to a channel."""
+
+    slackBotSignal = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -45,6 +46,7 @@ class SlackBot(QObject):
         # slack client
         self._slack_client = WebClient(token=SLACK_TOKEN) if SLACK_TOKEN else None
         # slack channel
+        self._channel = CHANNEL
         self._channel_id = CHANNEL_ID
 
         # Initialize Flask app
@@ -68,6 +70,10 @@ class SlackBot(QObject):
     @property
     def slack_client(self) -> WebClient | None:
         return self._slack_client
+
+    @property
+    def channel(self) -> str:
+        return self._channel
 
     @property
     def channel_id(self) -> str:
@@ -95,6 +101,11 @@ class SlackBot(QObject):
         event_type = event.get("type")
         if event_type == "message":
             text = event.get("text")
+
+            if text == "clear chat":
+                self.clear_chat()
+                return
+
             self.slackBotSignal.emit(text)
 
     def slack_events(self) -> Any:
@@ -112,3 +123,32 @@ class SlackBot(QObject):
 
     def run_flask_app(self) -> None:
         self.app.run(port=PORT)
+
+    def clear_chat(self) -> None:
+        """Clear the chat in the Slack channel.
+
+        NOTE: only messages sent by the bot will be deleted.
+        """
+        if self._slack_client is None:
+            return
+
+        bot_id = self._slack_client.auth_test()["user_id"]
+
+        try:
+            # Fetch the history of the channel
+            response = self._slack_client.conversations_history(channel=self._channel)
+            # Check if the history was fetched successfully
+            if not response["ok"]:
+                return
+            # Iterate over every message
+            for message in response["messages"]:
+                # Check if the message was sent by the bot
+                if message.get("user") != bot_id:
+                    continue
+                # Delete each message
+                self._slack_client.chat_delete(channel=self._channel, ts=message["ts"])
+        except SlackApiError as e:
+            warnings.warn(
+                f"Failed to clear chat in slack: {e.response['error']}",
+                stacklevel=2,
+            )
