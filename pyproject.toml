@@ -53,8 +53,7 @@ dev = [
     "rich",
     "ruff",
     "python-dotenv",
-    "flask",
-    "pyngrok",
+    "slack_bolt",
     "slack_sdk",
 ]
 

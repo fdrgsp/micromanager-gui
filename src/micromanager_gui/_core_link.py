@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import useq
 
     from ._main_window import MicroManagerGUI
-    from ._slack_bot import SlackBot
+    from ._slackbot import SlackBot
     from ._widgets._mda_widget import _MDAWidget
 
 DIALOG = Qt.WindowType.Dialog
@@ -71,31 +71,32 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
 
-        self._slack_bot = slackbot
-        if self._slack_bot is None:
+        # handle the slackbot
+        self._slackbot = slackbot
+        if self._slackbot is None:
             return
-        self.slack_client = self._slack_bot.slack_client
-        self._slack_bot.slackBotSignal.connect(self._on_slack_bot_signal)
+        self.slack_client = self._slackbot.slack_client
+        self._slackbot.slackBotSignal.connect(self._on_slack_bot_signal)
 
     def _on_slack_bot_signal(self, text: str) -> None:
         """Listen for slack bot signals."""
-        if self._slack_bot is None:
+        if self._slackbot is None:
             return
 
         text = text.lower()
         if text == "status":
             if not self._mda_running:
-                self._slack_bot.send_message("⚠️ No MDA Sequence running! ⚠️")
+                self._slackbot.send_message("⚠️ No MDA Sequence running! ⚠️")
                 return
-            self._slack_bot.send_message(f"📃 Status 📃 -> {self._current_event_index}")
+            self._slackbot.send_message(f"📃 Status 📃 -> {self._current_event_index}")
         elif text == "run":
             if self._mda_running:
-                self._slack_bot.send_message("⚠️ MDA Sequence already running! ⚠️")
+                self._slackbot.send_message("⚠️ MDA Sequence already running! ⚠️")
                 return
             self._mda.run_mda()
         elif text in {"stop", "cancel"}:
             if not self._mda_running:
-                self._slack_bot.send_message("⚠️ No MDA Sequence running! ⚠️")
+                self._slackbot.send_message("⚠️ No MDA Sequence running! ⚠️")
                 return
             self._mmc.mda.cancel()
 
@@ -120,9 +121,9 @@ class CoreViewersLink(QObject):
     def _on_sequence_canceled(self, sequence: useq.MDASequence) -> None:
         """Called when the MDA sequence is cancelled."""
         # slack bot message
-        if self._slack_bot is not None:
+        if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_message(
+            self._slackbot.send_message(
                 f"❌ MDA Sequence Cancelled! (file: {file_name}) ❌"
             )
 
@@ -132,9 +133,9 @@ class CoreViewersLink(QObject):
         self._current_event_index = None
 
         # slack bot message
-        if self._slack_bot is not None:
+        if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_message(
+            self._slackbot.send_message(
                 f"🚀 MDA Sequence Started! (file: {file_name}) 🚀"
             )
 
@@ -200,9 +201,9 @@ class CoreViewersLink(QObject):
         self._mda.writer = None
 
         # slack bot message
-        if self._slack_bot is not None:
+        if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slack_bot.send_message(
+            self._slackbot.send_message(
                 f"🏁 MDA Sequence Finished! (file: {file_name}) 🏁"
             )
 
