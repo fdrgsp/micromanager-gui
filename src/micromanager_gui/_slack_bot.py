@@ -111,4 +111,4 @@ class SlackBot(QObject):
         return "", 200
 
     def run_flask_app(self) -> None:
-        self.app.run(port=3000)
+        self.app.run(port=PORT)
