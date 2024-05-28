@@ -53,16 +53,17 @@ class SlackBot(QObject):
             "/slack/events", view_func=self.slack_events, methods=["POST"]
         )
 
-        # Configure ngrok and start tunnel
-        conf.get_default().auth_token = NGROK_AUTHTOKEN
-        self.public_url = ngrok.connect(PORT)
-        print(f" * ngrok tunnel \"{self.public_url}\" -> 'http://127.0.0.1:{PORT}'")
-        # NOTE: everytime ngrok is started, a new public URL is generated therefore
-        # we need to update the Request URL in the Slack API Event Subscriptions:
-        # Request URL: https://<public_url>/slack/events (https://api.slack.com/).
+        if NGROK_AUTHTOKEN is not None:
+            # Configure ngrok and start tunnel
+            conf.get_default().auth_token = NGROK_AUTHTOKEN
+            self.public_url = ngrok.connect(PORT)
+            print(f" * ngrok tunnel \"{self.public_url}\" -> 'http://127.0.0.1:{PORT}'")
+            # NOTE: everytime ngrok is started, a new public URL is generated therefore
+            # we need to update the Request URL in the Slack API Event Subscriptions:
+            # Request URL: https://<public_url>/slack/events (https://api.slack.com/).
 
-        # Run Flask server in a separate thread
-        threading.Thread(target=self.run_flask_app).start()
+            # Run Flask server in a separate thread
+            threading.Thread(target=self.run_flask_app).start()
 
     @property
     def slack_client(self) -> WebClient | None:
