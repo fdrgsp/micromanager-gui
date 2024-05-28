@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import Callable
 
 from dotenv import load_dotenv
-from qtpy.QtCore import QObject, Signal
+from qtpy.QtCore import QObject, QThread, Signal
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from superqt.utils import create_worker, ensure_main_thread
 
 RUN = "run"
 STOP = "stop"
@@ -23,6 +22,19 @@ ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS, CLEAR}
 SKIP = ["has joined the channel"]
 
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
+
+
+class SlackBotWorker(QThread):
+    """Worker to run the SlackBot in a separate thread."""
+
+    def __init__(self, app: App, slack_app_token: str) -> None:
+        super().__init__()
+        self._app = app
+        self._slack_app_token = slack_app_token
+
+    def run(self) -> None:
+        handler = SocketModeHandler(self._app, self._slack_app_token)
+        handler.start()
 
 
 class SlackBot(QObject):
@@ -74,7 +86,6 @@ class SlackBot(QObject):
             warnings.warn(f"Failed to initialize SlackBot: {e}", stacklevel=2)
             return
 
-        @ensure_main_thread  # type: ignore [misc]
         @self._app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict, say: Callable[[str], None]) -> None:
             """Handle all the message events."""
@@ -100,14 +111,15 @@ class SlackBot(QObject):
                 )
 
         # start your app with the app token in a separate thread
-        create_worker(self.run_app, _start_thread=True)
+        self._slack_worker = SlackBotWorker(self._app, SLACK_APP_TOKEN)
+        self._slack_worker.start()
 
     @property
     def slack_client(self) -> WebClient | None:
         """Return the slack client."""
         return self._slack_client
 
-    def run_app(self) -> None:
+    def _run_app(self) -> None:
         """Run the app."""
         SocketModeHandler(self._app, os.getenv("SLACK_APP_TOKEN")).start()
 
