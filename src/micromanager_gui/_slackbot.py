@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from dotenv import load_dotenv
-from qtpy.QtCore import QObject, QThread, Signal
+from qtpy.QtCore import QObject, QProcess, Signal
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
@@ -24,7 +24,7 @@ SKIP = ["has joined the channel"]
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
 
 
-class SlackBotWorker(QThread):
+class SlackBotWorker(QProcess):
     """Worker to run the SlackBot in a separate thread."""
 
     def __init__(self, app: App, slack_app_token: str) -> None:
