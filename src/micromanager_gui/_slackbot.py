@@ -26,7 +26,18 @@ CHANNEL_ID = "C074WAU4L3Z"  # calcium
 
 
 class SlackBot(QObject):
-    """SlackBot to send and receive messages from a Slack channel."""
+    """SlackBot to send and receive messages from a Slack channel.
+
+    To use the SlackBot you need to have your SLACK_BOT_TOKEN and SLACK_APP_TOKEN;
+    you can follow this instruction to setup your Slack app:
+    https://slack.dev/bolt-python/tutorial/getting-started.
+
+    After that, you can either set the environment variables SLACK_BOT_TOKEN and
+    SLACK_APP_TOKEN (e.g. in your terminal type `export SLACK_BOT_TOKEN=your_token` and
+    `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the root of the
+    project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
+    SLACK_APP_TOKEN=your_token).
+    """
 
     slackBotSignal = Signal(str)
 
