@@ -35,11 +35,12 @@ class MicroManagerGUI(QMainWindow):
         *,
         mmcore: CMMCorePlus | None = None,
         config: str | None = None,
+        slackbot: bool = False,
     ) -> None:
         super().__init__(parent)
 
         # slack bot to handle slack messages
-        self._slack_bot = SlackBot()
+        self._slackbot = SlackBot() if slackbot else None
 
         self.setAcceptDrops(True)
 
@@ -51,7 +52,7 @@ class MicroManagerGUI(QMainWindow):
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
-        self._mmc.mda.set_engine(ArduinoEngine(self._mmc, slack_bot=self._slack_bot))
+        self._mmc.mda.set_engine(ArduinoEngine(self._mmc, slackbot=self._slackbot))
 
         # central widget
         central_wdg = QWidget(self)
@@ -69,7 +70,9 @@ class MicroManagerGUI(QMainWindow):
         self.addToolBar(self._snap_live_toolbar)
 
         # link the MDA viewers
-        self._core_link = CoreViewersLink(self, mmcore=self._mmc)
+        self._core_link = CoreViewersLink(
+            self, mmcore=self._mmc, slackbot=self._slackbot
+        )
 
         if config is not None:
             try:

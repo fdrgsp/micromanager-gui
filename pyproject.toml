@@ -35,6 +35,7 @@ dependencies = [
     "tqdm",
     "pyyaml",
     "pyfirmata2",
+    "rich",
 ]
 
 # extras

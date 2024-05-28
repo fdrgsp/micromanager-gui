@@ -36,10 +36,10 @@ class ArduinoEngine(MDAEngine):
         use_hardware_sequencing: bool = True,
         arduino_board: Arduino | None = None,
         arduino_led_pin: Pin | None = None,
-        slack_bot: SlackBot | None = None,
+        slackbot: SlackBot | None = None,
     ) -> None:
         super().__init__(mmc, use_hardware_sequencing)
-        self._slack_bot = slack_bot
+        self._slackbot = slackbot
 
         # for LED stimulation
         self._arduino_board = arduino_board
@@ -96,8 +96,8 @@ class ArduinoEngine(MDAEngine):
             except RuntimeError as e:
                 logger.warning("Hardware autofocus failed. %s", e)
                 self._af_succeeded = False
-                if self._slack_bot is not None:
-                    self._slack_bot.send_message(f"⚠️ Hardware autofocus failed: {e}! ⚠️")
+                if self._slackbot is not None:
+                    self._slackbot.send_message(f"⚠️ Hardware autofocus failed: {e}! ⚠️")
             else:
                 # store correction for this position index
                 p_idx = event.index.get("p", None)
@@ -185,8 +185,8 @@ class ArduinoEngine(MDAEngine):
                 time.sleep(0.001)
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
-            if self._slack_bot is not None:
-                self._slack_bot.send_message("🚨 Buffer Overflowed! 🚨")
+            if self._slackbot is not None:
+                self._slackbot.send_message("🚨 Buffer Overflowed! 🚨")
             raise MemoryError("Buffer overflowed")
 
         while self._mmc.getRemainingImageCount():

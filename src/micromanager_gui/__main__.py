@@ -20,13 +20,21 @@ def main(args: Sequence[str] | None = None) -> None:
         "--config",
         type=str,
         default=None,
-        help="Config file to load",
+        help="Config file to load (type: str).",
+        nargs="?",
+    )
+    parser.add_argument(
+        "-s",
+        "--slack",
+        type=bool,
+        default=False,
+        help="Weather to enable the slack bot (type: bool).",
         nargs="?",
     )
     parsed_args = parser.parse_args(args)
 
     app = QApplication([])
-    win = MicroManagerGUI(config=parsed_args.config)
+    win = MicroManagerGUI(config=parsed_args.config, slackbot=parsed_args.slack)
     win.show()
     app.exec_()
 
