@@ -52,6 +52,10 @@ dev = [
     "pytest",
     "rich",
     "ruff",
+    "python-dotenv",
+    "flask",
+    "pyngrok",
+    "slack_sdk",
 ]
 
 [project.urls]
