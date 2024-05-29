@@ -1,9 +1,14 @@
 import json
-import logging
 import sys
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+# logging.basicConfig(
+#     filename="/Users/fdrgsp/Desktop/process.log",
+#     # level=logging.INFO,
+#     level=logging.DEBUG,
+# )
 
 
 def main() -> None:
@@ -18,8 +23,6 @@ def main() -> None:
     """
     slack_bot_token = sys.argv[1]
     slack_app_token = sys.argv[2]
-
-    logging.info(f"slack_bot_token: {slack_bot_token}")
 
     app = App(token=slack_bot_token)
 
