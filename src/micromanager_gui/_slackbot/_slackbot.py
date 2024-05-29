@@ -44,21 +44,30 @@ logging.basicConfig(
 ENV_PATH = Path(__file__).parent / ".env"
 loaded = load_dotenv(ENV_PATH)
 if not loaded:
-    logging.error(f"SlackBot -> Failed to load .env file at {ENV_PATH}!")
+    env_error_msg = f"SlackBot -> Failed to load .env file at {ENV_PATH}!"
+    logging.error(env_error_msg)
+    sys.stderr.write(env_error_msg)
+    sys.stderr.flush()
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 if SLACK_BOT_TOKEN is None:
-    logging.error(
+    bot_token_error_msg = (
         "SlackBot -> SLACK_BOT_TOKEN is not set in the environment variables!"
     )
+    logging.error(bot_token_error_msg)
+    sys.stderr.write(bot_token_error_msg)
+    sys.stderr.flush()
 else:
     logging.info("SlackBot -> SLACK_BOT_TOKEN set correctly!")
 
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 if SLACK_APP_TOKEN is None:
-    logging.error(
+    app_token_error_msg = (
         "SlackBot -> SLACK_APP_TOKEN is not set in the environment variables!"
     )
+    logging.error(app_token_error_msg)
+    sys.stderr.write(app_token_error_msg)
+    sys.stderr.flush()
 else:
     logging.info("SlackBot -> SLACK_APP_TOKEN set correctly!")
 
@@ -78,9 +87,18 @@ class SlackBot(QObject):
     def __init__(self) -> None:
         super().__init__()
 
-        self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
-        self._bot_id = self._slack_client.auth_test().data["user_id"]
-        app = App(token=SLACK_BOT_TOKEN)
+        try:
+            self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
+            self._bot_id = self._slack_client.auth_test().data["user_id"]
+        except Exception as e:
+            web_client_error_msg = f"SlackBot -> Failed to create WebClient: {e}"
+            logging.error(web_client_error_msg)
+
+        try:
+            app = App(token=SLACK_BOT_TOKEN)
+        except Exception as e:
+            app_error_msg = f"SlackBot -> Failed to create App: {e}"
+            logging.error(app_error_msg)
 
         logging.info("SlackBot -> SlackBot initialized!")
         logging.info(f"SlackBot -> Bot ID: {self._bot_id}")
@@ -99,13 +117,15 @@ class SlackBot(QObject):
             user_id = event.get("user")
             text = event.get("text")
 
+            # ignore messages from the bot itself
+            if user_id is None or user_id == self._bot_id:
+                return
+
             logging.info(f"SlackBot -> message received: {text}")
+            logging.info(f"SlackBot -> forewarding message: {text}")
 
             sys.stdout.write(json.dumps(body))
             sys.stdout.flush()
-
-            if user_id is None or user_id == self._bot_id:
-                return
 
             if text not in ALLOWED_COMMANDS:
                 self.send_message(
@@ -120,6 +140,7 @@ class SlackBot(QObject):
         while self.running:
             if message := sys.stdin.readline().strip():
                 logging.info(f"SlackBot -> message received: {message}")
+                logging.info(f"SlackBot -> forewarding message: {message}")
                 self.send_message(message)
             else:
                 time.sleep(0.1)
