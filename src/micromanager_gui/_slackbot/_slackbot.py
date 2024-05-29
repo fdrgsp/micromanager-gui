@@ -130,7 +130,7 @@ class SlackBot(QObject):
             if text.lower() not in ALLOWED_COMMANDS:
                 self.send_message(
                     f"Sorry <@{user_id}>, only the following commands are allowed: "
-                    f"{', '.join(ALLOWED_COMMANDS)}. ({text})"
+                    f"{', '.join(ALLOWED_COMMANDS)}."
                 )
 
         handler = SocketModeHandler(app, SLACK_APP_TOKEN)
