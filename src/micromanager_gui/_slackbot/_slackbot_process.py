@@ -37,12 +37,9 @@ class SlackBotProcess(QProcess):
         """
         super().start("python", ["src/micromanager_gui/_slackbot/_slackbot.py"])
         if not self.waitForStarted():  # Check if the process started correctly
-            logging.error(
-                f"SlackBotProcess -> {ALARM} Failed to start SlackBotProcess! {ALARM}"
-            )
-            warnings.warn(
-                "SlackBotProcess -> Failed to start the SlackBot process.", stacklevel=2
-            )
+            msg = f"SlackBotProcess -> {ALARM} Failed to start SlackBotProcess! {ALARM}"
+            logging.error(msg)
+            warnings.warn(msg, stacklevel=2)
         else:
             logging.info(f"SlackBotProcess -> {ROBOT} SlackBotProcess started! {ROBOT}")
 
