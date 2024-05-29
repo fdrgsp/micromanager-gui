@@ -27,6 +27,7 @@ class SlackBotProcess(QProcess):
     def __init__(self) -> None:
         super().__init__()
         self.readyReadStandardOutput.connect(self.handle_message)
+        self.readyReadStandardError.connect(self.handle_error)
 
     def start(self) -> None:
         """Start the SlackBot in a new process.
@@ -74,3 +75,12 @@ class SlackBotProcess(QProcess):
         message = self.readAllStandardOutput().data().decode()
         logging.info(f"SlackBotProcess -> message received: {message}")
         self.messageReceived.emit(message)
+
+    @Slot()  # type: ignore [misc]
+    def handle_error(self) -> None:
+        """Handle the error sent by the SlackBot in the new process process.
+
+        This method is called when the process sends an error to stderr.
+        """
+        error = self.readAllStandardError().data().decode()
+        logging.error(f"SlackBotProcess -> error received: {error}")
