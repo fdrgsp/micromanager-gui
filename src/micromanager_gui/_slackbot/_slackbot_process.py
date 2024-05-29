@@ -14,6 +14,11 @@ logging.basicConfig(
 )
 
 
+ROBOT = "\U0001f916"
+ALARM = "\U0001f6a8"
+MICROSCOPE = "\U0001f52c"
+
+
 class SlackBotProcess(QProcess):
     """Process to run the SlackBot."""
 
@@ -31,12 +36,14 @@ class SlackBotProcess(QProcess):
         """
         super().start("python", ["src/micromanager_gui/_slackbot/_slackbot.py"])
         if not self.waitForStarted():  # Check if the process started correctly
-            logging.error("🚨 Failed to start SlackBotProcess! 🚨")
+            logging.error(f"{ALARM} Failed to start SlackBotProcess! {ALARM}")
             warnings.warn("Failed to start the SlackBot process.", stacklevel=2)
         else:
-            logging.info("🤖 SlackBotProcess started! 🤖")
+            logging.info(f"{ROBOT} SlackBotProcess started! {ROBOT}")
 
-        self.send_message("🔬 Hello from Eve, the MicroManager's SlackBot! 🔬")
+        self.send_message(
+            f"{MICROSCOPE} Hello from Eve, the MicroManager's SlackBot! {MICROSCOPE}"
+        )
 
     def send_message(self, message: str) -> None:
         """Send a message to the process.

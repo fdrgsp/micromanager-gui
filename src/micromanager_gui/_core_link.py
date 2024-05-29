@@ -23,6 +23,12 @@ VIEWER_TEMP_DIR = None
 NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
 NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
 
+STATUS = "\U0001f4c4"
+WARNING = "\U000026a0"
+CANCEL = "\U0000274c"
+RUN = "\U0001f680"
+FINISHED = "\U0001f3c1"
+
 
 class CoreViewersLink(QObject):
     def __init__(
@@ -87,7 +93,9 @@ class CoreViewersLink(QObject):
             if not self._mda_running:
                 self._slackbot.send_message("⚠️ No MDA Sequence running! ⚠️")
                 return
-            self._slackbot.send_message(f"📃 Status 📃 -> {self._current_event_index}")
+            self._slackbot.send_message(
+                f"{STATUS} Status {STATUS} -> {self._current_event_index}"
+            )
         elif text == "run":
             if self._mda_running:
                 self._slackbot.send_message("⚠️ MDA Sequence already running! ⚠️")
@@ -123,7 +131,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
             self._slackbot.send_message(
-                f"❌ MDA Sequence Cancelled! (file: {file_name}) ❌"
+                f"{CANCEL} MDA Sequence Cancelled! (file: {file_name}) {CANCEL}"
             )
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
@@ -145,7 +153,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
             self._slackbot.send_message(
-                f"🚀 MDA Sequence Started! (file: {file_name}) 🚀"
+                f"{RUN} MDA Sequence Started! (file: {file_name}) {RUN}"
             )
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
@@ -203,7 +211,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
             self._slackbot.send_message(
-                f"🏁 MDA Sequence Finished! (file: {file_name}) 🏁"
+                f"{FINISHED} MDA Sequence Finished! (file: {file_name}) {FINISHED}"
             )
 
         if self._current_viewer is None:
