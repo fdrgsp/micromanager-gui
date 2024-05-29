@@ -5,8 +5,8 @@ import logging
 import os
 import sys
 import threading
-import time
 from pathlib import Path
+from typing import cast
 
 from dotenv import load_dotenv
 from qtpy.QtCore import QObject
@@ -113,9 +113,9 @@ class SlackBot(QObject):
         @app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict) -> None:
             """Handle all the message events."""
-            event = body.get("event", {})
+            event = cast(dict, body.get("event", {}))
             user_id = event.get("user")
-            text = event.get("text")
+            text = cast(str, event.get("text"))
 
             # ignore messages from the bot itself
             if user_id is None or user_id == self._bot_id:
@@ -127,10 +127,10 @@ class SlackBot(QObject):
             sys.stdout.write(json.dumps(body))
             sys.stdout.flush()
 
-            if text not in ALLOWED_COMMANDS:
+            if text.lower() not in ALLOWED_COMMANDS:
                 self.send_message(
                     f"Sorry <@{user_id}>, only the following commands are allowed: "
-                    f"{', '.join(ALLOWED_COMMANDS)}."
+                    f"{', '.join(ALLOWED_COMMANDS)}. ({text})"
                 )
 
         handler = SocketModeHandler(app, SLACK_APP_TOKEN)
@@ -142,8 +142,6 @@ class SlackBot(QObject):
                 logging.info(f"SlackBot -> message received: {message}")
                 logging.info(f"SlackBot -> forewarding message: {message}")
                 self.send_message(message)
-            else:
-                time.sleep(0.1)
 
     def send_message(self, message: str) -> None:
         """Send a message to a channel."""
