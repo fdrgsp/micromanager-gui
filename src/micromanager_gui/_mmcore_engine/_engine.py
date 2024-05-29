@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
 
-    from micromanager_gui._slackbot._slackbot import SlackBot
+    from micromanager_gui._slackbot._mm_slackbot import MMSlackBot
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
@@ -36,7 +36,7 @@ class ArduinoEngine(MDAEngine):
         use_hardware_sequencing: bool = True,
         arduino_board: Arduino | None = None,
         arduino_led_pin: Pin | None = None,
-        slackbot: SlackBot | None = None,
+        slackbot: MMSlackBot | None = None,
     ) -> None:
         super().__init__(mmc, use_hardware_sequencing)
         self._slackbot = slackbot

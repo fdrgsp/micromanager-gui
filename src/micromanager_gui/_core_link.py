@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import useq
 
     from ._main_window import MicroManagerGUI
-    from ._slackbot._slackbot import SlackBot
+    from ._slackbot._mm_slackbot import MMSlackBot
     from ._widgets._mda_widget import _MDAWidget
 
 DIALOG = Qt.WindowType.Dialog
@@ -30,7 +30,7 @@ class CoreViewersLink(QObject):
         parent: MicroManagerGUI,
         *,
         mmcore: CMMCorePlus | None = None,
-        slackbot: SlackBot | None = None,
+        slackbot: MMSlackBot | None = None,
     ):
         super().__init__(parent)
         self._main_window = parent
@@ -75,8 +75,7 @@ class CoreViewersLink(QObject):
         self._slackbot = slackbot
         if self._slackbot is None:
             return
-        self.slack_client = self._slackbot.slack_client
-        self._slackbot.slackBotSignal.connect(self._on_slack_bot_signal)
+        self._slackbot.slackMessage.connect(self._on_slack_bot_signal)
 
     def _on_slack_bot_signal(self, text: str) -> None:
         """Listen for slack bot signals."""
