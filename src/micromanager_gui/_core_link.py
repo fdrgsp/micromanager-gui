@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import useq
 
     from ._main_window import MicroManagerGUI
-    from ._slackbot import SlackBot
+    from ._slackbot._slackbot import SlackBot
     from ._widgets._mda_widget import _MDAWidget
 
 DIALOG = Qt.WindowType.Dialog

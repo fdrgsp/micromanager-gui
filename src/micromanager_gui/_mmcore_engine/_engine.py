@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
 
-    from micromanager_gui._slackbot import SlackBot
+    from micromanager_gui._slackbot._slackbot import SlackBot
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"

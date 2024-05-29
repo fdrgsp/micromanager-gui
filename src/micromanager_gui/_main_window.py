@@ -21,7 +21,7 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
-from ._slackbot import SlackBot
+from ._slackbot._slackbot import SlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
 

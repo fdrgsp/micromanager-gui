@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 import warnings
 from pathlib import Path
-from typing import Callable
+from typing import cast
 
 from dotenv import load_dotenv
-from qtpy.QtCore import QObject, QThread, Signal
+from qtpy.QtCore import QObject, Signal
 from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+
+from ._slackbot_process_class import SlackBotProcess
 
 RUN = "run"
 STOP = "stop"
@@ -22,19 +24,6 @@ ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS, CLEAR}
 SKIP = ["has joined the channel"]
 
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
-
-
-class SlackBotWorker(QThread):
-    """Worker to run the SlackBot in a separate thread."""
-
-    def __init__(self, app: App, slack_app_token: str) -> None:
-        super().__init__()
-        self._app = app
-        self._slack_app_token = slack_app_token
-
-    def run(self) -> None:
-        handler = SocketModeHandler(self._app, self._slack_app_token)
-        handler.start()
 
 
 class SlackBot(QObject):
@@ -57,9 +46,10 @@ class SlackBot(QObject):
         super().__init__()
 
         self._slack_client: WebClient | None = None
+        self._bot_id: str | None = None
 
         # add slack token to environment variables
-        ENV_PATH = Path(__file__).parent.parent.parent / ".env"
+        ENV_PATH = Path(__file__).parent.parent.parent.parent / ".env"
         loaded = load_dotenv(ENV_PATH)
         if not loaded:
             warnings.warn(f"Failed to load .env file at {ENV_PATH}", stacklevel=2)
@@ -81,43 +71,43 @@ class SlackBot(QObject):
         try:
             self._app = App(token=SLACK_BOT_TOKEN)
             self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
+            self._bot_id = self._slack_client.auth_test()["user_id"]
         except Exception as e:
             self._slack_client = None
             warnings.warn(f"Failed to initialize SlackBot: {e}", stacklevel=2)
             return
 
-        @self._app.event("message")  # type: ignore [misc]
-        def handle_message_events(body: dict, say: Callable[[str], None]) -> None:
-            """Handle all the message events."""
-            # say() sends a message to the channel where the event was triggered
-            event = body.get("event", {})
-            user_id = event.get("user")
-
-            if user_id is None:
-                return
-
-            text = event.get("text")
-            if text in ALLOWED_COMMANDS:
-                # clear the chet from the messages sent by the bot
-                if text == CLEAR:
-                    self.clear_chat()
-                    return
-                # say(f"Hey there <@{user_id}>, you said {text}!")
-                self.slackBotSignal.emit(text)
-            else:
-                say(
-                    f"Sorry <@{user_id}>, only the following commands are allowed: "
-                    f"{', '.join(ALLOWED_COMMANDS)}."
-                )
-
-        # start your app with the app token in a separate thread
-        self._slack_worker = SlackBotWorker(self._app, SLACK_APP_TOKEN)
-        self._slack_worker.start()
+        # start your app with the app token in a separate process
+        self._slack_process = SlackBotProcess(SLACK_BOT_TOKEN, SLACK_APP_TOKEN)
+        self._slack_process.messageReceived.connect(self.handle_message_events)
+        self._slack_process.start()
 
     @property
     def slack_client(self) -> WebClient | None:
         """Return the slack client."""
         return self._slack_client
+
+    def handle_message_events(self, body: str) -> None:
+        """Handle all the message events."""
+        body_to_dict = cast(dict, json.loads(body))
+        event = cast(dict, body_to_dict.get("event", {}))
+        user_id = event.get("user")
+
+        if user_id is None or user_id == self._bot_id:
+            return
+
+        text = event.get("text")
+        if text in ALLOWED_COMMANDS:
+            # clear the chet from the messages sent by the bot
+            if text == CLEAR:
+                self.clear_chat()
+                return
+            self.slackBotSignal.emit(text)
+        else:
+            self.send_message(
+                f"Sorry <@{user_id}>, only the following commands are allowed: "
+                f"{', '.join(ALLOWED_COMMANDS)}."
+            )
 
     def send_message(self, text: str) -> None:
         """Send a message to a Slack channel."""
@@ -139,8 +129,6 @@ class SlackBot(QObject):
         """
         if self._slack_client is None:
             return
-
-        bot_id = self._slack_client.auth_test()["user_id"]
         try:
             # fetch the history of the channel
             response = self._slack_client.conversations_history(channel=CHANNEL_ID)
@@ -150,7 +138,7 @@ class SlackBot(QObject):
             # iterate over every message
             for message in response["messages"]:
                 # check if the message was sent by the bot or if should be skipped
-                if message.get("user") != bot_id or any(
+                if message.get("user") != self._bot_id or any(
                     text in message.get("text") for text in SKIP
                 ):
                     continue
