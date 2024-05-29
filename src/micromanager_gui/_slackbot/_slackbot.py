@@ -44,18 +44,18 @@ logging.basicConfig(
     level=logging.INFO,
 )
 if not loaded:
-    logging.info(f"Failed to load .env file at {ENV_PATH}!")
+    logging.info(f"SlackBot -> Failed to load .env file at {ENV_PATH}!")
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 if SLACK_BOT_TOKEN is None:
-    logging.info("SLACK_BOT_TOKEN is not set in the environment variables!")
+    logging.info("SlackBot -> SLACK_BOT_TOKEN is not set in the environment variables!")
 else:
-    logging.info("SLACK_BOT_TOKEN set correctly!")
+    logging.info("SlackBot -> SLACK_BOT_TOKEN set correctly!")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 if SLACK_APP_TOKEN is None:
-    logging.info("SLACK_APP_TOKEN is not set in the environment variables!")
+    logging.info("SlackBot -> SLACK_APP_TOKEN is not set in the environment variables!")
 else:
-    logging.info("SLACK_APP_TOKEN set correctly!")
+    logging.info("SlackBot -> SLACK_APP_TOKEN set correctly!")
 
 
 class SlackBot(QObject):
@@ -77,13 +77,15 @@ class SlackBot(QObject):
         self._bot_id = self._slack_client.auth_test().data["user_id"]
         app = App(token=SLACK_BOT_TOKEN)
 
-        logging.info("SlackProcess initialized!")
-        logging.info(f"Bot ID: {self._bot_id}")
+        logging.info("SlackBot -> SlackBot initialized!")
+        logging.info(f"SlackBot -> Bot ID: {self._bot_id}")
 
         self.running = True
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
         self.listen_thread.start()
-        logging.info(f"Listening thread started: {self.listen_thread.is_alive()}")
+        logging.info(
+            f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
+        )
 
         @app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict) -> None:
@@ -92,7 +94,7 @@ class SlackBot(QObject):
             user_id = event.get("user")
             text = event.get("text")
 
-            logging.info(f"message received: {text}")
+            logging.info(f"SlackBot -> message received: {text}")
 
             sys.stdout.write(json.dumps(body))
             sys.stdout.flush()
@@ -112,14 +114,14 @@ class SlackBot(QObject):
     def listen_for_messages(self) -> None:
         while self.running:
             if message := sys.stdin.readline().strip():
-                logging.info(f"message red: {message}")
+                logging.info(f"SlackBot -> message received: {message}")
                 self.send_message(message)
             else:
                 time.sleep(0.1)
 
     def send_message(self, message: str) -> None:
         """Send a message to a channel."""
-        logging.info(f"sending message: {message}")
+        logging.info(f"SlackBot -> sending message: {message}")
         try:
             response = self._slack_client.chat_postMessage(
                 channel=CHANNEL_ID, text=message
@@ -127,7 +129,7 @@ class SlackBot(QObject):
             assert response["ok"]
         except SlackApiError as e:
             msg = f"Failed to send message: {e.response['error']}"
-            logging.error(msg)
+            logging.error(f"SlackBot -> {msg}")
 
 
 if __name__ == "__main__":

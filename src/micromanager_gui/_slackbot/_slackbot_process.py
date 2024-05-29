@@ -36,10 +36,14 @@ class SlackBotProcess(QProcess):
         """
         super().start("python", ["src/micromanager_gui/_slackbot/_slackbot.py"])
         if not self.waitForStarted():  # Check if the process started correctly
-            logging.error(f"{ALARM} Failed to start SlackBotProcess! {ALARM}")
-            warnings.warn("Failed to start the SlackBot process.", stacklevel=2)
+            logging.error(
+                f"SlackBotProcess -> {ALARM} Failed to start SlackBotProcess! {ALARM}"
+            )
+            warnings.warn(
+                "SlackBotProcess -> Failed to start the SlackBot process.", stacklevel=2
+            )
         else:
-            logging.info(f"{ROBOT} SlackBotProcess started! {ROBOT}")
+            logging.info(f"SlackBotProcess -> {ROBOT} SlackBotProcess started! {ROBOT}")
 
         self.send_message(
             f"{MICROSCOPE} Hello from Eve, the MicroManager's SlackBot! {MICROSCOPE}"
@@ -51,14 +55,14 @@ class SlackBotProcess(QProcess):
         The message is written to the process's stdin so that it can be read by the
         process and sent to the Slack channel.
         """
-        logging.info(f"send_message: {message}")
+        logging.info(f"SlackBotProcess -> send_message: {message}")
         # send message to the process with a newline
         self.write((message + "\n").encode())
         # ensure the bytes are written
         if not self.waitForBytesWritten(1000):
-            logging.error("Failed to write message to the process!")
+            logging.error("SlackBotProcess -> Failed to write message to the process!")
         else:
-            logging.info("Message sent successfully!")
+            logging.info("SlackBotProcess -> Message sent successfully!")
 
     @Slot()  # type: ignore [misc]
     def handle_message(self) -> None:
@@ -67,7 +71,6 @@ class SlackBotProcess(QProcess):
         This method is called when the process sends a message to stdout. Once received,
         the message is emitted as a signal to be connected to a slot in MicroManagerGUI.
         """
-        logging.info("handle_message")
         message = self.readAllStandardOutput().data().decode()
-        logging.info(f"message: {message}")
+        logging.info(f"SlackBotProcess -> message received: {message}")
         self.messageReceived.emit(message)
