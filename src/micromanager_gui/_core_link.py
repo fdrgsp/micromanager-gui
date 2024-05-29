@@ -132,13 +132,6 @@ class CoreViewersLink(QObject):
         self._mda_running = True
         self._current_event_index = None
 
-        # slack bot message
-        if self._slackbot is not None:
-            file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slackbot.send_message(
-                f"🚀 MDA Sequence Started! (file: {file_name}) 🚀"
-            )
-
         # disable the menu bar
         self._main_window._menu_bar._enable(False)
 
@@ -148,6 +141,13 @@ class CoreViewersLink(QObject):
         self._setup_viewer(sequence)
         # resume the sequence
         self._mmc.mda.toggle_pause()
+
+        # slack bot message
+        if self._slackbot is not None:
+            file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
+            self._slackbot.send_message(
+                f"🚀 MDA Sequence Started! (file: {file_name}) 🚀"
+            )
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
         """Setup the MDAViewer."""
