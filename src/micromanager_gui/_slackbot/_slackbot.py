@@ -34,15 +34,15 @@ ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS, CLEAR}
 # project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
 # SLACK_APP_TOKEN=your_token).
 
+logging.basicConfig(
+    filename=Path(__file__).parent / "slackbot.log",
+    level=logging.INFO,
+)
+
 
 # add environment variables from .env file
 ENV_PATH = Path(__file__).parent / ".env"
 loaded = load_dotenv(ENV_PATH)
-LOGGER_PATH = os.getenv("LOGGER_PATH")
-logging.basicConfig(
-    filename=LOGGER_PATH or "slackbot.log",
-    level=logging.INFO,
-)
 if not loaded:
     logging.info(f"SlackBot -> Failed to load .env file at {ENV_PATH}!")
 
