@@ -23,11 +23,11 @@ VIEWER_TEMP_DIR = None
 NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
 NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
 
-STATUS = ":page_facing_up:"
-WARNING = ":warning:"
-CANCEL = ":x:"
-RUN = ":rocket:"
-FINISHED = "::checkered_flag::"
+STATUS = "\U0001f4c4"
+WARNING = "\U000026a0"
+CANCEL = "\U0000274c"
+RUN = "\U0001f680"
+FINISHED = "\U0001f3c1"
 
 
 class CoreViewersLink(QObject):

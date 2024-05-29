@@ -14,9 +14,9 @@ logging.basicConfig(
 )
 
 
-ROBOT = ":robot:"
-ALARM = ":rotating_light:"
-MICROSCOPE = ":microscope:"
+ROBOT = "\U0001f916"
+ALARM = "\U0001f6a8"
+MICROSCOPE = "\U0001f52c"
 
 
 class SlackBotProcess(QProcess):
