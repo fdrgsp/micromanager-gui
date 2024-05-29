@@ -51,7 +51,7 @@ class MicroManagerGUI(QMainWindow):
         self.setWindowTitle("Micro-Manager")
 
         # extend size to fill the screen
-        self.showMaximized()
+        # self.showMaximized()
 
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
