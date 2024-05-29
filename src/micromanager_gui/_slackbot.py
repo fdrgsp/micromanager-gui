@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
 import warnings
@@ -7,11 +8,20 @@ from pathlib import Path
 from typing import Callable
 
 from dotenv import load_dotenv
-from qtpy.QtCore import QObject, QProcess, Signal
+from qtpy.QtCore import QObject, QThread, Signal
+from qtpy.QtWidgets import QWidget
+from rich.logging import RichHandler
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler()],
+)
 
 RUN = "run"
 STOP = "stop"
@@ -24,7 +34,7 @@ SKIP = ["has joined the channel"]
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
 
 
-class SlackBotWorker(QProcess):
+class SlackBotWorker(QThread):
     """Worker to run the SlackBot in a separate thread."""
 
     def __init__(self, app: App, slack_app_token: str) -> None:
@@ -91,6 +101,7 @@ class SlackBot(QObject):
             """Handle all the message events."""
             # say() sends a message to the channel where the event was triggered
             event = body.get("event", {})
+            logging.info(f"_______event_______: {event}")
             user_id = event.get("user")
 
             if user_id is None:
@@ -118,10 +129,6 @@ class SlackBot(QObject):
     def slack_client(self) -> WebClient | None:
         """Return the slack client."""
         return self._slack_client
-
-    def _run_app(self) -> None:
-        """Run the app."""
-        SocketModeHandler(self._app, os.getenv("SLACK_APP_TOKEN")).start()
 
     def send_message(self, text: str) -> None:
         """Send a message to a Slack channel."""
@@ -167,3 +174,18 @@ class SlackBot(QObject):
                 f"Failed to clear chat in slack: {e.response['error']}",
                 stacklevel=2,
             )
+
+
+class MainApp(QWidget):
+    """Main application window."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self._slack_bot = SlackBot()
+        self._slack_bot.slackBotSignal.connect(self._print_message)
+
+    def _print_message(self, text: str) -> None:
+        """Print the message to the console."""
+        logging.info(f"signal received: {text}")
+        print("signal received:", text)
