@@ -10,6 +10,7 @@ from typing import (
     cast,
 )
 
+import emoji
 from pyfirmata2 import Arduino
 from pyfirmata2.pyfirmata2 import Pin
 from pymmcore_plus._logger import logger
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
+WARNING = emoji.emojize(":warning:")
+ALARM = emoji.emojize(":rotating_light:")
 
 
 class ArduinoEngine(MDAEngine):
@@ -97,7 +100,9 @@ class ArduinoEngine(MDAEngine):
                 logger.warning("Hardware autofocus failed. %s", e)
                 self._af_succeeded = False
                 if self._slackbot is not None:
-                    self._slackbot.send_message(f"⚠️ Hardware autofocus failed: {e}! ⚠️")
+                    self._slackbot.send_message(
+                        f"{WARNING} Hardware autofocus failed: {e}! {WARNING}"
+                    )
             else:
                 # store correction for this position index
                 p_idx = event.index.get("p", None)
@@ -186,7 +191,7 @@ class ArduinoEngine(MDAEngine):
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
             if self._slackbot is not None:
-                self._slackbot.send_message("🚨 Buffer Overflowed! 🚨")
+                self._slackbot.send_message(f"{ALARM} Buffer Overflowed! {ALARM}")
             raise MemoryError("Buffer overflowed")
 
         while self._mmc.getRemainingImageCount():
