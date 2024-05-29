@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import warnings
 
-import emoji
 from qtpy.QtCore import QProcess, Signal, Slot
 from rich.logging import RichHandler
 
@@ -15,9 +14,9 @@ logging.basicConfig(
 )
 
 
-ROBOT = emoji.emojize(":robot:")
-ALARM = emoji.emojize(":rotating_light:")
-MICROSCOPE = emoji.emojize(":microscope:")
+ROBOT = ":robot:"
+ALARM = ":rotating_light:"
+MICROSCOPE = ":microscope:"
 
 
 class SlackBotProcess(QProcess):

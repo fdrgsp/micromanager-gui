@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, cast
 
-import emoji
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -24,11 +23,11 @@ VIEWER_TEMP_DIR = None
 NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
 NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
 
-STATUS = emoji.emojize(":page_facing_up:")
-WARNING = emoji.emojize(":warning:")
-CANCEL = emoji.emojize(":x:")
-RUN = emoji.emojize(":rocket:")
-FINISHED = emoji.emojize("::checkered_flag::")
+STATUS = ":page_facing_up:"
+WARNING = ":warning:"
+CANCEL = ":x:"
+RUN = ":rocket:"
+FINISHED = "::checkered_flag::"
 
 
 class CoreViewersLink(QObject):

@@ -10,7 +10,6 @@ from typing import (
     cast,
 )
 
-import emoji
 from pyfirmata2 import Arduino
 from pyfirmata2.pyfirmata2 import Pin
 from pymmcore_plus._logger import logger
@@ -28,8 +27,8 @@ if TYPE_CHECKING:
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
-WARNING = emoji.emojize(":warning:")
-ALARM = emoji.emojize(":rotating_light:")
+WARNING = ":warning:"
+ALARM = ":rotating_light:"
 
 
 class ArduinoEngine(MDAEngine):
