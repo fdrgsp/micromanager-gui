@@ -44,16 +44,21 @@ logging.basicConfig(
 ENV_PATH = Path(__file__).parent / ".env"
 loaded = load_dotenv(ENV_PATH)
 if not loaded:
-    logging.info(f"SlackBot -> Failed to load .env file at {ENV_PATH}!")
+    logging.error(f"SlackBot -> Failed to load .env file at {ENV_PATH}!")
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 if SLACK_BOT_TOKEN is None:
-    logging.info("SlackBot -> SLACK_BOT_TOKEN is not set in the environment variables!")
+    logging.error(
+        "SlackBot -> SLACK_BOT_TOKEN is not set in the environment variables!"
+    )
 else:
     logging.info("SlackBot -> SLACK_BOT_TOKEN set correctly!")
+
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 if SLACK_APP_TOKEN is None:
-    logging.info("SlackBot -> SLACK_APP_TOKEN is not set in the environment variables!")
+    logging.error(
+        "SlackBot -> SLACK_APP_TOKEN is not set in the environment variables!"
+    )
 else:
     logging.info("SlackBot -> SLACK_APP_TOKEN set correctly!")
 
