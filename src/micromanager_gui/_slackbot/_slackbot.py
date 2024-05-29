@@ -9,7 +9,6 @@ from typing import cast
 
 from dotenv import load_dotenv
 from qtpy.QtCore import QObject, Signal
-from slack_bolt import App
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -69,7 +68,6 @@ class SlackBot(QObject):
 
         # initializes your app with your bot token
         try:
-            self._app = App(token=SLACK_BOT_TOKEN)
             self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
             self._bot_id = self._slack_client.auth_test()["user_id"]
         except Exception as e:
@@ -89,8 +87,8 @@ class SlackBot(QObject):
 
     def handle_message_events(self, body: str) -> None:
         """Handle all the message events."""
-        body_to_dict = cast(dict, json.loads(body))
-        event = cast(dict, body_to_dict.get("event", {}))
+        body_dict = cast(dict, json.loads(body))
+        event = body_dict.get("event", {})
         user_id = event.get("user")
 
         if user_id is None or user_id == self._bot_id:

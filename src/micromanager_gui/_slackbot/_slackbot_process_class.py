@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 from qtpy.QtCore import QProcess, Signal, Slot
 
 
@@ -25,6 +27,8 @@ class SlackBotProcess(QProcess):
                 self._slack_app_token,
             ],
         )
+        if not self.waitForStarted():
+            warnings.warn("Failed to start the SlackBot process.", stacklevel=2)
 
     @Slot()  # type: ignore
     def handle_message(self) -> None:
