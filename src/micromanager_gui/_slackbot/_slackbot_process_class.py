@@ -20,7 +20,7 @@ class SlackBotProcess(QProcess):
         super().start(
             "python",
             [
-                "src/micromanager_gui/_slackbot/_slackbot_process.py",
+                "src/micromanager_gui/_slackbot/_slackbot_process_main.py",
                 self._slack_bot_token,
                 self._slack_app_token,
             ],
