@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Callable, Generator, cast
 
 from dotenv import load_dotenv
-from qtpy.QtCore import QObject
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -37,33 +36,37 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logging.info("Starting...")
 
 # add environment variables from .env file
 ENV_PATH = Path(__file__).parent / ".env"
-loaded = load_dotenv(ENV_PATH)
-if not loaded:
-    env_error_msg = f"SlackBot -> Failed to load '.env' file at {ENV_PATH}!"
-    logging.error(env_error_msg)
-    raise FileNotFoundError(env_error_msg)
+if ENV_PATH.exists():
+    loaded = load_dotenv(ENV_PATH)
+    if not loaded:
+        env_error_msg = f"SlackBot -> Failed to load '.env' file at {ENV_PATH}!"
+        logging.error(env_error_msg)
+        raise FileNotFoundError(env_error_msg)
 
+logging.info("SlackBot -> getting 'SLACK_BOT_TOKEN' from environment variables...")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 if SLACK_BOT_TOKEN is None:
-    bot_token_error = "SlackBot -> 'SLACK_BOT_TOKEN' is not set!"
+    bot_token_error = "SlackBot -> 'SLACK_BOT_TOKEN' is not found!"
     logging.error(bot_token_error)
     raise ValueError(bot_token_error)
 else:
     logging.info("SlackBot -> 'SLACK_BOT_TOKEN' set correctly!")
 
+logging.info("SlackBot -> getting 'SLACK_APP_TOKEN' from environment variables...")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 if SLACK_APP_TOKEN is None:
-    app_token_error = "SlackBot -> 'SLACK_APP_TOKEN' is not set!"
+    app_token_error = "SlackBot -> 'SLACK_APP_TOKEN' is not found!"
     logging.error(app_token_error)
     raise ValueError(app_token_error)
 else:
     logging.info("SlackBot -> 'SLACK_APP_TOKEN' set correctly!")
 
 
-class SlackBot(QObject):
+class SlackBot:
     """Class that will be called when the process is started.
 
     The 'handle_message_events' method with the '@app.event("message")' decorator
@@ -76,8 +79,6 @@ class SlackBot(QObject):
     """
 
     def __init__(self) -> None:
-        super().__init__()
-
         logging.info("SlackBot -> initializing...")
 
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
@@ -112,11 +113,15 @@ class SlackBot(QObject):
                 f"{', '.join(ALLOWED_COMMANDS)}."
             )
 
-        handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
-        handler.start()
-        logging.info("SlackBot -> 'SocketModeHandler' started")
+        self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
+
+    def start(self) -> None:
+        """Start the SlackBot."""
+        logging.info("SlackBot -> starting 'SocketModeHandler'...")
+        self.handler.start()
 
     def listen_for_messages(self) -> Generator[str, None, None]:
+        """Listen for messages from stdin."""
         logging.info(
             f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
         )
@@ -141,3 +146,4 @@ class SlackBot(QObject):
 
 if __name__ == "__main__":
     slackbot = SlackBot()
+    slackbot.start()
