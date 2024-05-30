@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
-from qtpy.QtGui import QDragEnterEvent, QDropEvent
+from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -85,6 +85,12 @@ class MicroManagerGUI(QMainWindow):
             except FileNotFoundError:
                 # don't crash if the user passed an invalid config
                 warn(f"Config file {config} not found. Nothing loaded.", stacklevel=2)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the closeEvent method to stop the SlackBotProcess."""
+        if self._slackbot is not None:
+            self._slackbot._slack_process.stop()
+        super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
