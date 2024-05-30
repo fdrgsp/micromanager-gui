@@ -79,24 +79,25 @@ class SlackBot(QObject):
     def __init__(self) -> None:
         super().__init__()
 
+        logging.info("SlackBot -> initializing...")
+
         self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
         self._bot_id = self._slack_client.auth_test().data["user_id"]
-        app = App(token=SLACK_BOT_TOKEN)
 
-        logging.info("SlackBot -> SlackBot initialized!")
         logging.info(f"SlackBot -> Bot ID: {self._bot_id}")
 
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
         self.listen_thread.start()
 
-        @app.event("message")  # type: ignore [misc]
+        self._app = App(token=SLACK_BOT_TOKEN)
+
+        @self._app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict) -> None:
             """Handle all the message events."""
             event = cast(dict, body.get("event", {}))
             user_id = event.get("user")
             text = event.get("text")
 
-            logging.info(f"SlackBot -> message received: {text}")
             logging.info(f"SlackBot -> forewarding message: {text}")
 
             sys.stdout.write(json.dumps(body))
@@ -118,8 +119,10 @@ class SlackBot(QObject):
                 f"{', '.join(ALLOWED_COMMANDS)}."
             )
 
-        handler = SocketModeHandler(app, SLACK_APP_TOKEN)
+        handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
         handler.start()
+
+        logging.info("SlackBot -> 'SocketModeHandler' started!")
 
     def listen_for_messages(self) -> Generator[str, None, None]:
         logging.info(
@@ -145,5 +148,5 @@ class SlackBot(QObject):
 
 
 if __name__ == "__main__":
-    proc = SlackBot()
+    slackbot = SlackBot()
     sys.exit()
