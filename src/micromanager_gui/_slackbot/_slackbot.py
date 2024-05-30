@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sys
 import threading
 from pathlib import Path
-from typing import Callable, Generator, cast
+from typing import Generator
 
 from dotenv import load_dotenv
 from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
@@ -67,10 +65,7 @@ else:
 
 
 class SlackBot:
-    """Class that will be called when the process is started.
-
-    The 'handle_message_events' method with the '@app.event("message")' decorator
-    will be called every time a message event is received in the slack channel.
+    """SlackBot class to send messages to a Slack channel.
 
     The message event is then written to 'stdout' so that in the 'SlackBotProcess'
     class (_slackbot_process_class.py) the message can be read from the process and
@@ -87,38 +82,6 @@ class SlackBot:
 
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
         self.listen_thread.start()
-
-        @self._app.event("message")  # type: ignore [misc]
-        def handle_message_events(body: dict, say: Callable) -> None:
-            """Handle all the message events."""
-            event = cast(dict, body.get("event", {}))
-            user_id = event.get("user")
-            text = event.get("text")
-
-            logging.info(f"SlackBot -> forewarding message: {text}")
-
-            sys.stdout.write(json.dumps(body))
-            sys.stdout.flush()
-
-            # ignore messages from the bot itself
-            if user_id is None or user_id == self._bot_id:
-                return
-
-            text = cast(str, text)
-            if text.lower() in ALLOWED_COMMANDS:
-                return
-
-            say(
-                f"Sorry <@{user_id}>, only the following commands are allowed: "
-                f"{', '.join(ALLOWED_COMMANDS)}."
-            )
-
-        self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
-
-    def start(self) -> None:
-        """Start the SlackBot."""
-        logging.info("SlackBot -> starting 'SocketModeHandler'...")
-        self.handler.start()
 
     def listen_for_messages(self) -> Generator[str, None, None]:
         """Listen for messages from stdin."""
@@ -146,4 +109,3 @@ class SlackBot:
 
 if __name__ == "__main__":
     slackbot = SlackBot()
-    slackbot.start()

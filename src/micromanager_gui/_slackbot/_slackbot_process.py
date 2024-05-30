@@ -26,7 +26,6 @@ class SlackBotProcess(QProcess):
 
     def __init__(self) -> None:
         super().__init__()
-        self.readyReadStandardOutput.connect(self.handle_message)
         self.readyReadStandardError.connect(self.handle_error)
 
     def start(self) -> None:
@@ -63,17 +62,6 @@ class SlackBotProcess(QProcess):
             )
         else:
             logging.info(f"SlackBotProcess -> sent: '{message}'")
-
-    @Slot()  # type: ignore [misc]
-    def handle_message(self) -> None:
-        """Handle the message sent by the SlackBot in the new process process.
-
-        This method is called when the process sends a message to stdout. Once received,
-        the message is emitted as a signal to be connected to a slot in MicroManagerGUI.
-        """
-        message = self.readAllStandardOutput().data().decode()
-        logging.info(f"SlackBotProcess -> received: {message}")
-        self.messageReceived.emit(message)
 
     @Slot()  # type: ignore [misc]
     def handle_error(self) -> None:
