@@ -43,10 +43,6 @@ class SlackBotProcess(QProcess):
         else:
             logging.info(f"SlackBotProcess -> {ROBOT} SlackBotProcess started! {ROBOT}")
 
-        self.send_message(
-            f"{MICROSCOPE} Hello from Eve, the MicroManager's SlackBot! {MICROSCOPE}"
-        )
-
     def send_message(self, message: str) -> None:
         """Send a message to the process.
 
