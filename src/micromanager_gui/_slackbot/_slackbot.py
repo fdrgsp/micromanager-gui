@@ -81,12 +81,12 @@ class SlackBot:
     def __init__(self) -> None:
         logging.info("SlackBot -> initializing...")
 
-        self.listen_thread = threading.Thread(target=self.listen_for_messages)
-        self.listen_thread.start()
-
-        self._app = App(token=SLACK_BOT_TOKEN)
+        self._app = App(token=SLACK_BOT_TOKEN, ignoring_self_events_enabled=True)
         self._slack_client = self._app.client
         self._bot_id = self._slack_client.auth_test().data["user_id"]
+
+        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread.start()
 
         @self._app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict, say: Callable) -> None:
