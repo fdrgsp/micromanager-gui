@@ -28,6 +28,11 @@ class SlackBotProcess(QProcess):
         super().__init__()
         self.readyReadStandardError.connect(self.handle_error)
 
+    def stop(self) -> None:
+        """Stop the SlackBot process."""
+        self.kill()
+        self.waitForFinished()
+
     def start(self) -> None:
         """Start the SlackBot in a new process.
 

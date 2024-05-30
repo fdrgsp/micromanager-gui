@@ -41,3 +41,6 @@ class MMSlackBot(QObject):
         text = event.get("text")
         logging.info(f"MMSlackBot -> received: {text}")
         self.slackMessage.emit(text)
+
+    def __del__(self) -> None:
+        self._slack_process.stop()
