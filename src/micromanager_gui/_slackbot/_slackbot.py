@@ -6,7 +6,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import cast
+from typing import Generator, cast
 
 from dotenv import load_dotenv
 from qtpy.QtCore import QObject
@@ -39,37 +39,29 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-
 # add environment variables from .env file
 ENV_PATH = Path(__file__).parent / ".env"
 loaded = load_dotenv(ENV_PATH)
 if not loaded:
-    env_error_msg = f"SlackBot -> Failed to load .env file at {ENV_PATH}!"
+    env_error_msg = f"SlackBot -> Failed to load '.env' file at {ENV_PATH}!"
     logging.error(env_error_msg)
-    sys.stderr.write(env_error_msg)
-    sys.stderr.flush()
+    raise FileNotFoundError(env_error_msg)
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 if SLACK_BOT_TOKEN is None:
-    bot_token_error_msg = (
-        "SlackBot -> SLACK_BOT_TOKEN is not set in the environment variables!"
-    )
-    logging.error(bot_token_error_msg)
-    sys.stderr.write(bot_token_error_msg)
-    sys.stderr.flush()
+    bot_token_error = "SlackBot -> 'SLACK_BOT_TOKEN' is not set!"
+    logging.error(bot_token_error)
+    raise ValueError(bot_token_error)
 else:
-    logging.info("SlackBot -> SLACK_BOT_TOKEN set correctly!")
+    logging.info("SlackBot -> 'SLACK_BOT_TOKEN' set correctly!")
 
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 if SLACK_APP_TOKEN is None:
-    app_token_error_msg = (
-        "SlackBot -> SLACK_APP_TOKEN is not set in the environment variables!"
-    )
-    logging.error(app_token_error_msg)
-    sys.stderr.write(app_token_error_msg)
-    sys.stderr.flush()
+    app_token_error = "SlackBot -> 'SLACK_APP_TOKEN' is not set!"
+    logging.error(app_token_error)
+    raise ValueError(app_token_error)
 else:
-    logging.info("SlackBot -> SLACK_APP_TOKEN set correctly!")
+    logging.info("SlackBot -> 'SLACK_APP_TOKEN' set correctly!")
 
 
 class SlackBot(QObject):
@@ -87,39 +79,22 @@ class SlackBot(QObject):
     def __init__(self) -> None:
         super().__init__()
 
-        try:
-            self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
-            self._bot_id = self._slack_client.auth_test().data["user_id"]
-        except Exception as e:
-            web_client_error_msg = f"SlackBot -> Failed to create WebClient: {e}"
-            logging.error(web_client_error_msg)
-
-        try:
-            app = App(token=SLACK_BOT_TOKEN)
-        except Exception as e:
-            app_error_msg = f"SlackBot -> Failed to create App: {e}"
-            logging.error(app_error_msg)
+        self._slack_client = WebClient(token=SLACK_BOT_TOKEN)
+        self._bot_id = self._slack_client.auth_test().data["user_id"]
+        app = App(token=SLACK_BOT_TOKEN)
 
         logging.info("SlackBot -> SlackBot initialized!")
         logging.info(f"SlackBot -> Bot ID: {self._bot_id}")
 
-        self.running = True
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
         self.listen_thread.start()
-        logging.info(
-            f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
-        )
 
         @app.event("message")  # type: ignore [misc]
         def handle_message_events(body: dict) -> None:
             """Handle all the message events."""
             event = cast(dict, body.get("event", {}))
             user_id = event.get("user")
-            text = cast(str, event.get("text"))
-
-            # ignore messages from the bot itself
-            if user_id is None or user_id == self._bot_id:
-                return
+            text = event.get("text")
 
             logging.info(f"SlackBot -> message received: {text}")
             logging.info(f"SlackBot -> forewarding message: {text}")
@@ -127,17 +102,30 @@ class SlackBot(QObject):
             sys.stdout.write(json.dumps(body))
             sys.stdout.flush()
 
-            if text.lower() not in ALLOWED_COMMANDS:
-                self.send_message(
-                    f"Sorry <@{user_id}>, only the following commands are allowed: "
-                    f"{', '.join(ALLOWED_COMMANDS)}."
-                )
+            # ignore messages from the bot itself
+            # if user_id is None or user_id == self._bot_id:
+            #     return
+
+            if text is None:
+                return
+
+            text = cast(str, text)
+            if text.lower() in ALLOWED_COMMANDS:
+                return
+
+            self.send_message(
+                f"Sorry <@{user_id}>, only the following commands are allowed: "
+                f"{', '.join(ALLOWED_COMMANDS)}."
+            )
 
         handler = SocketModeHandler(app, SLACK_APP_TOKEN)
         handler.start()
 
-    def listen_for_messages(self) -> None:
-        while self.running:
+    def listen_for_messages(self) -> Generator[str, None, None]:
+        logging.info(
+            f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
+        )
+        while True:
             if message := sys.stdin.readline().strip():
                 logging.info(f"SlackBot -> message received: {message}")
                 logging.info(f"SlackBot -> forewarding message: {message}")
@@ -157,8 +145,5 @@ class SlackBot(QObject):
 
 
 if __name__ == "__main__":
-    if SLACK_BOT_TOKEN is None or SLACK_APP_TOKEN is None:
-        sys.exit()
-
     proc = SlackBot()
     sys.exit()

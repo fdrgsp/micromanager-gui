@@ -53,6 +53,7 @@ class SlackBotProcess(QProcess):
         The message is written to the process's stdin so that it can be read by the
         process and sent to the Slack channel.
         """
+        logging.info(f"SlackBotProcess -> received: '{message}'")
         # send message to the process with a newline
         self.write((message + "\n").encode())
         # ensure the bytes are written
@@ -61,7 +62,7 @@ class SlackBotProcess(QProcess):
                 f"SlackBotProcess -> Failed to write '{message}' to the process!"
             )
         else:
-            logging.info(f"SlackBotProcess -> '{message}' sent successfully!")
+            logging.info(f"SlackBotProcess -> sent: '{message}'")
 
     @Slot()  # type: ignore [misc]
     def handle_message(self) -> None:
@@ -71,7 +72,7 @@ class SlackBotProcess(QProcess):
         the message is emitted as a signal to be connected to a slot in MicroManagerGUI.
         """
         message = self.readAllStandardOutput().data().decode()
-        logging.info(f"SlackBotProcess -> message received: {message}")
+        logging.info(f"SlackBotProcess -> received: {message}")
         self.messageReceived.emit(message)
 
     @Slot()  # type: ignore [misc]

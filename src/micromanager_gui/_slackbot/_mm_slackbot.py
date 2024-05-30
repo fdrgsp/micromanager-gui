@@ -39,5 +39,5 @@ class MMSlackBot(QObject):
         message_dict = cast(dict, json.loads(message))
         event = message_dict.get("event", {})
         text = event.get("text")
-        logging.info(f"MMSlackBot, message received: {text}")
+        logging.info(f"MMSlackBot -> received: {text}")
         self.slackMessage.emit(text)
