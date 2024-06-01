@@ -25,6 +25,8 @@ from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
 
+# from ._segment_neurons import SegmentNeurons
+
 
 class MicroManagerGUI(QMainWindow):
     """Micro-Manager minimal GUI."""
@@ -73,6 +75,8 @@ class MicroManagerGUI(QMainWindow):
         self._core_link = CoreViewersLink(
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
+
+        # self._segment_neurons = SegmentNeurons(self._mmc)
 
         if config is not None:
             try:
