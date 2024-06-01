@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -105,6 +106,11 @@ class SlackBot:
             ack()
             self._forward_command(body.get("command", ""))
 
+        @self._app.command("/clear")  # type: ignore [misc]
+        def handle_clear_commands(ack: Ack, body: dict) -> None:
+            ack()
+            self._clear_chat()
+
         self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
 
     def start(self) -> None:
@@ -158,6 +164,32 @@ class SlackBot:
                 logging.info(f"SlackBot -> (listening) message received: {message}")
                 logging.info(f"SlackBot -> (listening) forwarding message: {message}")
                 self.send_message(message)
+
+    def _clear_chat(self) -> None:
+        """Clear the chat in the Slack channel.
+
+        NOTE: only messages sent by the bot will be deleted.
+        """
+        try:
+            # fetch the history of the channel
+            response = self._slack_client.conversations_history(channel=CHANNEL_ID)
+            # check if the history was fetched successfully
+            if not response["ok"]:
+                return
+            # iterate over every message
+            for message in response["messages"]:
+                # check if the message was sent by the bot or if should be skipped
+                if message.get("user") != self._bot_id:
+                    continue
+                # delete each message
+                self._slack_client.chat_delete(channel=CHANNEL_ID, ts=message["ts"])
+                # add a delay between each API call
+                time.sleep(0.1)
+        except SlackApiError as e:
+            logging.info(
+                f"SlackBot -> Failed to clear chat: {e.response['error']}",
+                stacklevel=2,
+            )
 
 
 if __name__ == "__main__":
