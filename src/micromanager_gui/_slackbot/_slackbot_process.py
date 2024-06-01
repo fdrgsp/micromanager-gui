@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import warnings
+from pathlib import Path
 from typing import Any
 
 from qtpy.QtCore import QProcess, Signal, Slot
@@ -42,7 +44,8 @@ class SlackBotProcess(QProcess):
         The process is started with the 'python' interpreter and the path to the
         '_slackbot.py' script (which contains the SlackBot class).
         """
-        super().start("python", ["src/micromanager_gui/_slackbot/_slackbot.py"])
+        target = Path(__file__).parent / "_slackbot.py"
+        super().start(sys.executable, [str(target)])
         if not self.waitForStarted():  # Check if the process started correctly
             msg = f"SlackBotProcess -> {ALARM} Failed to start SlackBotProcess! {ALARM}"
             logging.error(msg)
@@ -57,6 +60,7 @@ class SlackBotProcess(QProcess):
                 # "- `/run` -> Start the MDA Sequence\n"
                 # "- `/cancel` -> Cancel the current MDA Sequence\n"
                 # "- `/progress` -> Get the current MDA Sequence progress",
+                # "- `/clear` -> Clear the chat from the bot messages",
             }
         )
 
