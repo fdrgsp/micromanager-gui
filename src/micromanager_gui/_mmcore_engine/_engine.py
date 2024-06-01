@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
-WARNING_EMOJI = "\U000026a0"
-ALARM_EMOJI = "\U0001f6a8"
+WARNING_EMOJI = ":warning:"
+ALARM_EMOJI = ":rotating_light:"
 
 
 class ArduinoEngine(MDAEngine):

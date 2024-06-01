@@ -27,11 +27,11 @@ RUN = "run"
 CANCEL = "cancel"
 PROGRESS = "progress"
 
-STATUS_EMOJI = "\U0001f4c4"
-WARNING_EMOJI = "\U000026a0"
-CANCEL_EMOJI = "\U0000274c"
-RUN_EMOJI = "\U0001f680"
-FINISHED_EMOJI = "\U0001f3c1"
+PROGRESS_EMOJI = ":page_facing_up:"
+WARNING_EMOJI = ":warning:"
+CANCEL_EMOJI = ":x:"
+RUN_EMOJI = ":rocket:"
+FINISHED_EMOJI = ":checkered_flag:"
 
 
 class CoreViewersLink(QObject):
@@ -101,7 +101,7 @@ class CoreViewersLink(QObject):
                 return
             info = str(self._current_event_index).replace("{", "").replace("}", "")
             self._slackbot.send_message(
-                {"emoji": STATUS_EMOJI, "text": f"Status -> {info}"}
+                {"emoji": PROGRESS_EMOJI, "text": f"Status -> {info}"}
             )
         elif text == RUN:
             if self._mda_running:
