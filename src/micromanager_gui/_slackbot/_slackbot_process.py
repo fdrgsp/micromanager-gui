@@ -52,10 +52,10 @@ class SlackBotProcess(QProcess):
         self.send_message(
             {
                 "icon_emoji": MICROSCOPE,
-                "text": "Hello from Eve, the MicroManager's SlackBot!\n"
-                "- `/run` -> Start the MDA Sequence\n"
-                "- `/cancel` -> Cancel the current MDA Sequence\n"
-                "- `/progress` -> Get the current MDA Sequence progress",
+                "text": "Hello from Eve, the MicroManager's SlackBot!\n",
+                # "- `/run` -> Start the MDA Sequence\n"
+                # "- `/cancel` -> Cancel the current MDA Sequence\n"
+                # "- `/progress` -> Get the current MDA Sequence progress",
             }
         )
 
