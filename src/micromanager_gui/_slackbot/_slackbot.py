@@ -162,3 +162,4 @@ class SlackBot:
 
 if __name__ == "__main__":
     slackbot = SlackBot()
+    slackbot.start()
