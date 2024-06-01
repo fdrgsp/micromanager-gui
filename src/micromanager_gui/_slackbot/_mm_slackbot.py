@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import cast
 
 from qtpy.QtCore import QObject, Signal
 from rich.logging import RichHandler
@@ -36,9 +35,15 @@ class MMSlackBot(QObject):
 
     def handle_message_events(self, message: str) -> None:
         """Handle all the message events."""
-        message_dict = cast(dict, json.loads(message))
-        event = message_dict.get("event", {})
-        text = event.get("text")
+        message = json.loads(message)
+
+        if isinstance(message, dict):
+            event = message.get("event", {})
+            text = event.get("text")
+        else:
+            # is a command
+            text = message.replace("/", "")
+
         logging.info(f"MMSlackBot -> received: {text}")
         self.slackMessage.emit(text)
 

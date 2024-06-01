@@ -6,19 +6,21 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import Callable, Generator, cast
+from typing import TYPE_CHECKING, Callable, Generator
 
 from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
+if TYPE_CHECKING:
+    from slack_bolt.context.ack import Ack
+
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
-RUN = "run"
-STOP = "stop"
-CANCEL = "cancel"
-STATUS = "status"
-ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS}
+RUN = "/run"
+CANCEL = "/cancel"
+PROGRESS = "/progress"
+ALLOWED_COMMANDS = {RUN, CANCEL, PROGRESS}
 
 
 # To use the SlackBot you need to have your SLACK_BOT_TOKEN and SLACK_APP_TOKEN;
@@ -27,8 +29,8 @@ ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS}
 
 # After that, you can either set the environment variables SLACK_BOT_TOKEN and
 # SLACK_APP_TOKEN (e.g. in your terminal type `export SLACK_BOT_TOKEN=your_token` and
-# `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the root of the
-# project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
+# `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the _slackbot folder
+# of the project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
 # SLACK_APP_TOKEN=your_token).
 
 logging.basicConfig(
@@ -85,33 +87,23 @@ class SlackBot:
         self._slack_client = self._app.client
         self._bot_id = self._slack_client.auth_test().data["user_id"]
 
-        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread = threading.Thread(target=self._listen_for_messages)
         self.listen_thread.start()
 
-        @self._app.event("message")  # type: ignore [misc]
-        def handle_message_events(body: dict, say: Callable) -> None:
-            """Handle all the message events."""
-            event = cast(dict, body.get("event", {}))
-            user_id = event.get("user")
-            text = event.get("text")
+        @self._app.command("/run")  # type: ignore [misc]
+        def handle_run_commands(ack: Ack, body: dict, say: Callable) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
 
-            logging.info(f"SlackBot -> forewarding message: {text}")
+        @self._app.command("/cancel")  # type: ignore [misc]
+        def handle_cancel_commands(ack: Ack, body: dict, say: Callable) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
 
-            sys.stdout.write(json.dumps(body))
-            sys.stdout.flush()
-
-            # ignore messages from the bot itself
-            if user_id is None or user_id == self._bot_id:
-                return
-
-            text = cast(str, text)
-            if text.lower() in ALLOWED_COMMANDS:
-                return
-
-            say(
-                f"Sorry <@{user_id}>, only the following commands are allowed: "
-                f"{', '.join(ALLOWED_COMMANDS)}."
-            )
+        @self._app.command("/progress")  # type: ignore [misc]
+        def handle_progress_commands(ack: Ack, body: dict, say: Callable) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
 
         self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
 
@@ -119,17 +111,6 @@ class SlackBot:
         """Start the SlackBot."""
         logging.info("SlackBot -> starting 'SocketModeHandler'...")
         self.handler.start()
-
-    def listen_for_messages(self) -> Generator[str, None, None]:
-        """Listen for messages from stdin."""
-        logging.info(
-            f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
-        )
-        while True:
-            if message := sys.stdin.readline().strip():
-                logging.info(f"SlackBot -> (listening) message received: {message}")
-                logging.info(f"SlackBot -> (listening) forewarding message: {message}")
-                self.send_message(message)
 
     def send_message(self, message: str) -> None:
         """Send a message to a channel."""
@@ -142,6 +123,23 @@ class SlackBot:
         except SlackApiError as e:
             msg = f"Failed to send message: {e.response['error']}"
             logging.error(f"SlackBot -> {msg}")
+
+    def _forward_command(self, command: str) -> None:
+        """Forward the command out of the process."""
+        logging.info(f"SlackBot -> forwarding command: {command}")
+        sys.stdout.write(json.dumps(command))
+        sys.stdout.flush()
+
+    def _listen_for_messages(self) -> Generator[str, None, None]:
+        """Listen for messages from stdin."""
+        logging.info(
+            f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
+        )
+        while True:
+            if message := sys.stdin.readline().strip():
+                logging.info(f"SlackBot -> (listening) message received: {message}")
+                logging.info(f"SlackBot -> (listening) forwarding message: {message}")
+                self.send_message(message)
 
 
 if __name__ == "__main__":
