@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import threading
 from pathlib import Path
-from typing import Generator
+from typing import TYPE_CHECKING, cast
 
 from dotenv import load_dotenv
 from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
+if TYPE_CHECKING:
+    from slack_bolt.context.ack import Ack
+
 CHANNEL_ID = "C074WAU4L3Z"  # calcium
-RUN = "run"
-STOP = "stop"
-CANCEL = "cancel"
-STATUS = "status"
-ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS}
+RUN = "/run"
+CANCEL = "/cancel"
+PROGRESS = "/progress"
+ALLOWED_COMMANDS = {RUN, CANCEL, PROGRESS}
 
 
 # To use the SlackBot you need to have your SLACK_BOT_TOKEN and SLACK_APP_TOKEN;
@@ -25,8 +29,8 @@ ALLOWED_COMMANDS = {RUN, STOP, CANCEL, STATUS}
 
 # After that, you can either set the environment variables SLACK_BOT_TOKEN and
 # SLACK_APP_TOKEN (e.g. in your terminal type `export SLACK_BOT_TOKEN=your_token` and
-# `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the root of the
-# project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
+# `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the _slackbot folder
+# of the project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
 # SLACK_APP_TOKEN=your_token).
 
 logging.basicConfig(
@@ -80,10 +84,68 @@ class SlackBot:
         self._slack_client = self._app.client
         self._bot_id = self._slack_client.auth_test().data["user_id"]
 
-        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread = threading.Thread(target=self._listen_for_messages)
         self.listen_thread.start()
 
-    def listen_for_messages(self) -> Generator[str, None, None]:
+        @self._app.command("/run")  # type: ignore [misc]
+        def handle_run_commands(ack: Ack, body: dict) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
+
+        @self._app.command("/cancel")  # type: ignore [misc]
+        def handle_cancel_commands(ack: Ack, body: dict) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
+
+        @self._app.command("/progress")  # type: ignore [misc]
+        def handle_progress_commands(ack: Ack, body: dict) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
+
+        self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
+
+    def start(self) -> None:
+        """Start the SlackBot."""
+        logging.info("SlackBot -> starting 'SocketModeHandler'...")
+        self.handler.start()
+
+    def send_message(self, message: str) -> None:
+        """Send a message to a channel."""
+        logging.info(f"SlackBot -> sending message: {message}")
+
+        # if the message was serialized from a dictionary
+        # (e.g. {"icon_emoji": ":smile:", "text": "Hello!"})
+        try:
+            message_data = cast(dict, json.loads(message))
+            icon_emoji = message_data.get("icon_emoji", "")
+            text = message_data.get("text", "")
+        except json.JSONDecodeError:
+            text = message
+            icon_emoji = ""
+
+        try:
+            response = self._slack_client.chat_postMessage(
+                channel=CHANNEL_ID,
+                text=text,
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"{icon_emoji} {text}"},
+                    }
+                ],
+            )
+            assert response["ok"]
+        except SlackApiError as e:
+            msg = f"Failed to send message: {e.response['error']}"
+            logging.error(f"SlackBot -> {msg}")
+
+    def _forward_command(self, command: str) -> None:
+        """Forward the command out of the process."""
+        logging.info(f"SlackBot -> forwarding command: {command}")
+        sys.stdout.write(json.dumps(command))
+        sys.stdout.flush()
+
+    def _listen_for_messages(self) -> None:
         """Listen for messages from stdin."""
         logging.info(
             f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"
@@ -91,20 +153,8 @@ class SlackBot:
         while True:
             if message := sys.stdin.readline().strip():
                 logging.info(f"SlackBot -> (listening) message received: {message}")
-                logging.info(f"SlackBot -> (listening) forewarding message: {message}")
+                logging.info(f"SlackBot -> (listening) forwarding message: {message}")
                 self.send_message(message)
-
-    def send_message(self, message: str) -> None:
-        """Send a message to a channel."""
-        logging.info(f"SlackBot -> sending message: {message}")
-        try:
-            response = self._slack_client.chat_postMessage(
-                channel=CHANNEL_ID, text=message
-            )
-            assert response["ok"]
-        except SlackApiError as e:
-            msg = f"Failed to send message: {e.response['error']}"
-            logging.error(f"SlackBot -> {msg}")
 
 
 if __name__ == "__main__":
