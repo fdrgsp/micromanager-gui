@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import warnings
 from typing import Any
@@ -51,7 +52,7 @@ class SlackBotProcess(QProcess):
 
         self.send_message(
             {
-                "emoji": MICROSCOPE,
+                "icon_emoji": MICROSCOPE,
                 "text": "Hello from Eve, the MicroManager's SlackBot!\n"
                 "- `/run` -> Start the MDA Sequence\n"
                 "- `/cancel` -> Cancel the current MDA Sequence\n"
@@ -68,9 +69,9 @@ class SlackBotProcess(QProcess):
         logging.info(f"SlackBotProcess -> received: '{message}'")
 
         if isinstance(message, dict):
-            emoji = message.get("emoji", "")
             text = message.get("text", "")
-            message = f"{emoji} {text}"
+            emoji = message.get("icon_emoji", "")
+            message = json.dumps({"icon_emoji": emoji, "text": text})
 
         # send message to the process with a newline
         self.write((message + "\n").encode())

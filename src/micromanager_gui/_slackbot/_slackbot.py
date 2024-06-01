@@ -6,7 +6,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Generator
+from typing import TYPE_CHECKING, Callable, cast
 
 from dotenv import load_dotenv
 from slack_bolt import App
@@ -115,9 +115,27 @@ class SlackBot:
     def send_message(self, message: str) -> None:
         """Send a message to a channel."""
         logging.info(f"SlackBot -> sending message: {message}")
+
+        # if the message was serialized from a dictionary
+        # (e.g. {"icon_emoji": ":smile:", "text": "Hello!"})
+        try:
+            message_data = cast(dict, json.loads(message))
+            icon_emoji = message_data.get("icon_emoji", "")
+            text = message_data.get("text", "")
+        except json.JSONDecodeError:
+            text = message
+            icon_emoji = ""
+
         try:
             response = self._slack_client.chat_postMessage(
-                channel=CHANNEL_ID, text=message
+                channel=CHANNEL_ID,
+                text=text,
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"{icon_emoji} {text}"},
+                    }
+                ],
             )
             assert response["ok"]
         except SlackApiError as e:
@@ -130,7 +148,7 @@ class SlackBot:
         sys.stdout.write(json.dumps(command))
         sys.stdout.flush()
 
-    def _listen_for_messages(self) -> Generator[str, None, None]:
+    def _listen_for_messages(self) -> None:
         """Listen for messages from stdin."""
         logging.info(
             f"SlackBot -> Listening thread started: {self.listen_thread.is_alive()}"

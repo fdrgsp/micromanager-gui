@@ -55,7 +55,6 @@ dev = [
     "python-dotenv",
     "slack_bolt",
     "slack_sdk",
-    "emoji",
 ]
 
 [project.urls]
