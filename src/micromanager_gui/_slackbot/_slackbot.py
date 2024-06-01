@@ -6,7 +6,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
 
 from dotenv import load_dotenv
 from slack_bolt import App
@@ -91,17 +91,17 @@ class SlackBot:
         self.listen_thread.start()
 
         @self._app.command("/run")  # type: ignore [misc]
-        def handle_run_commands(ack: Ack, body: dict, say: Callable) -> None:
+        def handle_run_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
         @self._app.command("/cancel")  # type: ignore [misc]
-        def handle_cancel_commands(ack: Ack, body: dict, say: Callable) -> None:
+        def handle_cancel_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
         @self._app.command("/progress")  # type: ignore [misc]
-        def handle_progress_commands(ack: Ack, body: dict, say: Callable) -> None:
+        def handle_progress_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
