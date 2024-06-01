@@ -22,7 +22,6 @@ RUN = "/run"
 CANCEL = "/cancel"
 PROGRESS = "/progress"
 ALLOWED_COMMANDS = {RUN, CANCEL, PROGRESS}
-CLEAR = "clear"
 
 
 # To use the SlackBot you need to have your SLACK_BOT_TOKEN and SLACK_APP_TOKEN;
@@ -164,9 +163,6 @@ class SlackBot:
             if message := sys.stdin.readline().strip():
                 logging.info(f"SlackBot -> (listening) message received: {message}")
                 logging.info(f"SlackBot -> (listening) forwarding message: {message}")
-                if message == CLEAR:
-                    self._clear_chat()
-                    return
                 self.send_message(message)
 
     def _clear_chat(self) -> None:
