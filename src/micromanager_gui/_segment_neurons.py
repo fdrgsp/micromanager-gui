@@ -1,18 +1,10 @@
-import logging
 import multiprocessing as mp
 from multiprocessing import Process
 
 import numpy as np
 import useq
 from pymmcore_plus import CMMCorePlus
-from rich.logging import RichHandler
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler()],
-)
+from pymmcore_plus._logger import logger
 
 
 class SegmentNeurons:
@@ -40,7 +32,7 @@ class SegmentNeurons:
             target=_segmentation_worker, args=(self._queue,)
         )
 
-        logging.info("SegmentNeurons -> Starting segmentation worker...")
+        logger.info("SegmentNeurons -> Starting segmentation worker...")
         # start the segmentation process
         self._segmentation_process.start()
 
@@ -50,7 +42,7 @@ class SegmentNeurons:
         if t_index is not None and t_index == 0:
             # send the image to the segmentation process
             self._queue.put(image)
-            logging.info(f"SegmentNeurons -> Sending image to segment: {event.index}")
+            logger.info(f"SegmentNeurons -> Sending image to segment: {event.index}")
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         self._is_running = False
@@ -60,7 +52,7 @@ class SegmentNeurons:
         if self._segmentation_process is not None:
             self._segmentation_process.join()
         self._segmentation_process = None
-        logging.info("SegmentNeurons -> Segmentation worker stopped.")
+        logger.info("SegmentNeurons -> Segmentation worker stopped.")
 
 
 # this must not be part of the SegmentNeurons class
@@ -75,4 +67,4 @@ def _segmentation_worker(queue: mp.Queue) -> None:
 
 def _segment_image(image: np.ndarray) -> None:
     """Segment the image."""
-    logging.info(f"SegmentNeurons -> Segmenting image: {image.shape}")
+    logger.info(f"SegmentNeurons -> Segmenting image: {image.shape}")
