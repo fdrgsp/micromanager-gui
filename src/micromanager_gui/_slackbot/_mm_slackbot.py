@@ -2,18 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from qtpy.QtCore import QObject, Signal
-from rich.logging import RichHandler
 
 from ._slackbot_process import SlackBotProcess
 
 logging.basicConfig(
+    filename=Path(__file__).parent / "slackbot.log",
     level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler()],
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 

@@ -8,13 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from qtpy.QtCore import QProcess, Signal, Slot
-from rich.logging import RichHandler
 
 logging.basicConfig(
+    filename=Path(__file__).parent / "slackbot.log",
     level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler()],
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 
