@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from typing import Any
 
 from qtpy.QtCore import QProcess, Signal, Slot
 from rich.logging import RichHandler
@@ -52,13 +53,19 @@ class SlackBotProcess(QProcess):
             f"{MICROSCOPE} Hello from Eve, the MicroManager's SlackBot! {MICROSCOPE}"
         )
 
-    def send_message(self, message: str) -> None:
+    def send_message(self, message: str | dict[str, Any]) -> None:
         """Send a message to the process.
 
         The message is written to the process's stdin so that it can be read by the
         process and sent to the Slack channel.
         """
         logging.info(f"SlackBotProcess -> received: '{message}'")
+
+        if isinstance(message, dict):
+            emoji = message.get("emoji", "")
+            text = message.get("text", "")
+            message = f"{emoji} {text} {emoji}"
+
         # send message to the process with a newline
         self.write((message + "\n").encode())
         # ensure the bytes are written

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from qtpy.QtCore import QObject, Signal
 from rich.logging import RichHandler
@@ -29,7 +30,7 @@ class MMSlackBot(QObject):
         self._slack_process.messageReceived.connect(self.handle_message_events)
         self._slack_process.start()
 
-    def send_message(self, message: str) -> None:
+    def send_message(self, message: str | dict[str, Any]) -> None:
         """Send a message to the Slack channel."""
         self._slack_process.send_message(message)
 
