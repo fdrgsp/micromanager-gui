@@ -23,11 +23,16 @@ VIEWER_TEMP_DIR = None
 NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
 NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
 
-STATUS = "\U0001f4c4"
-WARNING = "\U000026a0"
-CANCEL = "\U0000274c"
-RUN = "\U0001f680"
-FINISHED = "\U0001f3c1"
+STATUS = "status"
+RUN = "run"
+STOP = "stop"
+CANCEL = "cancel"
+
+STATUS_EMOJI = "\U0001f4c4"
+WARNING_EMOJI = "\U000026a0"
+CANCEL_EMOJI = "\U0000274c"
+RUN_EMOJI = "\U0001f680"
+FINISHED_EMOJI = "\U0001f3c1"
 
 
 class CoreViewersLink(QObject):
@@ -89,21 +94,28 @@ class CoreViewersLink(QObject):
             return
 
         text = text.lower()
-        if text == "status":
+        if text == STATUS:
             if not self._mda_running:
-                self._slackbot.send_message("⚠️ No MDA Sequence running! ⚠️")
+                self._slackbot.send_message(
+                    {"emoji": WARNING_EMOJI, "text": "No MDA Sequence running!"}
+                )
                 return
+            info = str(self._current_event_index).replace("{", "").replace("}", "")
             self._slackbot.send_message(
-                f"{STATUS} Status {STATUS} -> {self._current_event_index}"
+                {"emoji": STATUS_EMOJI, "text": f"Status -> {info}"}
             )
-        elif text == "run":
+        elif text == RUN:
             if self._mda_running:
-                self._slackbot.send_message("⚠️ MDA Sequence already running! ⚠️")
+                self._slackbot.send_message(
+                    {"emoji": WARNING_EMOJI, "text": "MDA Sequence already running!"}
+                )
                 return
             self._mda.run_mda()
-        elif text in {"stop", "cancel"}:
+        elif text in {STOP, CANCEL}:
             if not self._mda_running:
-                self._slackbot.send_message("⚠️ No MDA Sequence running! ⚠️")
+                self._slackbot.send_message(
+                    {"emoji": WARNING_EMOJI, "text": "No MDA Sequence running!"}
+                )
                 return
             self._mmc.mda.cancel()
 
@@ -129,10 +141,7 @@ class CoreViewersLink(QObject):
         """Called when the MDA sequence is cancelled."""
         # slack bot message
         if self._slackbot is not None:
-            file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slackbot.send_message(
-                f"{CANCEL} MDA Sequence Cancelled! (file: {file_name}) {CANCEL}"
-            )
+            self._send_message(sequence, CANCEL_EMOJI, "MDA Sequence Cancelled!")
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         """Called when the MDA sequence is started."""
@@ -151,10 +160,7 @@ class CoreViewersLink(QObject):
 
         # slack bot message
         if self._slackbot is not None:
-            file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slackbot.send_message(
-                f"{RUN} MDA Sequence Started! (file: {file_name}) {RUN}"
-            )
+            self._send_message(sequence, RUN_EMOJI, "MDA Sequence Started!")
 
     def _setup_viewer(self, sequence: useq.MDASequence) -> None:
         """Setup the MDAViewer."""
@@ -209,11 +215,7 @@ class CoreViewersLink(QObject):
 
         # slack bot message
         if self._slackbot is not None:
-            file_name = sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("save_name")
-            self._slackbot.send_message(
-                f"{FINISHED} MDA Sequence Finished! (file: {file_name}) {FINISHED}"
-            )
-
+            self._send_message(sequence, FINISHED_EMOJI, "MDA Sequence Finished!")
         if self._current_viewer is None:
             return
 
@@ -226,6 +228,17 @@ class CoreViewersLink(QObject):
         self._disconnect_viewer(self._current_viewer)
 
         self._current_viewer = None
+
+    def _send_message(self, sequence: useq.MDASequence, emoji: str, text: str) -> None:
+        """Send a message to the slack channel."""
+        if self._slackbot is None:
+            return
+
+        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        file_name = meta.get("save_name") or "not saved"
+        self._slackbot.send_message(
+            {"emoji": emoji, "text": f"{text} (file: {file_name})"}
+        )
 
     def _connect_viewer(self, viewer: MDAViewer) -> None:
         self._mmc.mda.events.sequenceFinished.connect(viewer.data.sequenceFinished)

@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
 PYMMCW_METADATA_KEY = "pymmcore_widgets"
 STIMULATION = "stimulation"
-WARNING = "\U000026a0"
-ALARM = "\U0001f6a8"
+WARNING_EMOJI = "\U000026a0"
+ALARM_EMOJI = "\U0001f6a8"
 
 
 class ArduinoEngine(MDAEngine):
@@ -100,7 +100,10 @@ class ArduinoEngine(MDAEngine):
                 self._af_succeeded = False
                 if self._slackbot is not None:
                     self._slackbot.send_message(
-                        f"{WARNING} Hardware autofocus failed: {e}! {WARNING}"
+                        {
+                            "emoji": WARNING_EMOJI,
+                            "text": f"Hardware autofocus failed: {e}!",
+                        }
                     )
             else:
                 # store correction for this position index
@@ -190,7 +193,9 @@ class ArduinoEngine(MDAEngine):
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
             if self._slackbot is not None:
-                self._slackbot.send_message(f"{ALARM} Buffer Overflowed! {ALARM}")
+                self._slackbot.send_message(
+                    {"emoji": WARNING_EMOJI, "text": "Buffer Overflowed!"}
+                )
             raise MemoryError("Buffer overflowed")
 
         while self._mmc.getRemainingImageCount():
