@@ -15,9 +15,9 @@ logging.basicConfig(
 )
 
 
-ROBOT = "\U0001f916"
-ALARM = "\U0001f6a8"
-MICROSCOPE = "\U0001f52c"
+ROBOT = ":robot:"
+ALARM = ":rotating_light:"
+MICROSCOPE = ":microscope:"
 
 
 class SlackBotProcess(QProcess):
@@ -50,7 +50,13 @@ class SlackBotProcess(QProcess):
             logging.info(f"SlackBotProcess -> {ROBOT} SlackBotProcess started! {ROBOT}")
 
         self.send_message(
-            f"{MICROSCOPE} Hello from Eve, the MicroManager's SlackBot! {MICROSCOPE}"
+            {
+                "emoji": MICROSCOPE,
+                "text": "Hello from Eve, the MicroManager's SlackBot!\n"
+                "- `/run` -> Start the MDA Sequence\n"
+                "- `/cancel` -> Cancel the current MDA Sequence\n"
+                "- `/progress` -> Get the current MDA Sequence progress",
+            }
         )
 
     def send_message(self, message: str | dict[str, Any]) -> None:
@@ -64,7 +70,7 @@ class SlackBotProcess(QProcess):
         if isinstance(message, dict):
             emoji = message.get("emoji", "")
             text = message.get("text", "")
-            message = f"{emoji} {text} {emoji}"
+            message = f"{emoji} {text}"
 
         # send message to the process with a newline
         self.write((message + "\n").encode())
