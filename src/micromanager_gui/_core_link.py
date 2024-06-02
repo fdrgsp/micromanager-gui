@@ -33,11 +33,8 @@ CANCEL_EMOJI = ":x:"
 RUN_EMOJI = ":rocket:"
 FINISHED_EMOJI = ":checkered_flag:"
 
-NO_SEQ_MSG = {"icon_emoji": WARNING_EMOJI, "text": "No MDA Sequence running!"}
-ALREADY_RUNNING_MSG = {
-    "icon_emoji": WARNING_EMOJI,
-    "text": "MDA Sequence already running!",
-}
+NOT_RUNNING_MSG = {"icon_emoji": WARNING_EMOJI, "text": "No MDA Sequence running!"}
+RUNNING_MSG = {"icon_emoji": WARNING_EMOJI, "text": "MDA Sequence already running!"}
 
 
 def _progress_message(event: useq.MDAEvent) -> dict[str, Any]:
@@ -108,19 +105,19 @@ class CoreViewersLink(QObject):
         text = text.lower()
         if text == PROGRESS:
             if not self._mda_running:
-                self._slackbot.send_message(NO_SEQ_MSG)
+                self._slackbot.send_message(NOT_RUNNING_MSG)
                 return
             self._slackbot.send_message(_progress_message(self._current_event))
 
         elif text == RUN:
             if self._mda_running:
-                self._slackbot.send_message(ALREADY_RUNNING_MSG)
+                self._slackbot.send_message(RUNNING_MSG)
                 return
             self._mda.run_mda()
 
         elif text == CANCEL:
             if not self._mda_running:
-                self._slackbot.send_message(NO_SEQ_MSG)
+                self._slackbot.send_message(NOT_RUNNING_MSG)
                 return
             self._mmc.mda.cancel()
 
