@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Mapping, cast
 
 import useq
 import zarr
+from tifffile import imwrite
+from tqdm import tqdm
 
 if TYPE_CHECKING:
     import numpy as np
@@ -75,7 +78,7 @@ class OMEZarrReader:
         return self._sequence
 
     def isel(
-        self, indexers: dict[str, int], metadata: bool = False
+        self, indexers: Mapping[str, int], metadata: bool = False
     ) -> np.ndarray | tuple[np.ndarray, dict]:
         """Select data from the array.
 
@@ -102,6 +105,65 @@ class OMEZarrReader:
             meta = self._get_metadata_from_index(indexers, pos_key)
             return data, meta
         return data
+
+    def write_tiff(
+        self,
+        path: str | Path,
+        indexers: Mapping[str, int] | list[Mapping[str, int]] | None = None,
+    ) -> None:
+        """Write the data to a tiff file.
+
+        Parameters
+        ----------
+        path : str | Path
+            The path to the tiff file. If `indexers` is a Mapping of axis and index,
+            the path should be a file path (e.g. 'path/to/file.tif'). Otherwise, it
+            should be a directory path (e.g. 'path/to/directory').
+        indexers : Mapping[str, int] | list[Mapping[str, int]] | None
+            The indexers to select the data. If None, write all the data per position
+            to a tiff file. If a list of Mapping of axis and index
+            (e.g. [{"p": 0, "t": 1}, {"p": 1, "t": 0}]), write the data for the given
+            indexes to a tiff file. If a Mapping of axis and index (e.g.
+            {"p": 0, "t": 1}), write the data for the given index to a tiff file.
+        """
+        if indexers is None:
+            keys = [
+                key
+                for key in self.store.keys()
+                if key.startswith("p") and key[1:].isdigit()
+            ]
+            if pos := len(keys):
+                if not Path(path).exists():
+                    Path(path).mkdir(parents=True, exist_ok=False)
+                with tqdm(total=pos) as pbar:
+                    for i in range(pos):
+                        data, metadata = self.isel({"p": i}, metadata=True)
+                        imwrite(Path(path) / f"p{i}.tif", data, imagej=True)
+                        # save metadata as json
+                        dest = Path(path) / f"p{i}.json"
+                        dest.write_text(json.dumps(metadata))
+                        pbar.update(1)
+
+        elif isinstance(indexers, list):
+            if not Path(path).exists():
+                Path(path).mkdir(parents=True, exist_ok=False)
+            for index in indexers:
+                data, metadata = self.isel(index, metadata=True)
+                name = "_".join(f"{k}{v}" for k, v in index.items())
+                imwrite(Path(path) / f"{name}.tif", data, imagej=True)
+                # save metadata as json
+                dest = Path(path) / f"{name}.json"
+                dest.write_text(json.dumps(metadata))
+
+        else:
+            data, metadata = self.isel(indexers, metadata=True)
+            imj = len(data.shape) <= 5
+            if Path(path).suffix not in {".tif", ".tiff"}:
+                path = Path(path).with_suffix(".tiff")
+            imwrite(path, data, imagej=imj)
+            # save metadata as json
+            dest = Path(path).with_suffix(".json")
+            dest.write_text(json.dumps(metadata))
 
     # ___________________________Private Methods___________________________
 
