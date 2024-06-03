@@ -89,10 +89,13 @@ class OMEZarrReader:
             If True, return the metadata as well as a list of dictionaries. By default,
             False.
         """
-        # add the position axis if not present
-        if "p" not in indexers:
-            indexers["p"] = 0
-        pos_key = f"p{indexers['p']}"
+        if len(self.store.keys()) > 1 and "p" not in indexers:
+            raise ValueError(
+                "The indexers should contain the 'p' axis since the zarr store has "
+                "more than one position."
+            )
+
+        pos_key = f"p{indexers.get('p', 0)}"
         index = self._get_axis_index(indexers, pos_key)
         data = self.store[pos_key][index].squeeze()
         if metadata:
@@ -106,19 +109,19 @@ class OMEZarrReader:
         self, indexers: Mapping[str, int], pos_key: str
     ) -> tuple[object, ...]:
         """Return a tuple to index the data for the given axis."""
-        axis_order = self.store[pos_key].attrs.get(ARRAY_DIMS)  # ['t','c','y','x']
-        # add p if not in the axis order
-        if "p" not in axis_order:
-            axis_order = ["p", *axis_order]
+        axis_order = self.store[pos_key].attrs.get(ARRAY_DIMS, [])  # ['t','c','y','x']
         # remove x and y from the axis order
         if "x" in axis_order:
             axis_order.remove("x")
         if "y" in axis_order:
             axis_order.remove("y")
 
-        # if any of the indexers are not in the axis order, raise an error
-        if not set(indexers.keys()).issubset(set(axis_order)):
-            raise ValueError(f"Invalid axis in indexers: {indexers}, {axis_order}")
+        # if any of the indexers are not in the axis order, raise an error, NOTE: we
+        # add "p" to the axis order since the ome-zarr is saved per position
+        if not set(indexers.keys()).issubset({"p", *axis_order}):
+            raise ValueError(
+                f"Invalid axis in indexers {indexers}: available {axis_order}"
+            )
 
         # get the correct index for the axis
         # e.g. (slice(None), 1, slice(None), slice(None))
