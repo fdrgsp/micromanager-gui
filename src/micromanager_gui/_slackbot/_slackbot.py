@@ -71,10 +71,10 @@ else:
 
 
 class SlackBot:
-    """Class that will be called when the process is started.
+    """SlackBot class to send messages to a Slack channel.
 
-    The 'handle_message_events' method with the '@app.event("message")' decorator
-    will be called every time a message event is received in the slack channel.
+    The 'handle_x_commands' method with the '@app.app.command(n)' decorator
+    will be called every time a command (/command) is received in the slack channel.
 
     The message event is then written to 'stdout' so that in the 'SlackBotProcess'
     class (_slackbot_process_class.py) the message can be read from the process and
