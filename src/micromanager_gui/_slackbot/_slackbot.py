@@ -17,7 +17,6 @@ from slack_sdk.errors import SlackApiError
 if TYPE_CHECKING:
     from slack_bolt.context.ack import Ack
 
-CHANNEL_ID = "C074WAU4L3Z"  # calcium
 RUN = "/run"
 CANCEL = "/cancel"
 PROGRESS = "/progress"
@@ -28,11 +27,12 @@ ALLOWED_COMMANDS = {RUN, CANCEL, PROGRESS}
 # you can follow this instruction to setup your Slack app:
 # https://slack.dev/bolt-python/tutorial/getting-started.
 
-# After that, you can either set the environment variables SLACK_BOT_TOKEN and
-# SLACK_APP_TOKEN (e.g. in your terminal type `export SLACK_BOT_TOKEN=your_token` and
-# `export SLACK_APP_TOKEN=your_token`) or create a `.env` file in the _slackbot folder
-# of the project with both the tokens (e.g.SLACK_BOT_TOKEN=your_token and
-# SLACK_APP_TOKEN=your_token).
+# After that, you can either set the environment variables SLACK_BOT_TOKEN,
+# SLACK_APP_TOKEN and CHANNEL _ID (e.g. in your terminal type `export SLACK_BOT_TOKEN=
+# your_token`, `export SLACK_APP_TOKEN=your_token`, CHANNEL_ID=your_channel_id) or
+# create a `.env` file in the root folder of this project with both the tokens and the
+# channel_id(e.g.SLACK_BOT_TOKEN=your_token,  SLACK_APP_TOKEN=your_token and CHANNEL_ID=
+# your_channel_id).
 
 logging.basicConfig(
     filename=Path(__file__).parent / "slackbot.log",
@@ -68,6 +68,13 @@ if SLACK_APP_TOKEN is None:
     raise ValueError(app_token_error)
 else:
     logging.info("SlackBot -> 'SLACK_APP_TOKEN' set correctly!")
+
+logging.info("SlackBot -> getting 'CHANNEL_ID' from environment variables...")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+if CHANNEL_ID is None:
+    channel_id_error = "SlackBot -> 'CHANNEL_ID' is not found!"
+    logging.error(channel_id_error)
+    raise ValueError(channel_id_error)
 
 
 class SlackBot:
