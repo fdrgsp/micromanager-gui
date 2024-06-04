@@ -1,17 +1,23 @@
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import useq
-from pymmcore_plus import CMMCorePlus
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
-from pytestqt.qtbot import QtBot
 
 from micromanager_gui import MicroManagerGUI
 from micromanager_gui._menubar._menubar import DOCKWIDGETS, WIDGETS
 from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pymmcore_plus import CMMCorePlus
+    from pytestqt.qtbot import QtBot
 
 
 # _run_after_each_test not using because it gives an error (to fix)
