@@ -162,7 +162,7 @@ def test_ome_zarr_reader(qtbot: QtBot, global_mmcore: CMMCorePlus, tmp_path: Pat
     assert z.isel({"p": 0, "t": 0}).shape == (2, 512, 512)
 
 
-# NOTE: this works only if we use the internal _TensorStoreHandler, in the "calcium"
+# NOTE: this works only if we use the internal _TensorStoreHandler
 # branch. TODO: fix the main TensorStoreHandler because it does not write the ".zattrs"
 def test_tensorstore_reader(qtbot: QtBot, global_mmcore: CMMCorePlus, tmp_path: Path):
     mda = useq.MDASequence(
