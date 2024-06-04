@@ -54,7 +54,7 @@ For example:
 python -m micromanager_gui -c path/to/config.cfg -s True
 ```
  
-To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your Slack App and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particuler, go through the `Create an app`, `Tokens and installing apps`, `Setting up your project` and `Setting up events` sections.
+To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your Slack App and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particular, go through the `Create an app`, `Tokens and installing apps`, `Setting up your project` and `Setting up events` sections.
 
 The `OAuth & Permissions` Scope required are:
 
