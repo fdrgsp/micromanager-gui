@@ -90,6 +90,7 @@ class MicroManagerGUI(QMainWindow):
         """Override the closeEvent method to stop the SlackBotProcess."""
         if self._slackbot is not None:
             self._slackbot._slack_process.stop()
+        self.deleteLater()
         super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
