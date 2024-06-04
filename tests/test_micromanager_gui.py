@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_load_gui(qtbot: QtBot, global_mmcore: CMMCorePlus):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
@@ -33,7 +32,6 @@ def test_load_gui(qtbot: QtBot, global_mmcore: CMMCorePlus):
     assert gui._core_link._mda_running is False
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_menu_wdg(qtbot: QtBot, global_mmcore: CMMCorePlus):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
@@ -45,7 +43,6 @@ def test_menu_wdg(qtbot: QtBot, global_mmcore: CMMCorePlus):
     assert len(menu._widgets.keys()) == len(WIDGETS) + len(DOCKWIDGETS)
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_menu_viewer(qtbot: QtBot, global_mmcore: CMMCorePlus):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
@@ -70,7 +67,6 @@ def test_menu_viewer(qtbot: QtBot, global_mmcore: CMMCorePlus):
     assert gui._core_link._viewer_tab.tabText(1) == "MDA4"
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_snap(qtbot: QtBot, global_mmcore: CMMCorePlus):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
@@ -85,7 +81,6 @@ def test_snap(qtbot: QtBot, global_mmcore: CMMCorePlus):
     assert gui._core_link._preview._image_preview.image._data.shape
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_live(qtbot: QtBot, global_mmcore: CMMCorePlus):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
@@ -102,7 +97,6 @@ def test_live(qtbot: QtBot, global_mmcore: CMMCorePlus):
     assert not global_mmcore.isSequenceRunning()
 
 
-# _run_after_each_test not using because it gives an error (to fix)
 def test_mda_viewer(qtbot: QtBot, global_mmcore: CMMCorePlus, tmp_path: Path):
     gui = MicroManagerGUI(mmcore=global_mmcore)
     qtbot.addWidget(gui)
