@@ -26,7 +26,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@calcium",
+    "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@viewer_v2_and_tensorstore",
     "pymmcore-plus@git+https://github.com/fdrgsp/pymmcore-plus.git@add_tensorstore_to_runner",
     "qtpy",
     "vispy",
@@ -34,14 +34,18 @@ dependencies = [
     "tifffile",
     "tqdm",
     "pyyaml",
-    "pyfirmata2",
     "rich",
+    "pyyaml"
 ]
 
 # extras
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
 [project.optional-dependencies]
-test = ["pytest>=6.0", "pytest-cov"]
+test = ["pytest>=6.0", "pytest-cov", "pytest-qt"]
+pyqt5 = ["PyQt5"]
+pyside2 = ["PySide2"]
+pyqt6 = ["PyQt6"]
+pyside6 = ["PySide6<6.5"]
 dev = [
     "black",
     "ipython",
@@ -174,5 +178,5 @@ ignore = [
 # [tool.cibuildwheel.environment]
 # HATCH_BUILD_HOOKS_ENABLE = "1"
 
-[tool.typos.default]
+[tool.typos.default] 
 extend-ignore-identifiers-re = ["(?i)nd2?.*", "(?i)ome"]

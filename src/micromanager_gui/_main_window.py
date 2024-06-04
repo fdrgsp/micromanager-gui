@@ -20,7 +20,7 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
-from ._mmcore_engine._engine import ArduinoEngine
+from ._mmcore_engine._engine import Engine
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
@@ -38,6 +38,7 @@ class MicroManagerGUI(QMainWindow):
         slackbot: bool = False,
     ) -> None:
         super().__init__(parent)
+        self.setAcceptDrops(True)
 
         # slack bot to handle slack messages
         self._slackbot = MMSlackBot() if slackbot else None
@@ -56,7 +57,7 @@ class MicroManagerGUI(QMainWindow):
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
-        self._mmc.mda.set_engine(ArduinoEngine(self._mmc, slackbot=self._slackbot))
+        self._mmc.mda.set_engine(Engine(self._mmc, slackbot=self._slackbot))
 
         # central widget
         central_wdg = QWidget(self)

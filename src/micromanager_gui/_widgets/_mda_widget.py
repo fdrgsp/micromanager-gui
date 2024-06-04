@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from pymmcore_plus.mda.handlers import OMEZarrWriter
+from pymmcore_plus.mda.handlers import (
+    OMEZarrWriter,
+)
 from pymmcore_widgets.mda import MDAWidget
-from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.mda._save_widget import (
     OME_TIFF,
     OME_ZARR,
@@ -70,31 +71,6 @@ class _MDAWidget(MDAWidget):
             and not self._confirm_af_intentions()
         ):
             return
-
-        # Arduino checks______________________________________________________________
-        # hide the Arduino LED control widget if visible
-        self._arduino_led_wdg._arduino_led_control.hide()
-        if not self._arduino_led_wdg.isChecked():
-            self._set_arduino_props(None, None)
-        else:
-            # check if power exceeded
-            if self._arduino_led_wdg.is_max_power_exceeded():
-                self._set_arduino_props(None, None)
-                self._show_critical_led_message(POWER_EXCEEDED_MSG)
-                return
-
-            # check if the Arduino and the LED pin are available
-            arduino = self._arduino_led_wdg.board()
-            led = self._arduino_led_wdg.ledPin()
-            if arduino is None or led is None or not self._test_arduino_connection(led):
-                self._set_arduino_props(None, None)
-                self._arduino_led_wdg._arduino_led_control._enable(False)
-                self._show_critical_led_message(CRITICAL_MSG)
-                return
-
-            # enable the Arduino board and the LED pin in the MDA engine
-            self._set_arduino_props(arduino, led)
-        # _____________________________________________________________________________
 
         sequence = self.value()
 
