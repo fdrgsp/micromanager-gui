@@ -42,8 +42,9 @@ logging.basicConfig(
 logging.info("Starting...")
 
 # add environment variables from .env file
-ENV_PATH = Path(__file__).parent / ".env"
+ENV_PATH = Path(__file__).parent.parent.parent.parent / ".env"
 if ENV_PATH.exists():
+    logging.info(f"SlackBot -> loading '.env' file at {ENV_PATH}...")
     loaded = load_dotenv(ENV_PATH)
     if not loaded:
         env_error_msg = f"SlackBot -> Failed to load '.env' file at {ENV_PATH}!"

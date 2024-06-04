@@ -43,3 +43,36 @@ By passing the `-c` or `-config` flag, you can specify the path of a micromanage
 ```bash
 python -m micromanager_gui -c path/to/config.cfg
 ```
+
+## To run the GUI with SlackBot
+
+By passing the `-s` or `-slack` boolean flag, you will be able to use a `SlackBot` to control the microscope. In particular, you will be able to start and stop the acquisition and to get the progress of the acquisition.
+
+For example:
+
+```bash
+python -m micromanager_gui -c path/to/config.cfg -s True
+```
+
+To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your Slack App and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particuler, go through the `Create an app`, `Tokens and installing apps`, `Setting up your project` and `Setting up events` sections.
+
+The `OAuth & Permissions` Scope required are:
+- channels:history
+- channels:read
+- chat:write
+- commands
+- groups:read
+
+The `Event Subscriptions` (Subscribe to bot events) required are:
+- message.channels (message.groups if you want to use private channels)
+
+Since this `SlackBot` comunicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
+- `/run`: Start the MDA Sequence
+- `/cancel`: Cancel the current MDA Sequence
+- `/progress`: Get the current MDA Sequence progress
+- `/clear`: Clear the chat from the SlackBot messages
+
+Now that you have your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`, you can either create a `.env` file in the root of this project containing the `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` variables (e.g. `SLACK_BOT_TOKEN=xoxb-...` and `SLACK_APP_TOKEN=xapp...`) or set them as global environment variables (e.g. `export SLACK_BOT_TOKEN=xoxb-...` and
+`export SLACK_APP_TOKEN=xapp...`).
+
+After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and start using the `Slack commands` to interact with the microscope.
