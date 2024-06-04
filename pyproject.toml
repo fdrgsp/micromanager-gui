@@ -35,7 +35,8 @@ dependencies = [
     "tqdm",
     "pyyaml",
     "rich",
-    "pyyaml"
+    "pyyaml",
+    "slack_bolt"
 ]
 
 # extras
