@@ -91,6 +91,14 @@ class MicroManagerGUI(QMainWindow):
         if self._slackbot is not None:
             self._slackbot._slack_process.stop()
         self.deleteLater()
+
+        # delete any remaining widgets
+        from qtpy.QtWidgets import QApplication
+
+        if qapp := QApplication.instance():
+            if remaining := qapp.topLevelWidgets():
+                for w in remaining:
+                    w.deleteLater()
         super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
