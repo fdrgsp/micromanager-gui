@@ -36,6 +36,7 @@ dependencies = [
     "pyyaml",
     "pyfirmata2",
     "rich",
+    "slack_bolt",
 ]
 
 # extras
