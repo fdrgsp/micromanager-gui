@@ -212,9 +212,6 @@ class CoreViewersLink(QObject):
         self._mda_running = False
         self._current_event = None
 
-        # reset the mda writer to None
-        self._mda.writer = None
-
         # slack bot message
         if self._slackbot is not None:
             self._send_message(sequence, FINISHED_EMOJI, "MDA Sequence Finished!")
