@@ -13,7 +13,7 @@ A Micro-Manager minimal GUI based on [pymmcore-widgets](https://pymmcore-plus.gi
 
 ## Python version
 
-The package is tested on Python 3.10 and 3.11/
+The package is tested on Python 3.10 and 3.11.
 
 ## Installation
 
