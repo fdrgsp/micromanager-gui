@@ -48,9 +48,6 @@ class MicroManagerGUI(QMainWindow):
 
         self.setWindowTitle("Micro-Manager")
 
-        # extend size to fill the screen
-        # self.showMaximized()
-
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
@@ -77,6 +74,9 @@ class MicroManagerGUI(QMainWindow):
         )
 
         # self._segment_neurons = SegmentNeurons(self._mmc)
+
+        # extend size to fill the screen
+        self.showMaximized()
 
         if config is not None:
             try:
