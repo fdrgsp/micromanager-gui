@@ -11,6 +11,9 @@ A Micro-Manager minimal GUI based on [pymmcore-widgets](https://pymmcore-plus.gi
 
 <img width="1840" alt="Screenshot 2024-06-03 at 11 51 08 PM" src="https://github.com/fdrgsp/micromanager-gui/assets/70725613/7c648147-fb18-4b3f-802c-5a074f57e8b0">
 
+## Python version
+
+The package is tested on Python 3.10 and 3.11.
 
 ## Installation
 
