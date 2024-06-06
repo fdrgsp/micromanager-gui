@@ -1,6 +1,7 @@
 import json
+import warnings
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 import numpy as np
 import tensorstore as ts
@@ -62,7 +63,7 @@ class TensorstoreZarrReader:
         return self._store.result()
 
     @property
-    def sequence(self) -> useq.MDASequence:
+    def sequence(self) -> useq.MDASequence | None:
         seq = self._metadata.get("useq_MDASequence")
         return useq.MDASequence(**json.loads(seq)) if seq is not None else None
 
@@ -73,7 +74,7 @@ class TensorstoreZarrReader:
         indexers: Mapping[str, int] | None = None,
         metadata: bool = False,
         **kwargs: Any,
-    ) -> np.ndarray | tuple[np.ndarray, dict]:
+    ) -> np.ndarray | tuple[np.ndarray, list[dict]]:
         """Select data from the array.
 
         Parameters
@@ -106,7 +107,7 @@ class TensorstoreZarrReader:
         if metadata:
             meta = self._get_metadata_from_index(indexers)
             return data, meta
-        return data
+        return cast(np.ndarray, data)
 
     def write_tiff(
         self,
@@ -153,6 +154,13 @@ class TensorstoreZarrReader:
             dest.write_text(json.dumps(metadata))
 
         else:
+            if self.sequence is None:
+                warnings.warn(
+                    "No 'useq.MDASequence' found in the metadata! Cannot determine "
+                    "the number of positions to save the data.",
+                    stacklevel=2,
+                )
+                return
             if pos := len(self.sequence.stage_positions):
                 if not Path(path).exists():
                     Path(path).mkdir(parents=True, exist_ok=False)

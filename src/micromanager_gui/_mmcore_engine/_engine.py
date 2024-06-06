@@ -62,7 +62,7 @@ class ArduinoEngine(MDAEngine):
         self._exec_stimulation.clear()
         if self._arduino_board is not None and self._arduino_led_pin is not None:
             self._setup_stimulation_events(sequence)
-        return super().setup_sequence(sequence)  # type: ignore
+        return super().setup_sequence(sequence)
 
     def _setup_stimulation_events(self, sequence: MDASequence) -> None:
         # switch off the LED if it was on

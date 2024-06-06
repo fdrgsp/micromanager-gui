@@ -9,7 +9,7 @@ from pymmcore_widgets.mda._core_mda import CRITICAL_MSG, POWER_EXCEEDED_MSG
 from pymmcore_widgets.mda._save_widget import (
     OME_TIFF,
     OME_ZARR,
-    WRITERS,
+    TIFF_SEQ,
     ZARR_TESNSORSTORE,
 )
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -17,10 +17,7 @@ from useq import MDASequence
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
 from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
-from micromanager_gui._writers._tiff_sequence import TiffSequenceWriter
-
-OME_TIFFS = tuple(WRITERS[OME_TIFF])
-GB_CACHE = 2_000_000_000  # 2 GB for tensorstore cache
+from micromanager_gui._writers._tiff_sequence import _TiffSequenceWriter
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
@@ -42,7 +39,7 @@ class _MDAWidget(MDAWidget):
         # writer for saving the MDA sequence. This is used by the MDAViewer to set its
         # internal datastore. If _writer is None, the MDAViewer will use its default
         # internal datastore.
-        self.writer: _OMETiffWriter | _OMETiffWriter | _TensorStoreHandler | None = None
+        self.writer: OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None = None
 
         # setContentsMargins
         pos_layout = cast("QVBoxLayout", self.stage_positions.layout())
@@ -98,7 +95,8 @@ class _MDAWidget(MDAWidget):
 
         sequence = self.value()
 
-        # reset the writer
+        # reset the writer. this is the writer that will be used by the MDAViewer to
+        # display and save the data (if requested)
         self.writer = None
 
         # technically, this is in the metadata as well, but isChecked is more direct
@@ -109,49 +107,33 @@ class _MDAWidget(MDAWidget):
             if isinstance(save_path, Path):
                 # get save format from metadata
                 save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-                save_format = save_meta.get("format")
-                # set the writer to use for saving the MDA sequence.
-                # NOTE: 'self._writer' is used by the 'MDAViewer' to set its datastore
-                self.writer = self._create_mda_viewer_writer(save_format, save_path)
-                # at this point, if self.writer is None, it means thet a
-                # TiffSequenceWriter should be used to save the sequence.
-                if self.writer is None:
-                    output = TiffSequenceWriter(save_path)
-                    # Since any other type of writer will be handled by the 'MDAViewer',
-                    # we need to pass a writer to the engine only if it is a
-                    # 'TiffSequenceWriter'.
-                    self._mmc.run_mda(sequence, output=output)
+                save_format = save_meta.get("format", "")
+                writer = self._create_writer(save_path, save_format)
+                # since all the writer but the 'TiffSequenceWriter' will be handled by
+                # the 'MDAViewer', we need to pass the writer to the engine only if it
+                # is a 'TiffSequenceWriter' (and `self.writer` remains None)
+                if isinstance(writer, _TiffSequenceWriter):
+                    self._mmc.run_mda(sequence, output=writer)
                     return
+
+                self.writer = writer
 
         self._mmc.run_mda(sequence)
 
-    def _create_mda_viewer_writer(
-        self, save_format: str, save_path: Path
-    ) -> OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None:
-        """Create a writer for the MDAViewer based on the save format."""
-        # use internal OME-TIFF writer if selected
-        if OME_TIFF in save_format:
-            # if OME-TIFF, save_path should be a directory without extension, so
-            # we need to add the ".ome.tif" to correctly use the _OMETiffWriter
-            if not save_path.name.endswith(OME_TIFFS):
-                save_path = save_path.with_suffix(OME_TIFF)
-            return _OMETiffWriter(save_path)
-        elif OME_ZARR in save_format:
-            return OMEZarrWriter(save_path)
-        elif ZARR_TESNSORSTORE in save_format:
-            return self._create_zarr_tensorstore(save_path)
-        # cannot use the TiffSequenceWriter here because the MDAViewer will not be
-        # able to handle it.
-        return None
-
-    def _create_zarr_tensorstore(self, save_path: Path) -> _TensorStoreHandler:
-        """Create a Zarr TensorStore writer."""
-        return _TensorStoreHandler(
-            driver="zarr",
-            path=save_path,
-            delete_existing=True,
-            spec={"context": {"cache_pool": {"total_bytes_limit": GB_CACHE}}},
-        )
+    def _create_writer(
+        self, path: Path, save_format: str
+    ) -> OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | _TiffSequenceWriter:
+        """Return a writer based on the save format."""
+        if save_format == OME_TIFF:
+            return _OMETiffWriter(path)
+        elif save_format == OME_ZARR:
+            return OMEZarrWriter(path)
+        elif save_format == ZARR_TESNSORSTORE:
+            return _TensorStoreHandler(driver="zarr", path=path, delete_existing=True)
+        elif save_format == TIFF_SEQ:
+            return _TiffSequenceWriter(path)
+        else:
+            raise ValueError(f"Unknown save format: {save_format}")
 
     def _update_save_path_from_metadata(
         self,

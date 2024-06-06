@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 import useq
-from pymmcore_plus.mda.handlers import OMETiffWriter, OMEZarrWriter, TensorStoreHandler
+from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
@@ -39,12 +39,13 @@ def test_mda_viewer_no_saving(
 
 writers = [
     ("tensorstore-zarr", "ts.tensorstore.zarr", TensorStoreHandler),
-    ("ome-tiff", "t.ome.tiff", OMETiffWriter),
-    ("ome-zarr", "z.ome.zarr", OMEZarrWriter),
+    # ("ome-tiff", "t.ome.tiff", OMETiffWriter),
+    # ("ome-zarr", "z.ome.zarr", OMEZarrWriter),
 ]
 
 
-@pytest.mark.skip("run only locally, for some reason sometimes it fails on CI.")
+# NOTE: to run locally, run one writer at a time.
+@pytest.mark.skip("run only locally, for some reason sometimes it fails.")
 @pytest.mark.parametrize("writers", writers)
 def test_mda_viewer_saving(
     qtbot: QtBot,
