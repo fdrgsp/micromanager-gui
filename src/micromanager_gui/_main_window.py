@@ -79,6 +79,9 @@ class MicroManagerGUI(QMainWindow):
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
 
+        # extend size to fill the screen
+        self.showMaximized()
+
         if config is not None:
             try:
                 self._mmc.unloadAllDevices()
