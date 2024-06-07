@@ -46,11 +46,20 @@ class TensorstoreZarrReader:
             "kvstore": {"driver": "file", "path": str(self._path)},
         }
 
-        self._store = ts.open(spec)
+        _store = ts.open(spec).result()
 
         self._metadata: dict = {}
-        if metadata_json := self.store.kvstore.read(".zattrs").result().value:
+        if metadata_json := _store.kvstore.read(".zattrs").result().value:
             self._metadata = json.loads(metadata_json)
+
+        # set the axis labels
+        if self.sequence is not None:
+            # not sure if is x, y or y, x
+            axis_order = [*self.sequence.axis_order, "y", "x"]
+            if len(axis_order) > 2:
+                _store = _store[ts.d[:].label[*axis_order]]
+
+        self._store = _store
 
     @property
     def path(self) -> Path:
@@ -60,7 +69,7 @@ class TensorstoreZarrReader:
     @property
     def store(self) -> ts.TensorStore:
         """Return the tensorstore."""
-        return self._store.result()
+        return self._store
 
     @property
     def sequence(self) -> useq.MDASequence | None:
