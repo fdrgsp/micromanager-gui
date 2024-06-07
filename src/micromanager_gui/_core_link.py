@@ -107,7 +107,8 @@ class CoreViewersLink(QObject):
             if not self._mda_running:
                 self._slackbot.send_message(NOT_RUNNING_MSG)
                 return
-            self._slackbot.send_message(_progress_message(self._current_event))
+            if self._current_event is not None:
+                self._slackbot.send_message(_progress_message(self._current_event))
 
         elif text == RUN:
             if self._mda_running:

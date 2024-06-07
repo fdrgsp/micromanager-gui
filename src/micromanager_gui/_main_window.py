@@ -51,9 +51,6 @@ class MicroManagerGUI(QMainWindow):
 
         self.setWindowTitle("Micro-Manager")
 
-        # extend size to fill the screen
-        # self.showMaximized()
-
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
         # set the engine
@@ -78,6 +75,9 @@ class MicroManagerGUI(QMainWindow):
         self._core_link = CoreViewersLink(
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
+
+        # extend size to fill the screen
+        self.showMaximized()
 
         # extend size to fill the screen
         self.showMaximized()
