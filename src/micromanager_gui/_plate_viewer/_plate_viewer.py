@@ -1,21 +1,25 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 import numpy as np
+import tifffile
 from pymmcore_widgets._stack_viewer_v2 import StackViewer
 from pymmcore_widgets.hcs._graphics_items import Well, _WellGraphicsItem
 from pymmcore_widgets.hcs._plate_model import Plate
 from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
+from pymmcore_widgets.mda._core_mda import HCS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
-from qtpy.QtWidgets import QFileDialog, QGridLayout, QMenuBar, QWidget
+from qtpy.QtWidgets import QGridLayout, QMenuBar, QWidget
 
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
 from ._fov_table import WellInfo, _FOVTable
 from ._image_viewer import _ImageViewer
+from ._init_dialog import InitDialog
 from ._util import show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
@@ -24,9 +28,8 @@ SELECTED_COLOR = QBrush(QColor(GREEN))
 UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
 UNSELECTABLE_COLOR = QBrush(Qt.GlobalColor.darkGray)
 PEN = QPen(Qt.GlobalColor.black)
-PEN.setWidth(1)
+PEN.setWidth(3)
 OPACITY = 0.7
-HCS = "hcs"
 
 
 class PlateViewer(QWidget):
@@ -36,12 +39,13 @@ class PlateViewer(QWidget):
         super().__init__(parent)
 
         self._ts: TensorstoreZarrReader | None = None
+        self._seg: str | None = None
 
         # add menu bar
         self.menu_bar = QMenuBar()
         self.file_menu = self.menu_bar.addMenu("File")
         self.file_menu.addAction("Open Zarr Tensorstore")
-        self.file_menu.triggered.connect(self._on_open_tensorstore)
+        self.file_menu.triggered.connect(self._show_init_dialog)
 
         self.scene = _WellsGraphicsScene()
         self.view = _ResizingGraphicsView(self.scene)
@@ -66,14 +70,15 @@ class PlateViewer(QWidget):
 
         # self.showMaximized()
 
-        # TO REMOVE___________________________________________________________
+        # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         self._read_tensorstore("/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr")
+        self._seg = "/Users/fdrgsp/Desktop/test/seg"
 
-    def _on_open_tensorstore(self) -> None:
-        """Open a dialog to select a tensorstore.zarr."""
-        if ts := QFileDialog.getExistingDirectory(
-            self, "Select an tensorstore.zarr file."
-        ):
+    def _show_init_dialog(self) -> None:
+        """Show a dialog to select tensorstore file and segmentation path."""
+        init_dialog = InitDialog(self)
+        if init_dialog.exec():
+            ts, self._seg = init_dialog.value()
             self._read_tensorstore(ts)
 
     def _read_tensorstore(self, ts: str) -> None:
@@ -154,14 +159,30 @@ class PlateViewer(QWidget):
         """Update the image viewer with the first frame of the selected FOV."""
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
         if value is None:
-            self._image_viewer.setData(None)
+            self._image_viewer.setData(None, None)
             return
 
         if self._ts is None:
             return
 
         data = cast(np.ndarray, self._ts.isel(p=value.idx, t=0, c=0))
-        self._image_viewer.setData(data)
+        # get one random segmentation between 0 and 2
+        seg = self._get_segmentation(value)
+        self._image_viewer.setData(data, seg)
+
+    def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
+        """Get the segmentation for the given FOV."""
+        if self._seg is None:
+            return None
+        # the segmentation tif file should have the same name as the position
+        # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
+        pos_idx = f"p{value.idx}"
+        pos_name = value.fov.name
+        for f in Path(self._seg).iterdir():
+            name = f.name.replace(f.suffix, "")
+            if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
+                return tifffile.imread(f)  # type: ignore
+        return None
 
     def _on_fov_double_click(self) -> None:
         """Open the selected FOV in a new StackViewer window."""

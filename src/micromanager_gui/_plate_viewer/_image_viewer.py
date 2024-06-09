@@ -83,13 +83,14 @@ class _ImageViewer(QGroupBox):
         self._seg = QPushButton("Segmentation")
         self._seg.setCheckable(True)
         self._seg.setChecked(False)
+        self._seg.toggled.connect(self._show_segmentation)
         # reset view button
         self._reset_view = QPushButton()
         self._reset_view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._reset_view.setToolTip("Reset View")
         self._reset_view.setIcon(icon(MDI6.fullscreen))
         self._reset_view.clicked.connect(self._reset)
-
+        # bottom widget
         bottom_wdg = QWidget()
         bottom_wdg_layout = QHBoxLayout(bottom_wdg)
         bottom_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -102,20 +103,24 @@ class _ImageViewer(QGroupBox):
         main_layout.addWidget(self._viewer)
         main_layout.addWidget(bottom_wdg)
 
-    def setData(self, data: np.ndarray | None) -> None:
+    def setData(self, data: np.ndarray | None, segmentation: np.ndarray | None) -> None:
         """Set the image data."""
+        self._clear()
         if data is None:
-            self._clear()
             return
 
         if len(data.shape) > 2:
-            self._clear()
             show_error_dialog(self, "Only 2D images are supported!")
             return
 
         self._clims.setRange(data.min(), data.max())
-        self._viewer._update_image(data)
+        self._viewer.update_image(data, segmentation)
         self._auto_clim.setChecked(True)
+
+        if segmentation is None:
+            self._seg.setChecked(False)
+        elif self._viewer.seg_image is not None:
+            self._viewer.seg_image.visible = self._seg.isChecked()
 
     def data(self) -> np.ndarray | None:
         """Return the image data."""
@@ -143,16 +148,15 @@ class _ImageViewer(QGroupBox):
         if self._viewer.image is not None:
             self._viewer.image.parent = None
             self._viewer.image = None
-            self._viewer.view.camera.set_range(margin=0)
+        if self._viewer.seg_image is not None:
+            self._viewer.seg_image.parent = None
+            self._viewer.seg_image = None
+        self._viewer.view.camera.set_range(margin=0)
 
-    # def _calculate_min_max(self, dtype: np.dtype) -> tuple:
-    #     """Calculate the min and max values for the given dtype."""
-    #     if np.issubdtype(dtype, np.integer):
-    #         return np.iinfo(dtype).min, np.iinfo(dtype).max
-    #     elif np.issubdtype(dtype, np.floating):
-    #         return np.finfo(dtype).min, np.finfo(dtype).max
-    #     else:
-    #         raise ValueError(f"Unsupported dtype: {dtype}")
+    def _show_segmentation(self, state: bool) -> None:
+        """Show the segmentation."""
+        if self._viewer.seg_image is not None:
+            self._viewer.seg_image.visible = state
 
 
 class _ImageCanvas(QWidget):
@@ -169,22 +173,33 @@ class _ImageCanvas(QWidget):
         self.view.camera.aspect = 1
 
         self.image: scene.visuals.Image | None = None
+        self.seg_image: scene.visuals.Image | None = None
+
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
         self.layout().addWidget(self._canvas.native)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-    def _update_image(self, img: np.ndarray) -> None:
+    def update_image(
+        self, img: np.ndarray, segmentation: np.ndarray | None = None
+    ) -> None:
         clim = (img.min(), img.max())
-        if self.image is None:
-            self.image = self._imcls(
-                img, cmap=self._cmap, clim=clim, parent=self.view.scene
+        self.image = self._imcls(
+            img, cmap=self._cmap, clim=clim, parent=self.view.scene
+        )
+        self.image.set_gl_state("additive", depth_test=False)
+        self.view.camera.set_range(margin=0)
+
+        if segmentation is not None:
+            self.seg_image = self._imcls(
+                segmentation,
+                cmap=self._cmap,
+                clim=(segmentation.min(), segmentation.max()),
+                parent=self.view.scene,
             )
-            self.view.camera.set_range(margin=0)
-        else:
-            self.image.set_data(img)
-            self.image.clim = clim
+            self.seg_image.set_gl_state("additive", depth_test=False)
+            self.seg_image.visible = False
 
     @property
     def clims(self) -> tuple[float, float] | Literal["auto"]:

@@ -35,10 +35,7 @@ class _FOVTable(QTableWidget):
         """
         row = self.rowCount()
         self.insertRow(row)
-        item = QTableWidgetItem(
-            f"{position.fov.name} (position {position.idx})   [x: {position.fov.x} "
-            f"y: {position.fov.y} z: {position.fov.z})]"
-        )
+        item = QTableWidgetItem(f"{position.fov.name} (position {position.idx})")
         item.setData(ROLE, position)
         self.setItem(row, 0, item)
 
