@@ -75,10 +75,15 @@ class PlateViewer(QWidget):
         self._seg = "/Users/fdrgsp/Desktop/test/seg"
 
     def _show_init_dialog(self) -> None:
-        """Show a dialog to select tensorstore file and segmentation path."""
+        """Show a dialog to select tensorstore.zarr file and segmentation path."""
         init_dialog = InitDialog(self)
         if init_dialog.exec():
             ts, self._seg = init_dialog.value()
+            # clear fov table
+            self._fov_table.clear()
+            # clear scene
+            self.scene.clear()
+            # read tensorstore
             self._read_tensorstore(ts)
 
     def _read_tensorstore(self, ts: str) -> None:
