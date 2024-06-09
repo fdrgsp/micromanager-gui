@@ -17,6 +17,8 @@ from superqt.fonticon import icon
 from superqt.utils import signals_blocked
 from vispy import scene
 
+from ._util import show_error_dialog
+
 if TYPE_CHECKING:
     from typing import Literal
 
@@ -63,8 +65,6 @@ class _ImageViewer(QGroupBox):
 
         self._viewer = _ImageCanvas(parent=self)
 
-        self._data: np.ndarray | None = None
-
         # LUT slider
         self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
         self._clims.setStyleSheet(SS)
@@ -107,20 +107,19 @@ class _ImageViewer(QGroupBox):
         if data is None:
             self._clear()
             return
-        # range_min, range_max = self._calculate_min_max(data.dtype)
-        # self._clims.setRange(range_min, range_max)
+
+        if len(data.shape) > 2:
+            self._clear()
+            show_error_dialog(self, "Only 2D images are supported!")
+            return
+
         self._clims.setRange(data.min(), data.max())
         self._viewer._update_image(data)
         self._auto_clim.setChecked(True)
 
-    # def _calculate_min_max(self, dtype: np.dtype) -> tuple:
-    #     """Calculate the min and max values for the given dtype."""
-    #     if np.issubdtype(dtype, np.integer):
-    #         return np.iinfo(dtype).min, np.iinfo(dtype).max
-    #     elif np.issubdtype(dtype, np.floating):
-    #         return np.finfo(dtype).min, np.finfo(dtype).max
-    #     else:
-    #         raise ValueError(f"Unsupported dtype: {dtype}")
+    def data(self) -> np.ndarray | None:
+        """Return the image data."""
+        return self._viewer.image._data if self._viewer.image is not None else None
 
     def _on_clims_changed(self, range: tuple[float, float]) -> None:
         """Update the LUT range."""
@@ -145,6 +144,15 @@ class _ImageViewer(QGroupBox):
             self._viewer.image.parent = None
             self._viewer.image = None
             self._viewer.view.camera.set_range(margin=0)
+
+    # def _calculate_min_max(self, dtype: np.dtype) -> tuple:
+    #     """Calculate the min and max values for the given dtype."""
+    #     if np.issubdtype(dtype, np.integer):
+    #         return np.iinfo(dtype).min, np.iinfo(dtype).max
+    #     elif np.issubdtype(dtype, np.floating):
+    #         return np.finfo(dtype).min, np.finfo(dtype).max
+    #     else:
+    #         raise ValueError(f"Unsupported dtype: {dtype}")
 
 
 class _ImageCanvas(QWidget):

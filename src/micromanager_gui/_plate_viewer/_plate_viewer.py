@@ -10,12 +10,13 @@ from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
-from qtpy.QtWidgets import QFileDialog, QGridLayout, QMenuBar, QMessageBox, QWidget
+from qtpy.QtWidgets import QFileDialog, QGridLayout, QMenuBar, QWidget
 
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
 from ._fov_table import WellInfo, _FOVTable
 from ._image_viewer import _ImageViewer
+from ._util import show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
 GREEN = "#00FF00"  # "#00C600"
@@ -65,6 +66,9 @@ class PlateViewer(QWidget):
 
         # self.showMaximized()
 
+        # TO REMOVE___________________________________________________________
+        self._read_tensorstore("/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr")
+
     def _on_open_tensorstore(self) -> None:
         """Open a dialog to select a tensorstore.zarr."""
         if ts := QFileDialog.getExistingDirectory(
@@ -77,26 +81,29 @@ class PlateViewer(QWidget):
         self._ts = TensorstoreZarrReader(ts)
 
         if self._ts.sequence is None:
-            self._show_error_dialog(
+            show_error_dialog(
+                self,
                 "useq.MDASequence not found! Cannot use the  `PlateViewer` without"
-                "the tensorstore useq.MDASequence!"
+                "the tensorstore useq.MDASequence!",
             )
             return
 
         meta = cast(dict, self._ts.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         hcs_meta = meta.get(HCS, {})
         if not hcs_meta:
-            self._show_error_dialog(
+            show_error_dialog(
+                self,
                 "Cannot open a tensorstore.zarr without HCS metadata! "
-                f"Metadata: {meta}"
+                f"Metadata: {meta}",
             )
             return
 
         plate = hcs_meta.get("plate")
         if not plate:
-            self._show_error_dialog(
+            show_error_dialog(
+                self,
                 "Cannot find plate information in the HCS metadata! "
-                f"HCS Metadata: {hcs_meta}"
+                f"HCS Metadata: {hcs_meta}",
             )
             return
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
@@ -120,15 +127,6 @@ class PlateViewer(QWidget):
                 to_exclude.append(item.value())
         self.scene.exclude_wells = to_exclude
 
-    def _show_error_dialog(self, message: str) -> None:
-        """Show an error dialog with the given message."""
-        dialog = QMessageBox(self)
-        dialog.setWindowTitle("Error")
-        dialog.setText(message)
-        dialog.setIcon(QMessageBox.Icon.Critical)
-        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
-        dialog.exec()
-
     def _on_scene_well_changed(self, value: Well | None) -> None:
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
@@ -137,9 +135,10 @@ class PlateViewer(QWidget):
             return
 
         if self._ts.sequence is None:
-            self._show_error_dialog(
+            show_error_dialog(
+                self,
                 "useq.MDASequence not found! Cannot retrieve the Well data without "
-                "the tensorstore useq.MDASequence!"
+                "the tensorstore useq.MDASequence!",
             )
             return
 
