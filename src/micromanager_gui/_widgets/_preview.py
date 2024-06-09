@@ -117,8 +117,7 @@ class Preview(QWidget):
 
         self._mmc = mmcore or CMMCorePlus.instance()
 
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        main_layout = QVBoxLayout(self)
 
         # preview
         self._image_preview = _ImagePreview(self, mmcore=self._mmc, preview_widget=self)
