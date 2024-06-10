@@ -26,8 +26,8 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@calcium",
-    "pymmcore-plus@git+https://github.com/fdrgsp/pymmcore-plus.git",
+    "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@viewer_v2_and_tensorstore",
+    "pymmcore-plus >=0.10.0",
     "qtpy",
     "vispy",
     "zarr",
@@ -58,9 +58,6 @@ dev = [
     "pytest",
     "rich",
     "ruff",
-    "python-dotenv",
-    "slack_bolt",
-    "slack_sdk",
 ]
 
 [project.urls]
@@ -180,5 +177,5 @@ ignore = [
 # [tool.cibuildwheel.environment]
 # HATCH_BUILD_HOOKS_ENABLE = "1"
 
-[tool.typos.default]
+[tool.typos.default] 
 extend-ignore-identifiers-re = ["(?i)nd2?.*", "(?i)ome"]
