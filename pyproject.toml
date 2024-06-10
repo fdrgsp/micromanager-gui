@@ -37,6 +37,7 @@ dependencies = [
     "pyfirmata2",
     "rich",
     "slack_bolt",
+    "matplotlib",
 ]
 
 # extras
