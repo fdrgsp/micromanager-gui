@@ -222,6 +222,7 @@ class PlateViewer(QWidget):
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
         if value is None:
             self._image_viewer.setData(None, None)
+            self._set_graphs_fov(None)
             return
 
         if self._ts is None:
@@ -231,11 +232,18 @@ class PlateViewer(QWidget):
         # get one random segmentation between 0 and 2
         seg = self._get_segmentation(value)
         self._image_viewer.setData(data, seg)
+        self._set_graphs_fov(value)
 
-        self._graph_widget_1.fov = value.fov.name or f"Position {value.idx}"
-        self._graph_widget_2.fov = value.fov.name or f"Position {value.idx}"
-        self._graph_widget_3.fov = value.fov.name or f"Position {value.idx}"
-        self._graph_widget_4.fov = value.fov.name or f"Position {value.idx}"
+    def _set_graphs_fov(self, value: WellInfo | None) -> None:
+        """Set the FOV title for the graphs."""
+        title = "" if value is None else value.fov.name or f"Position {value.idx}"
+        for graph in (
+            self._graph_widget_1,
+            self._graph_widget_2,
+            self._graph_widget_3,
+            self._graph_widget_4,
+        ):
+            graph.fov = title
 
     def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
         """Get the segmentation for the given FOV."""

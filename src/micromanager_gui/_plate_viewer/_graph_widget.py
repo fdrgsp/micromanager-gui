@@ -37,7 +37,6 @@ class _GraphWidget(QWidget):
 
     def _on_combo_changed(self, test: str) -> None:
         if test == "None" or not self._fov:
-            self._combo.setCurrentText("None")
             # clear the plot
             self.figure.clear()
             self.canvas.draw()
