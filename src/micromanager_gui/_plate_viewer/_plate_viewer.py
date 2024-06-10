@@ -232,6 +232,11 @@ class PlateViewer(QWidget):
         seg = self._get_segmentation(value)
         self._image_viewer.setData(data, seg)
 
+        self._graph_widget_1.fov = value.fov.name or f"Position {value.idx}"
+        self._graph_widget_2.fov = value.fov.name or f"Position {value.idx}"
+        self._graph_widget_3.fov = value.fov.name or f"Position {value.idx}"
+        self._graph_widget_4.fov = value.fov.name or f"Position {value.idx}"
+
     def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
         """Get the segmentation for the given FOV."""
         if self._seg is None:
