@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from pymmcore_plus import CMMCorePlus
 from pymmcore_plus.core import _mmcore_plus
+from qtpy.QtWidgets import QMenuBar
 
 if TYPE_CHECKING:
     from pytest import FixtureRequest
@@ -40,10 +41,15 @@ def _run_after_each_test(request: FixtureRequest, qapp: QApplication):
     if request.session.testsfailed - failures_before:
         return
     remaining = qapp.topLevelWidgets()
+    # for some reason, in pyside2 and pyside6, when you add a QMenuBar, then when you
+    # close the widget you still get a QMenuBar in topLevelWidgets without a parent.
+    # Therefore, as a temporary fix, we remove any QMenuBar from the list of remaining
+    remaining = [w for w in remaining if not isinstance(w, QMenuBar)]
 
     print()
+    print("______REMAINING______")
     for r in remaining:
-        print(r, r.parent())
+        print(r, f"parent: {r.parent()}")
 
     if len(remaining) > nbefore:
         test = f"{request.node.path.name}::{request.node.originalname}"
