@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, NamedTuple
 
-from qtpy.QtWidgets import QTableWidget, QTableWidgetItem, QWidget
+from qtpy.QtWidgets import (
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
+    QWidget,
+)
 
 if TYPE_CHECKING:
     import useq
@@ -25,7 +30,12 @@ class _FOVTable(QTableWidget):
         self.setAlternatingRowColors(True)
         self.setColumnCount(1)
         self.setHorizontalHeaderLabels(["Fields of View"])
-        self.horizontalHeader().setStretchLastSection(True)
+        hh = self.horizontalHeader()
+        hh.setStretchLastSection(True)
+        # set size to the header size
+        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+
+        # self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
     def add_position(self, position: WellInfo) -> None:
         """Add a position to the table.

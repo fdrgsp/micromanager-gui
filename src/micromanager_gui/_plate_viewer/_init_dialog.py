@@ -14,19 +14,27 @@ from qtpy.QtWidgets import (
 )
 
 
-class InitDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None) -> None:
+class _InitDialog(QDialog):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        tensorstore_path: str | None = None,
+        segmentation_path: str | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Select Data Source")
 
-        self._tensorstore = BrowseWdg(
+        self._tensorstore = _BrowseWidget(
             self,
             "Tensorstore Path:",
+            tensorstore_path,
             "The path to the tensorstore.zarr.",
         )
-        self._segmentation = BrowseWdg(
+        self._segmentation = _BrowseWidget(
             self,
             "Segmentation Path:",
+            segmentation_path,
             "The path to the segmentation images. The images should be tif files and "
             "their name should end with _on where n is the position number "
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
@@ -54,14 +62,17 @@ class InitDialog(QDialog):
         return self._tensorstore.value(), self._segmentation.value()
 
 
-class BrowseWdg(QWidget):
+class _BrowseWidget(QWidget):
     def __init__(
         self,
         parent: QWidget | None = None,
         label: str = "",
+        path: str | None = None,
         tooltip: str = "",
     ) -> None:
         super().__init__(parent)
+
+        self._current_path = path or ""
 
         self._label_text = label
 
@@ -70,6 +81,7 @@ class BrowseWdg(QWidget):
         self._label.setToolTip(tooltip)
 
         self._path = QLineEdit()
+        self._path.setText(self._current_path)
         self._browse_btn = QPushButton("Browse")
         self._browse_btn.clicked.connect(self._on_browse)
 
@@ -85,17 +97,6 @@ class BrowseWdg(QWidget):
 
     def _on_browse(self) -> None:
         if path := QFileDialog.getExistingDirectory(
-            self, f"Select the {self._label_text}."
+            self, f"Select the {self._label_text}.", self._current_path
         ):
             self._path.setText(path)
-
-
-if __name__ == "__main__":
-    from qtpy.QtWidgets import QApplication
-
-    app = QApplication([])
-
-    dialog = InitDialog()
-    dialog.exec()
-
-    print(dialog.value())

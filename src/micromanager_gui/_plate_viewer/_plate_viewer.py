@@ -13,13 +13,21 @@ from pymmcore_widgets.mda._core_mda import HCS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
-from qtpy.QtWidgets import QGridLayout, QMenuBar, QWidget
+from qtpy.QtWidgets import (
+    QGridLayout,
+    QGroupBox,
+    QMenuBar,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
 from ._fov_table import WellInfo, _FOVTable
+from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
-from ._init_dialog import InitDialog
+from ._init_dialog import _InitDialog
 from ._util import show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
@@ -47,36 +55,85 @@ class PlateViewer(QWidget):
         self.file_menu.addAction("Open Zarr Tensorstore")
         self.file_menu.triggered.connect(self._show_init_dialog)
 
+        # scene and view for the plate map
         self.scene = _WellsGraphicsScene()
         self.view = _ResizingGraphicsView(self.scene)
         self.view.setStyleSheet("background:grey; border-radius: 5px;")
 
+        # table for the fields of view
         self._fov_table = _FOVTable(self)
         self._fov_table.itemSelectionChanged.connect(
             self._on_fov_table_selection_changed
         )
         self._fov_table.doubleClicked.connect(self._on_fov_double_click)
 
+        # image viewer
         self._image_viewer = _ImageViewer(self)
 
-        self._main_layout = QGridLayout(self)
-        self._main_layout.setContentsMargins(10, 10, 10, 10)
+        # splitter for the plate map and the fov table
+        self.splitter_top_left = QSplitter(self)
+        self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
+        self.splitter_top_left.setChildrenCollapsible(False)
+        self.splitter_top_left.addWidget(self.view)
+        self.splitter_top_left.addWidget(self._fov_table)
+        # splitter for the plate map/fov table and the image viewer
+        self.splitter_bottom_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
+        self.splitter_bottom_left.setContentsMargins(0, 0, 0, 0)
+        self.splitter_bottom_left.setChildrenCollapsible(False)
+        self.splitter_bottom_left.addWidget(self.splitter_top_left)
+        self.splitter_bottom_left.addWidget(self._image_viewer)
+        # graphs widget
+        graphs_wdg = QGroupBox()
+        graphs_layout = QGridLayout(graphs_wdg)
+        self._graph_widget_1 = _GraphWidget(self)
+        self._graph_widget_2 = _GraphWidget(self)
+        self._graph_widget_3 = _GraphWidget(self)
+        self._graph_widget_4 = _GraphWidget(self)
+        graphs_layout.addWidget(self._graph_widget_1, 0, 0)
+        graphs_layout.addWidget(self._graph_widget_2, 0, 1)
+        graphs_layout.addWidget(self._graph_widget_3, 1, 0)
+        graphs_layout.addWidget(self._graph_widget_4, 1, 1)
 
-        self._main_layout.addWidget(self.view, 0, 0)
-        self._main_layout.addWidget(self._fov_table, 1, 0)
-        self._main_layout.addWidget(self._image_viewer, 0, 1, 2, 1)
+        # splitter between the plate map/fov table/image viewer and the graphs
+        self.main_splitter = QSplitter(self)
+        self.main_splitter.setContentsMargins(0, 0, 0, 0)
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.addWidget(self.splitter_bottom_left)
+        self.main_splitter.addWidget(graphs_wdg)
+
+        # add widgets to the layout
+        self._main_layout = QVBoxLayout(self)
+        self._main_layout.setContentsMargins(10, 10, 10, 10)
+        self._main_layout.addWidget(self.main_splitter)
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
-        # self.showMaximized()
+        self.showMaximized()
+
+        self._set_init_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         self._read_tensorstore("/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr")
         self._seg = "/Users/fdrgsp/Desktop/test/seg"
 
+    def _set_init_splitter_sizes(self) -> None:
+        """Set the initial sizes for the splitters."""
+        splitter_and_sizes = (
+            (self.splitter_top_left, [0.75, 0.25]),
+            (self.splitter_bottom_left, [0.35, 0.65]),
+            (self.main_splitter, [0.40, 0.60]),
+        )
+        for splitter, sizes in splitter_and_sizes:
+            total_size = splitter.size().width()
+            splitter.setSizes([int(size * total_size) for size in sizes])
+
     def _show_init_dialog(self) -> None:
         """Show a dialog to select tensorstore.zarr file and segmentation path."""
-        init_dialog = InitDialog(self)
+        init_dialog = _InitDialog(
+            self,
+            tensorstore_path=str(self._ts.path) if self._ts is not None else None,
+            segmentation_path=self._seg,
+        )
         if init_dialog.exec():
             ts, self._seg = init_dialog.value()
             # clear fov table
