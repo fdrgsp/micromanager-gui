@@ -73,7 +73,6 @@ def test_mda_viewer_saving(
 
     # patch the run_mda method to avoid running the MDA sequence
     def _run_mda(seq):
-        print("Running MDA")
         return True
 
     # set the writer attribute of the MDAWidget without running the MDA sequence

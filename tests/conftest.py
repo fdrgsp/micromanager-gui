@@ -46,11 +46,9 @@ def _run_after_each_test(request: FixtureRequest, qapp: QApplication):
     # Therefore, as a temporary fix, we remove any QMenuBar from the list of remaining
     remaining = [w for w in remaining if not isinstance(w, QMenuBar)]
 
-    print()
-    print("______REMAINING______")
-    for r in remaining:
-        print(r, f"parent: {r.parent()}")
-
     if len(remaining) > nbefore:
+        print("\n______REMAINING______")
+        for r in remaining:
+            print(r, f"parent: {r.parent()}")
         test = f"{request.node.path.name}::{request.node.originalname}"
         raise AssertionError(f"topLevelWidgets remaining after {test!r}: {remaining}")
