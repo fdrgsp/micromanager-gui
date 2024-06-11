@@ -127,12 +127,12 @@ class PlateViewer(QWidget):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        reader = TensorstoreZarrReader(data)
+        # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
+        # reader = TensorstoreZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
-        self._seg = "/Users/fdrgsp/Desktop/test/seg"
-        self._init_widget(reader)
+        # self._seg = "/Users/fdrgsp/Desktop/test/seg"
+        # self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
