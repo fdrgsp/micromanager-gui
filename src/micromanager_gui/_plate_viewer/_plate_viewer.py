@@ -10,6 +10,7 @@ from pymmcore_widgets.hcs._graphics_items import Well, _WellGraphicsItem
 from pymmcore_widgets.hcs._plate_model import Plate
 from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
 from pymmcore_widgets.mda._core_mda import HCS
+from pymmcore_widgets.mda._save_widget import OME_ZARR, WRITERS, ZARR_TESNSORSTORE
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
@@ -22,6 +23,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
 from ._fov_table import WellInfo, _FOVTable
@@ -46,7 +48,7 @@ class PlateViewer(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self._ts: TensorstoreZarrReader | None = None
+        self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
         self._seg: str | None = None
 
         # add menu bar
@@ -110,13 +112,17 @@ class PlateViewer(QWidget):
 
         self.showMaximized()
 
-        self._set_init_splitter_sizes()
+        self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        self._read_tensorstore("/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr")
+        data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
+        reader = TensorstoreZarrReader(data)
+        # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
+        # reader = OMEZarrReader(data)
         self._seg = "/Users/fdrgsp/Desktop/test/seg"
+        self._init_widget(reader)
 
-    def _set_init_splitter_sizes(self) -> None:
+    def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
         splitter_and_sizes = (
             (self.splitter_top_left, [0.73, 0.27]),
@@ -128,39 +134,57 @@ class PlateViewer(QWidget):
             splitter.setSizes([int(size * total_size) for size in sizes])
 
     def _show_init_dialog(self) -> None:
-        """Show a dialog to select tensorstore.zarr file and segmentation path."""
+        """Show a dialog to select a zarr datastore file and segmentation path."""
         init_dialog = _InitDialog(
             self,
-            tensorstore_path=str(self._ts.path) if self._ts is not None else None,
+            datastore_path=(
+                str(self._datastore.path) if self._datastore is not None else None
+            ),
             segmentation_path=self._seg,
         )
         if init_dialog.exec():
-            ts, self._seg = init_dialog.value()
+            datastore, self._seg = init_dialog.value()
             # clear fov table
             self._fov_table.clear()
             # clear scene
             self.scene.clear()
-            # read tensorstore
-            self._read_tensorstore(ts)
+            reader: TensorstoreZarrReader | OMEZarrReader
+            if datastore.endswith(WRITERS[ZARR_TESNSORSTORE]):
+                # read tensorstore
+                reader = TensorstoreZarrReader(datastore)
+            elif datastore.endswith(WRITERS[OME_ZARR]):
+                # read ome zarr
+                reader = OMEZarrReader(datastore)
+            else:
+                show_error_dialog(
+                    self,
+                    f"Unsupported file format! Only {WRITERS[ZARR_TESNSORSTORE]} and "
+                    f"{WRITERS[OME_ZARR]} are supported.",
+                )
+                return
 
-    def _read_tensorstore(self, ts: str) -> None:
-        """Read the tensorstore.zarr and populate the plate viewer."""
-        self._ts = TensorstoreZarrReader(ts)
+            self._init_widget(reader)
 
-        if self._ts.sequence is None:
+    def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
+        """Initialize the widget with the given datastore."""
+        self._datastore = reader
+
+        if self._datastore.sequence is None:
             show_error_dialog(
                 self,
                 "useq.MDASequence not found! Cannot use the  `PlateViewer` without"
-                "the tensorstore useq.MDASequence!",
+                "the useq.MDASequence in the datastore metadata!",
             )
             return
 
-        meta = cast(dict, self._ts.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        meta = cast(
+            dict, self._datastore.sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        )
         hcs_meta = meta.get(HCS, {})
         if not hcs_meta:
             show_error_dialog(
                 self,
-                "Cannot open a tensorstore.zarr without HCS metadata! "
+                "Cannot open a zarr datastore without HCS metadata! "
                 f"Metadata: {meta}",
             )
             return
@@ -198,10 +222,10 @@ class PlateViewer(QWidget):
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
 
-        if self._ts is None or value is None:
+        if self._datastore is None or value is None:
             return
 
-        if self._ts.sequence is None:
+        if self._datastore.sequence is None:
             show_error_dialog(
                 self,
                 "useq.MDASequence not found! Cannot retrieve the Well data without "
@@ -210,7 +234,7 @@ class PlateViewer(QWidget):
             return
 
         # add the fov per position to the table
-        for idx, pos in enumerate(self._ts.sequence.stage_positions):
+        for idx, pos in enumerate(self._datastore.sequence.stage_positions):
             if pos.name and value.name in pos.name:
                 self._fov_table.add_position(WellInfo(idx, pos))
 
@@ -225,10 +249,11 @@ class PlateViewer(QWidget):
             self._set_graphs_fov(None)
             return
 
-        if self._ts is None:
+        if self._datastore is None:
             return
 
-        data = cast(np.ndarray, self._ts.isel(p=value.idx, t=0, c=0))
+        data = cast(np.ndarray, self._datastore.isel(p=value.idx, t=0, c=0))
+
         # get one random segmentation between 0 and 2
         seg = self._get_segmentation(value)
         self._image_viewer.setData(data, seg)
@@ -262,10 +287,10 @@ class PlateViewer(QWidget):
     def _on_fov_double_click(self) -> None:
         """Open the selected FOV in a new StackViewer window."""
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
-        if value is None or self._ts is None:
+        if value is None or self._datastore is None:
             return
 
-        data = self._ts.isel(p=value.idx)
+        data = self._datastore.isel(p=value.idx)
         viewer = StackViewer(data, parent=self)
         viewer.setWindowTitle(value.fov.name or f"Position {value.idx}")
         viewer.setWindowFlag(Qt.WindowType.Dialog)

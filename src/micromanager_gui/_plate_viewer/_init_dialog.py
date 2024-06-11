@@ -19,17 +19,17 @@ class _InitDialog(QDialog):
         self,
         parent: QWidget | None = None,
         *,
-        tensorstore_path: str | None = None,
+        datastore_path: str | None = None,
         segmentation_path: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Select Data Source")
 
-        self._tensorstore = _BrowseWidget(
+        self._datastrore = _BrowseWidget(
             self,
-            "Tensorstore Path:",
-            tensorstore_path,
-            "The path to the tensorstore.zarr.",
+            "datastrore Path:",
+            datastore_path,
+            "The path to the zarr datastrore.",
         )
         self._segmentation = _BrowseWidget(
             self,
@@ -39,7 +39,7 @@ class _InitDialog(QDialog):
             "their name should end with _on where n is the position number "
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
         )
-        self._tensorstore._label.setFixedWidth(
+        self._datastrore._label.setFixedWidth(
             self._segmentation._label.minimumSizeHint().width()
         )
 
@@ -54,12 +54,12 @@ class _InitDialog(QDialog):
 
         # Add the button box to the layout
         layout = QGridLayout(self)
-        layout.addWidget(self._tensorstore, 0, 0)
+        layout.addWidget(self._datastrore, 0, 0)
         layout.addWidget(self._segmentation, 1, 0)
         layout.addWidget(self.buttonBox, 2, 0, 1, 2)
 
     def value(self) -> tuple[str, str]:
-        return self._tensorstore.value(), self._segmentation.value()
+        return self._datastrore.value(), self._segmentation.value()
 
 
 class _BrowseWidget(QWidget):
