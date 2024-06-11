@@ -71,7 +71,7 @@ class PlateViewer(QWidget):
         self._image_viewer = _ImageViewer(self)
 
         # splitter for the plate map and the fov table
-        self.splitter_top_left = QSplitter(self)
+        self.splitter_top_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
         self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_top_left.setChildrenCollapsible(False)
         self.splitter_top_left.addWidget(self.view)
@@ -119,9 +119,9 @@ class PlateViewer(QWidget):
     def _set_init_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
         splitter_and_sizes = (
-            (self.splitter_top_left, [0.75, 0.25]),
-            (self.splitter_bottom_left, [0.35, 0.65]),
-            (self.main_splitter, [0.40, 0.60]),
+            (self.splitter_top_left, [0.73, 0.27]),
+            (self.splitter_bottom_left, [0.50, 0.50]),
+            (self.main_splitter, [0.30, 0.70]),
         )
         for splitter, sizes in splitter_and_sizes:
             total_size = splitter.size().width()
