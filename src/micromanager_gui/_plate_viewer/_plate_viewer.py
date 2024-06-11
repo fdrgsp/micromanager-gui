@@ -40,6 +40,8 @@ UNSELECTABLE_COLOR = QBrush(Qt.GlobalColor.darkGray)
 PEN = QPen(Qt.GlobalColor.black)
 PEN.setWidth(3)
 OPACITY = 0.7
+TS = WRITERS[ZARR_TESNSORSTORE][0]
+ZR = WRITERS[OME_ZARR][0]
 
 
 class PlateViewer(QWidget):
@@ -149,10 +151,10 @@ class PlateViewer(QWidget):
             # clear scene
             self.scene.clear()
             reader: TensorstoreZarrReader | OMEZarrReader
-            if datastore.endswith(WRITERS[ZARR_TESNSORSTORE]):
+            if datastore.endswith(TS):
                 # read tensorstore
                 reader = TensorstoreZarrReader(datastore)
-            elif datastore.endswith(WRITERS[OME_ZARR]):
+            elif datastore.endswith(ZR):
                 # read ome zarr
                 reader = OMEZarrReader(datastore)
             else:
