@@ -23,6 +23,7 @@ class _GraphWidget(QWidget):
 
         # Create a layout and add the canvas to it
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._combo)
         layout.addWidget(self.canvas)
 

@@ -93,10 +93,20 @@ class PlateViewer(QWidget):
         self._graph_widget_2 = _GraphWidget(self)
         self._graph_widget_3 = _GraphWidget(self)
         self._graph_widget_4 = _GraphWidget(self)
+        # self._graph_widget_5 = _GraphWidget(self)
+        # self._graph_widget_6 = _GraphWidget(self)
+        # self._graph_widget_7 = _GraphWidget(self)
+        # self._graph_widget_8 = _GraphWidget(self)
+        # self._graph_widget_9 = _GraphWidget(self)
         graphs_layout.addWidget(self._graph_widget_1, 0, 0)
         graphs_layout.addWidget(self._graph_widget_2, 0, 1)
         graphs_layout.addWidget(self._graph_widget_3, 1, 0)
         graphs_layout.addWidget(self._graph_widget_4, 1, 1)
+        # graphs_layout.addWidget(self._graph_widget_5, 1, 1)
+        # graphs_layout.addWidget(self._graph_widget_6, 1, 2)
+        # graphs_layout.addWidget(self._graph_widget_7, 2, 0)
+        # graphs_layout.addWidget(self._graph_widget_8, 2, 1)
+        # graphs_layout.addWidget(self._graph_widget_9, 2, 2)
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
@@ -269,6 +279,11 @@ class PlateViewer(QWidget):
             self._graph_widget_2,
             self._graph_widget_3,
             self._graph_widget_4,
+            # self._graph_widget_5,
+            # self._graph_widget_6,
+            # self._graph_widget_7,
+            # self._graph_widget_8,
+            # self._graph_widget_9,
         ):
             graph.fov = title
 
