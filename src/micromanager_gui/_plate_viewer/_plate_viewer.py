@@ -56,7 +56,7 @@ class PlateViewer(QWidget):
         # add menu bar
         self.menu_bar = QMenuBar()
         self.file_menu = self.menu_bar.addMenu("File")
-        self.file_menu.addAction("Open Zarr Tensorstore")
+        self.file_menu.addAction("Open Zarr Datastore...")
         self.file_menu.triggered.connect(self._show_init_dialog)
 
         # scene and view for the plate map
