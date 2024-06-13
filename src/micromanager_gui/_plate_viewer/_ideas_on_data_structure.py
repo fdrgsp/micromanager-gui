@@ -85,4 +85,11 @@
 #     names=["Well", "FOV", "ROI"],
 # )
 
+# # save to csv
 # df.to_csv("output.csv")
+
+# read from csv
+# index_col=[0, 1, 2] specifies that the first three columns in the CSV file should be
+# used as the MultiIndex, and header=0 specifies that the first row in the CSV file
+# should be used as the header
+# df = pd.read_csv('output.csv', index_col=[0, 1, 2], header=0)
