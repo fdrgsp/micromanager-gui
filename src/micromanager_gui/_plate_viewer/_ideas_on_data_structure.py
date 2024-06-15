@@ -69,21 +69,3 @@
 
 
 # we can also convert it to a MultiIndex DataFrame
-# df = pd.concat(
-#     {
-#         (well_id, fov_id, roi_id): pd.Series(roi_data._asdict())
-#         for well_id, fovs in data.items()
-#         for fov_id, rois in fovs.items()
-#         for roi_id, roi_data in rois.items()
-#     },
-#     names=["Well", "FOV", "ROI"],
-# )
-
-# # save to csv
-# df.to_csv("output.csv")
-
-# read from csv
-# index_col=[0, 1, 2] specifies that the first three columns in the CSV file should be
-# used as the MultiIndex, and header=0 specifies that the first row in the CSV file
-# should be used as the header
-# df = pd.read_csv('output.csv', index_col=[0, 1, 2], header=0)
