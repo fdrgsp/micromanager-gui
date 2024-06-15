@@ -16,7 +16,7 @@ ROLE = QTableWidgetItem.ItemType.UserType + 1
 
 
 class WellInfo(NamedTuple):
-    idx: int
+    pos_idx: int
     fov: useq.Position
 
 
@@ -45,7 +45,7 @@ class _FOVTable(QTableWidget):
         """
         row = self.rowCount()
         self.insertRow(row)
-        item = QTableWidgetItem(f"{position.fov.name} (position {position.idx})")
+        item = QTableWidgetItem(f"{position.fov.name} (position {position.pos_idx})")
         item.setData(ROLE, position)
         self.setItem(row, 0, item)
 

@@ -21,6 +21,7 @@ class _InitDialog(QDialog):
         *,
         datastore_path: str | None = None,
         segmentation_path: str | None = None,
+        analysis_path: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Select Data Source")
@@ -39,7 +40,19 @@ class _InitDialog(QDialog):
             "their name should end with _on where n is the position number "
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
         )
+
+        self._analysis = _BrowseWidget(
+            self,
+            "Analysis Path:",
+            analysis_path,
+            "The path to the analysis of the current data. The images should be "
+            "a path to a `json` file.",
+            is_dir=False,
+        )
         self._datastrore._label.setFixedWidth(
+            self._segmentation._label.minimumSizeHint().width()
+        )
+        self._analysis._label.setFixedWidth(
             self._segmentation._label.minimumSizeHint().width()
         )
 
@@ -56,10 +69,15 @@ class _InitDialog(QDialog):
         layout = QGridLayout(self)
         layout.addWidget(self._datastrore, 0, 0)
         layout.addWidget(self._segmentation, 1, 0)
-        layout.addWidget(self.buttonBox, 2, 0, 1, 2)
+        layout.addWidget(self._analysis, 2, 0)
+        layout.addWidget(self.buttonBox, 3, 0, 1, 2)
 
-    def value(self) -> tuple[str, str]:
-        return self._datastrore.value(), self._segmentation.value()
+    def value(self) -> tuple[str, str, str]:
+        return (
+            self._datastrore.value(),
+            self._segmentation.value(),
+            self._analysis.value(),
+        )
 
 
 class _BrowseWidget(QWidget):
@@ -69,8 +87,12 @@ class _BrowseWidget(QWidget):
         label: str = "",
         path: str | None = None,
         tooltip: str = "",
+        *,
+        is_dir: bool = True,
     ) -> None:
         super().__init__(parent)
+
+        self._is_dir = is_dir
 
         self._current_path = path or ""
 
@@ -96,7 +118,14 @@ class _BrowseWidget(QWidget):
         return self._path.text()  # type: ignore
 
     def _on_browse(self) -> None:
-        if path := QFileDialog.getExistingDirectory(
-            self, f"Select the {self._label_text}.", self._current_path
-        ):
-            self._path.setText(path)
+        if self._is_dir:
+            if path := QFileDialog.getExistingDirectory(
+                self, f"Select the {self._label_text}.", self._current_path
+            ):
+                self._path.setText(path)
+        else:
+            path, _ = QFileDialog.getOpenFileName(
+                self, f"Select the {self._label_text}.", "", "JSON (*.json)"
+            )
+            if path:
+                self._path.setText(path)

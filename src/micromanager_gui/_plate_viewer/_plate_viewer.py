@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
@@ -30,8 +30,11 @@ from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
-from ._util import show_error_dialog
+from ._util import load_analysis_data, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
+
+if TYPE_CHECKING:
+    from ._util import ROIData
 
 GREEN = "#00FF00"  # "#00C600"
 SELECTED_COLOR = QBrush(QColor(GREEN))
@@ -51,7 +54,12 @@ class PlateViewer(QWidget):
         super().__init__(parent)
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
-        self._seg: str | None = None
+        self._labels: str | None = None
+        self._analysis_file_path: str | None = None
+
+        # maybe make it as a pandas dataframe. we can save the analysis as a csv file
+        # and load it with pandas after the init dialog
+        self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         # add menu bar
         self.menu_bar = QMenuBar()
@@ -131,7 +139,8 @@ class PlateViewer(QWidget):
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
         # reader = TensorstoreZarrReader(data)
-        # self._seg = "/Users/fdrgsp/Desktop/segmentation"
+        # self._labels = "/Users/fdrgsp/Desktop/segmentation"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
         # self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
@@ -152,10 +161,11 @@ class PlateViewer(QWidget):
             datastore_path=(
                 str(self._datastore.path) if self._datastore is not None else None
             ),
-            segmentation_path=self._seg,
+            segmentation_path=self._labels,
+            analysis_path=self._analysis_file_path,
         )
         if init_dialog.exec():
-            datastore, self._seg = init_dialog.value()
+            datastore, self._labels, self._analysis_file_path = init_dialog.value()
             # clear fov table
             self._fov_table.clear()
             # clear scene
@@ -179,6 +189,10 @@ class PlateViewer(QWidget):
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
+        # load analysis json file if the path is not None
+        if self._analysis_file_path:
+            self._analysis_data = load_analysis_data(self._analysis_file_path)
+
         self._datastore = reader
 
         if self._datastore.sequence is None:
@@ -265,31 +279,34 @@ class PlateViewer(QWidget):
         if self._datastore is None:
             return
 
-        data = cast(np.ndarray, self._datastore.isel(p=value.idx, t=0, c=0))
+        data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=0, c=0))
 
         # get one random segmentation between 0 and 2
-        seg = self._get_segmentation(value)
-        self._image_viewer.setData(data, seg)
+        labels = self._get_segmentation(value)
+        analysis = self._analysis_data.get(str(value.fov.name), None)
+        self._image_viewer.setData(data, labels)
         self._set_graphs_fov(value)
 
-        self._update_graphs_combo(combo_red=(seg is None), clear=(seg is None))
+        self._update_graphs_combo(
+            combo_red=(analysis is None), clear=(analysis is None)
+        )
 
     def _set_graphs_fov(self, value: WellInfo | None) -> None:
         """Set the FOV title for the graphs."""
         if value is None:
             return
-        title = value.fov.name or f"Position {value.idx}"
+        title = value.fov.name or f"Position {value.pos_idx}"
         self._update_graphs_combo(set_title=title)
 
     def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
         """Get the segmentation for the given FOV."""
-        if self._seg is None:
+        if self._labels is None:
             return None
         # the segmentation tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
-        pos_idx = f"p{value.idx}"
+        pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name
-        for f in Path(self._seg).iterdir():
+        for f in Path(self._labels).iterdir():
             name = f.name.replace(f.suffix, "")
             if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
                 return tifffile.imread(f)  # type: ignore
@@ -301,9 +318,9 @@ class PlateViewer(QWidget):
         if value is None or self._datastore is None:
             return
 
-        data = self._datastore.isel(p=value.idx)
+        data = self._datastore.isel(p=value.pos_idx)
         viewer = StackViewer(data, parent=self)
-        viewer.setWindowTitle(value.fov.name or f"Position {value.idx}")
+        viewer.setWindowTitle(value.fov.name or f"Position {value.pos_idx}")
         viewer.setWindowFlag(Qt.WindowType.Dialog)
         viewer.show()
 
