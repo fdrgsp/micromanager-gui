@@ -23,8 +23,8 @@ COMBO_OPTIONS: dict[str, Callable] = {
     "Raw Traces": plot_raw_traces,
     "DeltaF/F0": plot_delta_f_over_f,
     "Traces with Peaks": plot_traces_with_peaks,
-    "Mean Amplitude": plot_mean_amplitude,
-    "Mean Frequency": plot_mean_frequency,
+    "Mean Amplitude ± StD": plot_mean_amplitude,
+    "Mean Frequency ± StD": plot_mean_frequency,
     "Raster Plot": plot_raster_plot,
 }
 RED = "#C33"
