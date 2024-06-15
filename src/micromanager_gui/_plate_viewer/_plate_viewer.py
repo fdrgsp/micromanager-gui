@@ -127,11 +127,11 @@ class PlateViewer(QWidget):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # reader = TensorstoreZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
-        # self._seg = "/Users/fdrgsp/Desktop/test/seg"
+        # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
+        # reader = TensorstoreZarrReader(data)
+        # self._seg = "/Users/fdrgsp/Desktop/segmentation"
         # self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
@@ -256,9 +256,10 @@ class PlateViewer(QWidget):
     def _on_fov_table_selection_changed(self) -> None:
         """Update the image viewer with the first frame of the selected FOV."""
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
+
         if value is None:
             self._image_viewer.setData(None, None)
-            self._set_graphs_fov(None)
+            self._update_graphs_combo(combo_red=True, clear=True)
             return
 
         if self._datastore is None:
@@ -271,21 +272,14 @@ class PlateViewer(QWidget):
         self._image_viewer.setData(data, seg)
         self._set_graphs_fov(value)
 
+        self._update_graphs_combo(combo_red=(seg is None), clear=(seg is None))
+
     def _set_graphs_fov(self, value: WellInfo | None) -> None:
         """Set the FOV title for the graphs."""
-        title = "" if value is None else value.fov.name or f"Position {value.idx}"
-        for graph in (
-            self._graph_widget_1,
-            self._graph_widget_2,
-            self._graph_widget_3,
-            self._graph_widget_4,
-            # self._graph_widget_5,
-            # self._graph_widget_6,
-            # self._graph_widget_7,
-            # self._graph_widget_8,
-            # self._graph_widget_9,
-        ):
-            graph.fov = title
+        if value is None:
+            return
+        title = value.fov.name or f"Position {value.idx}"
+        self._update_graphs_combo(set_title=title)
 
     def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
         """Get the segmentation for the given FOV."""
@@ -312,3 +306,28 @@ class PlateViewer(QWidget):
         viewer.setWindowTitle(value.fov.name or f"Position {value.idx}")
         viewer.setWindowFlag(Qt.WindowType.Dialog)
         viewer.show()
+
+    def _update_graphs_combo(
+        self,
+        set_title: str | None = None,
+        combo_red: bool = False,
+        clear: bool = False,
+    ) -> None:
+        for graph in (
+            self._graph_widget_1,
+            self._graph_widget_2,
+            self._graph_widget_3,
+            self._graph_widget_4,
+            # self._graph_widget_5,
+            # self._graph_widget_6,
+            # self._graph_widget_7,
+            # self._graph_widget_8,
+            # self._graph_widget_9,
+        ):
+            if set_title is not None:
+                graph.fov = set_title
+
+            if clear:
+                graph.clear_plot()
+
+            graph.set_combo_text_red(combo_red)

@@ -194,7 +194,7 @@ class _ImageCanvas(QWidget):
         if segmentation is not None:
             self.seg_image = self._imcls(
                 segmentation,
-                cmap=self._cmap,
+                cmap="viridis",
                 clim=(segmentation.min(), segmentation.max()),
                 parent=self.view.scene,
             )

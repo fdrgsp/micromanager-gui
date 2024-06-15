@@ -5,6 +5,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from qtpy.QtWidgets import QComboBox, QVBoxLayout, QWidget
 
+COMBO_OPTIONS = ["None", "test1", "test2", "test3", "test4"]
+RED = "#C33"
+
 
 class _GraphWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -14,7 +17,7 @@ class _GraphWidget(QWidget):
 
         self._combo = QComboBox(self)
         # NOTE this is just a test, here we need to add proper names
-        self._combo.addItems(["None", "test1", "test2", "test3", "test4"])
+        self._combo.addItems(COMBO_OPTIONS)
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         # Create a figure and a canvas
@@ -27,6 +30,8 @@ class _GraphWidget(QWidget):
         layout.addWidget(self._combo)
         layout.addWidget(self.canvas)
 
+        self.set_combo_text_red(True)
+
     @property
     def fov(self) -> str:
         return self._fov
@@ -37,10 +42,10 @@ class _GraphWidget(QWidget):
         self._on_combo_changed(self._combo.currentText())
 
     def _on_combo_changed(self, test: str) -> None:
+        """Update the graph when the combo box is changed."""
         if test == "None" or not self._fov:
             # clear the plot
-            self.figure.clear()
-            self.canvas.draw()
+            self.clear_plot()
             return
 
         # NOTE this is just a test, here we need to add proper graphs
@@ -62,4 +67,16 @@ class _GraphWidget(QWidget):
         ax.set_title(f"{self._fov} - {test}")
         ax.plot(x, y)
         # Draw the plot
+        self.canvas.draw()
+
+    def set_combo_text_red(self, state: bool) -> None:
+        """Set the combo text color to red if state is True or to black otherwise."""
+        if state:
+            self._combo.setStyleSheet(f"color: {RED};")
+        else:
+            self._combo.setStyleSheet("")
+
+    def clear_plot(self) -> None:
+        """Clear the plot."""
+        self.figure.clear()
         self.canvas.draw()
