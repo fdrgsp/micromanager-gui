@@ -286,8 +286,11 @@ class PlateViewer(QWidget):
         data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=0, c=0))
 
         # get one random segmentation between 0 and 2
-        labels = self._get_segmentation(value)
+        labels = self._get_labels(value)
         analysis = self._analysis_data.get(str(value.fov.name), None)
+        # flip data and labels vertically or will look different from the StackViewer
+        data = np.flip(data, axis=0)
+        labels = np.flip(labels, axis=0) if labels is not None else None
         self._image_viewer.setData(data, labels)
         self._set_graphs_fov(value)
 
@@ -302,11 +305,11 @@ class PlateViewer(QWidget):
         title = value.fov.name or f"Position {value.pos_idx}"
         self._update_graphs_combo(set_title=title)
 
-    def _get_segmentation(self, value: WellInfo) -> np.ndarray | None:
-        """Get the segmentation for the given FOV."""
+    def _get_labels(self, value: WellInfo) -> np.ndarray | None:
+        """Get the labels for the given FOV."""
         if self._labels is None:
             return None
-        # the segmentation tif file should have the same name as the position
+        # the labels tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
         pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name

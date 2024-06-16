@@ -7,6 +7,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -14,7 +15,7 @@ from qtpy.QtWidgets import (
 )
 from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
-from superqt.utils import signals_blocked
+from superqt.utils import qthrottled, signals_blocked
 from vispy import scene
 
 from ._util import show_error_dialog
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from typing import Literal
 
     import numpy as np
+    from vispy.scene.events import SceneMouseEvent
 
 
 SS = """
@@ -65,6 +67,10 @@ class _ImageViewer(QGroupBox):
 
         self._viewer = _ImageCanvas(parent=self)
 
+        # roi number indicator
+        self._roi_number = QLabel()
+        self._roi_number.setText("ROI:")
+
         # LUT slider
         self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
         self._clims.setStyleSheet(SS)
@@ -100,6 +106,7 @@ class _ImageViewer(QGroupBox):
         bottom_wdg_layout.addWidget(self._reset_view)
 
         main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self._roi_number)
         main_layout.addWidget(self._viewer)
         main_layout.addWidget(bottom_wdg)
 
@@ -162,15 +169,19 @@ class _ImageViewer(QGroupBox):
 class _ImageCanvas(QWidget):
     """A Widget that displays an image."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: _ImageViewer):
         super().__init__(parent=parent)
+        self._viewer = parent
         self._imcls = scene.visuals.Image
         self._clims: tuple[float, float] | Literal["auto"] = "auto"
         self._cmap: str = "grays"
 
         self._canvas = scene.SceneCanvas(keys="interactive", parent=self)
+        self._canvas.events.mouse_move.connect(qthrottled(self._on_mouse_move, 60))
         self.view = self._canvas.central_widget.add_view(camera="panzoom")
         self.view.camera.aspect = 1
+
+        self._lbl = None
 
         self.image: scene.visuals.Image | None = None
         self.labels_image: scene.visuals.Image | None = None
@@ -223,6 +234,7 @@ class _ImageCanvas(QWidget):
             img, cmap=self._cmap, clim=clim, parent=self.view.scene
         )
         self.image.set_gl_state("additive", depth_test=False)
+        self.image.interactive = True
         self.view.camera.set_range(margin=0)
 
         if labels is None:
@@ -235,13 +247,28 @@ class _ImageCanvas(QWidget):
             parent=self.view.scene,
         )
         self.labels_image.set_gl_state("additive", depth_test=False)
+        self.labels_image.interactive = True
         self.labels_image.visible = False
 
+    def _on_mouse_move(self, event: SceneMouseEvent) -> None:
+        """Update the pixel value when the mouse moves."""
+        visual = self._canvas.visual_at(event.pos)
+        image = self._find_image(visual)
+        if image != self.labels_image or image is None:
+            self._viewer._roi_number.setText("ROI:")
+            return
+        tform = image.get_transform("canvas", "visual")
+        px, py, *_ = (int(x) for x in tform.map(event.pos))
+        pixel_value = image._data[py, px]
+        pixel_value = "" if pixel_value == 0 else pixel_value
+        self._viewer._roi_number.setText(f"ROI: {pixel_value}")
 
-if __name__ == "__main__":
-    from qtpy.QtWidgets import QApplication
-
-    app = QApplication([])
-    viewer = _ImageViewer()
-    viewer.show()
-    app.exec()
+    def _find_image(self, visual: scene.visuals.Visual) -> scene.visuals.Image | None:
+        """Find the image visual in the visual tree."""
+        if isinstance(visual, scene.visuals.Image):
+            return visual
+        for child in visual.children:
+            image = self._find_image(child)
+            if image is not None:
+                return image
+        return None

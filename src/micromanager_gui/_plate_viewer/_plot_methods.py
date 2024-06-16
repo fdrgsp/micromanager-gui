@@ -22,7 +22,7 @@ def plot_raw_traces(
         if rois is not None and i not in rois:
             continue
         roi_data = cast("ROIData", data[key])
-        ax.plot(np.array(roi_data.trace) + count * offset)
+        ax.plot(np.array(roi_data.trace) + count * offset, label=f"ROI {i}")
         count += 1
     widget.canvas.draw()
 
@@ -47,7 +47,7 @@ def plot_delta_f_over_f(
             continue
         median = np.median(traces)
         dff = (np.array(traces) - median) / median
-        ax.plot(dff + count * offset)
+        ax.plot(dff + count * offset, label=f"ROI {i}")
         count += 1
     widget.canvas.draw()
 
