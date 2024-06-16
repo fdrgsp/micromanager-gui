@@ -103,7 +103,7 @@ class _ImageViewer(QGroupBox):
         main_layout.addWidget(self._viewer)
         main_layout.addWidget(bottom_wdg)
 
-    def setData(self, data: np.ndarray | None, segmentation: np.ndarray | None) -> None:
+    def setData(self, data: np.ndarray | None, labels: np.ndarray | None) -> None:
         """Set the image data."""
         self._clear()
         if data is None:
@@ -114,13 +114,13 @@ class _ImageViewer(QGroupBox):
             return
 
         self._clims.setRange(data.min(), data.max())
-        self._viewer.update_image(data, segmentation)
+        self._viewer.update_image(data, labels)
         self._auto_clim.setChecked(True)
 
-        if segmentation is None:
+        if labels is None:
             self._seg.setChecked(False)
-        elif self._viewer.seg_image is not None:
-            self._viewer.seg_image.visible = self._seg.isChecked()
+        elif self._viewer.labels_image is not None:
+            self._viewer.labels_image.visible = self._seg.isChecked()
 
     def data(self) -> np.ndarray | None:
         """Return the image data."""
@@ -148,15 +148,15 @@ class _ImageViewer(QGroupBox):
         if self._viewer.image is not None:
             self._viewer.image.parent = None
             self._viewer.image = None
-        if self._viewer.seg_image is not None:
-            self._viewer.seg_image.parent = None
-            self._viewer.seg_image = None
+        if self._viewer.labels_image is not None:
+            self._viewer.labels_image.parent = None
+            self._viewer.labels_image = None
         self._viewer.view.camera.set_range(margin=0)
 
     def _show_segmentation(self, state: bool) -> None:
         """Show the segmentation."""
-        if self._viewer.seg_image is not None:
-            self._viewer.seg_image.visible = state
+        if self._viewer.labels_image is not None:
+            self._viewer.labels_image.visible = state
 
 
 class _ImageCanvas(QWidget):
@@ -173,33 +173,13 @@ class _ImageCanvas(QWidget):
         self.view.camera.aspect = 1
 
         self.image: scene.visuals.Image | None = None
-        self.seg_image: scene.visuals.Image | None = None
+        self.labels_image: scene.visuals.Image | None = None
 
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
         self.layout().addWidget(self._canvas.native)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
-    def update_image(
-        self, img: np.ndarray, segmentation: np.ndarray | None = None
-    ) -> None:
-        clim = (img.min(), img.max())
-        self.image = self._imcls(
-            img, cmap=self._cmap, clim=clim, parent=self.view.scene
-        )
-        self.image.set_gl_state("additive", depth_test=False)
-        self.view.camera.set_range(margin=0)
-
-        if segmentation is not None:
-            self.seg_image = self._imcls(
-                segmentation,
-                cmap="viridis",
-                clim=(segmentation.min(), segmentation.max()),
-                parent=self.view.scene,
-            )
-            self.seg_image.set_gl_state("additive", depth_test=False)
-            self.seg_image.visible = False
 
     @property
     def clims(self) -> tuple[float, float] | Literal["auto"]:
@@ -236,6 +216,26 @@ class _ImageCanvas(QWidget):
         if self.image is not None:
             self.image.cmap = cmap
         self._cmap = cmap
+
+    def update_image(self, img: np.ndarray, labels: np.ndarray | None = None) -> None:
+        clim = (img.min(), img.max())
+        self.image = self._imcls(
+            img, cmap=self._cmap, clim=clim, parent=self.view.scene
+        )
+        self.image.set_gl_state("additive", depth_test=False)
+        self.view.camera.set_range(margin=0)
+
+        if labels is None:
+            return
+
+        self.labels_image = self._imcls(
+            labels,
+            cmap="viridis",
+            clim=(labels.min(), labels.max()),
+            parent=self.view.scene,
+        )
+        self.labels_image.set_gl_state("additive", depth_test=False)
+        self.labels_image.visible = False
 
 
 if __name__ == "__main__":
