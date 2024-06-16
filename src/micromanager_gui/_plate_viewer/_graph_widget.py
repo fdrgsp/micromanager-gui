@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, Callable
 
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from qtpy.QtWidgets import (
-    QCheckBox,
     QComboBox,
+    QGroupBox,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -39,37 +42,39 @@ COMBO_OPTIONS: dict[str, Callable] = {
 RED = "#C33"
 
 
-class _DisplayTraces(QWidget):
+class _DisplayTraces(QGroupBox):
     def __init__(self, parent: _GraphWidget) -> None:
         super().__init__(parent)
+        self.setTitle("Choose which ROI to display")
+        self.setCheckable(True)
+        self.setChecked(False)
+
+        self.setToolTip(
+            "By default, the widget will display the traces form all the ROIs from the "
+            "current FOV. Here you can choose to only display a subset of ROIs. You "
+            "can input a range (e.g. 1-10 to plot the first 10 ROIs), single ROIs "
+            "(e.g. 30, 33 to plot ROI 30 and 33) or, if you only want to pick n random "
+            "ROIs, you can type 'rnd' followed by the number or ROIs you want to "
+            "display (e.g. rnd10 to plot 10 random ROIs)."
+        )
 
         self._graph: _GraphWidget = parent
 
-        # TODO: switch from QCheckBox to radio buttons and add a QLineEdit to input the
-        # roi or the rois to be displayed (like 1, 2, 3 or 1-3, 5, 7-9)
+        self._roi_le = QLineEdit()
+        self._roi_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
+        self._update_btn = QPushButton("Update", self)
 
-        self._random_cbox = QCheckBox("Random Traces:", self)
-        self._random_spin = QSpinBox(self)
-        self._random_spin.setRange(1, 1000)
-        self._random_spin.setValue(10)
-        self._random_spin.setEnabled(False)
-        self._random_btn = QPushButton("Update", self)
-        self._random_btn.setEnabled(False)
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.addWidget(QLabel("ROIs:"))
+        main_layout.addWidget(self._roi_le)
+        main_layout.addWidget(self._update_btn)
+        self._update_btn.clicked.connect(self._update)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._random_cbox)
-        layout.addWidget(self._random_spin)
-        layout.addWidget(self._random_btn)
-        layout.addStretch()
+        self.toggled.connect(self._on_toggle)
 
-        self._random_cbox.stateChanged.connect(self._enable)
-        self._random_btn.clicked.connect(self._update)
-
-    def _enable(self, state: bool) -> None:
+    def _on_toggle(self, state: bool) -> None:
         """Enable or disable the random spin box and the update button."""
-        self._random_spin.setEnabled(state)
-        self._random_btn.setEnabled(state)
         if not state:
             self._graph._on_combo_changed(self._graph._combo.currentText())
 
@@ -84,11 +89,40 @@ class _DisplayTraces(QWidget):
             return
         well_name = table_data.fov.name
         if well_name in self._graph._plate_viewer._analysis_data:
-            COMBO_OPTIONS[text](
-                self._graph,
-                self._graph._plate_viewer._analysis_data[well_name],
-                self._random_spin.value(),
+            data = self._graph._plate_viewer._analysis_data[well_name]
+            rois = self._get_rois(data)
+            if rois is None:
+                return
+            COMBO_OPTIONS[text](self._graph, data, rois)
+
+    def _get_rois(self, data: dict) -> list[int] | None:
+        """Return the list of ROIs to be displayed."""
+        text = self._roi_le.text()
+        if not text:
+            return None
+        # return n random rois
+        if text[:3] == "rnd" and text[3:].isdigit():
+            random_keys = np.random.choice(
+                list(data.keys()), int(text[3:]), replace=False
             )
+            return list(map(int, random_keys))
+        # parse the input string
+        rois = self._parse_input(text)
+        return rois or None
+
+    def _parse_input(self, input_str: str) -> list[int]:
+        """Parse the input string and return a list of ROIs."""
+        parts = input_str.split(",")
+        numbers: list[int] = []
+        for part in parts:
+            part = part.strip()  # remove any leading/trailing whitespace
+            if "-" in part:
+                start, end = map(int, part.split("-"))
+                numbers.extend(range(start, end + 1))
+            else:
+                with contextlib.suppress(ValueError):
+                    numbers.append(int(part))
+        return numbers
 
 
 class _GraphWidget(QWidget):
@@ -103,8 +137,8 @@ class _GraphWidget(QWidget):
         self._combo.addItems(["None", *list(COMBO_OPTIONS.keys())])
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
-        self._random_traces_wdg = _DisplayTraces(self)
-        self._random_traces_wdg.hide()
+        self._choose_dysplayed_traces = _DisplayTraces(self)
+        self._choose_dysplayed_traces.hide()
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -114,7 +148,7 @@ class _GraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._combo)
-        layout.addWidget(self._random_traces_wdg)
+        layout.addWidget(self._choose_dysplayed_traces)
         layout.addWidget(self.canvas)
 
         self.set_combo_text_red(True)
@@ -144,28 +178,20 @@ class _GraphWidget(QWidget):
         """Update the graph when the combo box is changed."""
         # clear the plot
         self.clear_plot()
-
-        self._random_traces_wdg.hide()
-
+        self._choose_dysplayed_traces.hide()
         if text == "None" or not self._fov:
             return
-
         # get the data for the current fov
         table_data = self._plate_viewer._fov_table.value()
         if table_data is None:
             return
-
         # get the segmentation labels
         # labels = self._plate_viewer._get_segmentation(table_data)
         # if labels is None:
         #     return
-
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
             COMBO_OPTIONS[text](self, self._plate_viewer._analysis_data[well_name])
-
+            # show the choose displayed traces widget
             if text in {RAW_TRACES, DFF}:
-                self._random_traces_wdg.show()
-                self._random_traces_wdg._random_spin.setRange(
-                    1, len(self._plate_viewer._analysis_data[well_name])
-                )
+                self._choose_dysplayed_traces.show()
