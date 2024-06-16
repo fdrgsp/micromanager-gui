@@ -21,6 +21,7 @@ from ._plot_methods import (
     plot_delta_f_over_f,
     plot_mean_amplitude,
     plot_mean_frequency,
+    plot_normalized_raw_traces,
     plot_raster_plot,
     plot_raw_traces,
     plot_traces_with_peaks,
@@ -31,8 +32,10 @@ if TYPE_CHECKING:
 
 RAW_TRACES = "Raw Traces"
 DFF = "DeltaF/F0"
+RAW_NORMALIZED_TRACES = "Normalized Raw Traces"
 COMBO_OPTIONS: dict[str, Callable] = {
     RAW_TRACES: plot_raw_traces,
+    RAW_NORMALIZED_TRACES: plot_normalized_raw_traces,
     DFF: plot_delta_f_over_f,
     "Traces with Peaks": plot_traces_with_peaks,
     "Mean Amplitude ± StD": plot_mean_amplitude,
@@ -82,7 +85,7 @@ class _DisplayTraces(QGroupBox):
         """Update the graph with random traces."""
         self._graph.clear_plot()
         text = self._graph._combo.currentText()
-        if text not in {RAW_TRACES, DFF}:
+        if text not in {RAW_TRACES, DFF, RAW_NORMALIZED_TRACES}:
             return
         table_data = self._graph._plate_viewer._fov_table.value()
         if table_data is None:
@@ -193,5 +196,5 @@ class _GraphWidget(QWidget):
         if well_name in self._plate_viewer._analysis_data:
             COMBO_OPTIONS[text](self, self._plate_viewer._analysis_data[well_name])
             # show the choose displayed traces widget
-            if text in {RAW_TRACES, DFF}:
+            if text in {RAW_TRACES, DFF, RAW_NORMALIZED_TRACES}:
                 self._choose_dysplayed_traces.show()

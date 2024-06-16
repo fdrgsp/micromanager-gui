@@ -27,6 +27,25 @@ def plot_raw_traces(
     widget.canvas.draw()
 
 
+def plot_normalized_raw_traces(
+    widget: _GraphWidget, data: dict, rois: list[int] | None = None
+) -> None:
+    """Plot the raw traces normalized to the range [0, 1]."""
+    ax = widget.figure.add_subplot(111)
+    ax.set_title(f"{widget._fov} - raw traces")
+    ax.get_yaxis().set_visible(False)
+    count = 0
+    for i, key in enumerate(data):
+        if rois is not None and i not in rois:
+            continue
+        roi_data = cast("ROIData", data[key])
+        trace = np.array(roi_data.trace)
+        normalized_trace = (trace - trace.min()) / (trace.max() - trace.min())
+        ax.plot(normalized_trace + count, label=f"ROI {i}")
+        count += 1
+    widget.canvas.draw()
+
+
 def plot_delta_f_over_f(
     widget: _GraphWidget, data: dict, rois: list[int] | None = None
 ) -> None:
