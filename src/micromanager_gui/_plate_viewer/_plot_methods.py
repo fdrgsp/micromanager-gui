@@ -32,7 +32,7 @@ def plot_normalized_raw_traces(
 ) -> None:
     """Plot the raw traces normalized to the range [0, 1]."""
     ax = widget.figure.add_subplot(111)
-    ax.set_title(f"{widget._fov} - raw traces")
+    ax.set_title(f"{widget._fov} - normalized raw traces [0, 1]")
     ax.get_yaxis().set_visible(False)
     count = 0
     for i, key in enumerate(data):

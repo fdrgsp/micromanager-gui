@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 RAW_TRACES = "Raw Traces"
 DFF = "DeltaF/F0"
-RAW_NORMALIZED_TRACES = "Normalized Raw Traces"
+RAW_NORMALIZED_TRACES = "Normalized Raw Traces [0, 1]"
 COMBO_OPTIONS: dict[str, Callable] = {
     RAW_TRACES: plot_raw_traces,
     RAW_NORMALIZED_TRACES: plot_normalized_raw_traces,
