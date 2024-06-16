@@ -33,7 +33,7 @@ def load_analysis_data(analysis_json_file_path: str) -> dict[str, dict[str, ROID
     with open(analysis_json_file_path) as f:
         data = cast(dict, json.load(f))
         for key in data.keys():
-            for i in range(len(data[key])):
+            for i in range(1, len(data[key]) + 1):
                 # if there is the 'peaks' key, convert the list[dicts] to list[Peaks]
                 if "peaks" in data[key][str(i)]:
                     data[key][str(i)]["peaks"] = [

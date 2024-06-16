@@ -33,23 +33,7 @@ def plot_delta_f_over_f(
     # TODO: dff should be calculated in the analysis and stored in the ROIData class
     # here we will only need to plot roi_data.dff. Also use a better methodfor dff
     """Plot the delta f over f traces."""
-    ax = widget.figure.add_subplot(111)
-    ax.set_title(f"{widget._fov} - DeltaF/F0")
-    ax.get_yaxis().set_visible(False)
-    offset = 10
-    count = 0
-    for i, key in enumerate(data):
-        if rois is not None and i not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        traces = roi_data.trace
-        if not traces:
-            continue
-        median = np.median(traces)
-        dff = (np.array(traces) - median) / median
-        ax.plot(dff + count * offset, label=f"ROI {i}")
-        count += 1
-    widget.canvas.draw()
+    ...
 
 
 def plot_traces_with_peaks(widget: _GraphWidget, data: dict) -> None:
