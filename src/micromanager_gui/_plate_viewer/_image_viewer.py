@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import cmap
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
@@ -242,7 +243,7 @@ class _ImageCanvas(QWidget):
 
         self.labels_image = self._imcls(
             labels,
-            cmap="viridis",
+            cmap=cmap.Colormap("glasbey").reversed().to_vispy(),
             clim=(labels.min(), labels.max()),
             parent=self.view.scene,
         )
