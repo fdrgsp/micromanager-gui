@@ -265,6 +265,8 @@ class _ImageCanvas(QWidget):
 
     def _find_image(self, visual: scene.visuals.Visual) -> scene.visuals.Image | None:
         """Find the image visual in the visual tree."""
+        if visual is None:
+            return None
         if isinstance(visual, scene.visuals.Image):
             return visual
         for child in visual.children:
