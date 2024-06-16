@@ -105,17 +105,6 @@ class _GraphWidget(QWidget):
 
         self._random_traces_wdg = _DisplayTraces(self)
         self._random_traces_wdg.hide()
-        # self._random_traces_wdg = QWidget(self)
-        # _random_traces_layout = QHBoxLayout(self._random_traces_wdg)
-        # _random_traces_layout.setContentsMargins(0, 0, 0, 0)
-        # self._random_cbox = QCheckBox("Random Traces:", self._random_traces_wdg)
-        # self._random_spin = QSpinBox(self._random_traces_wdg)
-        # self._random_spin.setRange(1, 1000)
-        # self._random_btn = QPushButton("Update", self._random_traces_wdg)
-        # _random_traces_layout.addWidget(self._random_cbox)
-        # _random_traces_layout.addWidget(self._random_spin)
-        # _random_traces_layout.addWidget(self._random_btn)
-        # _random_traces_layout.addStretch()
 
         # Create a figure and a canvas
         self.figure = Figure()
