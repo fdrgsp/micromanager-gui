@@ -120,8 +120,9 @@ class _DisplayTraces(QGroupBox):
         for part in parts:
             part = part.strip()  # remove any leading/trailing whitespace
             if "-" in part:
-                start, end = map(int, part.split("-"))
-                numbers.extend(range(start, end + 1))
+                with contextlib.suppress(ValueError):
+                    start, end = map(int, part.split("-"))
+                    numbers.extend(range(start, end + 1))
             else:
                 with contextlib.suppress(ValueError):
                     numbers.append(int(part))

@@ -27,11 +27,11 @@ def plot_traces(
     ax.set_title(title)
     ax.get_yaxis().set_visible(False)
     count = 0
-    for i, key in enumerate(data):
-        if rois is not None and i not in rois:
+    for key in data:
+        if rois is not None and int(key) not in rois:
             continue
         roi_data = cast("ROIData", data[key])
-        plot_func(ax, roi_data.trace, count, i)
+        plot_func(ax, roi_data.trace, count, key)
         count += 1
     # Adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -48,9 +48,9 @@ def plot_raw_traces(
 ) -> None:
     """Plot the raw traces."""
 
-    def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, i: int) -> None:
+    def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, key: str) -> None:
         offset = 10
-        ax.plot(np.array(trace) + count * offset, label=f"ROI {i}")
+        ax.plot(np.array(trace) + count * offset, label=f"ROI {key}")
 
     plot_traces(widget, data, rois, f"{widget._fov} - raw traces", plot_func)
 
@@ -60,9 +60,9 @@ def plot_normalized_raw_traces(
 ) -> None:
     """Plot the raw traces normalized to the range [0, 1]."""
 
-    def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, i: int) -> None:
+    def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, key: str) -> None:
         normalized_trace = (trace - np.min(trace)) / (np.max(trace) - np.min(trace))
-        ax.plot(normalized_trace + count, label=f"ROI {i}")
+        ax.plot(normalized_trace + count, label=f"ROI {key}")
 
     plot_traces(
         widget, data, rois, f"{widget._fov} - normalized raw traces [0, 1]", plot_func
