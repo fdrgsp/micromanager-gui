@@ -11,6 +11,7 @@
 
 # class ROIData(NamedTuple):
 #     trace: list[float] | None = None
+#     dff: list[float] | None = None
 #     peaks: list[Peaks] | None = None
 #     mean_frequency: float | None = None
 #     mean_amplitude: float | None = None
