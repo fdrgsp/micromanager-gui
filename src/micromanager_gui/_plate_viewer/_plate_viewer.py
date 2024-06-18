@@ -16,9 +16,9 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
 from qtpy.QtWidgets import (
     QGridLayout,
-    QGroupBox,
     QMenuBar,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -82,6 +82,7 @@ class PlateViewer(QWidget):
         # image viewer
         self._image_viewer = _ImageViewer(self)
 
+        # left widgets -------------------------------------------------
         # splitter for the plate map and the fov table
         self.splitter_top_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
         self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
@@ -94,9 +95,23 @@ class PlateViewer(QWidget):
         self.splitter_bottom_left.setChildrenCollapsible(False)
         self.splitter_bottom_left.addWidget(self.splitter_top_left)
         self.splitter_bottom_left.addWidget(self._image_viewer)
+
+        # right widgets --------------------------------------------------
+        # tab widget
+        self._tab = QTabWidget(self)
+        # segmentation tab
+        self._segmentation_tab = QWidget()
+        self._tab.addTab(self._segmentation_tab, "Segmentation")
+        # analysis tab
+        self._analysis_tab = QWidget()
+        self._tab.addTab(self._analysis_tab, "Analysis")
+        # visualization tab
+        self._visualization_tab = QWidget()
+        self._tab.addTab(self._visualization_tab, "Visualization")
+        visualization_layout = QGridLayout(self._visualization_tab)
+        visualization_layout.setContentsMargins(0, 0, 0, 0)
+        visualization_layout.setSpacing(5)
         # graphs widget
-        graphs_wdg = QGroupBox()
-        graphs_layout = QGridLayout(graphs_wdg)
         self._graph_widget_1 = _GraphWidget(self)
         self._graph_widget_2 = _GraphWidget(self)
         self._graph_widget_3 = _GraphWidget(self)
@@ -106,10 +121,10 @@ class PlateViewer(QWidget):
         # self._graph_widget_7 = _GraphWidget(self)
         # self._graph_widget_8 = _GraphWidget(self)
         # self._graph_widget_9 = _GraphWidget(self)
-        graphs_layout.addWidget(self._graph_widget_1, 0, 0)
-        graphs_layout.addWidget(self._graph_widget_2, 0, 1)
-        graphs_layout.addWidget(self._graph_widget_3, 1, 0)
-        graphs_layout.addWidget(self._graph_widget_4, 1, 1)
+        visualization_layout.addWidget(self._graph_widget_1, 0, 0)
+        visualization_layout.addWidget(self._graph_widget_2, 0, 1)
+        visualization_layout.addWidget(self._graph_widget_3, 1, 0)
+        visualization_layout.addWidget(self._graph_widget_4, 1, 1)
         # graphs_layout.addWidget(self._graph_widget_5, 1, 1)
         # graphs_layout.addWidget(self._graph_widget_6, 1, 2)
         # graphs_layout.addWidget(self._graph_widget_7, 2, 0)
@@ -121,7 +136,7 @@ class PlateViewer(QWidget):
         self.main_splitter.setContentsMargins(0, 0, 0, 0)
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.addWidget(self.splitter_bottom_left)
-        self.main_splitter.addWidget(graphs_wdg)
+        self.main_splitter.addWidget(self._tab)
 
         # add widgets to the layout
         self._main_layout = QVBoxLayout(self)
@@ -138,14 +153,14 @@ class PlateViewer(QWidget):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels = "/Users/fdrgsp/Desktop/segmentation"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels = "/Users/fdrgsp/Desktop/segmentation"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
