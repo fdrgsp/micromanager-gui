@@ -30,6 +30,7 @@ from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
+from ._segmentation import _CellposeSegmentation
 from ._util import load_analysis_data, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
@@ -100,7 +101,7 @@ class PlateViewer(QWidget):
         # tab widget
         self._tab = QTabWidget(self)
         # segmentation tab
-        self._segmentation_tab = QWidget()
+        self._segmentation_tab = _CellposeSegmentation(self)
         self._tab.addTab(self._segmentation_tab, "Segmentation")
         # analysis tab
         self._analysis_tab = QWidget()
