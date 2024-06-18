@@ -38,6 +38,8 @@ class _CellposeSegmentation(QWidget):
         # - add other options
         # - add use gpu checkbox
         # - add a button to segment the data
+        # - add a Qt progress bar
+        # - add a way to plot the results
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -76,7 +78,7 @@ class _CellposeSegmentation(QWidget):
             # get position name from metadata
             pos_name = meta[0].get("Event", {}).get("pos_name", f"pos_{p}")
             self._labels[f"{pos_name}_p{p}"] = CellposeOut(masks, flows, styles, diams)
-            # TODO: save to disk
+            # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
 
             yield f"Segmented position {p+1} of {pos} (well {pos_name})"
