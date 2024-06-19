@@ -55,7 +55,7 @@ class PlateViewer(QWidget):
         super().__init__(parent)
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
-        self._labels: str | None = None
+        self._labels_path: str | None = None
         self._analysis_file_path: str | None = None
 
         # maybe make it as a pandas dataframe. we can save the analysis as a csv file
@@ -101,8 +101,8 @@ class PlateViewer(QWidget):
         # tab widget
         self._tab = QTabWidget(self)
         # segmentation tab
-        self._segmentation_tab = _CellposeSegmentation(self)
-        self._tab.addTab(self._segmentation_tab, "Segmentation")
+        self._segmentation_wdg = _CellposeSegmentation(self)
+        self._tab.addTab(self._segmentation_wdg, "Segmentation")
         # analysis tab
         self._analysis_tab = QWidget()
         self._tab.addTab(self._analysis_tab, "Analysis")
@@ -181,11 +181,11 @@ class PlateViewer(QWidget):
             datastore_path=(
                 str(self._datastore.path) if self._datastore is not None else None
             ),
-            segmentation_path=self._labels,
+            segmentation_path=self._labels_path,
             analysis_path=self._analysis_file_path,
         )
         if init_dialog.exec():
-            datastore, self._labels, self._analysis_file_path = init_dialog.value()
+            datastore, self._labels_path, self._analysis_file_path = init_dialog.value()
             # clear fov table
             self._fov_table.clear()
             # clear scene
@@ -243,6 +243,9 @@ class PlateViewer(QWidget):
                 f"HCS Metadata: {hcs_meta}",
             )
             return
+
+        self._segmentation_wdg.data = self._datastore
+
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
 
         # draw plate
@@ -323,13 +326,13 @@ class PlateViewer(QWidget):
 
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
-        if self._labels is None:
+        if self._labels_path is None:
             return None
         # the labels tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
         pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name
-        for f in Path(self._labels).iterdir():
+        for f in Path(self._labels_path).iterdir():
             name = f.name.replace(f.suffix, "")
             if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
                 return tifffile.imread(f)  # type: ignore

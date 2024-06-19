@@ -28,13 +28,13 @@ class _InitDialog(QDialog):
 
         self._datastrore = _BrowseWidget(
             self,
-            "Datastrore Path:",
+            "Datastrore Path",
             datastore_path,
             "The path to the zarr datastrore.",
         )
         self._segmentation = _BrowseWidget(
             self,
-            "Segmentation Path:",
+            "Segmentation Path",
             segmentation_path,
             "The path to the segmentation images. The images should be tif files and "
             "their name should end with _on where n is the position number "
@@ -43,7 +43,7 @@ class _InitDialog(QDialog):
 
         self._analysis = _BrowseWidget(
             self,
-            "Analysis Path:",
+            "Analysis Path",
             analysis_path,
             "The path to the analysis of the current data. The images should be "
             "a path to a `json` file.",
@@ -98,7 +98,7 @@ class _BrowseWidget(QWidget):
 
         self._label_text = label
 
-        self._label = QLabel(self._label_text)
+        self._label = QLabel(f"{self._label_text}:")
         self._label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._label.setToolTip(tooltip)
 
