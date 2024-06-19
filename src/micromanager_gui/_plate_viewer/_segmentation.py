@@ -47,7 +47,7 @@ class _SelectModelPath(_BrowseWidget):
         label: str = "Custom Model",
         tooltip: str = "Choose the path to the custom Cellpose model.",
     ) -> None:
-        super().__init__(parent, label, "", tooltip, is_dir=True)
+        super().__init__(parent, label, "", tooltip, is_dir=False)
 
     def _on_browse(self) -> None:
         if path := QFileDialog.getExistingDirectory(
