@@ -100,15 +100,17 @@ class PlateViewer(QWidget):
         # right widgets --------------------------------------------------
         # tab widget
         self._tab = QTabWidget(self)
-        # segmentation tab
-        self._segmentation_wdg = _CellposeSegmentation(self)
-        self._tab.addTab(self._segmentation_wdg, "Segmentation")
         # analysis tab
         self._analysis_tab = QWidget()
-        self._tab.addTab(self._analysis_tab, "Analysis")
+        analysis_layout = QVBoxLayout(self._analysis_tab)
+        analysis_layout.setContentsMargins(5, 5, 5, 5)
+        analysis_layout.setSpacing(5)
+        self._segmentation_wdg = _CellposeSegmentation(self)
+        analysis_layout.addWidget(self._segmentation_wdg)
+        self._tab.addTab(self._analysis_tab, "Analysis Tab")
         # visualization tab
         self._visualization_tab = QWidget()
-        self._tab.addTab(self._visualization_tab, "Visualization")
+        self._tab.addTab(self._visualization_tab, "Visualization Tab")
         visualization_layout = QGridLayout(self._visualization_tab)
         visualization_layout.setContentsMargins(0, 0, 0, 0)
         visualization_layout.setSpacing(5)
@@ -154,14 +156,14 @@ class PlateViewer(QWidget):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels = "/Users/fdrgsp/Desktop/segmentation"
+        data = (
+            r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # self._init_widget(reader)
+        self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -244,7 +246,13 @@ class PlateViewer(QWidget):
             )
             return
 
+        # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
+        self._segmentation_wdg._output_path._path.setText(self._labels_path)
+        print(
+            "PlateViewer._init_widget: plate",
+            self._segmentation_wdg._output_path.value(),
+        )
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
 

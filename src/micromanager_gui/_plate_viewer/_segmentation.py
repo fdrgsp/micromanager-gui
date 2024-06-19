@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Generator
 
 import tifffile
 from cellpose import models
+from cellpose.models import CellposeModel
 from qtpy.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -27,7 +28,7 @@ from ._util import show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
-    from superqt.utils._qthreading import GeneratorWorker
+    from superqt.utils import GeneratorWorker
 
     from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
     from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
@@ -86,7 +87,6 @@ class _CellposeSegmentation(QWidget):
         # self._models_combo.addItems(["nuclei", "cyto", "cyto2", "cyto3", "custom"])
         self._models_combo.addItems(["cyto3", "custom"])
         self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-        self._models_combo.setCurrentText("custom")
         model_wdg_layout.addWidget(self._models_combo_label)
         model_wdg_layout.addWidget(self._models_combo)
 
@@ -141,7 +141,7 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._progress_bar)
         progress_layout.addWidget(self._progress_lbl)
 
-        self._settings_groupbox = QGroupBox()
+        self._settings_groupbox = QGroupBox("Cellpose Segmentation", self)
         _settings_groupbox_layout = QGridLayout(self._settings_groupbox)
         _settings_groupbox_layout.setContentsMargins(0, 0, 0, 0)
         _settings_groupbox_layout.setSpacing(5)
@@ -176,13 +176,16 @@ class _CellposeSegmentation(QWidget):
 
     def segment(self) -> None:
         """Perform the Cellpose segmentation in a separate thread."""
+        self._progress_bar.reset()
+
         if self.data is None:
             return
 
-        # ask the user if they want to overwrite the labels if they already exist
-        if (
-            self._plate_viewer is not None
-            and self._plate_viewer._labels_path is not None
+        # ask the user if wants to overwrite the labels if they already exist
+        if self._plate_viewer is not None and (
+            self._plate_viewer._labels_path is not None
+            and self._plate_viewer._labels_path == self._output_path.value()
+            and list(Path(self._plate_viewer._labels_path).iterdir())
         ):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Icon.Question)
@@ -199,14 +202,45 @@ class _CellposeSegmentation(QWidget):
             if response == QMessageBox.StandardButton.No:
                 return
 
-        self._progress_bar.reset()
         if self.data.sequence is not None:
             self._progress_bar.setRange(0, self.data.sequence.sizes.get("p", 0))
 
+        path = self._output_path.value()
+        if not path:
+            show_error_dialog(self, "Please select a Labels Output Path.")
+            return
+        # set the label path of the PlateViewer
+        if self._plate_viewer is not None:
+            self._plate_viewer._labels_path = path
+
+        # set the model type
+        if self._models_combo.currentText() == "custom":
+            # get the path to the custom model
+            custom_model_path = self._browse_custom_model.value()
+            if not custom_model_path:
+                show_error_dialog(self, "Please select a custom model path.")
+                return
+            model_type = CellposeModel(custom_model_path)
+        else:
+            model_type = self._models_combo.currentText()
+
+        model = models.Cellpose(gpu=True, model_type=model_type)
+
+        # set the channel to segment
+        channel = [self._channel_combo.currentIndex(), 0]
+
+        self._enable(False)
+
         self._worker = create_worker(
             self._segment,
+            path=path,
+            model=model,
+            channel=channel,
             _start_thread=True,
-            _connect={"yielded": self._update_progress},
+            _connect={
+                "yielded": self._update_progress,
+                "finished": self._on_finished,
+            },
         )
 
     def _on_model_combo_changed(self, text: str) -> None:
@@ -216,37 +250,12 @@ class _CellposeSegmentation(QWidget):
         else:
             self._browse_custom_model.hide()
 
-    def _segment(self) -> Generator[str, None, None]:
+    def _segment(
+        self, path: str, model: CellposeModel, channel: list[int]
+    ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
         if self.data is None:
             return
-
-        # set the model type
-        if self._models_combo.currentText() == "custom":
-            # get the path to the custom model
-            custom_model_path = self._browse_custom_model.value()
-            if not custom_model_path:
-                show_error_dialog(self, "Please select a custom model path.")
-                return
-            model_type = models.CellposeModel(custom_model_path)
-        else:
-            model_type = self._models_combo.currentText()
-
-        model = models.Cellpose(gpu=True, model_type=model_type)
-
-        # set the channel to segment
-        channel = [self._channel_combo.currentIndex(), 0]
-
-        # set diameter to 0 so cellpose will estimate it
-        diameter = 0
-
-        path = self._output_path.value()
-        if not path:
-            show_error_dialog(self, "Please select a Labels Output Path.")
-            return
-        # set the path to the main PlateViewer
-        if self._plate_viewer is not None:
-            self._plate_viewer._labels_path = path
 
         pos = self.data.sequence.sizes.get("p", 0)  # type: ignore
         progress_bar = tqdm(range(pos))
@@ -260,7 +269,7 @@ class _CellposeSegmentation(QWidget):
             data_max = data.max(axis=0)
             # perform cellpose on each time point
             cyto_frame = data_max
-            masks, _, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
+            masks, _, _, _ = model.eval(cyto_frame, diameter=0, channels=channel)
             self._labels[f"{pos_name}_p{p}"] = masks
             # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
@@ -269,11 +278,22 @@ class _CellposeSegmentation(QWidget):
         """Cancel the segmentation process."""
         if self._worker is not None:
             self._worker.quit()
-            self._worker = None
-            self._progress_bar.reset()
-            self._progress_lbl.setText("Segmentation canceled.")
 
     def _update_progress(self, state: str) -> None:
         """Update the progress bar with the current state."""
         self._progress_lbl.setText(state)
         self._progress_bar.setValue(self._progress_bar.value() + 1)
+
+    def _on_finished(self) -> None:
+        """Enable the widgets when the segmentation is finished."""
+        self._enable(True)
+        self._progress_bar.reset()
+        self._progress_lbl.setText("Finished!")
+
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the widgets."""
+        self._models_combo.setEnabled(enable)
+        self._browse_custom_model.setEnabled(enable)
+        self._channel_combo.setEnabled(enable)
+        self._output_path.setEnabled(enable)
+        self._segment_btn.setEnabled(enable)
