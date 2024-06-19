@@ -39,7 +39,8 @@ dependencies = [
     "rich",
     "slack_bolt",
     "matplotlib",
-    "mplcursors"
+    "mplcursors",
+    "cellpose",
 ]
 
 # extras
