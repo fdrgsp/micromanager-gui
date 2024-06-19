@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import multiprocessing as mp
 from multiprocessing import Process
+from typing import TYPE_CHECKING
 
-import numpy as np
-import useq
-from pymmcore_plus import CMMCorePlus
 from pymmcore_plus._logger import logger
+
+if TYPE_CHECKING:
+    import numpy as np
+    import useq
+    from pymmcore_plus import CMMCorePlus
 
 
 class SegmentNeurons:
@@ -18,7 +23,7 @@ class SegmentNeurons:
         self._segmentation_process: Process | None = None
 
         # Create a multiprocessing Queue
-        self._queue: mp.Queue[np.ndarray | None] = mp.Queue()
+        self._queue: mp.Queue[tuple[np.ndarray, useq.MDAEvent] | None] = mp.Queue()
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
@@ -41,7 +46,7 @@ class SegmentNeurons:
         t_index = event.index.get("t")
         if t_index is not None and t_index == 0:
             # send the image to the segmentation process
-            self._queue.put(image)
+            self._queue.put((image, event))
             logger.info(f"SegmentNeurons -> Sending image to segment: {event.index}")
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
@@ -59,12 +64,12 @@ class SegmentNeurons:
 def _segmentation_worker(queue: mp.Queue) -> None:
     """Segmentation worker running in a separate process."""
     while True:
-        image = queue.get()
-        if image is None:
+        args = queue.get()
+        if args is None:
             break
-        _segment_image(image)
+        _segment_image(*args)
 
 
-def _segment_image(image: np.ndarray) -> None:
+def _segment_image(image: np.ndarray, event: useq.MDAEvent) -> None:
     """Segment the image."""
     logger.info(f"SegmentNeurons -> Segmenting image: {image.shape}")

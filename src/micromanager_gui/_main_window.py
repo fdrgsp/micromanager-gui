@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 from warnings import warn
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
-from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -21,11 +23,13 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
+from ._segment_neurons import SegmentNeurons
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
 
-# from ._segment_neurons import SegmentNeurons
+if TYPE_CHECKING:
+    from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 
 
 class MicroManagerGUI(QMainWindow):
@@ -73,7 +77,7 @@ class MicroManagerGUI(QMainWindow):
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
 
-        # self._segment_neurons = SegmentNeurons(self._mmc)
+        self._segment_neurons = SegmentNeurons(self._mmc)
 
         # extend size to fill the screen
         self.showMaximized()
