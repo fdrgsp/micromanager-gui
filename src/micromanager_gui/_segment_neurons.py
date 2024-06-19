@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import multiprocessing as mp
 from multiprocessing import Process
+from typing import TYPE_CHECKING
 
-import numpy as np
-import useq
-from pymmcore_plus import CMMCorePlus
 from pymmcore_plus._logger import logger
+
+if TYPE_CHECKING:
+    import numpy as np
+    import useq
+    from pymmcore_plus import CMMCorePlus
 
 
 class SegmentNeurons:
