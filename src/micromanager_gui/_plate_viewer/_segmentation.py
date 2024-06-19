@@ -71,10 +71,7 @@ class _CellposeSegmentation(QWidget):
 
         self._worker: GeneratorWorker | None = None
 
-        # TODO:
-        # - add diameter input
-        # - add a button to segment the data
-        # - add a way to plot the results
+        # TODO: maybe add diameter input
 
         self._browse_custom_model = _SelectModelPath(self)
         self._browse_custom_model.hide()
