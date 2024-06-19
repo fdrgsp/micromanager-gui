@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 from warnings import warn
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
-from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -24,6 +26,9 @@ from ._mmcore_engine._engine import ArduinoEngine
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
+
+if TYPE_CHECKING:
+    from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 
 # from ._segment_neurons import SegmentNeurons
 
