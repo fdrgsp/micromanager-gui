@@ -16,6 +16,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
 from qtpy.QtWidgets import (
     QGridLayout,
+    QMainWindow,
     QMenuBar,
     QSplitter,
     QTabWidget,
@@ -48,11 +49,17 @@ TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
 
 
-class PlateViewer(QWidget):
+class PlateViewer(QMainWindow):
     """A widget for displaying a plate preview."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
+        # add central widget
+        self._central_widget = QWidget(self)
+        self._central_widget_layout = QVBoxLayout(self._central_widget)
+        self._central_widget_layout.setContentsMargins(10, 10, 10, 10)
+        self.setCentralWidget(self._central_widget)
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
         self._labels_path: str | None = None
@@ -63,10 +70,11 @@ class PlateViewer(QWidget):
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         # add menu bar
-        self.menu_bar = QMenuBar()
+        self.menu_bar = QMenuBar(self)
         self.file_menu = self.menu_bar.addMenu("File")
         self.file_menu.addAction("Open Zarr Datastore...")
         self.file_menu.triggered.connect(self._show_init_dialog)
+        self.setMenuBar(self.menu_bar)
 
         # scene and view for the plate map
         self.scene = _WellsGraphicsScene()
@@ -142,9 +150,7 @@ class PlateViewer(QWidget):
         self.main_splitter.addWidget(self._tab)
 
         # add widgets to the layout
-        self._main_layout = QVBoxLayout(self)
-        self._main_layout.setContentsMargins(10, 10, 10, 10)
-        self._main_layout.addWidget(self.main_splitter)
+        self._central_widget_layout.addWidget(self.main_splitter)
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
@@ -202,8 +208,8 @@ class PlateViewer(QWidget):
             else:
                 show_error_dialog(
                     self,
-                    f"Unsupported file format! Only {WRITERS[ZARR_TESNSORSTORE]} and "
-                    f"{WRITERS[OME_ZARR]} are supported.",
+                    f"Unsupported file format! Only {WRITERS[ZARR_TESNSORSTORE][0]} and"
+                    f" {WRITERS[OME_ZARR][0]} are supported.",
                 )
                 return
 
