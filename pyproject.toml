@@ -33,7 +33,9 @@ dependencies = [
     "zarr",
     "tifffile",
     "tqdm",
-    "pyyaml"
+    "pyyaml",
+    "slack_bolt",
+    "python-dotenv",
 ]
 
 # extras
