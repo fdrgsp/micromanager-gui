@@ -102,17 +102,17 @@ class PlateViewer(QWidget):
         self._tab = QTabWidget(self)
         # analysis tab
         self._analysis_tab = QWidget()
+        self._tab.addTab(self._analysis_tab, "Analysis Tab")
         analysis_layout = QVBoxLayout(self._analysis_tab)
         analysis_layout.setContentsMargins(5, 5, 5, 5)
         analysis_layout.setSpacing(5)
         self._segmentation_wdg = _CellposeSegmentation(self)
         analysis_layout.addWidget(self._segmentation_wdg)
-        self._tab.addTab(self._analysis_tab, "Analysis Tab")
         # visualization tab
         self._visualization_tab = QWidget()
         self._tab.addTab(self._visualization_tab, "Visualization Tab")
         visualization_layout = QGridLayout(self._visualization_tab)
-        visualization_layout.setContentsMargins(0, 0, 0, 0)
+        visualization_layout.setContentsMargins(5, 5, 5, 5)
         visualization_layout.setSpacing(5)
         # graphs widget
         self._graph_widget_1 = _GraphWidget(self)
