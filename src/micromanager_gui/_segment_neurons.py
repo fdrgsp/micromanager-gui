@@ -8,23 +8,29 @@ from typing import TYPE_CHECKING, cast
 import tifffile
 import useq
 from cellpose import models
+from pymmcore_plus import CMMCorePlus
 from pymmcore_plus._logger import logger
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 if TYPE_CHECKING:
     import numpy as np
-    from pymmcore_plus import CMMCorePlus
 
-# use this to select which frame to pick for segmentation. Maybe we can find a way to
+# use T_INDEX to select which frame to pick for segmentation. Maybe we can find a way to
 # average multiple frames for better segmentation.
 T_INDEX = 0
 
+MODEL_TYPE = "cyto3"  # or CellposeModel(custom_model_path)
+CHANNEL = [0, 0]
+DIAMETER = 0
+
+CELLPOSE = "cellpose"
+
 
 class SegmentNeurons:
-    """Segment neurons."""
+    """Segment neurons with Cellpose."""
 
-    def __init__(self, mmcore: CMMCorePlus):
-        self._mmc = mmcore
+    def __init__(self, mmcore: CMMCorePlus | None = None):
+        self._mmc = mmcore or CMMCorePlus.instance()
 
         self._run_cellpose: bool = False
 
@@ -38,11 +44,15 @@ class SegmentNeurons:
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
-        if sequence.metadata.get(PYMMCW_METADATA_KEY, {}).get("should_save", False):
-            self._run_cellpose = True
-        else:
+        seq_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        use_cellpose = seq_meta.get(CELLPOSE, False)
+
+        if not use_cellpose:
             self._run_cellpose = False
             return
+
+        # enable cellpose segmentation onlyif saving is enabled
+        self._run_cellpose = bool(seq_meta.get("should_save", False))
 
         # create a separate process for segmentation
         self._segmentation_process = Process(
@@ -91,8 +101,6 @@ def _segmentation_worker(queue: mp.Queue) -> None:
 
 def _segment_image(image: np.ndarray, event: dict) -> None:
     """Segment the image."""
-    logger.info(f"SegmentNeurons -> Segmenting image: {image.shape}")
-
     useq_event = useq.MDAEvent(**event)
     seq = useq_event.sequence
     if seq is None:
@@ -117,14 +125,13 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
     # create the labels file name
     label_name = f"{save_name}_labels_{useq_event.pos_name}_p{p_idx}.tif"
 
+    logger.info(f"SegmentNeurons -> Segmenting image: {useq_event.pos_name}_p{p_idx}")
+
     # set the cellpose model and parameters
-    model_type = "cyto3"  # or CellposeModel(custom_model_path)
-    channel = [0, 0]
-    diameter = 0
-    model = models.Cellpose(gpu=True, model_type=model_type)
+    model = models.Cellpose(gpu=True, model_type=MODEL_TYPE)
 
     # run cellpose
-    masks, _, _, _ = model.eval(image, diameter=diameter, channels=channel)
+    masks, _, _, _ = model.eval(image, diameter=DIAMETER, channels=CHANNEL)
 
     # save to disk
     tifffile.imsave(save_path / label_name, masks)

@@ -13,6 +13,7 @@ from pymmcore_widgets.mda._save_widget import (
     ZARR_TESNSORSTORE,
 )
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
+from qtpy.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QVBoxLayout, QWidget
 from useq import MDASequence
 
 from micromanager_gui._writers._ome_tiff import _OMETiffWriter
@@ -21,11 +22,9 @@ from micromanager_gui._writers._tiff_sequence import _TiffSequenceWriter
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
-    from qtpy.QtWidgets import (
-        QVBoxLayout,
-        QWidget,
-    )
-    from useq import MDASequence
+    from qtpy.QtWidgets import QBoxLayout, QVBoxLayout, QWidget
+
+CELLPOSE = "cellpose"
 
 
 class _MDAWidget(MDAWidget):
@@ -47,10 +46,38 @@ class _MDAWidget(MDAWidget):
         time_layout = cast("QVBoxLayout", self.time_plan.layout())
         time_layout.setContentsMargins(10, 10, 10, 10)
 
+        # ------------ layout ------------
+        layout = cast("QBoxLayout", self.layout())
+        layout.insertWidget(0, self.save_info)
+        layout.addWidget(self.control_btns)
+
+        # ------------ Cellpose ------------
+        cellpose_wdg = QGroupBox()
+        cellpose_layout = QHBoxLayout(cellpose_wdg)
+        cellpose_layout.setContentsMargins(10, 10, 10, 10)
+        self._cellpose_cbox = QCheckBox("Enable Cellpose Segmentation")
+        cellpose_layout.addWidget(self._cellpose_cbox)
+        layout.insertWidget(5, cellpose_wdg)
+
     def _on_mda_finished(self, sequence: MDASequence) -> None:
         """Handle the end of the MDA sequence."""
         self.writer = None
         super()._on_mda_finished(sequence)
+
+    def value(self) -> MDASequence:
+        """Return the MDA sequence."""
+        sequence = super().value()
+        meta = sequence.metadata[PYMMCW_METADATA_KEY]
+        meta[CELLPOSE] = self._cellpose_cbox.isChecked()
+        sequence.metadata[PYMMCW_METADATA_KEY] = meta
+        return cast(MDASequence, sequence)
+
+    def setValue(self, value: MDASequence) -> None:
+        """Set the MDA sequence."""
+        super().setValue(value)
+        meta = cast(dict, value.metadata.get(PYMMCW_METADATA_KEY, {}))
+        if cellpose := meta.get(CELLPOSE):
+            self._cellpose_cbox.setChecked(cellpose)
 
     def run_mda(self) -> None:
         """Run the MDA sequence experiment."""
