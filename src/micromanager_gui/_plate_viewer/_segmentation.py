@@ -143,7 +143,7 @@ class _CellposeSegmentation(QWidget):
 
         self._settings_groupbox = QGroupBox("Cellpose Segmentation", self)
         _settings_groupbox_layout = QGridLayout(self._settings_groupbox)
-        _settings_groupbox_layout.setContentsMargins(0, 0, 0, 0)
+        _settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         _settings_groupbox_layout.setSpacing(5)
         _settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
         _settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
