@@ -157,7 +157,7 @@ class PlateViewer(QWidget):
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
         # data = (
-        #     r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
+        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
         #     "Chronic.tensorstore.zarr"
         # )
         # reader = TensorstoreZarrReader(data)
@@ -183,7 +183,7 @@ class PlateViewer(QWidget):
             datastore_path=(
                 str(self._datastore.path) if self._datastore is not None else None
             ),
-            segmentation_path=self._labels_path,
+            labels_path=self._labels_path,
             analysis_path=self._analysis_file_path,
         )
         if init_dialog.exec():

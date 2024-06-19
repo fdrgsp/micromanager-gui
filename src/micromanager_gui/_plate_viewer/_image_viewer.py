@@ -86,11 +86,11 @@ class _ImageViewer(QGroupBox):
         self._auto_clim.setCheckable(True)
         self._auto_clim.setChecked(True)
         self._auto_clim.toggled.connect(self._clims_auto)
-        # segmentation
-        self._seg = QPushButton("Segmentation")
-        self._seg.setCheckable(True)
-        self._seg.setChecked(False)
-        self._seg.toggled.connect(self._show_segmentation)
+        # labels
+        self._labels = QPushButton("Labels")
+        self._labels.setCheckable(True)
+        self._labels.setChecked(False)
+        self._labels.toggled.connect(self._show_labels)
         # reset view button
         self._reset_view = QPushButton()
         self._reset_view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -103,7 +103,7 @@ class _ImageViewer(QGroupBox):
         bottom_wdg_layout.setContentsMargins(0, 0, 0, 0)
         bottom_wdg_layout.addWidget(self._clims)
         bottom_wdg_layout.addWidget(self._auto_clim)
-        bottom_wdg_layout.addWidget(self._seg)
+        bottom_wdg_layout.addWidget(self._labels)
         bottom_wdg_layout.addWidget(self._reset_view)
 
         main_layout = QVBoxLayout(self)
@@ -126,9 +126,9 @@ class _ImageViewer(QGroupBox):
         self._auto_clim.setChecked(True)
 
         if labels is None:
-            self._seg.setChecked(False)
+            self._labels.setChecked(False)
         elif self._viewer.labels_image is not None:
-            self._viewer.labels_image.visible = self._seg.isChecked()
+            self._viewer.labels_image.visible = self._labels.isChecked()
 
     def data(self) -> np.ndarray | None:
         """Return the image data."""
@@ -161,8 +161,8 @@ class _ImageViewer(QGroupBox):
             self._viewer.labels_image = None
         self._viewer.view.camera.set_range(margin=0)
 
-    def _show_segmentation(self, state: bool) -> None:
-        """Show the segmentation."""
+    def _show_labels(self, state: bool) -> None:
+        """Show the labels."""
         if self._viewer.labels_image is not None:
             self._viewer.labels_image.visible = state
 
@@ -243,7 +243,7 @@ class _ImageCanvas(QWidget):
 
         self.labels_image = self._imcls(
             labels,
-            cmap=cmap.Colormap("glasbey").reversed().to_vispy(),
+            cmap=cmap.Colormap("tab20").to_vispy(),
             clim=(labels.min(), labels.max()),
             parent=self.view.scene,
         )

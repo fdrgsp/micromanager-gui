@@ -20,7 +20,7 @@ class _InitDialog(QDialog):
         parent: QWidget | None = None,
         *,
         datastore_path: str | None = None,
-        segmentation_path: str | None = None,
+        labels_path: str | None = None,
         analysis_path: str | None = None,
     ) -> None:
         super().__init__(parent)
@@ -32,11 +32,11 @@ class _InitDialog(QDialog):
             datastore_path,
             "The path to the zarr datastrore.",
         )
-        self._segmentation = _BrowseWidget(
+        self._labels = _BrowseWidget(
             self,
             "Segmentation Path",
-            segmentation_path,
-            "The path to the segmentation images. The images should be tif files and "
+            labels_path,
+            "The path to the labels images. The images should be tif files and "
             "their name should end with _on where n is the position number "
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
         )
@@ -50,10 +50,10 @@ class _InitDialog(QDialog):
             is_dir=False,
         )
         self._datastrore._label.setFixedWidth(
-            self._segmentation._label.minimumSizeHint().width()
+            self._labels._label.minimumSizeHint().width()
         )
         self._analysis._label.setFixedWidth(
-            self._segmentation._label.minimumSizeHint().width()
+            self._labels._label.minimumSizeHint().width()
         )
 
         # Create the button box
@@ -68,14 +68,14 @@ class _InitDialog(QDialog):
         # Add the button box to the layout
         layout = QGridLayout(self)
         layout.addWidget(self._datastrore, 0, 0)
-        layout.addWidget(self._segmentation, 1, 0)
+        layout.addWidget(self._labels, 1, 0)
         layout.addWidget(self._analysis, 2, 0)
         layout.addWidget(self.buttonBox, 3, 0, 1, 2)
 
     def value(self) -> tuple[str, str, str]:
         return (
             self._datastrore.value(),
-            self._segmentation.value(),
+            self._labels.value(),
             self._analysis.value(),
         )
 

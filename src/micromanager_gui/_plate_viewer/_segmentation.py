@@ -8,6 +8,7 @@ from cellpose import models
 from cellpose.models import CellposeModel
 from qtpy.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -105,6 +106,19 @@ class _CellposeSegmentation(QWidget):
         channel_layout.addWidget(self._channel_combo_label)
         channel_layout.addWidget(self._channel_combo)
 
+        diameter_wdg = QWidget(self)
+        diameter_layout = QHBoxLayout(diameter_wdg)
+        diameter_layout.setContentsMargins(0, 0, 0, 0)
+        diameter_layout.setSpacing(5)
+        self._diameter_label = QLabel("Diameter:")
+        self._diameter_label.setSizePolicy(*FIXED)
+        self._diameter_spin = QDoubleSpinBox(self)
+        self._diameter_spin.setRange(0, 1000)
+        self._diameter_spin.setValue(0)
+        self._diameter_spin.setToolTip("Set the diameter of the cells.")
+        diameter_layout.addWidget(self._diameter_label)
+        diameter_layout.addWidget(self._diameter_spin)
+
         self._output_path = _BrowseWidget(
             self,
             "Labels Output Path",
@@ -131,6 +145,7 @@ class _CellposeSegmentation(QWidget):
         self._models_combo_label.setMinimumWidth(fixed_lbl_width)
         self._channel_combo_label.setMinimumWidth(fixed_lbl_width)
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
+        self._diameter_label.setMinimumWidth(fixed_lbl_width)
 
         progress_wdg = QWidget(self)
         progress_layout = QHBoxLayout(progress_wdg)
@@ -148,9 +163,10 @@ class _CellposeSegmentation(QWidget):
         _settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
         _settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
         _settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(self._output_path, 3, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(btn_wdg, 4, 0)
-        _settings_groupbox_layout.addWidget(progress_wdg, 4, 1)
+        _settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
+        _settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
+        _settings_groupbox_layout.addWidget(btn_wdg, 5, 0)
+        _settings_groupbox_layout.addWidget(progress_wdg, 5, 1)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
@@ -229,6 +245,9 @@ class _CellposeSegmentation(QWidget):
         # set the channel to segment
         channel = [self._channel_combo.currentIndex(), 0]
 
+        # set the diameter
+        diameter = self._diameter_spin.value() or None
+
         self._enable(False)
 
         self._worker = create_worker(
@@ -236,6 +255,7 @@ class _CellposeSegmentation(QWidget):
             path=path,
             model=model,
             channel=channel,
+            diameter=diameter,
             _start_thread=True,
             _connect={
                 "yielded": self._update_progress,
@@ -251,7 +271,7 @@ class _CellposeSegmentation(QWidget):
             self._browse_custom_model.hide()
 
     def _segment(
-        self, path: str, model: CellposeModel, channel: list[int]
+        self, path: str, model: CellposeModel, channel: list[int], diameter: float
     ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
         if self.data is None:
@@ -269,7 +289,7 @@ class _CellposeSegmentation(QWidget):
             data_max = data.max(axis=0)
             # perform cellpose on each time point
             cyto_frame = data_max
-            masks, _, _, _ = model.eval(cyto_frame, diameter=0, channels=channel)
+            masks, _, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
             self._labels[f"{pos_name}_p{p}"] = masks
             # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
