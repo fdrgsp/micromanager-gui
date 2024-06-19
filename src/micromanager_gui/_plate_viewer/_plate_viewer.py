@@ -156,14 +156,14 @@ class PlateViewer(QWidget):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._init_widget(reader)
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
