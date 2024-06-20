@@ -11,6 +11,8 @@ import numpy as np
 import tifffile
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
+    QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QProgressBar,
@@ -21,9 +23,11 @@ from qtpy.QtWidgets import (
 from superqt.utils import create_worker
 from tqdm import tqdm
 
-from ._util import ElapsedTimer
+from ._init_dialog import _BrowseWidget
+from ._util import ElapsedTimer, show_error_dialog
 
 if TYPE_CHECKING:
+    from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
     from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
@@ -85,8 +89,18 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._worker: GeneratorWorker | None = None
 
-        self._analyze_button = QPushButton("Analyze")
-        self._analyze_button.clicked.connect(self.extract_traces)
+        self._extract_traces_btn = QPushButton("Extract Traces", self)
+        self._extract_traces_btn.clicked.connect(self.extract_traces)
+        self._cancel_btn = QPushButton("Cancel", self)
+        self._cancel_btn.clicked.connect(self._cancel)
+
+        self._output_path = _BrowseWidget(
+            self,
+            "Analysis Output Path",
+            "",
+            "Select the output path for the Analysis Data.",
+            is_dir=True,
+        )
 
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
@@ -100,9 +114,25 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer = ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(self._analyze_button)
-        layout.addWidget(progress_wdg)
+        wdg = QGroupBox("Extract Traces", self)
+        wdg.setCheckable(True)
+        wdg.setChecked(False)
+        wdg_layout = QGridLayout(wdg)
+        wdg_layout.setContentsMargins(10, 10, 10, 10)
+        wdg_layout.setSpacing(5)
+        wdg_layout.addWidget(self._output_path, 0, 0, 1, 3)
+        wdg_layout.addWidget(self._extract_traces_btn, 1, 0)
+        wdg_layout.addWidget(self._cancel_btn, 1, 1)
+        wdg_layout.addWidget(progress_wdg, 1, 2)
+
+        self._extract_traces_btn.setFixedWidth(
+            self._output_path._label.minimumSizeHint().width()
+        )
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.addWidget(wdg)
+        main_layout.addStretch(1)
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -147,6 +177,14 @@ class _AnalyseCalciumTraces(QWidget):
             },
         )
 
+    def _cancel(self) -> None:
+        """Cancel the current extraction."""
+        if self._worker is not None:
+            self._worker.quit()
+        # stop the elapsed timer
+        self._stop_timer()
+        self._progress_label.setText("00:00:00")
+
     def _stop_timer(self) -> None:
         """Stop the elapsed timer and the time timer."""
         self._elapsed_timer.stop()
@@ -162,12 +200,12 @@ class _AnalyseCalciumTraces(QWidget):
     def _extract_traces(self) -> Generator[int, None, None]:
         """Extract the roi traces in multiple threads."""
         if self.data is None or self.labels_path is None:
-            print("No data or labels path provided!")
+            show_error_dialog(self, "No data or labels path provided!")
             return
 
         sequence = self.data.sequence
         if sequence is None:
-            print("No sequence found!")
+            show_error_dialog(self, "No useq.MDAsequence found!")
             return
 
         pos = len(sequence.stage_positions)
@@ -179,13 +217,17 @@ class _AnalyseCalciumTraces(QWidget):
                     for p in range(pos)
                 ]
                 for idx, _ in enumerate(as_completed(futures)):
+                    if self._worker is not None and self._worker.abort_requested:
+                        break
                     yield int((idx / pos) * 100)
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            show_error_dialog(self, f"An error occurred: {e}")
 
     def _extract_trace_per_position(self, p: int) -> None:
-        if self.data is None:
+        if self.data is None or (
+            self._worker is not None and self._worker.abort_requested
+        ):
             return
 
         data, meta = self.data.isel(p=p, metadata=True)
@@ -199,10 +241,12 @@ class _AnalyseCalciumTraces(QWidget):
         # get the labels file
         labels = tifffile.imread(self._get_labels_file(labels_name))
         if labels is None:
-            print(f"No labels found for {labels_name}!")
+            show_error_dialog(self, f"No labels found for {labels_name}!")
             return
         labels_range = range(1, labels.max() + 1)
         for label_value in tqdm(labels_range, desc=f"Processing well {well}"):
+            if self._worker is not None and self._worker.abort_requested:
+                break
             mask = labels == label_value
             roi_trace = calculate_roi_trace(data, mask)
             # create the dict for the roi
@@ -216,3 +260,9 @@ class _AnalyseCalciumTraces(QWidget):
             if label_file.name.endswith(label_name):
                 return str(label_file)
         return None
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
+        if self._worker is not None:
+            self._worker.quit()
+        super().closeEvent(event)

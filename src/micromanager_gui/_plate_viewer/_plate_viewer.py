@@ -27,6 +27,7 @@ from qtpy.QtWidgets import (
 from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
+from ._analysis import _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
@@ -108,6 +109,7 @@ class PlateViewer(QMainWindow):
         # right widgets --------------------------------------------------
         # tab widget
         self._tab = QTabWidget(self)
+
         # analysis tab
         self._analysis_tab = QWidget()
         self._tab.addTab(self._analysis_tab, "Analysis Tab")
@@ -116,6 +118,10 @@ class PlateViewer(QMainWindow):
         analysis_layout.setSpacing(5)
         self._segmentation_wdg = _CellposeSegmentation(self)
         analysis_layout.addWidget(self._segmentation_wdg)
+        self._analysis_wdg = _AnalyseCalciumTraces(self)
+        analysis_layout.addWidget(self._analysis_wdg)
+        analysis_layout.addStretch(1)
+
         # visualization tab
         self._visualization_tab = QWidget()
         self._tab.addTab(self._visualization_tab, "Visualization Tab")
@@ -255,10 +261,9 @@ class PlateViewer(QMainWindow):
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
         self._segmentation_wdg._output_path._path.setText(self._labels_path)
-        print(
-            "PlateViewer._init_widget: plate",
-            self._segmentation_wdg._output_path.value(),
-        )
+        # set the analysis widget data
+        self._analysis_wdg.data = self._datastore
+        self._analysis_wdg._labels_path = self._labels_path
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
 

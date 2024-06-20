@@ -29,6 +29,7 @@ from ._util import ElapsedTimer, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
+    from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
     from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
@@ -134,7 +135,7 @@ class _CellposeSegmentation(QWidget):
         self._segment_btn.clicked.connect(self.segment)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
-        self._cancel_btn.clicked.connect(self._cancel_segmentation)
+        self._cancel_btn.clicked.connect(self._cancel)
         btn_wdg_layout.addStretch(1)
         btn_wdg_layout.addWidget(self._segment_btn)
         btn_wdg_layout.addWidget(self._cancel_btn)
@@ -161,16 +162,18 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._elapsed_time_label)
 
         self._settings_groupbox = QGroupBox("Cellpose Segmentation", self)
-        _settings_groupbox_layout = QGridLayout(self._settings_groupbox)
-        _settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
-        _settings_groupbox_layout.setSpacing(5)
-        _settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(btn_wdg, 5, 1)
-        _settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
+        self._settings_groupbox.setCheckable(True)
+        self._settings_groupbox.setChecked(False)
+        settings_groupbox_layout = QGridLayout(self._settings_groupbox)
+        settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
+        settings_groupbox_layout.setSpacing(5)
+        settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
+        settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
+        settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
+        settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
+        settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
+        settings_groupbox_layout.addWidget(btn_wdg, 5, 1)
+        settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
@@ -286,6 +289,8 @@ class _CellposeSegmentation(QWidget):
         pos = self.data.sequence.sizes.get("p", 0)  # type: ignore
         progress_bar = tqdm(range(pos))
         for p in progress_bar:
+            if self._worker is not None and self._worker.abort_requested:
+                break
             # get the data
             data, meta = self.data.isel(p=p, metadata=True)
             # get position name from metadata
@@ -302,10 +307,12 @@ class _CellposeSegmentation(QWidget):
             # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
 
-    def _cancel_segmentation(self) -> None:
+    def _cancel(self) -> None:
         """Cancel the segmentation process."""
         if self._worker is not None:
             self._worker.quit()
+        self._elapsed_timer.stop()
+        self._elapsed_time_label.setText("00:00:00")
 
     def _update_progress(self, state: str) -> None:
         """Update the progress bar with the current state."""
@@ -330,3 +337,9 @@ class _CellposeSegmentation(QWidget):
         self._channel_combo.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._segment_btn.setEnabled(enable)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
+        if self._worker is not None:
+            self._worker.quit()
+        super().closeEvent(event)
