@@ -49,7 +49,7 @@ def plot_raw_traces(
     """Plot the raw traces."""
 
     def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, key: str) -> None:
-        offset = 10
+        offset = 20
         ax.plot(np.array(trace) + count * offset, label=f"ROI {key}")
 
     plot_traces(widget, data, rois, f"{widget._fov} - raw traces", plot_func)

@@ -234,7 +234,7 @@ class _CellposeSegmentation(QWidget):
             return
         # set the label path of the PlateViewer
         if self._plate_viewer is not None:
-            self._plate_viewer._labels_path = path
+            self._plate_viewer.labels_path = path
 
         # set the model type
         if self._models_combo.currentText() == "custom":
@@ -298,10 +298,10 @@ class _CellposeSegmentation(QWidget):
                 meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             )
             yield f"Segmenting position {p+1} of {pos} (well {pos_name})"
-            # max projection
-            data_max = data.max(axis=0)
+            # max projection from half to the end of the stack
+            data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
-            cyto_frame = data_max
+            cyto_frame = data_half_to_end.max(axis=0)
             masks, _, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
             self._labels[f"{pos_name}_p{p}"] = masks
             # save to disk
@@ -326,9 +326,8 @@ class _CellposeSegmentation(QWidget):
     def _on_finished(self) -> None:
         """Enable the widgets when the segmentation is finished."""
         self._enable(True)
-        self._progress_bar.reset()
-        self._progress_lbl.setText("")
         self._elapsed_timer.stop()
+        self._progress_bar.setValue(self._progress_bar.maximum())
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""

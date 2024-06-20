@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import tifffile
+from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
+    QFileDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -44,6 +46,27 @@ def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
     return roi_trace
 
 
+class _SelectAnalysisPath(_BrowseWidget):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        label: str = "",
+        path: str | None = None,
+        tooltip: str = "",
+    ) -> None:
+        super().__init__(parent, label, path, tooltip)
+
+    def _on_browse(self) -> None:
+        dialog = QFileDialog(self, f"Select the {self._label_text}.")
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
+        dialog.setDirectory(self._current_path)
+
+        if dialog.exec() == QFileDialog.Accepted:
+            selected_path = dialog.selectedFiles()[0]
+            self._path.setText(selected_path)
+
+
 class _AnalyseCalciumTraces(QWidget):
     progress_bar_updated = Signal()
     elapsed_time_updated = Signal(str)
@@ -72,12 +95,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn = QPushButton("Cancel", self)
         self._cancel_btn.clicked.connect(self._cancel)
 
-        self._output_path = _BrowseWidget(
+        self._output_path = _SelectAnalysisPath(
             self,
             "Analysis Output Path",
             "",
             "Select the output path for the Analysis Data.",
-            is_dir=True,
         )
 
         progress_wdg = QWidget(self)
@@ -137,12 +159,34 @@ class _AnalyseCalciumTraces(QWidget):
 
     def save_analysis_data(self, path: str) -> None:
         """Save the analysis data to a JSON file."""
-        with open(path, "w") as f:
-            json.dump(
-                self._analysis_data,
-                f,
-                default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
-                indent=2,
+        save_path = Path(path)
+
+        if save_path.is_dir():
+            name = "analysis_data"
+            if self._data is not None:
+                seq = self._data.sequence
+                if seq is not None:
+                    meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
+                    name = meta.get("save_name")
+                    if name is not None:
+                        name = f"{name}_analysis_data"
+
+            save_path = save_path / f"{name}.json"
+
+        elif not save_path.suffix:
+            save_path = save_path.with_suffix(".json")
+
+        try:
+            with open(save_path, "w") as f:
+                json.dump(
+                    self._analysis_data,
+                    f,
+                    default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
+                    indent=2,
+                )
+        except Exception as e:
+            show_error_dialog(
+                self, f"An error occurred while saving the analysis data: {e}"
             )
 
     def extract_traces(self) -> None:
@@ -154,11 +198,26 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No Output Path provided!")
             return
 
+        if self._data is None or self._labels_path is None:
+            show_error_dialog(self, "No data or labels path provided!")
+            return
+
+        sequence = self._data.sequence
+        if sequence is None:
+            show_error_dialog(self, "No useq.MDAsequence found!")
+            return
+
+        pos = len(sequence.stage_positions)
+        self._progress_bar.reset()
+        self._progress_bar.setRange(1, pos)
+        self._progress_pos_label.setText(f"0/{self._progress_bar.maximum()}")
+
         # start elapsed timer
         self._elapsed_timer.start()
 
         self._worker = create_worker(
             self._extract_traces,
+            positions=pos,
             _start_thread=True,
             _connect={"finished": self._on_finished},
         )
@@ -190,6 +249,7 @@ class _AnalyseCalciumTraces(QWidget):
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
             self._plate_viewer.analysis_data = self._analysis_data
+            self._plate_viewer._analysis_file_path = self._output_path.value()
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
@@ -210,23 +270,10 @@ class _AnalyseCalciumTraces(QWidget):
                 return str(label_file)
         return None
 
-    def _extract_traces(self) -> None:
+    def _extract_traces(self, positions: int) -> None:
         """Extract the roi traces in multiple threads."""
-        if self._data is None or self._labels_path is None:
-            show_error_dialog(self, "No data or labels path provided!")
-            return
-
-        sequence = self._data.sequence
-        if sequence is None:
-            show_error_dialog(self, "No useq.MDAsequence found!")
-            return
-
-        pos = len(sequence.stage_positions)
-        self._progress_bar.reset()
-        self._progress_bar.setRange(1, pos)
-        self._progress_pos_label.setText(f"0/{self._progress_bar.maximum()}")
         cpu_count = os.cpu_count() or 1
-        chunk_size = max(1, pos // cpu_count)
+        chunk_size = max(1, positions // cpu_count)
 
         try:
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
@@ -234,9 +281,9 @@ class _AnalyseCalciumTraces(QWidget):
                     executor.submit(
                         self._extract_trace_for_chunk,
                         start,
-                        min(start + chunk_size, pos),
+                        min(start + chunk_size, positions),
                     )
-                    for start in range(0, pos, chunk_size)
+                    for start in range(0, positions, chunk_size)
                 ]
                 for _ in as_completed(futures):
                     if self._worker is not None and self._worker.abort_requested:
