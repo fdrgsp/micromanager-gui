@@ -98,8 +98,8 @@ class _CellposeSegmentation(QWidget):
         self._channel_combo_label.setSizePolicy(*FIXED)
         self._channel_combo = QComboBox()
         self._channel_combo.setToolTip("Select the channel to segment.")
-        if self.data is not None and self.data.sequence:
-            chs = self.data.sequence.sizes.get("c")
+        if self._data is not None and self._data.sequence:
+            chs = self._data.sequence.sizes.get("c")
             if chs is not None:
                 self._channel_combo.addItems([str(i) for i in range(chs)])
         channel_layout.addWidget(self._channel_combo_label)
@@ -201,7 +201,7 @@ class _CellposeSegmentation(QWidget):
         """Perform the Cellpose segmentation in a separate thread."""
         self._progress_bar.reset()
 
-        if self.data is None:
+        if self._data is None:
             return
 
         # ask the user if wants to overwrite the labels if they already exist
@@ -225,8 +225,8 @@ class _CellposeSegmentation(QWidget):
             if response == QMessageBox.StandardButton.No:
                 return
 
-        if self.data.sequence is not None:
-            self._progress_bar.setRange(0, self.data.sequence.sizes.get("p", 0))
+        if self._data.sequence is not None:
+            self._progress_bar.setRange(0, self._data.sequence.sizes.get("p", 0))
 
         path = self._output_path.value()
         if not path:
@@ -283,16 +283,16 @@ class _CellposeSegmentation(QWidget):
         self, path: str, model: CellposeModel, channel: list[int], diameter: float
     ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
-        if self.data is None:
+        if self._data is None:
             return
 
-        pos = self.data.sequence.sizes.get("p", 0)  # type: ignore
+        pos = self._data.sequence.sizes.get("p", 0)  # type: ignore
         progress_bar = tqdm(range(pos))
         for p in progress_bar:
             if self._worker is not None and self._worker.abort_requested:
                 break
             # get the data
-            data, meta = self.data.isel(p=p, metadata=True)
+            data, meta = self._data.isel(p=p, metadata=True)
             # get position name from metadata
             pos_name = (
                 meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")

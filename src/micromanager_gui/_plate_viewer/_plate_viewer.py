@@ -284,8 +284,8 @@ class PlateViewer(QMainWindow):
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
         # load analysis json file if the path is not None
-        if self.analysis_file_path:
-            self.analysis_data = self._load_analysis_data(self.analysis_file_path)
+        if self._analysis_file_path:
+            self._analysis_data = self._load_analysis_data(self._analysis_file_path)
 
         self._datastore = reader
 
@@ -405,13 +405,13 @@ class PlateViewer(QMainWindow):
 
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
-        if self.labels_path is None:
+        if self._labels_path is None:
             return None
         # the labels tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
         pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name
-        for f in Path(self.labels_path).iterdir():
+        for f in Path(self._labels_path).iterdir():
             name = f.name.replace(f.suffix, "")
             if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
                 return tifffile.imread(f)  # type: ignore

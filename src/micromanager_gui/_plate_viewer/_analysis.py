@@ -212,11 +212,11 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_traces(self) -> None:
         """Extract the roi traces in multiple threads."""
-        if self.data is None or self.labels_path is None:
+        if self._data is None or self._labels_path is None:
             show_error_dialog(self, "No data or labels path provided!")
             return
 
-        sequence = self.data.sequence
+        sequence = self._data.sequence
         if sequence is None:
             show_error_dialog(self, "No useq.MDAsequence found!")
             return
@@ -250,12 +250,12 @@ class _AnalyseCalciumTraces(QWidget):
             self._extract_trace_per_position(p)
 
     def _extract_trace_per_position(self, p: int) -> None:
-        if self.data is None or (
+        if self._data is None or (
             self._worker is not None and self._worker.abort_requested
         ):
             return
 
-        data, meta = self.data.isel(p=p, metadata=True)
+        data, meta = self._data.isel(p=p, metadata=True)
         # get position name from metadata
         well = meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
         # create the dict for the well
