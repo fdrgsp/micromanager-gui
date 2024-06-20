@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import NamedTuple
 
 from qtpy.QtCore import QElapsedTimer, QObject, QTimer, Signal
 from qtpy.QtWidgets import QMessageBox, QWidget
 
 
 @dataclass
-class Peaks(NamedTuple):
+class Peaks:
     """NamedTuple to store peak data."""
 
     peak: int | None = None
@@ -19,7 +18,7 @@ class Peaks(NamedTuple):
 
 
 @dataclass
-class ROIData(NamedTuple):
+class ROIData:
     """NamedTuple to store ROI data."""
 
     trace: list[float] | None = None

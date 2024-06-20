@@ -171,22 +171,23 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/analysys_data.json"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis_data.json"
+        # self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
         return self._datastore
 
     @datastore.setter
-    def datastore(self, value: TensorstoreZarrReader | OMEZarrReader | None) -> None:
+    def datastore(self, value: TensorstoreZarrReader | OMEZarrReader) -> None:
         self._datastore = value
+        self._init_widget(value)
 
     @property
     def labels_path(self) -> str | None:
@@ -195,14 +196,16 @@ class PlateViewer(QMainWindow):
     @labels_path.setter
     def labels_path(self, value: str | None) -> None:
         self._labels_path = value
+        self._on_fov_table_selection_changed()
 
     @property
     def analysis_file_path(self) -> str | None:
         return self._analysis_file_path
 
     @analysis_file_path.setter
-    def analysis_file_path(self, value: str | None) -> None:
+    def analysis_file_path(self, value: str) -> None:
         self._analysis_file_path = value
+        self._analysis_data = self._load_analysis_data(value)
 
     @property
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
@@ -320,7 +323,7 @@ class PlateViewer(QMainWindow):
         self._segmentation_wdg._output_path._path.setText(self._labels_path)
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
-        self._analysis_wdg._labels_path = self._labels_path
+        self._analysis_wdg.labels_path = self._labels_path
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
 
@@ -402,13 +405,13 @@ class PlateViewer(QMainWindow):
 
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
-        if self._labels_path is None:
+        if self.labels_path is None:
             return None
         # the labels tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
         pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name
-        for f in Path(self._labels_path).iterdir():
+        for f in Path(self.labels_path).iterdir():
             name = f.name.replace(f.suffix, "")
             if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
                 return tifffile.imread(f)  # type: ignore
