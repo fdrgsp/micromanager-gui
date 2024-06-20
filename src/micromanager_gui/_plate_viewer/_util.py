@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import NamedTuple, cast
+from dataclasses import dataclass
+from typing import NamedTuple
 
 from qtpy.QtCore import QElapsedTimer, QObject, QTimer, Signal
 from qtpy.QtWidgets import QMessageBox, QWidget
 
 
+@dataclass
 class Peaks(NamedTuple):
     """NamedTuple to store peak data."""
 
@@ -16,6 +18,7 @@ class Peaks(NamedTuple):
     # ... add whatever other data we need
 
 
+@dataclass
 class ROIData(NamedTuple):
     """NamedTuple to store ROI data."""
 
@@ -25,24 +28,6 @@ class ROIData(NamedTuple):
     mean_frequency: float | None = None
     mean_amplitude: float | None = None
     # ... add whatever other data we need
-
-
-def load_analysis_data(analysis_json_file_path: str) -> dict[str, dict[str, ROIData]]:
-    """Load the analysis data from the given JSON file."""
-    import json
-
-    with open(analysis_json_file_path) as f:
-        data = cast(dict, json.load(f))
-        for key in data.keys():
-            for i in range(1, len(data[key]) + 1):
-                # if there is the 'peaks' key, convert the list[dicts] to list[Peaks]
-                if "peaks" in data[key][str(i)]:
-                    data[key][str(i)]["peaks"] = [
-                        Peaks(**peak) for peak in data[key][str(i)]["peaks"]
-                    ]
-                # convert the dict to ROIData
-                data[key][str(i)] = ROIData(**data[key][str(i)])
-    return data
 
 
 def show_error_dialog(parent: QWidget, message: str) -> None:

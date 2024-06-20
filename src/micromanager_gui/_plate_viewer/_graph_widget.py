@@ -199,3 +199,5 @@ class _GraphWidget(QWidget):
             # show the choose displayed traces widget
             if text in {RAW_TRACES, DFF, RAW_NORMALIZED_TRACES}:
                 self._choose_dysplayed_traces.show()
+                if self._choose_dysplayed_traces.isChecked():
+                    self._choose_dysplayed_traces._update()

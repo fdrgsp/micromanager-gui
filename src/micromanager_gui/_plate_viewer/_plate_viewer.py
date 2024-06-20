@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import numpy as np
 import tifffile
@@ -33,11 +33,8 @@ from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
 from ._segmentation import _CellposeSegmentation
-from ._util import load_analysis_data, show_error_dialog
+from ._util import Peaks, ROIData, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
-
-if TYPE_CHECKING:
-    from ._util import ROIData
 
 GREEN = "#00FF00"  # "#00C600"
 SELECTED_COLOR = QBrush(QColor(GREEN))
@@ -53,7 +50,13 @@ ZR = WRITERS[OME_ZARR][0]
 class PlateViewer(QMainWindow):
     """A widget for displaying a plate preview."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        labels_path: str | None = None,
+        analysis_file_path: str | None = None,
+    ) -> None:
         super().__init__(parent)
 
         # add central widget
@@ -63,8 +66,8 @@ class PlateViewer(QMainWindow):
         self.setCentralWidget(self._central_widget)
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
-        self._labels_path: str | None = None
-        self._analysis_file_path: str | None = None
+        self._labels_path = labels_path
+        self._analysis_file_path = analysis_file_path
 
         # maybe make it as a pandas dataframe. we can save the analysis as a csv file
         # and load it with pandas after the init dialog
@@ -168,14 +171,46 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # self._init_widget(reader)
+        data = (
+            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/analysys_data.json"
+        self._init_widget(reader)
+
+    @property
+    def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
+        return self._datastore
+
+    @datastore.setter
+    def datastore(self, value: TensorstoreZarrReader | OMEZarrReader | None) -> None:
+        self._datastore = value
+
+    @property
+    def labels_path(self) -> str | None:
+        return self._labels_path
+
+    @labels_path.setter
+    def labels_path(self, value: str | None) -> None:
+        self._labels_path = value
+
+    @property
+    def analysis_file_path(self) -> str | None:
+        return self._analysis_file_path
+
+    @analysis_file_path.setter
+    def analysis_file_path(self, value: str | None) -> None:
+        self._analysis_file_path = value
+
+    @property
+    def analysis_data(self) -> dict[str, dict[str, ROIData]]:
+        return self._analysis_data
+
+    @analysis_data.setter
+    def analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
+        self._analysis_data = value
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -221,11 +256,33 @@ class PlateViewer(QMainWindow):
 
             self._init_widget(reader)
 
+    def _load_analysis_data(
+        self, analysis_json_file_path: str
+    ) -> dict[str, dict[str, ROIData]]:
+        """Load the analysis data from the given JSON file."""
+        import json
+
+        try:
+            with open(analysis_json_file_path) as f:
+                data = cast(dict, json.load(f))
+                for key in data.keys():
+                    for i in range(1, len(data[key]) + 1):
+                        roi = cast(dict, data[key][str(i)])
+                        # convert the peaks to a Peaks object
+                        if roi.get("peaks"):
+                            roi["peaks"] = [Peaks(**peak) for peak in roi["peaks"]]
+                        # convert the dict to a ROIData object
+                        data[key][str(i)] = ROIData(**roi)
+        except Exception as e:
+            show_error_dialog(self, f"Error loading analysis data: {e}")
+
+        return data
+
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
         # load analysis json file if the path is not None
-        if self._analysis_file_path:
-            self._analysis_data = load_analysis_data(self._analysis_file_path)
+        if self.analysis_file_path:
+            self.analysis_data = self._load_analysis_data(self.analysis_file_path)
 
         self._datastore = reader
 

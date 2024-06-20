@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
 
 import numpy as np
 import tifffile
@@ -24,7 +24,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import ElapsedTimer, show_error_dialog
+from ._util import ElapsedTimer, ROIData, show_error_dialog
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent
@@ -36,38 +36,16 @@ if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 
-@dataclass
-class Peaks:
-    """NamedTuple to store peak data."""
-
-    peak: int | None = None
-    amplitude: float | None = None
-    raise_time: float | None = None
-    decay_time: float | None = None
-    # ... add whatever other data we need
-
-
-@dataclass
-class ROIData:
-    """NamedTuple to store ROI data."""
-
-    trace: list[float] | None = None
-    peaks: list[Peaks] | None = None
-    mean_frequency: float | None = None
-    mean_amplitude: float | None = None
-    # ... add whatever other data we need
-
-
-def calculate_roi_trace(data: np.ndarray, mask: list[np.ndarray]) -> list[float]:
+def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
     roi_trace = []
     for i in range(data.shape[0]):
-        # get the mean intensity of the roi
-        roi = np.where(mask, data[i], 0)
-        roi_trace.append(roi.mean())
+        roi = data[i][mask]
+        roi_trace.append(np.mean(roi))
     return roi_trace
 
 
 class _AnalyseCalciumTraces(QWidget):
+    progress_bar_updated = Signal()
     elapsed_time_updated = Signal(str)
 
     def __init__(
@@ -106,18 +84,21 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
         self._progress_bar = QProgressBar(self)
-        self._progress_bar.setRange(0, 100)
+        self._progress_pos_label = QLabel()
         self._progress_label = QLabel("00:00:00")
         progress_wdg_layout.addWidget(self._progress_bar)
+        progress_wdg_layout.addWidget(self._progress_pos_label)
         progress_wdg_layout.addWidget(self._progress_label)
 
         self._elapsed_timer = ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
-        wdg = QGroupBox("Extract Traces", self)
-        wdg.setCheckable(True)
-        wdg.setChecked(False)
-        wdg_layout = QGridLayout(wdg)
+        self.progress_bar_updated.connect(self._update_progress_bar)
+
+        self._extract_traces_wdg = QGroupBox("Extract Traces", self)
+        self._extract_traces_wdg.setCheckable(True)
+        self._extract_traces_wdg.setChecked(False)
+        wdg_layout = QGridLayout(self._extract_traces_wdg)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(self._output_path, 0, 0, 1, 3)
@@ -131,7 +112,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.addWidget(wdg)
+        main_layout.addWidget(self._extract_traces_wdg)
         main_layout.addStretch(1)
 
     @property
@@ -145,6 +126,10 @@ class _AnalyseCalciumTraces(QWidget):
     @property
     def labels_path(self) -> str | None:
         return self._labels_path
+
+    @labels_path.setter
+    def labels_path(self, labels_path: str) -> None:
+        self._labels_path = labels_path
 
     @property
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
@@ -165,39 +150,67 @@ class _AnalyseCalciumTraces(QWidget):
         if self._worker is not None and self._worker.is_running:
             return
 
+        if not self._output_path.value():
+            show_error_dialog(self, "No Output Path provided!")
+            return
+
         # start elapsed timer
         self._elapsed_timer.start()
 
         self._worker = create_worker(
             self._extract_traces,
             _start_thread=True,
-            _connect={
-                "yielded": self._update_progress_bar,
-                "finished": self._stop_timer,
-            },
+            _connect={"finished": self._on_finished},
         )
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
+        if self._worker is not None:
+            self._worker.quit()
+        super().closeEvent(event)
 
     def _cancel(self) -> None:
         """Cancel the current extraction."""
         if self._worker is not None:
             self._worker.quit()
         # stop the elapsed timer
-        self._stop_timer()
+        self._elapsed_timer.stop()
+        self._progress_bar.setValue(0)
+        self._progress_pos_label.setText("0/0")
         self._progress_label.setText("00:00:00")
 
-    def _stop_timer(self) -> None:
-        """Stop the elapsed timer and the time timer."""
+    def _on_finished(self) -> None:
+        """Called when the extraction is finished."""
         self._elapsed_timer.stop()
+        self._progress_bar.setValue(self._progress_bar.maximum())
+
+        # save the analysis data
+        self.save_analysis_data(self._output_path.value())
+
+        # update the analysis data of the plate viewer
+        if self._plate_viewer is not None:
+            self._plate_viewer.analysis_data = self._analysis_data
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
         self._progress_label.setText(time_str)
 
-    def _update_progress_bar(self, value: int) -> None:
+    def _update_progress_bar(self) -> None:
         """Update the progress bar value."""
+        value = self._progress_bar.value() + 1
         self._progress_bar.setValue(value)
+        self._progress_pos_label.setText(f"{value}/{self._progress_bar.maximum()}")
 
-    def _extract_traces(self) -> Generator[int, None, None]:
+    def _get_labels_file(self, label_name: str) -> str | None:
+        """Get the labels file for the given name."""
+        if self._labels_path is None:
+            return None
+        for label_file in Path(self._labels_path).glob("*.tif"):
+            if label_file.name.endswith(label_name):
+                return str(label_file)
+        return None
+
+    def _extract_traces(self) -> None:
         """Extract the roi traces in multiple threads."""
         if self.data is None or self.labels_path is None:
             show_error_dialog(self, "No data or labels path provided!")
@@ -209,20 +222,32 @@ class _AnalyseCalciumTraces(QWidget):
             return
 
         pos = len(sequence.stage_positions)
+        self._progress_bar.reset()
+        self._progress_bar.setRange(1, pos)
+        self._progress_pos_label.setText(f"0/{self._progress_bar.maximum()}")
+        cpu_count = os.cpu_count() or 1
+        chunk_size = max(1, pos // cpu_count)
 
         try:
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = [
-                    executor.submit(self._extract_trace_per_position, p)
-                    for p in range(pos)
+                    executor.submit(
+                        self._extract_trace_for_chunk,
+                        start,
+                        min(start + chunk_size, pos),
+                    )
+                    for start in range(0, pos, chunk_size)
                 ]
-                for idx, _ in enumerate(as_completed(futures)):
+                for _ in as_completed(futures):
                     if self._worker is not None and self._worker.abort_requested:
                         break
-                    yield int((idx / pos) * 100)
 
         except Exception as e:
             show_error_dialog(self, f"An error occurred: {e}")
+
+    def _extract_trace_for_chunk(self, start: int, end: int) -> None:
+        for p in range(start, end):
+            self._extract_trace_per_position(p)
 
     def _extract_trace_per_position(self, p: int) -> None:
         if self.data is None or (
@@ -249,20 +274,5 @@ class _AnalyseCalciumTraces(QWidget):
                 break
             mask = labels == label_value
             roi_trace = calculate_roi_trace(data, mask)
-            # create the dict for the roi
             self._analysis_data[well][str(label_value)] = ROIData(trace=roi_trace)
-
-    def _get_labels_file(self, label_name: str) -> str | None:
-        """Get the labels file for the given name."""
-        if self._labels_path is None:
-            return None
-        for label_file in Path(self._labels_path).glob("*.tif"):
-            if label_file.name.endswith(label_name):
-                return str(label_file)
-        return None
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Override the close event to cancel the worker."""
-        if self._worker is not None:
-            self._worker.quit()
-        super().closeEvent(event)
+        self.progress_bar_updated.emit()
