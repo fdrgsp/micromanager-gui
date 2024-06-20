@@ -25,7 +25,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import show_error_dialog
+from ._util import ElapsedTimer, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -67,13 +67,11 @@ class _CellposeSegmentation(QWidget):
 
         self._plate_viewer: PlateViewer | None = parent
 
-        self._data = data
+        self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
         self._labels: dict[str, np.ndarray] = {}
 
         self._worker: GeneratorWorker | None = None
-
-        # TODO: maybe add diameter input
 
         self._browse_custom_model = _SelectModelPath(self)
         self._browse_custom_model.hide()
@@ -137,6 +135,7 @@ class _CellposeSegmentation(QWidget):
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.clicked.connect(self._cancel_segmentation)
+        btn_wdg_layout.addStretch(1)
         btn_wdg_layout.addWidget(self._segment_btn)
         btn_wdg_layout.addWidget(self._cancel_btn)
 
@@ -147,14 +146,19 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
 
+        self._elapsed_timer = ElapsedTimer()
+        self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
+
         progress_wdg = QWidget(self)
         progress_layout = QHBoxLayout(progress_wdg)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(5)
         self._progress_lbl = QLabel()
         self._progress_bar = QProgressBar(self)
-        progress_layout.addWidget(self._progress_bar)
+        self._elapsed_time_label = QLabel("00:00:00")
         progress_layout.addWidget(self._progress_lbl)
+        progress_layout.addWidget(self._progress_bar)
+        progress_layout.addWidget(self._elapsed_time_label)
 
         self._settings_groupbox = QGroupBox("Cellpose Segmentation", self)
         _settings_groupbox_layout = QGridLayout(self._settings_groupbox)
@@ -165,8 +169,8 @@ class _CellposeSegmentation(QWidget):
         _settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
         _settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
         _settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
-        _settings_groupbox_layout.addWidget(btn_wdg, 5, 0)
-        _settings_groupbox_layout.addWidget(progress_wdg, 5, 1)
+        _settings_groupbox_layout.addWidget(btn_wdg, 5, 1)
+        _settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
@@ -250,6 +254,8 @@ class _CellposeSegmentation(QWidget):
 
         self._enable(False)
 
+        self._elapsed_timer.start()
+
         self._worker = create_worker(
             self._segment,
             path=path,
@@ -283,7 +289,9 @@ class _CellposeSegmentation(QWidget):
             # get the data
             data, meta = self.data.isel(p=p, metadata=True)
             # get position name from metadata
-            pos_name = meta[0].get("Event", {}).get("pos_name", f"pos_{p}")
+            pos_name = (
+                meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+            )
             yield f"Segmenting position {p+1} of {pos} (well {pos_name})"
             # max projection
             data_max = data.max(axis=0)
@@ -304,11 +312,16 @@ class _CellposeSegmentation(QWidget):
         self._progress_lbl.setText(state)
         self._progress_bar.setValue(self._progress_bar.value() + 1)
 
+    def _update_progress_label(self, time_str: str) -> None:
+        """Update the progress label with elapsed time."""
+        self._elapsed_time_label.setText(time_str)
+
     def _on_finished(self) -> None:
         """Enable the widgets when the segmentation is finished."""
         self._enable(True)
         self._progress_bar.reset()
-        self._progress_lbl.setText("Finished!")
+        self._progress_lbl.setText("")
+        self._elapsed_timer.stop()
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
