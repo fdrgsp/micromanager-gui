@@ -5,7 +5,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import tifffile
@@ -13,12 +13,13 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
     QFileDialog,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -36,6 +37,8 @@ if TYPE_CHECKING:
     from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
     from ._plate_viewer import PlateViewer
+
+FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
 def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
@@ -90,11 +93,6 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._worker: GeneratorWorker | None = None
 
-        self._extract_traces_btn = QPushButton("Extract Traces", self)
-        self._extract_traces_btn.clicked.connect(self.extract_traces)
-        self._cancel_btn = QPushButton("Cancel", self)
-        self._cancel_btn.clicked.connect(self._cancel)
-
         self._output_path = _SelectAnalysisPath(
             self,
             "Analysis Output Path",
@@ -105,36 +103,41 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._run_btn = QPushButton("Run")
+        self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.clicked.connect(self.run)
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.clicked.connect(self.cancel)
+
         self._progress_bar = QProgressBar(self)
         self._progress_pos_label = QLabel()
-        self._progress_label = QLabel("00:00:00")
+        self._elapsed_time_label = QLabel("00:00:00")
+
+        progress_wdg_layout.addWidget(self._run_btn)
+        progress_wdg_layout.addWidget(self._cancel_btn)
         progress_wdg_layout.addWidget(self._progress_bar)
         progress_wdg_layout.addWidget(self._progress_pos_label)
-        progress_wdg_layout.addWidget(self._progress_label)
+        progress_wdg_layout.addWidget(self._elapsed_time_label)
 
         self._elapsed_timer = ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
         self.progress_bar_updated.connect(self._update_progress_bar)
 
-        self._extract_traces_wdg = QGroupBox("Extract Traces", self)
-        self._extract_traces_wdg.setCheckable(True)
-        self._extract_traces_wdg.setChecked(False)
-        wdg_layout = QGridLayout(self._extract_traces_wdg)
+        self.groupbox = QGroupBox("Extract Traces", self)
+        self.groupbox.setCheckable(True)
+        self.groupbox.setChecked(False)
+        wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
-        wdg_layout.addWidget(self._output_path, 0, 0, 1, 3)
-        wdg_layout.addWidget(self._extract_traces_btn, 1, 0)
-        wdg_layout.addWidget(self._cancel_btn, 1, 1)
-        wdg_layout.addWidget(progress_wdg, 1, 2)
-
-        self._extract_traces_btn.setFixedWidth(
-            self._output_path._label.minimumSizeHint().width()
-        )
+        wdg_layout.addWidget(self._output_path)
+        wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.addWidget(self._extract_traces_wdg)
+        main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 
     @property
@@ -189,13 +192,19 @@ class _AnalyseCalciumTraces(QWidget):
                 self, f"An error occurred while saving the analysis data: {e}"
             )
 
-    def extract_traces(self) -> None:
+    def cancel(self) -> None:
+        """Cancel the current run."""
+        if self._worker is not None:
+            self._worker.quit()
+        # stop the elapsed timer
+        self._elapsed_timer.stop()
+        self._progress_bar.reset()
+        self._progress_pos_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
+    def run(self) -> None:
         """Extract the roi traces in a separate thread."""
         if self._worker is not None and self._worker.is_running:
-            return
-
-        if not self._output_path.value():
-            show_error_dialog(self, "No Output Path provided!")
             return
 
         if self._data is None or self._labels_path is None:
@@ -207,10 +216,22 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No useq.MDAsequence found!")
             return
 
+        if not self._output_path.value():
+            show_error_dialog(self, "No Output Path provided!")
+            return
+
+        # check if the provided json file is empty. If not, ask the user to overwrite it
+        if Path(self._output_path.value()).is_file():
+            with open(self._output_path.value()) as f:
+                if f.read():
+                    response = self._overwrite_msgbox()
+                    if response == QMessageBox.StandardButton.No:
+                        return
+
         pos = len(sequence.stage_positions)
         self._progress_bar.reset()
         self._progress_bar.setRange(1, pos)
-        self._progress_pos_label.setText(f"0/{self._progress_bar.maximum()}")
+        self._progress_pos_label.setText(f"[0/{self._progress_bar.maximum()}]")
 
         # start elapsed timer
         self._elapsed_timer.start()
@@ -222,21 +243,18 @@ class _AnalyseCalciumTraces(QWidget):
             _connect={"finished": self._on_finished},
         )
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Override the close event to cancel the worker."""
-        if self._worker is not None:
-            self._worker.quit()
-        super().closeEvent(event)
-
-    def _cancel(self) -> None:
-        """Cancel the current extraction."""
-        if self._worker is not None:
-            self._worker.quit()
-        # stop the elapsed timer
-        self._elapsed_timer.stop()
-        self._progress_bar.setValue(0)
-        self._progress_pos_label.setText("0/0")
-        self._progress_label.setText("00:00:00")
+    def _overwrite_msgbox(self) -> Any:
+        """Show a message box to ask the user if wants to overwrite the json file."""
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText("The provided json file is not empty!")
+        msg.setInformativeText("Do you want to overwrite it?")
+        msg.setWindowTitle("Overwrite Analysis Data")
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg.exec()
 
     def _on_finished(self) -> None:
         """Called when the extraction is finished."""
@@ -253,13 +271,13 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
-        self._progress_label.setText(time_str)
+        self._elapsed_time_label.setText(time_str)
 
     def _update_progress_bar(self) -> None:
         """Update the progress bar value."""
         value = self._progress_bar.value() + 1
         self._progress_bar.setValue(value)
-        self._progress_pos_label.setText(f"{value}/{self._progress_bar.maximum()}")
+        self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
 
     def _get_labels_file(self, label_name: str) -> str | None:
         """Get the labels file for the given name."""
@@ -323,3 +341,14 @@ class _AnalyseCalciumTraces(QWidget):
             roi_trace = calculate_roi_trace(data, mask)
             self._analysis_data[well][str(label_value)] = ROIData(trace=roi_trace)
         self.progress_bar_updated.emit()
+
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the widgets."""
+        self._output_path.setEnabled(enable)
+        self._run_btn.setEnabled(enable)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
+        if self._worker is not None:
+            self._worker.quit()
+        super().closeEvent(event)

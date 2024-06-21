@@ -132,24 +132,18 @@ class PlateViewer(QMainWindow):
         visualization_layout.setContentsMargins(5, 5, 5, 5)
         visualization_layout.setSpacing(5)
         # graphs widget
-        self._graph_widget_1 = _GraphWidget(self)
-        self._graph_widget_2 = _GraphWidget(self)
-        self._graph_widget_3 = _GraphWidget(self)
-        self._graph_widget_4 = _GraphWidget(self)
-        # self._graph_widget_5 = _GraphWidget(self)
-        # self._graph_widget_6 = _GraphWidget(self)
-        # self._graph_widget_7 = _GraphWidget(self)
-        # self._graph_widget_8 = _GraphWidget(self)
-        # self._graph_widget_9 = _GraphWidget(self)
-        visualization_layout.addWidget(self._graph_widget_1, 0, 0)
-        visualization_layout.addWidget(self._graph_widget_2, 0, 1)
-        visualization_layout.addWidget(self._graph_widget_3, 1, 0)
-        visualization_layout.addWidget(self._graph_widget_4, 1, 1)
-        # graphs_layout.addWidget(self._graph_widget_5, 1, 1)
-        # graphs_layout.addWidget(self._graph_widget_6, 1, 2)
-        # graphs_layout.addWidget(self._graph_widget_7, 2, 0)
-        # graphs_layout.addWidget(self._graph_widget_8, 2, 1)
-        # graphs_layout.addWidget(self._graph_widget_9, 2, 2)
+        self._graph_wdg_1 = _GraphWidget(self)
+        self._graph_wdg_2 = _GraphWidget(self)
+        self._graph_wdg_3 = _GraphWidget(self)
+        self._graph_wdg_4 = _GraphWidget(self)
+        self._graph_wdg_5 = _GraphWidget(self)
+        self._graph_wdg_6 = _GraphWidget(self)
+        visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
+        visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
+        visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
+        visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
+        visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
+        visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
@@ -171,14 +165,14 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis_data.json"
-        # self._init_widget(reader)
+        data = (
+            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -324,6 +318,7 @@ class PlateViewer(QMainWindow):
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
         self._analysis_wdg.labels_path = self._labels_path
+        self._analysis_wdg._output_path._path.setText(self._analysis_file_path)
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
 
@@ -381,7 +376,12 @@ class PlateViewer(QMainWindow):
         if self._datastore is None:
             return
 
-        data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=0, c=0))
+        if not self._datastore.sequence:
+            return
+
+        # get a single frame for the selected FOV (at 2/3 of the time points)
+        t = int(len(self._datastore.sequence.stage_positions) / 3 * 2)
+        data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=t, c=0))
 
         # get one random segmentation between 0 and 2
         labels = self._get_labels(value)
@@ -435,17 +435,14 @@ class PlateViewer(QMainWindow):
         combo_red: bool = False,
         clear: bool = False,
     ) -> None:
-        for graph in (
-            self._graph_widget_1,
-            self._graph_widget_2,
-            self._graph_widget_3,
-            self._graph_widget_4,
-            # self._graph_widget_5,
-            # self._graph_widget_6,
-            # self._graph_widget_7,
-            # self._graph_widget_8,
-            # self._graph_widget_9,
-        ):
+        for graph in [
+            self._graph_wdg_1,
+            self._graph_wdg_2,
+            self._graph_wdg_3,
+            self._graph_wdg_4,
+            self._graph_wdg_5,
+            self._graph_wdg_6,
+        ]:
             if set_title is not None:
                 graph.fov = set_title
 

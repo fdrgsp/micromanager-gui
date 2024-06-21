@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, Generator
 
 import tifffile
 from cellpose import models
@@ -51,9 +51,13 @@ class _SelectModelPath(_BrowseWidget):
         super().__init__(parent, label, "", tooltip, is_dir=False)
 
     def _on_browse(self) -> None:
-        if path := QFileDialog.getExistingDirectory(
-            self, f"Select the {self._label_text}.", self._current_path
-        ):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            f"Select the {self._label_text}.",
+            "",
+            "",  # TODO: add model extension
+        )
+        if path:
             self._path.setText(path)
 
 
@@ -126,20 +130,6 @@ class _CellposeSegmentation(QWidget):
             is_dir=True,
         )
 
-        btn_wdg = QWidget(self)
-        btn_wdg_layout = QHBoxLayout(btn_wdg)
-        btn_wdg_layout.setContentsMargins(0, 0, 0, 0)
-        btn_wdg_layout.setSpacing(5)
-        self._segment_btn = QPushButton("Segment")
-        self._segment_btn.setSizePolicy(*FIXED)
-        self._segment_btn.clicked.connect(self.segment)
-        self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.setSizePolicy(*FIXED)
-        self._cancel_btn.clicked.connect(self._cancel)
-        btn_wdg_layout.addStretch(1)
-        btn_wdg_layout.addWidget(self._segment_btn)
-        btn_wdg_layout.addWidget(self._cancel_btn)
-
         # set the minimum width of the labels
         fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
         self._models_combo_label.setMinimumWidth(fixed_lbl_width)
@@ -154,17 +144,28 @@ class _CellposeSegmentation(QWidget):
         progress_layout = QHBoxLayout(progress_wdg)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(5)
-        self._progress_lbl = QLabel()
+
+        self._run_btn = QPushButton("Run")
+        self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.clicked.connect(self.run)
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.clicked.connect(self.cancel)
+
+        self._progress_label = QLabel()
         self._progress_bar = QProgressBar(self)
         self._elapsed_time_label = QLabel("00:00:00")
-        progress_layout.addWidget(self._progress_lbl)
+
+        progress_layout.addWidget(self._run_btn)
+        progress_layout.addWidget(self._cancel_btn)
         progress_layout.addWidget(self._progress_bar)
+        progress_layout.addWidget(self._progress_label)
         progress_layout.addWidget(self._elapsed_time_label)
 
-        self._settings_groupbox = QGroupBox("Cellpose Segmentation", self)
-        self._settings_groupbox.setCheckable(True)
-        self._settings_groupbox.setChecked(False)
-        settings_groupbox_layout = QGridLayout(self._settings_groupbox)
+        self.groupbox = QGroupBox("Cellpose Segmentation", self)
+        self.groupbox.setCheckable(True)
+        self.groupbox.setChecked(False)
+        settings_groupbox_layout = QGridLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
         settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
@@ -172,12 +173,11 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
         settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
         settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
-        settings_groupbox_layout.addWidget(btn_wdg, 5, 1)
         settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.addWidget(self._settings_groupbox)
+        main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 
     @property
@@ -197,33 +197,24 @@ class _CellposeSegmentation(QWidget):
     def labels(self) -> dict[str, np.ndarray]:
         return self._labels
 
-    def segment(self) -> None:
+    def cancel(self) -> None:
+        """Cancel the current run."""
+        if self._worker is not None:
+            self._worker.quit()
+        self._elapsed_timer.stop()
+        self._progress_bar.reset()
+        self._progress_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
+    def run(self) -> None:
         """Perform the Cellpose segmentation in a separate thread."""
+        if self._worker is not None and self._worker.is_running:
+            return
+
         self._progress_bar.reset()
 
         if self._data is None:
             return
-
-        # ask the user if wants to overwrite the labels if they already exist
-        if self._plate_viewer is not None and (
-            self._plate_viewer._labels_path is not None
-            and self._plate_viewer._labels_path == self._output_path.value()
-            and list(Path(self._plate_viewer._labels_path).iterdir())
-        ):
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Icon.Question)
-            msg.setText(
-                f"The Labels directory already exist: {self._plate_viewer._labels_path}"
-            )
-            msg.setInformativeText("Do you want to overwrite the labels?")
-            msg.setWindowTitle("Overwrite Labels")
-            msg.setStandardButtons(
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            msg.setDefaultButton(QMessageBox.StandardButton.No)
-            response = msg.exec()
-            if response == QMessageBox.StandardButton.No:
-                return
 
         if self._data.sequence is not None:
             self._progress_bar.setRange(0, self._data.sequence.sizes.get("p", 0))
@@ -232,6 +223,12 @@ class _CellposeSegmentation(QWidget):
         if not path:
             show_error_dialog(self, "Please select a Labels Output Path.")
             return
+
+        # ask the user if wants to overwrite the labels if they already exist
+        if list(Path(path).glob("*.tif")):
+            response = self._overwrite_msgbox()
+            if response == QMessageBox.StandardButton.No:
+                return
         # set the label path of the PlateViewer
         if self._plate_viewer is not None:
             self._plate_viewer.labels_path = path
@@ -272,12 +269,18 @@ class _CellposeSegmentation(QWidget):
             },
         )
 
-    def _on_model_combo_changed(self, text: str) -> None:
-        """Show or hide the custom model path widget."""
-        if text == "custom":
-            self._browse_custom_model.show()
-        else:
-            self._browse_custom_model.hide()
+    def _overwrite_msgbox(self) -> Any:
+        """Show a message box to ask the user if wants to overwrite the labels."""
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText("The Labels directory already contains some files!")
+        msg.setInformativeText("Do you want to overwrite them?")
+        msg.setWindowTitle("Overwrite Labels")
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg.exec()
 
     def _segment(
         self, path: str, model: CellposeModel, channel: list[int], diameter: float
@@ -297,7 +300,7 @@ class _CellposeSegmentation(QWidget):
             pos_name = (
                 meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             )
-            yield f"Segmenting position {p+1} of {pos} (well {pos_name})"
+            yield f"[Well {pos_name} (p{p})]"
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
@@ -307,16 +310,16 @@ class _CellposeSegmentation(QWidget):
             # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
 
-    def _cancel(self) -> None:
-        """Cancel the segmentation process."""
-        if self._worker is not None:
-            self._worker.quit()
-        self._elapsed_timer.stop()
-        self._elapsed_time_label.setText("00:00:00")
+    def _on_model_combo_changed(self, text: str) -> None:
+        """Show or hide the custom model path widget."""
+        if text == "custom":
+            self._browse_custom_model.show()
+        else:
+            self._browse_custom_model.hide()
 
     def _update_progress(self, state: str) -> None:
         """Update the progress bar with the current state."""
-        self._progress_lbl.setText(state)
+        self._progress_label.setText(state)
         self._progress_bar.setValue(self._progress_bar.value() + 1)
 
     def _update_progress_label(self, time_str: str) -> None:
@@ -335,7 +338,7 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model.setEnabled(enable)
         self._channel_combo.setEnabled(enable)
         self._output_path.setEnabled(enable)
-        self._segment_btn.setEnabled(enable)
+        self._run_btn.setEnabled(enable)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""
