@@ -25,7 +25,7 @@ def plot_traces(
     """Helper function to plot traces with hover functionality."""
     ax = widget.figure.add_subplot(111)
     ax.set_title(title)
-    ax.get_yaxis().set_visible(False)
+    # ax.get_yaxis().set_visible(False)
     count = 0
     for key in data:
         if rois is not None and int(key) not in rois:
@@ -49,8 +49,7 @@ def plot_raw_traces(
     """Plot the raw traces."""
 
     def plot_func(ax: plt.Axes, trace: np.ndarray, count: int, key: str) -> None:
-        offset = 20
-        ax.plot(np.array(trace) + count * offset, label=f"ROI {key}")
+        ax.plot(np.array(trace), label=f"ROI {key}")
 
     plot_traces(widget, data, rois, f"{widget._fov} - raw traces", plot_func)
 
