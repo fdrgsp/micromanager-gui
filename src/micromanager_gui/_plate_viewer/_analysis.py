@@ -81,7 +81,6 @@ class _SelectAnalysisPath(_BrowseWidget):
 
 class _AnalyseCalciumTraces(QWidget):
     progress_bar_updated = Signal()
-    elapsed_time_updated = Signal(str)
 
     def __init__(
         self,
