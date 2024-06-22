@@ -171,7 +171,8 @@ class PlateViewer(QMainWindow):
         )
         reader = TensorstoreZarrReader(data)
         self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/a.json"
         self._init_widget(reader)
 
     @property
@@ -208,6 +209,10 @@ class PlateViewer(QMainWindow):
     @analysis_data.setter
     def analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
         self._analysis_data = value
+
+    @property
+    def labels(self) -> dict[str, np.ndarray]:
+        return self._segmentation_wdg.labels
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -261,19 +266,27 @@ class PlateViewer(QMainWindow):
 
         try:
             with open(analysis_json_file_path) as f:
-                data = cast(dict, json.load(f))
+                try:
+                    data = cast(dict, json.load(f))
+                except json.JSONDecodeError as e:
+                    show_error_dialog(self, f"Error loading the analysis data: {e}")
+                    return {}
+                if not data:
+                    return {}
                 for key in data.keys():
                     for i in range(1, len(data[key]) + 1):
                         roi = cast(dict, data[key][str(i)])
-                        # convert the peaks to a Peaks object
-                        if roi.get("peaks"):
-                            roi["peaks"] = [Peaks(**peak) for peak in roi["peaks"]]
+                        if peaks := roi.get("peaks", {}):
+                            peaks_objects = []
+                            for p in peaks:
+                                peaks_objects.append(Peaks(**p))
+                                roi["peaks"] = peaks_objects
                         # convert the dict to a ROIData object
                         data[key][str(i)] = ROIData(**roi)
+            return data
         except Exception as e:
-            show_error_dialog(self, f"Error loading analysis data: {e}")
-
-        return data
+            show_error_dialog(self, f"Error loading the analysis data: {e}")
+            return {}
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""

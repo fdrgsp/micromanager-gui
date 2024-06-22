@@ -5,7 +5,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import tifffile
@@ -41,12 +41,12 @@ if TYPE_CHECKING:
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
-def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
-    roi_trace = []
-    for i in range(data.shape[0]):
-        roi = data[i][mask]
-        roi_trace.append(np.mean(roi))
-    return roi_trace
+# def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
+#     roi_trace = []
+#     for i in range(data.shape[0]):
+#         roi = data[i][mask]
+#         roi_trace.append(np.mean(roi))
+#     return roi_trace
 
 
 class _SelectAnalysisPath(_BrowseWidget):
@@ -161,36 +161,8 @@ class _AnalyseCalciumTraces(QWidget):
         return self._analysis_data
 
     def save_analysis_data(self, path: str) -> None:
-        """Save the analysis data to a JSON file."""
-        save_path = Path(path)
-
-        if save_path.is_dir():
-            name = "analysis_data"
-            if self._data is not None:
-                seq = self._data.sequence
-                if seq is not None:
-                    meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
-                    name = meta.get("save_name")
-                    if name is not None:
-                        name = f"{name}_analysis_data"
-
-            save_path = save_path / f"{name}.json"
-
-        elif not save_path.suffix:
-            save_path = save_path.with_suffix(".json")
-
-        try:
-            with open(save_path, "w") as f:
-                json.dump(
-                    self._analysis_data,
-                    f,
-                    default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
-                    indent=2,
-                )
-        except Exception as e:
-            show_error_dialog(
-                self, f"An error occurred while saving the analysis data: {e}"
-            )
+        """Save the analysis data to a JSON file in a separate thread."""
+        create_worker(self._save_analysis_data, path=path, _start_thread=True)
 
     def cancel(self) -> None:
         """Cancel the current run."""
@@ -230,7 +202,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         pos = len(sequence.stage_positions)
         self._progress_bar.reset()
-        self._progress_bar.setRange(1, pos)
+        self._progress_bar.setRange(0, pos)
+        self._progress_bar.setValue(0)
         self._progress_pos_label.setText(f"[0/{self._progress_bar.maximum()}]")
 
         # start elapsed timer
@@ -242,6 +215,42 @@ class _AnalyseCalciumTraces(QWidget):
             _start_thread=True,
             _connect={"finished": self._on_finished},
         )
+
+    def _get_save_name(self) -> str:
+        """Generate a save name based on metadata."""
+        name = "analysis_data"
+        if self._data is not None:
+            seq = self._data.sequence
+            if seq is not None:
+                meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
+                name = meta.get("save_name", name)
+                name = f"{name}_analysis_data"
+        return name
+
+    def _save_analysis_data(self, path: str) -> None:
+        """Save the analysis data to a JSON file."""
+        save_path = Path(path)
+
+        if save_path.is_dir():
+            name = self._get_save_name()
+            save_path = save_path / f"{name}.json"
+        elif not save_path.suffix:
+            save_path = save_path.with_suffix(".json")
+
+        try:
+            with save_path.open("w") as f:
+                json.dump(
+                    self._analysis_data,
+                    f,
+                    default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
+                    indent=2,
+                )
+        except OSError as e:
+            show_error_dialog(self, f"File system error occurred: {e}")
+        except json.JSONDecodeError as e:
+            show_error_dialog(self, f"JSON serialization error occurred: {e}")
+        except Exception as e:
+            show_error_dialog(self, f"An unexpected error occurred: {e}")
 
     def _overwrite_msgbox(self) -> Any:
         """Show a message box to ask the user if wants to overwrite the json file."""
@@ -275,6 +284,8 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _update_progress_bar(self) -> None:
         """Update the progress bar value."""
+        if self._check_for_abort_requested():
+            return
         value = self._progress_bar.value() + 1
         self._progress_bar.setValue(value)
         self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
@@ -304,7 +315,9 @@ class _AnalyseCalciumTraces(QWidget):
                     for start in range(0, positions, chunk_size)
                 ]
                 for _ in as_completed(futures):
-                    if self._worker is not None and self._worker.abort_requested:
+                    if self._check_for_abort_requested():
+                        for f in futures:
+                            f.cancel()
                         break
 
         except Exception as e:
@@ -312,35 +325,60 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_trace_for_chunk(self, start: int, end: int) -> None:
         for p in range(start, end):
+            if self._check_for_abort_requested():
+                break
             self._extract_trace_per_position(p)
 
+    def _check_for_abort_requested(self) -> bool:
+        return bool(self._worker is not None and self._worker.abort_requested)
+
     def _extract_trace_per_position(self, p: int) -> None:
-        if self._data is None or (
-            self._worker is not None and self._worker.abort_requested
-        ):
+        if self._data is None or self._check_for_abort_requested():
             return
 
         data, meta = self._data.isel(p=p, metadata=True)
+
         # get position name from metadata
         well = meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+
         # create the dict for the well
         if well not in self._analysis_data:
             self._analysis_data[well] = {}
+
         # matching label name
         labels_name = f"{well}_p{p}.tif"
+
         # get the labels file
         labels = tifffile.imread(self._get_labels_file(labels_name))
         if labels is None:
             show_error_dialog(self, f"No labels found for {labels_name}!")
             return
+
+        # get the range of labels
         labels_range = range(1, labels.max() + 1)
-        for label_value in tqdm(labels_range, desc=f"Processing well {well}"):
-            if self._worker is not None and self._worker.abort_requested:
+
+        # create masks for each label
+        masks = {label_value: (labels == label_value) for label_value in labels_range}
+
+        # extract roi traces
+        for label_value, mask in tqdm(masks.items(), desc=f"Processing well {well}"):
+            if self._check_for_abort_requested():
                 break
-            mask = labels == label_value
-            roi_trace = calculate_roi_trace(data, mask)
-            self._analysis_data[well][str(label_value)] = ROIData(trace=roi_trace)
-        self.progress_bar_updated.emit()
+
+            # calculate the mean trace for the roi
+            masked_data = data[:, mask]
+
+            # compute the mean for each frame
+            roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
+
+            # store the roi trace
+            self._analysis_data[well][str(label_value)] = ROIData(
+                raw_trace=roi_trace.tolist()
+            )
+
+        # update the progress bar
+        if not self._check_for_abort_requested():
+            self.progress_bar_updated.emit()
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""

@@ -21,11 +21,14 @@ class Peaks:
 class ROIData:
     """NamedTuple to store ROI data."""
 
-    trace: list[float] | None = None
-    #   dff: list[float] | None = None
+    raw_trace: list[float] | None = None
+    bleach_corrected_traces: list[float] | None = None
     peaks: list[Peaks] | None = None
     mean_frequency: float | None = None
     mean_amplitude: float | None = None
+    traces_for_bleach_correction: list[str] | None = None
+    photobleaching_fitted_curve: list[float] | None = None
+    dff: list[float] | None = None
     # ... add whatever other data we need
 
 

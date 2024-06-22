@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -21,23 +22,52 @@ from ._plot_methods import (
     plot_delta_f_over_f,
     plot_mean_amplitude,
     plot_mean_frequency,
-    plot_normalized_raw_traces,
+    plot_normalized_traces,
+    plot_normalized_traces_photobleach_corrected,
+    plot_normalized_traces_photobleach_corrected_with_peaks,
+    plot_normalized_traces_with_peaks,
+    plot_photobleaching_fitted_curve,
     plot_raster_plot,
     plot_raw_traces,
-    plot_traces_with_peaks,
+    plot_raw_traces_photobleach_corrected,
+    plot_raw_traces_photobleach_corrected_with_peaks,
+    plot_raw_traces_with_peaks,
+    plot_traces_used_for_bleach_correction,
 )
 
 if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 RAW_TRACES = "Raw Traces"
+RAW_TRACES_WITH_PEAKS = "Raw Traces with Peaks"
+RAW_TRACES_PHOTOBLEACH_CORRECTED = "Raw Traces Photobleach Corrected"
+RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
+    "Raw Traces Photobleach Corrected with Peaks"
+)
+NORMALIZED_TRACES = "Normalized Traces [0, 1]"
+NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = (
+    "Normalized Traces Photobleach Corrected [0, 1]"
+)
+NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces with Peaks [0, 1]"
+NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
+    "Normalized Traces Photobleach Correctedwith Peaks [0, 1]"
+)
+TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
+BLEACH_FITTED_CURVE = "Photobleaching Fitted Curve"
 DFF = "DeltaF/F0"
-RAW_NORMALIZED_TRACES = "Normalized Raw Traces [0, 1]"
+
 COMBO_OPTIONS: dict[str, Callable] = {
     RAW_TRACES: plot_raw_traces,
-    RAW_NORMALIZED_TRACES: plot_normalized_raw_traces,
+    RAW_TRACES_PHOTOBLEACH_CORRECTED: plot_raw_traces_photobleach_corrected,
+    RAW_TRACES_WITH_PEAKS: plot_raw_traces_with_peaks,
+    RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: plot_raw_traces_photobleach_corrected_with_peaks,  # noqa: E501
+    NORMALIZED_TRACES: plot_normalized_traces,
+    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED: plot_normalized_traces_photobleach_corrected,  # noqa: E501
+    NORMALIZED_TRACES_WITH_PEAKS: plot_normalized_traces_with_peaks,
+    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: plot_normalized_traces_photobleach_corrected_with_peaks,  # noqa: E501
+    TRACES_FOR_BLEACH_CORRECTIONS: plot_traces_used_for_bleach_correction,
+    BLEACH_FITTED_CURVE: plot_photobleaching_fitted_curve,
     DFF: plot_delta_f_over_f,
-    "Traces with Peaks": plot_traces_with_peaks,
     "Mean Amplitude ± StD": plot_mean_amplitude,
     "Mean Frequency ± StD": plot_mean_frequency,
     "Raster Plot": plot_raster_plot,
@@ -59,6 +89,10 @@ class _DisplayTraces(QGroupBox):
             "(e.g. 30, 33 to plot ROI 30 and 33) or, if you only want to pick n random "
             "ROIs, you can type 'rnd' followed by the number or ROIs you want to "
             "display (e.g. rnd10 to plot 10 random ROIs)."
+        )
+
+        self.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         )
 
         self._graph: _GraphWidget = parent
@@ -85,8 +119,6 @@ class _DisplayTraces(QGroupBox):
         """Update the graph with random traces."""
         self._graph.clear_plot()
         text = self._graph._combo.currentText()
-        if text not in {RAW_TRACES, DFF, RAW_NORMALIZED_TRACES}:
-            return
         table_data = self._graph._plate_viewer._fov_table.value()
         if table_data is None:
             return
@@ -142,7 +174,6 @@ class _GraphWidget(QWidget):
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         self._choose_dysplayed_traces = _DisplayTraces(self)
-        self._choose_dysplayed_traces.hide()
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -182,7 +213,6 @@ class _GraphWidget(QWidget):
         """Update the graph when the combo box is changed."""
         # clear the plot
         self.clear_plot()
-        self._choose_dysplayed_traces.hide()
         if text == "None" or not self._fov:
             return
         # get the data for the current fov
@@ -196,8 +226,5 @@ class _GraphWidget(QWidget):
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
             COMBO_OPTIONS[text](self, self._plate_viewer._analysis_data[well_name])
-            # show the choose displayed traces widget
-            if text in {RAW_TRACES, DFF, RAW_NORMALIZED_TRACES}:
-                self._choose_dysplayed_traces.show()
-                if self._choose_dysplayed_traces.isChecked():
-                    self._choose_dysplayed_traces._update()
+            if self._choose_dysplayed_traces.isChecked():
+                self._choose_dysplayed_traces._update()
