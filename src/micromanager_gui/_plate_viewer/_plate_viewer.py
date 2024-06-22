@@ -270,11 +270,6 @@ class PlateViewer(QMainWindow):
         # temporarily disable the whole widget
         self.setEnabled(False)
 
-        import logging
-
-        self.log = logging.getLogger("analysis_logger.log")
-        self.log.info("Loading analysis data from the JSON file...")
-
         # start the waiting progress bar
         self._loading_waiting_bar.start()
 
