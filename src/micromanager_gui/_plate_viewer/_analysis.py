@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
@@ -16,18 +17,20 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
+from scipy.optimize import curve_fit
+from scipy.signal import find_peaks, savgol_filter
+from scipy.stats import pearsonr
 from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import ElapsedTimer, ROIData, show_error_dialog
+from ._util import Peaks, ROIData, _ElapsedTimer, _WaitingProgressBar, show_error_dialog
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent
@@ -41,12 +44,18 @@ if TYPE_CHECKING:
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
-# def calculate_roi_trace(data: np.ndarray, mask: np.ndarray) -> list[float]:
-#     roi_trace = []
-#     for i in range(data.shape[0]):
-#         roi = data[i][mask]
-#         roi_trace.append(np.mean(roi))
-#     return roi_trace
+logger = logging.getLogger("analysis_logger")
+logger.setLevel(logging.DEBUG)
+log_file = Path(__file__).parent / "analysis_logger.log"
+file_handler = logging.FileHandler(log_file)
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+
+def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
+    return np.array(a * np.exp(-b * x) + c)
 
 
 class _SelectAnalysisPath(_BrowseWidget):
@@ -121,7 +130,7 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout.addWidget(self._progress_pos_label)
         progress_wdg_layout.addWidget(self._elapsed_time_label)
 
-        self._elapsed_timer = ElapsedTimer()
+        self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
         self.progress_bar_updated.connect(self._update_progress_bar)
@@ -139,6 +148,9 @@ class _AnalyseCalciumTraces(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
+
+        self._saving_waiting_bar = _WaitingProgressBar(text="Saving Analysis Data")
+        self._cancel_waiting_bar = _WaitingProgressBar(text="Stopping all the Tasks...")
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -160,47 +172,21 @@ class _AnalyseCalciumTraces(QWidget):
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
         return self._analysis_data
 
-    def save_analysis_data(self, path: str) -> None:
-        """Save the analysis data to a JSON file in a separate thread."""
-        create_worker(self._save_analysis_data, path=path, _start_thread=True)
-
-    def cancel(self) -> None:
-        """Cancel the current run."""
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
         if self._worker is not None:
             self._worker.quit()
-        # stop the elapsed timer
-        self._elapsed_timer.stop()
-        self._progress_bar.reset()
-        self._progress_pos_label.setText("[0/0]")
-        self._elapsed_time_label.setText("00:00:00")
+        super().closeEvent(event)
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
-        if self._worker is not None and self._worker.is_running:
+        pos = self._prepare_for_running()
+
+        if pos is None:
             return
 
-        if self._data is None or self._labels_path is None:
-            show_error_dialog(self, "No data or labels path provided!")
-            return
+        logger.info("Number of positions: %s", pos)
 
-        sequence = self._data.sequence
-        if sequence is None:
-            show_error_dialog(self, "No useq.MDAsequence found!")
-            return
-
-        if not self._output_path.value():
-            show_error_dialog(self, "No Output Path provided!")
-            return
-
-        # check if the provided json file is empty. If not, ask the user to overwrite it
-        if Path(self._output_path.value()).is_file():
-            with open(self._output_path.value()) as f:
-                if f.read():
-                    response = self._overwrite_msgbox()
-                    if response == QMessageBox.StandardButton.No:
-                        return
-
-        pos = len(sequence.stage_positions)
         self._progress_bar.reset()
         self._progress_bar.setRange(0, pos)
         self._progress_bar.setValue(0)
@@ -216,6 +202,86 @@ class _AnalyseCalciumTraces(QWidget):
             _connect={"finished": self._on_finished},
         )
 
+    def cancel(self) -> None:
+        """Cancel the current run."""
+        if self._worker is None or not self._worker.is_running:
+            return
+
+        self._worker.quit()
+
+        self._cancel_waiting_bar.start()
+
+        # stop the elapsed timer
+        self._elapsed_timer.stop()
+        self._progress_bar.reset()
+        self._progress_pos_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
+    def _save_analysis_data(self, path: str | Path) -> None:
+        """Save the analysis data to a JSON file in a separate thread."""
+        # temporarily disable the whole widget
+        if self._plate_viewer is not None:
+            self._plate_viewer.setEnabled(False)
+
+        # start the waiting progress bar
+        self._saving_waiting_bar.start()
+
+        create_worker(
+            self._save_as_json,
+            path=path,
+            _start_thread=True,
+            _connect={
+                "finished": self._on_saving_finished,
+                "errored": self._on_saving_finished,
+            },
+        )
+
+    def _on_saving_finished(self) -> None:
+        """Called when the saving is finished."""
+        self._saving_waiting_bar.stop()
+        # re-enable the whole widget
+        if self._plate_viewer is not None:
+            self._plate_viewer.setEnabled(True)
+
+    def _prepare_for_running(self) -> int | None:
+        """Prepare the widget for running.
+
+        Returns the number of positions or None if an error occurred.
+        """
+        if self._worker is not None and self._worker.is_running:
+            return None
+
+        if self._data is None or self._labels_path is None:
+            logger.error("No data or labels path provided!")
+            show_error_dialog(self, "No data or labels path provided!")
+            return None
+
+        sequence = self._data.sequence
+        if sequence is None:
+            logger.error("No useq.MDAsequence found!")
+            show_error_dialog(self, "No useq.MDAsequence found!")
+            return None
+
+        if path := self._output_path.value():
+            save_path = Path(path)
+            if save_path.is_dir():
+                name = self._get_save_name()
+                save_path = save_path / f"{name}.json"
+            elif not save_path.suffix:
+                save_path = save_path.with_suffix(".json")
+            self._output_path.setValue(str(save_path))
+            # check if the parent directory exists
+            if not save_path.parent.exists():
+                logger.error("Output Path does not exist!")
+                show_error_dialog(self, "Output Path does not exist!")
+                return None
+        else:
+            logger.error("No Output Path provided!")
+            show_error_dialog(self, "No Output Path provided!")
+            return None
+
+        return len(sequence.stage_positions)
+
     def _get_save_name(self) -> str:
         """Generate a save name based on metadata."""
         name = "analysis_data"
@@ -227,51 +293,42 @@ class _AnalyseCalciumTraces(QWidget):
                 name = f"{name}_analysis_data"
         return name
 
-    def _save_analysis_data(self, path: str) -> None:
+    def _save_as_json(self, path: str | Path) -> None:
         """Save the analysis data to a JSON file."""
-        save_path = Path(path)
+        logger.info("Saving analysis data to %s", path)
 
-        if save_path.is_dir():
-            name = self._get_save_name()
-            save_path = save_path / f"{name}.json"
-        elif not save_path.suffix:
-            save_path = save_path.with_suffix(".json")
-
+        if isinstance(path, str):
+            path = Path(path)
         try:
-            with save_path.open("w") as f:
+            with path.open("w") as f:
                 json.dump(
                     self._analysis_data,
                     f,
                     default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                     indent=2,
                 )
-        except OSError as e:
-            show_error_dialog(self, f"File system error occurred: {e}")
-        except json.JSONDecodeError as e:
-            show_error_dialog(self, f"JSON serialization error occurred: {e}")
+                f.flush()  # Flush the internal buffer to the OS buffer
+                os.fsync(f.fileno())  # Ensure the OS buffer is flushed to disk
+                logger.info("Analysis data saved to %s", path)
+
         except Exception as e:
+            logger.error("An unexpected error occurred: %s", e)
             show_error_dialog(self, f"An unexpected error occurred: {e}")
 
-    def _overwrite_msgbox(self) -> Any:
-        """Show a message box to ask the user if wants to overwrite the json file."""
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Icon.Question)
-        msg.setText("The provided json file is not empty!")
-        msg.setInformativeText("Do you want to overwrite it?")
-        msg.setWindowTitle("Overwrite Analysis Data")
-        msg.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        msg.setDefaultButton(QMessageBox.StandardButton.No)
-        return msg.exec()
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the widgets."""
+        self._output_path.setEnabled(enable)
+        self._run_btn.setEnabled(enable)
 
     def _on_finished(self) -> None:
         """Called when the extraction is finished."""
+        logger.info("Extraction of traces finished.")
+
         self._elapsed_timer.stop()
         self._progress_bar.setValue(self._progress_bar.maximum())
 
         # save the analysis data
-        self.save_analysis_data(self._output_path.value())
+        self._save_analysis_data(self._output_path.value())
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
@@ -299,13 +356,21 @@ class _AnalyseCalciumTraces(QWidget):
                 return str(label_file)
         return None
 
+    def _check_for_abort_requested(self) -> bool:
+        return bool(self._worker is not None and self._worker.abort_requested)
+
     def _extract_traces(self, positions: int) -> None:
         """Extract the roi traces in multiple threads."""
+        logger.info("Starting traces extraction...")
+
         cpu_count = os.cpu_count() or 1
         chunk_size = max(1, positions // cpu_count)
 
+        logger.info("CPU count: %s", cpu_count)
+        logger.info("Chunk size: %s", chunk_size)
+
         try:
-            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            with ThreadPoolExecutor(max_workers=cpu_count) as executor:
                 futures = [
                     executor.submit(
                         self._extract_trace_for_chunk,
@@ -314,25 +379,39 @@ class _AnalyseCalciumTraces(QWidget):
                     )
                     for start in range(0, positions, chunk_size)
                 ]
-                for _ in as_completed(futures):
+
+                for idx, future in enumerate(as_completed(futures)):
                     if self._check_for_abort_requested():
+                        logger.info("Abort requested, cancelling all futures.")
                         for f in futures:
                             f.cancel()
                         break
+                    try:
+                        future.result()
+                        logger.info(f"Chunk {idx + 1} completed.")
+                    except Exception as e:
+                        logger.error("An error occurred in a chunk: %s", e)
+                        show_error_dialog(self, f"An error occurred in a chunk: {e}")
+                        break
+
+            # log that all tasks are completed
+            logger.info("All tasks completed.")
+            self._cancel_waiting_bar.stop()
+            self._progress_bar.reset()
 
         except Exception as e:
+            logger.error("An error occurred: %s", e)
             show_error_dialog(self, f"An error occurred: {e}")
 
     def _extract_trace_for_chunk(self, start: int, end: int) -> None:
+        """Extract the roi traces for the given chunk."""
         for p in range(start, end):
             if self._check_for_abort_requested():
                 break
             self._extract_trace_per_position(p)
 
-    def _check_for_abort_requested(self) -> bool:
-        return bool(self._worker is not None and self._worker.abort_requested)
-
     def _extract_trace_per_position(self, p: int) -> None:
+        """Extract the roi traces for the given position."""
         if self._data is None or self._check_for_abort_requested():
             return
 
@@ -351,6 +430,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the labels file
         labels = tifffile.imread(self._get_labels_file(labels_name))
         if labels is None:
+            logger.error("No labels found for %s!", labels_name)
             show_error_dialog(self, f"No labels found for {labels_name}!")
             return
 
@@ -360,8 +440,18 @@ class _AnalyseCalciumTraces(QWidget):
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
 
+        logger.info("Processing well %s", well)
+
+        # temporary storage for trace to use for photobleaching correction
+        fitted_curves: list[tuple[list[float], list[float], float]] = []
+
+        roi_trace: np.ndarray | list[float] | None
+
         # extract roi traces
-        for label_value, mask in tqdm(masks.items(), desc=f"Processing well {well}"):
+        logger.info(f"Extracting Traces from Well {well}.")
+        for label_value, mask in tqdm(
+            masks.items(), desc=f"Extracting Traces from Well {well}"
+        ):
             if self._check_for_abort_requested():
                 break
 
@@ -371,22 +461,98 @@ class _AnalyseCalciumTraces(QWidget):
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
 
-            # store the roi trace
+            # calculate the exponential decay for photobleaching correction
+            exponential_decay = self._get_exponential_decay(roi_trace)
+            if exponential_decay is not None:
+                fitted_curves.append(exponential_decay)
+
+            # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
-                raw_trace=roi_trace.tolist()
+                raw_trace=roi_trace.tolist(),
+                use_for_bleach_correction=exponential_decay,
             )
 
+        # average the fitted curves
+        logger.info(f"Averaging the fitted curves well {well}.")
+        popts = np.array([popt for popt, _, _ in fitted_curves])
+        avg_fitted_curve = np.mean(popts, axis=0)
+
+        # perform photobleaching correction
+        logger.info(f"Performing Belaching Correction for Well {well}.")
+        for label_value in tqdm(
+            labels_range, desc=f"Performing Belaching Correction for Well {well}"
+        ):
+            if self._check_for_abort_requested():
+                break
+
+            data = self._analysis_data[well][str(label_value)]
+
+            roi_trace = data.raw_trace
+
+            if roi_trace is None:
+                continue
+
+            # calculate the bleach corrected trace
+            bleach_corrected = np.array(roi_trace) / avg_fitted_curve
+            # find the peaks in the bleach corrected trace
+            peaks = self._find_peaks(bleach_corrected, 0.1)
+            # store the analysis data
+            update = data.replace(
+                average_photobleaching_fitted_curve=avg_fitted_curve.tolist(),
+                bleach_corrected_trace=bleach_corrected.tolist(),
+                peaks=[Peaks(peak=peak) for peak in peaks],
+            )
+            self._analysis_data[well][str(label_value)] = update
+
         # update the progress bar
-        if not self._check_for_abort_requested():
-            self.progress_bar_updated.emit()
+        self.progress_bar_updated.emit()
 
-    def _enable(self, enable: bool) -> None:
-        """Enable or disable the widgets."""
-        self._output_path.setEnabled(enable)
-        self._run_btn.setEnabled(enable)
+    def _smooth_and_normalize(self, trace: np.ndarray) -> np.ndarray:
+        """Smooth and normalize the trace between 0 and 1."""
+        # smoothing that preserves the peaks
+        smoothed = savgol_filter(trace, window_length=5, polyorder=2)
+        # normalize the smoothed trace from 0 to 1
+        return cast(
+            np.ndarray,
+            (smoothed - np.min(smoothed)) / (np.max(smoothed) - np.min(smoothed)),
+        )
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Override the close event to cancel the worker."""
-        if self._worker is not None:
-            self._worker.quit()
-        super().closeEvent(event)
+    def _get_exponential_decay(
+        self, trace: np.ndarray
+    ) -> tuple[list[float], list[float], float] | None:
+        """Fit an exponential decay to the trace.
+
+        Returns None if the R squared value is less than 0.9.
+        """
+        # trace = savgol_filter(trace, window_length=5, polyorder=2)
+        time_points = np.arange(len(trace))
+        initial_guess = [max(trace), 0.01, min(trace)]
+        try:
+            popt, _ = curve_fit(
+                single_exponential, time_points, trace, p0=initial_guess, maxfev=2000
+            )
+            fitted_curve = single_exponential(time_points, *popt)
+            residuals = trace - fitted_curve
+            r, _ = pearsonr(trace, fitted_curve)
+            ss_total = np.sum((trace - np.mean(trace)) ** 2)
+            ss_res = np.sum(residuals**2)
+            r_squared = 1 - (ss_res / ss_total)
+        except Exception as e:
+            logger.error("Error fitting curve: %s", e)
+            return None
+
+        return (
+            None
+            if r_squared <= 0.98
+            else (fitted_curve.tolist(), popt.tolist(), float(r_squared))
+        )
+
+    def _find_peaks(
+        self, trace: np.ndarray, prominence: float | None = None
+    ) -> list[int]:
+        """Smooth the trace and find the peaks."""
+        smoothed_normalized = self._smooth_and_normalize(trace)
+        # find the peaks # TODO: find the necessary parameters to use
+        peaks, _ = find_peaks(smoothed_normalized, width=3, prominence=prominence)
+        peaks = cast(np.ndarray, peaks)
+        return cast(list[int], peaks.tolist())

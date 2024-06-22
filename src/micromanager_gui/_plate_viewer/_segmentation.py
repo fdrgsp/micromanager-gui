@@ -25,7 +25,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import ElapsedTimer, show_error_dialog
+from ._util import _ElapsedTimer, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -137,7 +137,7 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
 
-        self._elapsed_timer = ElapsedTimer()
+        self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
         progress_wdg = QWidget(self)

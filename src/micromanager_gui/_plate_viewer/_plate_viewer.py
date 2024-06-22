@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import cast
 
@@ -23,6 +24,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from superqt.utils import create_worker
 
 from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
@@ -33,7 +35,7 @@ from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
 from ._segmentation import _CellposeSegmentation
-from ._util import Peaks, ROIData, show_error_dialog
+from ._util import Peaks, ROIData, _WaitingProgressBar, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
 GREEN = "#00FF00"  # "#00C600"
@@ -157,6 +159,11 @@ class PlateViewer(QMainWindow):
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
+        self._loading_waiting_bar = _WaitingProgressBar(text="Loading Analysis Data...")
+        # cannot us the full progress bar because json.load is blocking the main thread
+        # even if it is in a worker thread
+        self._loading_waiting_bar._progress_bar.hide()
+
         self.showMaximized()
 
         self._set_splitter_sizes()
@@ -172,7 +179,7 @@ class PlateViewer(QMainWindow):
         reader = TensorstoreZarrReader(data)
         self._labels_path = "/Users/fdrgsp/Desktop/labels"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/a.json"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/b.json"
         self._init_widget(reader)
 
     @property
@@ -200,7 +207,7 @@ class PlateViewer(QMainWindow):
     @analysis_file_path.setter
     def analysis_file_path(self, value: str) -> None:
         self._analysis_file_path = value
-        self._analysis_data = self._load_analysis_data(value)
+        self._load_analysis_data(value)
 
     @property
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
@@ -258,21 +265,46 @@ class PlateViewer(QMainWindow):
 
             self._init_widget(reader)
 
-    def _load_analysis_data(
-        self, analysis_json_file_path: str
-    ) -> dict[str, dict[str, ROIData]]:
+    def _load_analysis_data(self, analysis_json_file_path: str) -> None:
         """Load the analysis data from the given JSON file."""
-        import json
+        # temporarily disable the whole widget
+        self.setEnabled(False)
 
+        import logging
+
+        self.log = logging.getLogger("analysis_logger.log")
+        self.log.info("Loading analysis data from the JSON file...")
+
+        # start the waiting progress bar
+        self._loading_waiting_bar.start()
+
+        create_worker(
+            self._load_json,
+            path=analysis_json_file_path,
+            _start_thread=True,
+            _connect={
+                "finished": self._on_loading_finished,
+                "errored": self._on_loading_finished,
+            },
+        )
+
+    def _on_loading_finished(self) -> None:
+        """Called when the saving is finished."""
+        self._loading_waiting_bar.stop()
+        # re-enable the whole widget
+        self.setEnabled(True)
+
+    def _load_json(self, path: str) -> None:
+        """Load the analysis data from the given JSON file."""
         try:
-            with open(analysis_json_file_path) as f:
+            with open(path) as f:
                 try:
                     data = cast(dict, json.load(f))
                 except json.JSONDecodeError as e:
                     show_error_dialog(self, f"Error loading the analysis data: {e}")
-                    return {}
+                    self._analysis_data = data
                 if not data:
-                    return {}
+                    self._analysis_data = data
                 for key in data.keys():
                     for i in range(1, len(data[key]) + 1):
                         roi = cast(dict, data[key][str(i)])
@@ -283,16 +315,19 @@ class PlateViewer(QMainWindow):
                                 roi["peaks"] = peaks_objects
                         # convert the dict to a ROIData object
                         data[key][str(i)] = ROIData(**roi)
-            return data
+
+                # set the analysis data
+                self._analysis_data = data
+
         except Exception as e:
             show_error_dialog(self, f"Error loading the analysis data: {e}")
-            return {}
+            self._analysis_data = {}
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
         # load analysis json file if the path is not None
         if self._analysis_file_path:
-            self._analysis_data = self._load_analysis_data(self._analysis_file_path)
+            self._load_analysis_data(self._analysis_file_path)
 
         self._datastore = reader
 

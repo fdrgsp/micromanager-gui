@@ -46,11 +46,11 @@ RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
 )
 NORMALIZED_TRACES = "Normalized Traces [0, 1]"
 NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = (
-    "Normalized Traces Photobleach Corrected [0, 1]"
+    "Normalized Traces [0, 1] Photobleach Corrected"
 )
-NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces with Peaks [0, 1]"
+NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
 NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
-    "Normalized Traces Photobleach Correctedwith Peaks [0, 1]"
+    "Normalized Traces [0, 1] Photobleach Correctedwith Peaks"
 )
 TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
 BLEACH_FITTED_CURVE = "Photobleaching Fitted Curve"

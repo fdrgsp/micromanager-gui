@@ -117,6 +117,9 @@ class _BrowseWidget(QWidget):
     def value(self) -> str:
         return self._path.text()  # type: ignore
 
+    def setValue(self, path: str) -> None:
+        self._path.setText(path)
+
     def _on_browse(self) -> None:
         if self._is_dir:
             if path := QFileDialog.getExistingDirectory(
