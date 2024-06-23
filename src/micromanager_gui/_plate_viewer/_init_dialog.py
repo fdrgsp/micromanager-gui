@@ -47,7 +47,7 @@ class _InitDialog(QDialog):
             analysis_path,
             "The path to the analysis of the current data. The images should be "
             "a path to a `json` file.",
-            is_dir=False,
+            is_dir=True,
         )
         self._datastrore._label.setFixedWidth(
             self._labels._label.minimumSizeHint().width()
