@@ -34,12 +34,12 @@ NORMALIZED_TRACES = "Normalized Traces [0, 1]"
 NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = "Normalized Traces [0, 1] Photobleach Corrected"  # noqa: E501
 NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
 NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = "Normalized Traces [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
-TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
-TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED = "Traces used for Photobleaching Correction Normalized [0, 1]"  # noqa: E501
 DFF = "DeltaF/F0 Photobleach Corrected"
 DFF_WITH_PEAKS = "DeltaF/F0 Photobleach Corrected with Peaks"
 DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected"
 DFF_NORMALIZED_WITH_PEAKS = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
+TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
+TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED = "Traces used for Photobleaching Correction Normalized [0, 1]"  # noqa: E501
 
 # dff=False, normalize=False, photobleach_corrected=False, with_peaks=False, used_for_bleach_correction=False  # noqa: E501
 COMBO_OPTIONS: dict[str, dict[str, bool]] = {
@@ -51,12 +51,12 @@ COMBO_OPTIONS: dict[str, dict[str, bool]] = {
     NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED: {"normalize":True, "photobleach_corrected":True},  # noqa: E501
     NORMALIZED_TRACES_WITH_PEAKS: {"normalize":True, "with_peaks":True},
     NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: {"normalize":True, "photobleach_corrected":True, "with_peaks":True},  # noqa: E501
-    TRACES_FOR_BLEACH_CORRECTIONS: {"used_for_bleach_correction":True},
-    TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED: {"used_for_bleach_correction":True, "normalize":True},  # noqa: E501
     DFF: {"dff":True},
     DFF_NORMALIZED: {"dff":True, "normalize":True},
     DFF_WITH_PEAKS: {"dff":True, "with_peaks":True},
     DFF_NORMALIZED_WITH_PEAKS: {"dff":True, "normalize":True, "with_peaks":True},
+    TRACES_FOR_BLEACH_CORRECTIONS: {"used_for_bleach_correction":True},
+    TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED: {"used_for_bleach_correction":True, "normalize":True},  # noqa: E501
     # "Mean Amplitude ± StD": ,
     # "Mean Frequency ± StD": ,
     # "Raster Plot":
