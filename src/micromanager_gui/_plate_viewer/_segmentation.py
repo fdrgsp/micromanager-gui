@@ -265,7 +265,7 @@ class _CellposeSegmentation(QWidget):
             _start_thread=True,
             _connect={
                 "yielded": self._update_progress,
-                "finished": self._on_finished,
+                "finished": self._on_worker_finished,
             },
         )
 
@@ -326,7 +326,7 @@ class _CellposeSegmentation(QWidget):
         """Update the progress label with elapsed time."""
         self._elapsed_time_label.setText(time_str)
 
-    def _on_finished(self) -> None:
+    def _on_worker_finished(self) -> None:
         """Enable the widgets when the segmentation is finished."""
         self._enable(True)
         self._elapsed_timer.stop()

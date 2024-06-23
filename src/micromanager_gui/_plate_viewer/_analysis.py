@@ -101,6 +101,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._worker: GeneratorWorker | None = None
 
+        self._cancelled: bool = False
+
         self._output_path = _SelectAnalysisPath(
             self,
             "Analysis Output Path",
@@ -194,11 +196,13 @@ class _AnalyseCalciumTraces(QWidget):
         # start elapsed timer
         self._elapsed_timer.start()
 
+        self._cancelled = False
+
         self._worker = create_worker(
             self._extract_traces,
             positions=pos,
             _start_thread=True,
-            _connect={"finished": self._on_finished},
+            _connect={"finished": self._on_worker_finished},
         )
 
     def cancel(self) -> None:
@@ -206,13 +210,15 @@ class _AnalyseCalciumTraces(QWidget):
         if self._worker is None or not self._worker.is_running:
             return
 
+        self._cancelled = True
+
         self._worker.quit()
 
         self._cancel_waiting_bar.start()
 
         # stop the elapsed timer
         self._elapsed_timer.stop()
-        self._progress_bar.reset()
+        self._progress_bar.setValue(0)
         self._progress_pos_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
 
@@ -319,15 +325,16 @@ class _AnalyseCalciumTraces(QWidget):
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
 
-    def _on_finished(self) -> None:
+    def _on_worker_finished(self) -> None:
         """Called when the extraction is finished."""
         logger.info("Extraction of traces finished.")
 
         self._elapsed_timer.stop()
-        self._progress_bar.setValue(self._progress_bar.maximum())
+        self._cancel_waiting_bar.stop()
 
         # save the analysis data
-        self._save_analysis_data(self._output_path.value())
+        if not self._cancelled:
+            self._save_analysis_data(self._output_path.value())
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
@@ -393,10 +400,7 @@ class _AnalyseCalciumTraces(QWidget):
                         show_error_dialog(self, f"An error occurred in a chunk: {e}")
                         break
 
-            # log that all tasks are completed
             logger.info("All tasks completed.")
-            self._cancel_waiting_bar.stop()
-            self._progress_bar.reset()
 
         except Exception as e:
             logger.error("An error occurred: %s", e)
