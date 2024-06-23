@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import os
@@ -30,7 +29,14 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import Peaks, ROIData, _ElapsedTimer, _WaitingProgressBar, show_error_dialog
+from ._util import (
+    Peaks,
+    ROIData,
+    _ElapsedTimer,
+    _WaitingProgressBar,
+    parse_positions,
+    show_error_dialog,
+)
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent
@@ -92,11 +98,11 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout = QHBoxLayout(pos_wdg)
         pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
         pos_wdg_layout.setSpacing(5)
-        roi_lbl = QLabel("Analyze Positions:")
-        roi_lbl.setSizePolicy(*FIXED)
+        pos_lbl = QLabel("Analyze Positions:")
+        pos_lbl.setSizePolicy(*FIXED)
         self._pos_le = QLineEdit()
         self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33")
-        pos_wdg_layout.addWidget(roi_lbl)
+        pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
         # self._output_path = _SelectAnalysisPath(
@@ -107,7 +113,7 @@ class _AnalyseCalciumTraces(QWidget):
             "Select the output path for the Analysis Data.",
             is_dir=True,
         )
-        roi_lbl.setFixedWidth(self._output_path._label.sizeHint().width())
+        pos_lbl.setFixedWidth(self._output_path._label.sizeHint().width())
 
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
@@ -263,8 +269,7 @@ class _AnalyseCalciumTraces(QWidget):
         if not self._pos_le.text():
             return list(range(len(sequence.stage_positions)))
         # parse the input positions
-        pos = self._pos_le.text()
-        positions = self._parse_positions(pos)
+        positions = parse_positions(self._pos_le.text())
         if not positions:
             show_error_dialog(self, "Invalid Positions provided!")
             return None
@@ -272,21 +277,6 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "Input Positions out of range!")
             return None
         return positions
-
-    def _parse_positions(self, input_str: str) -> list[int]:
-        """Parse the input string and return a list of ROIs."""
-        parts = input_str.split(",")
-        numbers: list[int] = []
-        for part in parts:
-            part = part.strip()  # remove any leading/trailing whitespace
-            if "-" in part:
-                with contextlib.suppress(ValueError):
-                    start, end = map(int, part.split("-"))
-                    numbers.extend(range(start, end + 1))
-            else:
-                with contextlib.suppress(ValueError):
-                    numbers.append(int(part))
-        return numbers
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""

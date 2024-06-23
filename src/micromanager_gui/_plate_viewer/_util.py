@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
@@ -150,3 +151,19 @@ class _WaitingProgressBar(QDialog):
             value = 0
             self._direction = 1
         self._progress_bar.setValue(value)
+
+
+def parse_positions(input_str: str) -> list[int]:
+    """Parse the input string and return a list of numbers."""
+    parts = input_str.split(",")
+    numbers: list[int] = []
+    for part in parts:
+        part = part.strip()  # remove any leading/trailing whitespace
+        if "-" in part:
+            with contextlib.suppress(ValueError):
+                start, end = map(int, part.split("-"))
+                numbers.extend(range(start, end + 1))
+        else:
+            with contextlib.suppress(ValueError):
+                numbers.append(int(part))
+    return numbers

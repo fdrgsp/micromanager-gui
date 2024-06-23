@@ -14,6 +14,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -25,7 +26,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import _ElapsedTimer, show_error_dialog
+from ._util import _ElapsedTimer, parse_positions, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -130,12 +131,30 @@ class _CellposeSegmentation(QWidget):
             is_dir=True,
         )
 
+        pos_wdg = QWidget(self)
+        pos_wdg.setToolTip(
+            "Select the Positions to segment. Leave blank to segment all Positions. "
+            "You can input single Positions (e.g. 30, 33) a range (e.g. 1-10), or a "
+            "mix of single Positions and ranges (e.g. 1-10, 30, 50-65). "
+            "NOTE: The Positions are 0-indexed."
+        )
+        pos_wdg_layout = QHBoxLayout(pos_wdg)
+        pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        pos_wdg_layout.setSpacing(5)
+        pos_lbl = QLabel("Segment Positions:")
+        pos_lbl.setSizePolicy(*FIXED)
+        self._pos_le = QLineEdit()
+        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33")
+        pos_wdg_layout.addWidget(pos_lbl)
+        pos_wdg_layout.addWidget(self._pos_le)
+
         # set the minimum width of the labels
         fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
         self._models_combo_label.setMinimumWidth(fixed_lbl_width)
         self._channel_combo_label.setMinimumWidth(fixed_lbl_width)
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
+        pos_lbl.setMinimumWidth(fixed_lbl_width)
 
         self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
@@ -152,7 +171,7 @@ class _CellposeSegmentation(QWidget):
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.clicked.connect(self.cancel)
 
-        self._progress_label = QLabel()
+        self._progress_label = QLabel("[0/0]")
         self._progress_bar = QProgressBar(self)
         self._elapsed_time_label = QLabel("00:00:00")
 
@@ -173,6 +192,7 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
         settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
         settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
+        settings_groupbox_layout.addWidget(pos_wdg, 5, 0, 1, 2)
         settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
@@ -212,17 +232,38 @@ class _CellposeSegmentation(QWidget):
             return
 
         self._progress_bar.reset()
+        self._progress_bar.setValue(0)
+        self._progress_label.setText("[0/0]")
 
         if self._data is None:
             return
-
-        if self._data.sequence is not None:
-            self._progress_bar.setRange(0, self._data.sequence.sizes.get("p", 0))
 
         path = self._output_path.value()
         if not path:
             show_error_dialog(self, "Please select a Labels Output Path.")
             return
+
+        sequence = self._data.sequence
+        if sequence is None:
+            show_error_dialog(self, "No useq.MDAsequence found!")
+            return
+
+        # use all positions if the input is empty
+        if not self._pos_le.text():
+            positions = list(range(len(sequence.stage_positions)))
+        else:
+            # parse the input positions
+            positions = parse_positions(self._pos_le.text())
+
+            if not positions:
+                show_error_dialog(self, "Invalid Positions provided!")
+                return
+
+            if max(positions) >= len(sequence.stage_positions):
+                show_error_dialog(self, "Input Positions out of range!")
+                return
+
+        self._progress_bar.setRange(0, len(positions))
 
         # ask the user if wants to overwrite the labels if they already exist
         if list(Path(path).glob("*.tif")):
@@ -262,6 +303,7 @@ class _CellposeSegmentation(QWidget):
             model=model,
             channel=channel,
             diameter=diameter,
+            positions=positions,
             _start_thread=True,
             _connect={
                 "yielded": self._update_progress,
@@ -284,15 +326,20 @@ class _CellposeSegmentation(QWidget):
         return msg.exec()
 
     def _segment(
-        self, path: str, model: CellposeModel, channel: list[int], diameter: float
+        self,
+        path: str,
+        model: CellposeModel,
+        channel: list[int],
+        diameter: float,
+        positions: list[int],
     ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
         if self._data is None:
             return
 
-        pos = self._data.sequence.sizes.get("p", 0)  # type: ignore
-        progress_bar = tqdm(range(pos))
-        for p in progress_bar:
+        # pos = self._data.sequence.sizes.get("p", 0)  # type: ignore
+        # progress_bar = tqdm(range(pos))
+        for p in tqdm(positions):
             if self._worker is not None and self._worker.abort_requested:
                 break
             # get the data
