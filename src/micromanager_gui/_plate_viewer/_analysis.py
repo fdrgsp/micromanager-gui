@@ -477,8 +477,10 @@ class _AnalyseCalciumTraces(QWidget):
 
         # average the fitted curves
         logger.info(f"Averaging the fitted curves well {well}.")
-        popts = np.array([popt for popt, _, _ in fitted_curves])
-        avg_fitted_curve = np.mean(popts, axis=0)
+        popts = np.array([popt for _, popt, _ in fitted_curves])
+        average_popts = np.mean(popts, axis=0)
+        time_points = np.arange(data.shape[0])
+        average_fitted_curve = single_exponential(time_points, *average_popts)
 
         # perform photobleaching correction
         logger.info(f"Performing Belaching Correction for Well {well}.")
@@ -496,14 +498,19 @@ class _AnalyseCalciumTraces(QWidget):
                 continue
 
             # calculate the bleach corrected trace
-            bleach_corrected = np.array(roi_trace) / avg_fitted_curve
+            bleach_corrected = np.array(roi_trace) / average_fitted_curve
+
+            # F0 = np.mean(bleach_corrected[:10])
+            # dff = (bleach_corrected - F0) / F0
+
             # find the peaks in the bleach corrected trace
             peaks = self._find_peaks(bleach_corrected, 0.1)
             # store the analysis data
             update = data.replace(
-                average_photobleaching_fitted_curve=avg_fitted_curve.tolist(),
+                average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=peak) for peak in peaks],
+                # dff=dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
 
@@ -527,7 +534,6 @@ class _AnalyseCalciumTraces(QWidget):
 
         Returns None if the R squared value is less than 0.9.
         """
-        # trace = savgol_filter(trace, window_length=5, polyorder=2)
         time_points = np.arange(len(trace))
         initial_guess = [max(trace), 0.01, min(trace)]
         try:

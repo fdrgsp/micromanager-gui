@@ -25,6 +25,7 @@ from ._plot_methods import (
     plot_normalized_traces,
     plot_normalized_traces_photobleach_corrected,
     plot_normalized_traces_photobleach_corrected_with_peaks,
+    plot_normalized_traces_used_for_bleach_correction,
     plot_normalized_traces_with_peaks,
     plot_photobleaching_fitted_curve,
     plot_raster_plot,
@@ -53,6 +54,9 @@ NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
     "Normalized Traces [0, 1] Photobleach Correctedwith Peaks"
 )
 TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
+TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS = (
+    "Traces Normalized [0, 1] used for Photobleaching Correction"
+)
 BLEACH_FITTED_CURVE = "Photobleaching Fitted Curve"
 DFF = "DeltaF/F0"
 
@@ -66,6 +70,7 @@ COMBO_OPTIONS: dict[str, Callable] = {
     NORMALIZED_TRACES_WITH_PEAKS: plot_normalized_traces_with_peaks,
     NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: plot_normalized_traces_photobleach_corrected_with_peaks,  # noqa: E501
     TRACES_FOR_BLEACH_CORRECTIONS: plot_traces_used_for_bleach_correction,
+    TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS: plot_normalized_traces_used_for_bleach_correction,  # noqa: E501
     BLEACH_FITTED_CURVE: plot_photobleaching_fitted_curve,
     DFF: plot_delta_f_over_f,
     "Mean Amplitude ± StD": plot_mean_amplitude,

@@ -280,6 +280,58 @@ def plot_traces_used_for_bleach_correction(
         if roi_data.use_for_bleach_correction is None:
             continue
         ax.plot(trace, label=f"ROI {key}")
+        curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
+        if curve is None:
+            return
+        ax.plot(
+            curve,
+            label="Fitted Curve",
+            linestyle="--",
+            color="black",
+            linewidth=2,
+        )
+
+    # adding hover functionality using mplcursors
+    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
+
+    @cursor.connect("add")  # type: ignore [misc]
+    def on_add(sel: mplcursors.Selection) -> None:
+        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
+
+    widget.canvas.draw()
+
+
+def plot_normalized_traces_used_for_bleach_correction(
+    widget: _GraphWidget, data: dict, rois: list[int] | None = None
+) -> None:
+    """Plot the normalized traces used for photobleach correction."""
+    ax = widget.figure.add_subplot(111)
+    title = "Normalized Traces [0, 1] used for Photobleach Correction"
+    ax.set_title(title)
+    # ax.get_yaxis().set_visible(False)
+    for key in data:
+        if rois is not None and int(key) not in rois:
+            continue
+        roi_data = cast("ROIData", data[key])
+        trace = roi_data.raw_trace
+        if trace is None:
+            continue
+        if roi_data.use_for_bleach_correction is None:
+            continue
+        tr = np.array(trace)
+        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
+        ax.plot(normalized_trace, label=f"ROI {key}")
+        curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
+        if curve is None:
+            return
+        normalized_curve = (curve - np.min(curve)) / (np.max(curve) - np.min(curve))
+        ax.plot(
+            normalized_curve,
+            label="Fitted Curve",
+            linestyle="--",
+            color="black",
+            linewidth=2,
+        )
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
