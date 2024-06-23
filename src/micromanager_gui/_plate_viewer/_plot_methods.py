@@ -12,330 +12,108 @@ if TYPE_CHECKING:
 COUNT_INCREMENT = 1
 
 
-def plot_raw_traces(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
+def get_trace(
+    roi_data: ROIData,
+    dff: bool,
+    photobleach_corrected: bool,
+    used_for_bleach_correction: bool,
+) -> list[float] | None:
+    """Get the appropriate trace based on the flags."""
+    if used_for_bleach_correction:
+        trace = roi_data.use_for_bleach_correction
+        return trace[0] if trace is not None else None
+    elif dff and not photobleach_corrected:
+        return roi_data.dff
+    elif photobleach_corrected and not dff:
+        return roi_data.bleach_corrected_trace
+    else:
+        return roi_data.raw_trace
+
+
+def normalize_trace(trace: list[float]) -> list[float]:
+    """Normalize the trace to the range [0, 1]."""
+    tr = np.array(trace)
+    normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
+    return cast(list[float], normalized.tolist())
+
+
+def plot_traces(
+    widget: _GraphWidget,
+    data: dict,
+    rois: list[int] | None = None,
+    dff: bool = False,
+    normalize: bool = False,
+    photobleach_corrected: bool = False,
+    with_peaks: bool = False,
+    used_for_bleach_correction: bool = False,
 ) -> None:
-    """Plot the raw traces."""
+    """Plot various types of traces."""
+    # Clear the figure
+    widget.figure.clear()
     ax = widget.figure.add_subplot(111)
-    ax.set_title(f"{widget._fov} - raw traces")
-    # ax.get_yaxis().set_visible(False)
+
+    # Set the title
+    title_parts = []
+    if used_for_bleach_correction:
+        title_parts.append("Traces Used for Bleach Correction")
+    if normalize:
+        title_parts.append("Normalized Traces [0, 1]")
+    if dff and not used_for_bleach_correction:
+        title_parts.append("ΔF/F - Photobleach Correction")
+    if photobleach_corrected and not dff and not used_for_bleach_correction:
+        title_parts.append("Photobleach Correction")
+    if with_peaks:
+        title_parts.append("Peaks")
+    ax.set_title(" - ".join(title_parts))
+
     count = 0
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
+
         roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
-        if trace is None:
-            continue
-        ax.plot(trace, label=f"ROI {key}")
-        count += COUNT_INCREMENT
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_raw_traces_photobleach_corrected(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the raw traces with photobleach correction."""
-    ax = widget.figure.add_subplot(111)
-    title = "Raw Traces with Photobleach Correction"
-    ax.set_title(title)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.bleach_corrected_trace
-        if trace is None:
-            continue
-        ax.plot(trace, label=f"ROI {key}")
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_raw_traces_with_peaks(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the raw traces with detected peaks."""
-    ax = widget.figure.add_subplot(111)
-    title = "Raw Traces with Peaks"
-    ax.set_title(title)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
-        peaks = roi_data.peaks
-        if trace is None or peaks is None:
-            continue
-        pks = [pk.peak for pk in peaks if pk.peak is not None]
-        ax.plot(trace, label=f"ROI {key}")
-        ax.plot(pks, np.array(trace)[pks], "x", label=f"Peaks ROI {key}")
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_raw_traces_photobleach_corrected_with_peaks(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the raw traces with photobleach correction and detected peaks."""
-    ax = widget.figure.add_subplot(111)
-    title = "Raw Traces with Photobleach Correction and Peaks"
-    ax.set_title(title)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.bleach_corrected_trace
-        peaks = roi_data.peaks
-        if trace is None or peaks is None:
-            continue
-        pks = [pk.peak for pk in peaks if pk.peak is not None]
-        ax.plot(trace, label=f"ROI {key}")
-        ax.plot(pks, np.array(trace)[pks], "x", label=f"Peaks ROI {key}")
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_traces(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the raw traces normalized to the range [0, 1]."""
-    ax = widget.figure.add_subplot(111)
-    title = "Normalized Traces [0, 1]"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    count = 0
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
-        if trace is None:
-            continue
-        tr = np.array(trace)
-        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-        ax.plot(normalized_trace + count, label=f"ROI {key}")
-        count += COUNT_INCREMENT
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_traces_photobleach_corrected(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot raw traces with photobleach correction normalized to the range [0, 1]."""
-    ax = widget.figure.add_subplot(111)
-    title = "Normalized Traces [0, 1] with Photobleach Correction"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    count = 0
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.bleach_corrected_trace
-        if trace is None:
-            continue
-        tr = np.array(trace)
-        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-        ax.plot(normalized_trace + count, label=f"ROI {key}")
-        count += COUNT_INCREMENT
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_traces_with_peaks(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the normalized traces with detected peaks."""
-    ax = widget.figure.add_subplot(111)
-    title = "Normalized Traces [0, 1] with Peaks"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    count = 0
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
-        peaks = roi_data.peaks
-        if trace is None or peaks is None:
-            continue
-        pks = [pk.peak for pk in peaks if pk.peak is not None]
-        tr = np.array(trace)
-        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-        ax.plot(normalized_trace + count, label=f"ROI {key}")
-        ax.plot(
-            pks,
-            np.array(normalized_trace)[pks] + count,
-            "x",
-            label=f"Peaks ROI {key}",
-        )
-        count += COUNT_INCREMENT
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_traces_photobleach_corrected_with_peaks(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the normalized traces with photobleach correction and detected peaks."""
-    ax = widget.figure.add_subplot(111)
-    title = "Normalized Traces [0, 1] with Photobleach Correction"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    count = 0
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.bleach_corrected_trace
-        peaks = roi_data.peaks
-        if trace is None or peaks is None:
-            continue
-        pks = [pk.peak for pk in peaks if pk.peak is not None]
-        tr = np.array(trace)
-        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-        ax.plot(normalized_trace + count, label=f"ROI {key}")
-        ax.plot(
-            pks,
-            np.array(normalized_trace)[pks] + count,
-            "x",
-            label=f"Peaks ROI {key}",
-        )
-        count += COUNT_INCREMENT
-
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_traces_used_for_bleach_correction(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the traces used for photobleach correction."""
-    ax = widget.figure.add_subplot(111)
-    title = "Traces used for Photobleach Correction"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
-        if trace is None:
-            continue
-        if roi_data.use_for_bleach_correction is None:
-            continue
-        ax.plot(trace, label=f"ROI {key}")
-        curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
-        if curve is None:
-            return
-        ax.plot(
-            curve,
-            label="Fitted Curve",
-            linestyle="--",
-            color="black",
-            linewidth=2,
+        trace = get_trace(
+            roi_data, dff, photobleach_corrected, used_for_bleach_correction
         )
 
-    # adding hover functionality using mplcursors
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_traces_used_for_bleach_correction(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the normalized traces used for photobleach correction."""
-    ax = widget.figure.add_subplot(111)
-    title = "Normalized Traces [0, 1] used for Photobleach Correction"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        trace = roi_data.raw_trace
         if trace is None:
             continue
-        if roi_data.use_for_bleach_correction is None:
-            continue
-        tr = np.array(trace)
-        normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-        ax.plot(normalized_trace, label=f"ROI {key}")
-        curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
-        if curve is None:
-            return
-        normalized_curve = (curve - np.min(curve)) / (np.max(curve) - np.min(curve))
-        ax.plot(
-            normalized_curve,
-            label="Fitted Curve",
-            linestyle="--",
-            color="black",
-            linewidth=2,
-        )
 
-    # adding hover functionality using mplcursors
+        if normalize:
+            trace = normalize_trace(trace)
+            ax.plot(
+                np.array(trace) + (0 if used_for_bleach_correction else count),
+                label=f"ROI {key}",
+            )
+        else:
+            ax.plot(trace, label=f"ROI {key}")
+
+        if with_peaks and roi_data.peaks is not None:
+            peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
+            ax.plot(
+                peaks,
+                np.array(trace)[peaks]
+                + (count if normalize and not used_for_bleach_correction else 0),
+                "x",
+                label=f"Peaks ROI {key}",
+            )
+
+        if used_for_bleach_correction:
+            curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
+            if curve is not None:
+                if normalize:
+                    curve = normalize_trace(curve)
+                ax.plot(
+                    curve,
+                    label="Fitted Curve",
+                    linestyle="--",
+                    color="black",
+                    linewidth=2,
+                )
+
+        count += COUNT_INCREMENT
+
+    # Add hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
@@ -343,78 +121,3 @@ def plot_normalized_traces_used_for_bleach_correction(
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
 
     widget.canvas.draw()
-
-
-def plot_photobleaching_fitted_curve(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the photobleaching fitted curve used for photobleach correction."""
-    ax = widget.figure.add_subplot(111)
-    title = "Photobleaching Fitted Curve"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
-    if curve is None:
-        return
-    curve = np.array(curve)
-    ax.plot(curve, label="Fitted Curve")
-
-    widget.canvas.draw()
-
-
-def plot_delta_f_over_f(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the DeltaF/F traces."""
-    ax = widget.figure.add_subplot(111)
-    title = "Delta F over F"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        dff = roi_data.dff
-        if dff is None:
-            continue
-        ax.plot(dff, label=f"ROI {key}")
-
-    widget.canvas.draw()
-
-
-def plot_normalized_delta_f_over_f(
-    widget: _GraphWidget, data: dict, rois: list[int] | None = None
-) -> None:
-    """Plot the Normalized [0, 1] DeltaF/F traces."""
-    ax = widget.figure.add_subplot(111)
-    title = "Delta F over F"
-    ax.set_title(title)
-    # ax.get_yaxis().set_visible(False)
-    count = 0
-    for key in data:
-        if rois is not None and int(key) not in rois:
-            continue
-        roi_data = cast("ROIData", data[key])
-        dff = roi_data.dff
-        if dff is None:
-            continue
-        normalized_dff = (dff - np.min(dff)) / (np.max(dff) - np.min(dff))
-        ax.plot(normalized_dff + count, label=f"ROI {key}")
-        count += COUNT_INCREMENT
-
-    widget.canvas.draw()
-
-
-def plot_raster_plot(widget: _GraphWidget, data: dict) -> None:
-    """Plot the raster plot for the given FOV."""
-    ...
-
-
-def plot_mean_amplitude(widget: _GraphWidget, data: dict) -> None:
-    """Plot the mean amplitude for the given FOV."""
-    ...
-
-
-def plot_mean_frequency(widget: _GraphWidget, data: dict) -> None:
-    """Plot the mean frequency for the given FOV."""
-    ...

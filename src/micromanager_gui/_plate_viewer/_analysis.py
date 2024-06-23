@@ -474,7 +474,8 @@ class _AnalyseCalciumTraces(QWidget):
             # calculate the bleach corrected trace
             bleach_corrected = np.array(roi_trace) / average_fitted_curve
 
-            F0 = np.median(bleach_corrected)
+            # calculate the dF/F TODO: how to calculate F0?
+            F0 = np.min(bleach_corrected)
             dff = (bleach_corrected - F0) / F0
 
             # find the peaks in the bleach corrected trace

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvas
@@ -18,70 +18,50 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ._plot_methods import (
-    plot_delta_f_over_f,
-    plot_mean_amplitude,
-    plot_mean_frequency,
-    plot_normalized_delta_f_over_f,
-    plot_normalized_traces,
-    plot_normalized_traces_photobleach_corrected,
-    plot_normalized_traces_photobleach_corrected_with_peaks,
-    plot_normalized_traces_used_for_bleach_correction,
-    plot_normalized_traces_with_peaks,
-    plot_photobleaching_fitted_curve,
-    plot_raster_plot,
-    plot_raw_traces,
-    plot_raw_traces_photobleach_corrected,
-    plot_raw_traces_photobleach_corrected_with_peaks,
-    plot_raw_traces_with_peaks,
-    plot_traces_used_for_bleach_correction,
-)
+from ._plot_methods import plot_traces
 
 if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
+RED = "#C33"
+
+# fmt: off
 RAW_TRACES = "Raw Traces"
 RAW_TRACES_WITH_PEAKS = "Raw Traces with Peaks"
 RAW_TRACES_PHOTOBLEACH_CORRECTED = "Raw Traces Photobleach Corrected"
-RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
-    "Raw Traces Photobleach Corrected with Peaks"
-)
+RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = "Raw Traces Photobleach Corrected with Peaks"  # noqa: E501
 NORMALIZED_TRACES = "Normalized Traces [0, 1]"
-NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = (
-    "Normalized Traces [0, 1] Photobleach Corrected"
-)
+NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = "Normalized Traces [0, 1] Photobleach Corrected"  # noqa: E501
 NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
-NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = (
-    "Normalized Traces [0, 1] Photobleach Correctedwith Peaks"
-)
+NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = "Normalized Traces [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
 TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
-TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS = (
-    "Traces Normalized [0, 1] used for Photobleaching Correction"
-)
-BLEACH_FITTED_CURVE = "Photobleaching Fitted Curve"
-DFF = "DeltaF/F0"
-NORMALIZED_DFF = "Normalized DeltaF/F0"
+TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED = "Traces used for Photobleaching Correction Normalized [0, 1]"  # noqa: E501
+DFF = "DeltaF/F0 Photobleach Corrected"
+DFF_WITH_PEAKS = "DeltaF/F0 Photobleach Corrected with Peaks"
+DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected"
+DFF_NORMALIZED_WITH_PEAKS = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
 
-COMBO_OPTIONS: dict[str, Callable] = {
-    RAW_TRACES: plot_raw_traces,
-    RAW_TRACES_PHOTOBLEACH_CORRECTED: plot_raw_traces_photobleach_corrected,
-    RAW_TRACES_WITH_PEAKS: plot_raw_traces_with_peaks,
-    RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: plot_raw_traces_photobleach_corrected_with_peaks,  # noqa: E501
-    NORMALIZED_TRACES: plot_normalized_traces,
-    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED: plot_normalized_traces_photobleach_corrected,  # noqa: E501
-    NORMALIZED_TRACES_WITH_PEAKS: plot_normalized_traces_with_peaks,
-    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: plot_normalized_traces_photobleach_corrected_with_peaks,  # noqa: E501
-    TRACES_FOR_BLEACH_CORRECTIONS: plot_traces_used_for_bleach_correction,
-    TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS: plot_normalized_traces_used_for_bleach_correction,  # noqa: E501
-    BLEACH_FITTED_CURVE: plot_photobleaching_fitted_curve,
-    DFF: plot_delta_f_over_f,
-    NORMALIZED_DFF: plot_normalized_delta_f_over_f,
-    "Mean Amplitude ± StD": plot_mean_amplitude,
-    "Mean Frequency ± StD": plot_mean_frequency,
-    "Raster Plot": plot_raster_plot,
+# dff=False, normalize=False, photobleach_corrected=False, with_peaks=False, used_for_bleach_correction=False  # noqa: E501
+COMBO_OPTIONS: dict[str, dict[str, bool]] = {
+    RAW_TRACES: {},
+    RAW_TRACES_PHOTOBLEACH_CORRECTED: {"photobleach_corrected":True},
+    RAW_TRACES_WITH_PEAKS: {"with_peaks":True},
+    RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: {"photobleach_corrected":True, "with_peaks":True},  # noqa: E501
+    NORMALIZED_TRACES: {"normalize":True},
+    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED: {"normalize":True, "photobleach_corrected":True},  # noqa: E501
+    NORMALIZED_TRACES_WITH_PEAKS: {"normalize":True, "with_peaks":True},
+    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: {"normalize":True, "photobleach_corrected":True, "with_peaks":True},  # noqa: E501
+    TRACES_FOR_BLEACH_CORRECTIONS: {"used_for_bleach_correction":True},
+    TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED: {"used_for_bleach_correction":True, "normalize":True},  # noqa: E501
+    DFF: {"dff":True},
+    DFF_NORMALIZED: {"dff":True, "normalize":True},
+    DFF_WITH_PEAKS: {"dff":True, "with_peaks":True},
+    DFF_NORMALIZED_WITH_PEAKS: {"dff":True, "normalize":True, "with_peaks":True},
+    # "Mean Amplitude ± StD": ,
+    # "Mean Frequency ± StD": ,
+    # "Raster Plot":
 }
-RED = "#C33"
-
+# fmt : on
 
 class _DisplayTraces(QGroupBox):
     def __init__(self, parent: _GraphWidget) -> None:
@@ -136,7 +116,7 @@ class _DisplayTraces(QGroupBox):
             rois = self._get_rois(data)
             if rois is None:
                 return
-            COMBO_OPTIONS[text](self._graph, data, rois)
+            plot_traces(self._graph, data, rois=rois, **COMBO_OPTIONS[text])
 
     def _get_rois(self, data: dict) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
@@ -236,6 +216,7 @@ class _GraphWidget(QWidget):
         #     return
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
-            COMBO_OPTIONS[text](self, self._plate_viewer._analysis_data[well_name])
+            data = self._plate_viewer._analysis_data[well_name]
+            plot_traces(self, data,rois=None, **COMBO_OPTIONS[text])
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()

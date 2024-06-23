@@ -171,15 +171,15 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/out1"
+        # self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
