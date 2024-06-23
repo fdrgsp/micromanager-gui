@@ -22,6 +22,7 @@ from ._plot_methods import (
     plot_delta_f_over_f,
     plot_mean_amplitude,
     plot_mean_frequency,
+    plot_normalized_delta_f_over_f,
     plot_normalized_traces,
     plot_normalized_traces_photobleach_corrected,
     plot_normalized_traces_photobleach_corrected_with_peaks,
@@ -59,6 +60,7 @@ TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS = (
 )
 BLEACH_FITTED_CURVE = "Photobleaching Fitted Curve"
 DFF = "DeltaF/F0"
+NORMALIZED_DFF = "Normalized DeltaF/F0"
 
 COMBO_OPTIONS: dict[str, Callable] = {
     RAW_TRACES: plot_raw_traces,
@@ -73,6 +75,7 @@ COMBO_OPTIONS: dict[str, Callable] = {
     TRACES_NORMALIZED_FOR_BLEACH_CORRECTIONS: plot_normalized_traces_used_for_bleach_correction,  # noqa: E501
     BLEACH_FITTED_CURVE: plot_photobleaching_fitted_curve,
     DFF: plot_delta_f_over_f,
+    NORMALIZED_DFF: plot_normalized_delta_f_over_f,
     "Mean Amplitude ± StD": plot_mean_amplitude,
     "Mean Frequency ± StD": plot_mean_frequency,
     "Raster Plot": plot_raster_plot,
@@ -141,11 +144,14 @@ class _DisplayTraces(QGroupBox):
         if not text:
             return None
         # return n random rois
-        if text[:3] == "rnd" and text[3:].isdigit():
-            random_keys = np.random.choice(
-                list(data.keys()), int(text[3:]), replace=False
-            )
-            return list(map(int, random_keys))
+        try:
+            if text[:3] == "rnd" and text[3:].isdigit():
+                random_keys = np.random.choice(
+                    list(data.keys()), int(text[3:]), replace=False
+                )
+                return list(map(int, random_keys))
+        except ValueError:
+            return None
         # parse the input string
         rois = self._parse_input(text)
         return rois or None

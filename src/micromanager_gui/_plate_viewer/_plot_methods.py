@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from ._graph_widget import _GraphWidget
     from ._util import ROIData
 
+COUNT_INCREMENT = 1
+
 
 def plot_raw_traces(
     widget: _GraphWidget, data: dict, rois: list[int] | None = None
@@ -26,7 +28,7 @@ def plot_raw_traces(
         if trace is None:
             continue
         ax.plot(trace, label=f"ROI {key}")
-        count += 1
+        count += COUNT_INCREMENT
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -141,7 +143,7 @@ def plot_normalized_traces(
         tr = np.array(trace)
         normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
         ax.plot(normalized_trace + count, label=f"ROI {key}")
-        count += 1
+        count += COUNT_INCREMENT
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -172,7 +174,7 @@ def plot_normalized_traces_photobleach_corrected(
         tr = np.array(trace)
         normalized_trace = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
         ax.plot(normalized_trace + count, label=f"ROI {key}")
-        count += 1
+        count += COUNT_INCREMENT
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -211,7 +213,7 @@ def plot_normalized_traces_with_peaks(
             "x",
             label=f"Peaks ROI {key}",
         )
-        count += 1
+        count += COUNT_INCREMENT
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -250,7 +252,7 @@ def plot_normalized_traces_photobleach_corrected_with_peaks(
             "x",
             label=f"Peaks ROI {key}",
         )
-        count += 1
+        count += COUNT_INCREMENT
 
     # adding hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -354,6 +356,7 @@ def plot_photobleaching_fitted_curve(
     curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
     if curve is None:
         return
+    curve = np.array(curve)
     ax.plot(curve, label="Fitted Curve")
 
     widget.canvas.draw()
@@ -362,10 +365,44 @@ def plot_photobleaching_fitted_curve(
 def plot_delta_f_over_f(
     widget: _GraphWidget, data: dict, rois: list[int] | None = None
 ) -> None:
-    # TODO: dff should be calculated in the analysis and stored in the ROIData class
-    # here we will only need to plot roi_data.dff. Also use a better methodfor dff
-    """Plot the delta f over f traces."""
-    ...
+    """Plot the DeltaF/F traces."""
+    ax = widget.figure.add_subplot(111)
+    title = "Delta F over F"
+    ax.set_title(title)
+    # ax.get_yaxis().set_visible(False)
+    for key in data:
+        if rois is not None and int(key) not in rois:
+            continue
+        roi_data = cast("ROIData", data[key])
+        dff = roi_data.dff
+        if dff is None:
+            continue
+        ax.plot(dff, label=f"ROI {key}")
+
+    widget.canvas.draw()
+
+
+def plot_normalized_delta_f_over_f(
+    widget: _GraphWidget, data: dict, rois: list[int] | None = None
+) -> None:
+    """Plot the Normalized [0, 1] DeltaF/F traces."""
+    ax = widget.figure.add_subplot(111)
+    title = "Delta F over F"
+    ax.set_title(title)
+    # ax.get_yaxis().set_visible(False)
+    count = 0
+    for key in data:
+        if rois is not None and int(key) not in rois:
+            continue
+        roi_data = cast("ROIData", data[key])
+        dff = roi_data.dff
+        if dff is None:
+            continue
+        normalized_dff = (dff - np.min(dff)) / (np.max(dff) - np.min(dff))
+        ax.plot(normalized_dff + count, label=f"ROI {key}")
+        count += COUNT_INCREMENT
+
+    widget.canvas.draw()
 
 
 def plot_raster_plot(widget: _GraphWidget, data: dict) -> None:

@@ -25,6 +25,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from superqt.utils import create_worker
+from tqdm import tqdm
 
 from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
@@ -114,6 +115,7 @@ class PlateViewer(QMainWindow):
         # right widgets --------------------------------------------------
         # tab widget
         self._tab = QTabWidget(self)
+        self._tab.currentChanged.connect(self._on_tab_changed)
 
         # analysis tab
         self._analysis_tab = QWidget()
@@ -160,9 +162,6 @@ class PlateViewer(QMainWindow):
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
         self._loading_waiting_bar = _WaitingProgressBar(text="Loading Analysis Data...")
-        # cannot us the full progress bar because json.load is blocking the main thread
-        # even if it is in a worker thread
-        self._loading_waiting_bar._progress_bar.hide()
 
         self.showMaximized()
 
@@ -179,7 +178,7 @@ class PlateViewer(QMainWindow):
         reader = TensorstoreZarrReader(data)
         self._labels_path = "/Users/fdrgsp/Desktop/labels"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/b.json"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
         self._init_widget(reader)
 
     @property
@@ -220,6 +219,19 @@ class PlateViewer(QMainWindow):
     @property
     def labels(self) -> dict[str, np.ndarray]:
         return self._segmentation_wdg.labels
+
+    def _on_tab_changed(self, idx: int) -> None:
+        """Update the grapg combo boxes when the tab is changed."""
+        if idx != 1:
+            return
+        # get the current fov
+        value = self._fov_table.value() if self._fov_table.selectedItems() else None
+        if value is None:
+            return
+        # get the analysis data for the current fov if it exists
+        analysis = self._analysis_data.get(str(value.fov.name), None)
+        # update the graphs combo boxes
+        self._update_graphs_combo(combo_red=(analysis is None))
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -265,8 +277,22 @@ class PlateViewer(QMainWindow):
 
             self._init_widget(reader)
 
-    def _load_analysis_data(self, analysis_json_file_path: str) -> None:
+    def _load_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
+        if isinstance(path, str):
+            path = Path(path)
+
+        if not path.exists():
+            show_error_dialog(
+                self, f"Error while loading the file. Path {path} does not exist!"
+            )
+            return
+        if not path.is_dir():
+            show_error_dialog(
+                self, f"Error while loading the file. Path {path} is not a directory!"
+            )
+            return
+
         # temporarily disable the whole widget
         self.setEnabled(False)
 
@@ -274,8 +300,8 @@ class PlateViewer(QMainWindow):
         self._loading_waiting_bar.start()
 
         create_worker(
-            self._load_json,
-            path=analysis_json_file_path,
+            self._load_data_from_json,
+            path=path,
             _start_thread=True,
             _connect={
                 "finished": self._on_loading_finished,
@@ -289,34 +315,42 @@ class PlateViewer(QMainWindow):
         # re-enable the whole widget
         self.setEnabled(True)
 
-    def _load_json(self, path: str) -> None:
+    # TODO: maybe use ThreadPoolExecutor
+    def _load_data_from_json(self, path: Path) -> None:
         """Load the analysis data from the given JSON file."""
+        json_files = list(path.glob("*.json"))
         try:
-            with open(path) as f:
-                try:
-                    data = cast(dict, json.load(f))
-                except json.JSONDecodeError as e:
-                    show_error_dialog(self, f"Error loading the analysis data: {e}")
-                    self._analysis_data = data
-                if not data:
-                    self._analysis_data = data
-                for key in data.keys():
-                    for i in range(1, len(data[key]) + 1):
-                        roi = cast(dict, data[key][str(i)])
-                        if peaks := roi.get("peaks", {}):
+            # loop over the files in the directory
+            for f in tqdm(json_files, desc="Loading Analysis Data"):
+                # get the name of the file without the extensions
+                well = f.name.removesuffix(f.suffix)
+                # create the dict for the well
+                self._analysis_data[well] = {}
+                # open the data for the well
+                with open(f) as file:
+                    try:
+                        data = cast(dict, json.load(file))
+                    except json.JSONDecodeError as e:
+                        show_error_dialog(self, f"Error loading the analysis data: {e}")
+                        self._analysis_data = data
+                    # if the data is empty, continue
+                    if not data:
+                        continue
+                    # loop over the rois
+                    for roi in data.keys():
+                        # get the data for the roi
+                        roi_data = cast(dict, data[roi])
+                        # if there are peaks, convert them to Peaks objects
+                        if peaks := roi_data.get("peaks", {}):
                             peaks_objects = []
                             for p in peaks:
                                 peaks_objects.append(Peaks(**p))
-                                roi["peaks"] = peaks_objects
-                        # convert the dict to a ROIData object
-                        data[key][str(i)] = ROIData(**roi)
-
-                # set the analysis data
-                self._analysis_data = data
-
+                                roi_data["peaks"] = peaks_objects
+                        # convert to a ROIData object and add store it in _analysis_data
+                        self._analysis_data[well][roi] = ROIData(**roi_data)
         except Exception as e:
             show_error_dialog(self, f"Error loading the analysis data: {e}")
-            self._analysis_data = {}
+            self._analysis_data.clear()
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""

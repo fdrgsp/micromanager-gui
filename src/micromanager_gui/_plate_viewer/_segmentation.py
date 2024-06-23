@@ -266,6 +266,7 @@ class _CellposeSegmentation(QWidget):
             _connect={
                 "yielded": self._update_progress,
                 "finished": self._on_worker_finished,
+                "errored": self._on_worker_finished,
             },
         )
 
