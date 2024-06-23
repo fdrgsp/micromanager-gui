@@ -280,8 +280,6 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
-        if self._plate_viewer is not None:
-            self._plate_viewer._tab.setEnabled(enable)
         self._pos_le.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
