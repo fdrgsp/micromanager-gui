@@ -473,6 +473,7 @@ class _AnalyseCalciumTraces(QWidget):
             # store the analysis data
             update = data.replace(
                 average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
+                average_popts=average_popts.tolist(),
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=peak) for peak in peaks],
                 dff=dff.tolist(),

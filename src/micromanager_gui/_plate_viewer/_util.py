@@ -47,6 +47,7 @@ class ROIData(BaseClass):
     peaks: list[Peaks] | None = None
     use_for_bleach_correction: tuple[list[float], list[float], float] | None = None
     average_photobleaching_fitted_curve: list[float] | None = None
+    average_popts: list[float] | None = None
     dff: list[float] | None = None
     mean_frequency: float | None = None
     mean_frequency_stdev: float | None = None
