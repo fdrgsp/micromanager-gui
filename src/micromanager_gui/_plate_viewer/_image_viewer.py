@@ -3,12 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import cmap
+import numpy as np
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -19,12 +21,11 @@ from superqt.fonticon import icon
 from superqt.utils import qthrottled, signals_blocked
 from vispy import scene
 
-from ._util import show_error_dialog
+from ._util import parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
     from typing import Literal
 
-    import numpy as np
     from vispy.scene.events import SceneMouseEvent
 
 
@@ -71,6 +72,27 @@ class _ImageViewer(QGroupBox):
         # roi number indicator
         self._roi_number = QLabel()
         self._roi_number.setText("ROI:")
+        find_roi_lbl = QLabel("Find ROI:")
+        find_roi_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._roi_number_le = QLineEdit()
+        self._find_btn = QPushButton("Find")
+        self._find_btn.clicked.connect(self._highlight_rois)
+        self._clear_btn = QPushButton("Clear")
+        self._clear_btn.clicked.connect(self._clear_highlight)
+        roi_wdg = QWidget()
+        roi_wdg.setToolTip(
+            "Select the ROIs to highlight. You can input single ROIs (e.g. 30, 33) a "
+            "range (e.g. 1-10), or a mix of single ROIs and ranges "
+            "(e.g. 1-10, 30, 50-65). NOTE: The ROIs are 1-indexed."
+        )
+        roi_layout = QHBoxLayout(roi_wdg)
+        roi_layout.setContentsMargins(0, 0, 0, 0)
+        roi_layout.addWidget(self._roi_number)
+        roi_layout.addStretch()
+        roi_layout.addWidget(find_roi_lbl)
+        roi_layout.addWidget(self._roi_number_le)
+        roi_layout.addWidget(self._find_btn)
+        roi_layout.addWidget(self._clear_btn)
 
         # LUT slider
         self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
@@ -107,7 +129,7 @@ class _ImageViewer(QGroupBox):
         bottom_wdg_layout.addWidget(self._reset_view)
 
         main_layout = QVBoxLayout(self)
-        main_layout.addWidget(self._roi_number)
+        main_layout.addWidget(roi_wdg)
         main_layout.addWidget(self._viewer)
         main_layout.addWidget(bottom_wdg)
 
@@ -161,10 +183,57 @@ class _ImageViewer(QGroupBox):
             self._viewer.labels_image = None
         self._viewer.view.camera.set_range(margin=0)
 
+    def _clear_highlight(self) -> None:
+        """Clear the highlighted ROI."""
+        if self._viewer.highlight_roi is not None:
+            self._viewer.highlight_roi.parent = None
+            self._viewer.highlight_roi = None
+
     def _show_labels(self, state: bool) -> None:
         """Show the labels."""
         if self._viewer.labels_image is not None:
             self._viewer.labels_image.visible = state
+
+    def _highlight_rois(self) -> None:
+        """Highlight the label set in the spinbox."""
+        if self._viewer.labels_image is None:
+            show_error_dialog(self, "No labels image to highlight.")
+            return
+
+        labels_data = self._viewer.labels_image._data
+
+        rois = parse_lineedit_text(self._roi_number_le.text())
+        if not rois:
+            show_error_dialog(self, "Invalid ROIs provided!")
+            return None
+        if max(rois) >= labels_data.max():
+            show_error_dialog(self, "Input ROIs out of range!")
+            return None
+
+        # Clear the previous highlight image if it exists
+        if self._viewer.highlight_roi is not None:
+            self._viewer.highlight_roi.parent = None
+            self._viewer.highlight_roi = None
+
+        # Create a mask for the label to highlight it
+        highlight = np.zeros_like(labels_data, dtype=np.uint8)
+        for roi in rois:
+            mask = labels_data == roi
+            highlight[mask] = 255
+
+        # Add the highlight image to the viewer
+        self._viewer.highlight_roi = scene.visuals.Image(
+            highlight,
+            cmap=cmap.Colormap("green").to_vispy(),
+            clim=(0, 255),
+            parent=self._viewer.view.scene,
+        )
+        self._viewer.highlight_roi.set_gl_state("additive", depth_test=False)
+        self._viewer.highlight_roi.interactive = True
+        self._viewer.view.camera.set_range(margin=0)
+
+        self._viewer.labels_image.visible = False
+        self._labels.setChecked(False)
 
 
 class _ImageCanvas(QWidget):
@@ -186,6 +255,7 @@ class _ImageCanvas(QWidget):
 
         self.image: scene.visuals.Image | None = None
         self.labels_image: scene.visuals.Image | None = None
+        self.highlight_roi: scene.visuals.Image | None = None
 
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)

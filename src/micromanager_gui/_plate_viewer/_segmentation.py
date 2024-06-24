@@ -26,7 +26,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import _ElapsedTimer, parse_positions, show_error_dialog
+from ._util import _ElapsedTimer, parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -253,7 +253,7 @@ class _CellposeSegmentation(QWidget):
             positions = list(range(len(sequence.stage_positions)))
         else:
             # parse the input positions
-            positions = parse_positions(self._pos_le.text())
+            positions = parse_lineedit_text(self._pos_le.text())
 
             if not positions:
                 show_error_dialog(self, "Invalid Positions provided!")

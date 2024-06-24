@@ -154,7 +154,7 @@ class _WaitingProgressBar(QDialog):
         self._progress_bar.setValue(value)
 
 
-def parse_positions(input_str: str) -> list[int]:
+def parse_lineedit_text(input_str: str) -> list[int]:
     """Parse the input string and return a list of numbers."""
     parts = input_str.split(",")
     numbers: list[int] = []

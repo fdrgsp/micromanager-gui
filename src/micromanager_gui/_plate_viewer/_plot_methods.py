@@ -119,5 +119,9 @@ def plot_traces(
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
+        # emit the graph widget roiSelected signal
+        if sel.artist.get_label():
+            roi = sel.artist.get_label().split(" ")[1]
+            widget.roiSelected.emit(roi)
 
     widget.canvas.draw()

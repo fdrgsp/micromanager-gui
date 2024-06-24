@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
+from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
     QComboBox,
     QGroupBox,
@@ -153,6 +154,9 @@ class _DisplayTraces(QGroupBox):
 
 
 class _GraphWidget(QWidget):
+
+    roiSelected = Signal(str)
+
     def __init__(self, parent: PlateViewer) -> None:
         super().__init__(parent)
 

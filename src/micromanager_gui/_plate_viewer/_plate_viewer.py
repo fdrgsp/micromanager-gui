@@ -149,6 +149,18 @@ class PlateViewer(QMainWindow):
         visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
         visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
 
+        # connect the roiSelected signal from the graphs to the image viewer so we can
+        # highlight the roi in the image viewer when a roi is selected in the graph
+        for graph in [
+            self._graph_wdg_1,
+            self._graph_wdg_2,
+            self._graph_wdg_3,
+            self._graph_wdg_4,
+            self._graph_wdg_5,
+            self._graph_wdg_6,
+        ]:
+            graph.roiSelected.connect(self._highlight_roi)
+
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
         self.main_splitter.setContentsMargins(0, 0, 0, 0)
@@ -171,15 +183,15 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/out1"
-        # self._init_widget(reader)
+        data = (
+            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/out1"
+        self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -243,6 +255,10 @@ class PlateViewer(QMainWindow):
         for splitter, sizes in splitter_and_sizes:
             total_size = splitter.size().width()
             splitter.setSizes([int(size * total_size) for size in sizes])
+
+    def _highlight_roi(self, roi: int) -> None:
+        self._image_viewer._roi_number_le.setText(str(roi))
+        self._image_viewer._highlight_rois()
 
     def _show_init_dialog(self) -> None:
         """Show a dialog to select a zarr datastore file and segmentation path."""

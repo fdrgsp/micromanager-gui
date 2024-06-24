@@ -34,7 +34,7 @@ from ._util import (
     ROIData,
     _ElapsedTimer,
     _WaitingProgressBar,
-    parse_positions,
+    parse_lineedit_text,
     show_error_dialog,
 )
 
@@ -269,7 +269,7 @@ class _AnalyseCalciumTraces(QWidget):
         if not self._pos_le.text():
             return list(range(len(sequence.stage_positions)))
         # parse the input positions
-        positions = parse_positions(self._pos_le.text())
+        positions = parse_lineedit_text(self._pos_le.text())
         if not positions:
             show_error_dialog(self, "Invalid Positions provided!")
             return None
