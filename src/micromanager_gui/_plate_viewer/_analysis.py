@@ -400,7 +400,7 @@ class _AnalyseCalciumTraces(QWidget):
             return
 
         # get the range of labels
-        labels_range = range(1, labels.max() + 1)
+        labels_range = range(1, labels.max())
 
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
