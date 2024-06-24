@@ -70,9 +70,7 @@ class _ImageViewer(QGroupBox):
         self._viewer = _ImageCanvas(parent=self)
 
         # roi number indicator
-        self._roi_number = QLabel()
-        self._roi_number.setText("ROI:")
-        find_roi_lbl = QLabel("Find ROI:")
+        find_roi_lbl = QLabel("ROI:")
         find_roi_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._roi_number_le = QLineEdit()
         self._find_btn = QPushButton("Find")
@@ -87,8 +85,6 @@ class _ImageViewer(QGroupBox):
         )
         roi_layout = QHBoxLayout(roi_wdg)
         roi_layout.setContentsMargins(0, 0, 0, 0)
-        roi_layout.addWidget(self._roi_number)
-        roi_layout.addStretch()
         roi_layout.addWidget(find_roi_lbl)
         roi_layout.addWidget(self._roi_number_le)
         roi_layout.addWidget(self._find_btn)
@@ -188,9 +184,12 @@ class _ImageViewer(QGroupBox):
         if self._viewer.highlight_roi is not None:
             self._viewer.highlight_roi.parent = None
             self._viewer.highlight_roi = None
+        self._roi_number_le.setText("")
 
     def _show_labels(self, state: bool) -> None:
         """Show the labels."""
+        self._clear_highlight()
+
         if self._viewer.labels_image is not None:
             self._viewer.labels_image.visible = state
 
@@ -233,7 +232,8 @@ class _ImageViewer(QGroupBox):
         self._viewer.view.camera.set_range(margin=0)
 
         self._viewer.labels_image.visible = False
-        self._labels.setChecked(False)
+        with signals_blocked(self._labels):
+            self._labels.setChecked(False)
 
 
 class _ImageCanvas(QWidget):
@@ -326,13 +326,13 @@ class _ImageCanvas(QWidget):
         visual = self._canvas.visual_at(event.pos)
         image = self._find_image(visual)
         if image != self.labels_image or image is None:
-            self._viewer._roi_number.setText("ROI:")
+            self._viewer._roi_number_le.setText("")
             return
         tform = image.get_transform("canvas", "visual")
         px, py, *_ = (int(x) for x in tform.map(event.pos))
         pixel_value = image._data[py, px]
         pixel_value = "" if pixel_value == 0 else pixel_value
-        self._viewer._roi_number.setText(f"ROI: {pixel_value}")
+        self._viewer._roi_number_le.setText(f"{pixel_value}")
 
     def _find_image(self, visual: scene.visuals.Visual) -> scene.visuals.Image | None:
         """Find the image visual in the visual tree."""
