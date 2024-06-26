@@ -101,12 +101,13 @@ class _ElapsedTimer(QObject):
 class _ProgressBarWidget(QDialog):
     """A progress bar that oscillates between 0 and a given range."""
 
-    def __init__(self, parent: QWidget | None = None, *, label: str = "") -> None:
+    def __init__(self, parent: QWidget | None = None, *, text: str = "") -> None:
         super().__init__(parent)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
-        self._label = label
+        self._label = text
         label = QLabel(self._label)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._progress_bar = QProgressBar()
         self._progress_bar.setMinimumWidth(200)

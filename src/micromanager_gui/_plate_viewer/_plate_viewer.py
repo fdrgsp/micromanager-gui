@@ -173,7 +173,7 @@ class PlateViewer(QMainWindow):
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
-        self._loading_bar = _ProgressBarWidget(self, label="Loading Analysis Data...")
+        self._loading_bar = _ProgressBarWidget(self, text="Loading Analysis Data...")
 
         self.showMaximized()
 
