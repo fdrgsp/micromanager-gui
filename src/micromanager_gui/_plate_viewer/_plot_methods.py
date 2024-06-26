@@ -121,7 +121,8 @@ def plot_traces(
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         # emit the graph widget roiSelected signal
         if sel.artist.get_label():
-            roi = sel.artist.get_label().split(" ")[1]
-            widget.roiSelected.emit(roi)
+            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            if roi.isdigit():
+                widget.roiSelected.emit(roi)
 
     widget.canvas.draw()

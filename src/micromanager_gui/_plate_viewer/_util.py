@@ -98,13 +98,43 @@ class _ElapsedTimer(QObject):
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
-class _WaitingProgressBar(QDialog):
+class _ProgressBarWidget(QDialog):
+    """A progress bar that oscillates between 0 and a given range."""
+
+    def __init__(self, parent: QWidget | None = None, *, label: str = "") -> None:
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
+
+        self._label = label
+        label = QLabel(self._label)
+
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setMinimumWidth(200)
+        self._progress_bar.setValue(0)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.addWidget(label)
+        layout.addWidget(self._progress_bar)
+
+    def setValue(self, value: int) -> None:
+        """Set the progress bar value."""
+        self._progress_bar.setValue(value)
+
+    def setRange(self, min: int, max: int) -> None:
+        """Set the progress bar range."""
+        self._progress_bar.setRange(min, max)
+
+
+class _WaitingProgressBarWidget(QDialog):
     """A progress bar that oscillates between 0 and a given range."""
 
     def __init__(
         self, parent: QWidget | None = None, *, range: int = 50, text: str = ""
     ) -> None:
         super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
         self._range = range
 

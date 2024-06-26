@@ -33,7 +33,7 @@ from ._util import (
     Peaks,
     ROIData,
     _ElapsedTimer,
-    _WaitingProgressBar,
+    _WaitingProgressBarWidget,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -156,7 +156,9 @@ class _AnalyseCalciumTraces(QWidget):
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 
-        self._cancel_waiting_bar = _WaitingProgressBar(text="Stopping all the Tasks...")
+        self._cancel_waiting_bar = _WaitingProgressBarWidget(
+            text="Stopping all the Tasks..."
+        )
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:

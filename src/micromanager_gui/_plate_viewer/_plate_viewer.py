@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
+from typing import Generator, cast
 
 import numpy as np
 import tifffile
@@ -36,7 +36,7 @@ from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
 from ._segmentation import _CellposeSegmentation
-from ._util import Peaks, ROIData, _WaitingProgressBar, show_error_dialog
+from ._util import Peaks, ROIData, _ProgressBarWidget, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
 GREEN = "#00FF00"  # "#00C600"
@@ -173,7 +173,7 @@ class PlateViewer(QMainWindow):
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
 
-        self._loading_waiting_bar = _WaitingProgressBar(text="Loading Analysis Data...")
+        self._loading_bar = _ProgressBarWidget(self, label="Loading Analysis Data...")
 
         self.showMaximized()
 
@@ -190,7 +190,7 @@ class PlateViewer(QMainWindow):
         reader = TensorstoreZarrReader(data)
         self._labels_path = "/Users/fdrgsp/Desktop/labels"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/out1"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
         self._init_widget(reader)
 
     @property
@@ -313,13 +313,16 @@ class PlateViewer(QMainWindow):
         self.setEnabled(False)
 
         # start the waiting progress bar
-        self._loading_waiting_bar.start()
+        self._loading_bar.setEnabled(True)
+        self._loading_bar.setValue(0)
+        self._loading_bar.show()
 
         create_worker(
             self._load_data_from_json,
             path=path,
             _start_thread=True,
             _connect={
+                "yielded": self._update_progress_bar,
                 "finished": self._on_loading_finished,
                 "errored": self._on_loading_finished,
             },
@@ -327,17 +330,19 @@ class PlateViewer(QMainWindow):
 
     def _on_loading_finished(self) -> None:
         """Called when the saving is finished."""
-        self._loading_waiting_bar.stop()
+        self._loading_bar.hide()
         # re-enable the whole widget
         self.setEnabled(True)
 
     # TODO: maybe use ThreadPoolExecutor
-    def _load_data_from_json(self, path: Path) -> None:
+    def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
         """Load the analysis data from the given JSON file."""
         json_files = list(path.glob("*.json"))
+        self._loading_bar.setRange(0, len(json_files))
         try:
             # loop over the files in the directory
-            for f in tqdm(json_files, desc="Loading Analysis Data"):
+            for idx, f in enumerate(tqdm(json_files, desc="Loading Analysis Data")):
+                yield idx + 1
                 # get the name of the file without the extensions
                 well = f.name.removesuffix(f.suffix)
                 # create the dict for the well
@@ -367,6 +372,10 @@ class PlateViewer(QMainWindow):
         except Exception as e:
             show_error_dialog(self, f"Error loading the analysis data: {e}")
             self._analysis_data.clear()
+
+    def _update_progress_bar(self, value: int) -> None:
+        """Update the progress bar value."""
+        self._loading_bar.setValue(value)
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
@@ -437,6 +446,7 @@ class PlateViewer(QMainWindow):
     def _on_scene_well_changed(self, value: Well | None) -> None:
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
+        self._image_viewer._clear_highlight()
 
         if self._datastore is None or value is None:
             return
@@ -459,6 +469,7 @@ class PlateViewer(QMainWindow):
 
     def _on_fov_table_selection_changed(self) -> None:
         """Update the image viewer with the first frame of the selected FOV."""
+        self._image_viewer._clear_highlight()
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
 
         if value is None:
