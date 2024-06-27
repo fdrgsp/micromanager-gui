@@ -470,8 +470,9 @@ class _AnalyseCalciumTraces(QWidget):
             F0 = np.min(bleach_corrected)
             dff = (bleach_corrected - F0) / F0
 
+            prominence = np.mean(dff) * 0.35
             # find the peaks in the bleach corrected trace
-            peaks = self._find_peaks(dff, 0.1)
+            peaks = self._find_peaks(dff, prominence=prominence)
             # store the analysis data
             update = data.replace(
                 average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
