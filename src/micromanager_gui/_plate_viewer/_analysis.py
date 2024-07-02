@@ -473,7 +473,11 @@ class _AnalyseCalciumTraces(QWidget):
             prominence = np.mean(dff) * 0.35
             # find the peaks in the bleach corrected trace
             peaks = self._find_peaks(dff, prominence=prominence)
+
+            # anaglyzing the peaks
             amplitudes = self._get_amplitude(dff, peaks)
+            max_slopes = self._get_max_slope(dff, amplitudes)
+
             # store the analysis data
             update = data.replace(
                 average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
@@ -481,6 +485,7 @@ class _AnalyseCalciumTraces(QWidget):
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=peak) for peak in peaks],
                 amplitudes=[Peaks(amplitude=amplitude) for amplitude in amplitudes['amplitudes']],
+                max_slopes=[Peaks(max_slope=max_slope) for max_slope in max_slopes],
                 dff=dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
@@ -551,7 +556,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _get_amplitude(self, dff: list[float], peaks: list, deriv_threhold=0.01,
                        reset_num=17, neg_reset_num=2, total_dist=40
                        ) -> dict[list[float], list[int], list[int]]:
-        """Calculate amplitudes, peak indices, and base_indices."""
+        """Calculate amplitudes, peak indices, and base_indices of each ROI."""
         amplitude_info = {}
 
         if len(peaks) > 0:
@@ -649,3 +654,17 @@ class _AnalyseCalciumTraces(QWidget):
                         pass
 
         return amplitude_info
+
+    def _get_max_slope(self, roi_dff: dict, amplitude_info: dict) -> list[float]:
+        """Get max slope of each peak in one ROI."""
+        max_slope = []
+
+        dff_deriv = np.diff(roi_dff)
+        if len(amplitude_info['peak_indices']) > 0:
+            for i in range(len(amplitude_info['peak_indices'])):
+                peak_index = amplitude_info['peak_indices'][i]
+                base_index = amplitude_info['base_indices'][i]
+                slope_window = dff_deriv[base_index:(peak_index + 1)]
+                max_slope.append(np.max(slope_window))
+
+        return max_slope
