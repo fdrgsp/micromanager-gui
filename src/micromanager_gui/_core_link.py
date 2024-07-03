@@ -35,6 +35,11 @@ class CoreViewersLink(QObject):
         self._viewer_tab.setTabsClosable(True)
         self._viewer_tab.tabCloseRequested.connect(self._close_tab)
         self._main_window._central_wdg_layout.addWidget(self._viewer_tab, 0, 0)
+        from qtpy.QtWidgets import QPushButton
+
+        crash_button = QPushButton("Crash")
+        crash_button.clicked.connect(lambda: 1 / 0)
+        self._main_window._central_wdg_layout.addWidget(crash_button)
 
         # preview tab
         self._preview = Preview(self._main_window, mmcore=self._mmc)
