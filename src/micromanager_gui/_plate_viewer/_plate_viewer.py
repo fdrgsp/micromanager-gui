@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import sys
+import traceback
 from pathlib import Path
-from typing import Generator, cast
+from typing import TYPE_CHECKING, Generator, cast
 
 import numpy as np
 import tifffile
@@ -39,6 +41,9 @@ from ._segmentation import _CellposeSegmentation
 from ._util import Peaks, ROIData, _ProgressBarWidget, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
 
+if TYPE_CHECKING:
+    from types import TracebackType
+
 GREEN = "#00FF00"  # "#00C600"
 SELECTED_COLOR = QBrush(QColor(GREEN))
 UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
@@ -48,6 +53,17 @@ PEN.setWidth(3)
 OPACITY = 0.7
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
+
+
+def _our_excepthook(
+    type: type[BaseException], value: BaseException, tb: TracebackType | None
+) -> None:
+    """Excepthook that prints the traceback to the console.
+
+    By default, Qt's excepthook raises sys.exit(), which is not what we want.
+    """
+    # this could be elaborated to do all kinds of things...
+    traceback.print_exception(type, value, tb)
 
 
 class PlateViewer(QMainWindow):
@@ -61,6 +77,8 @@ class PlateViewer(QMainWindow):
         analysis_file_path: str | None = None,
     ) -> None:
         super().__init__(parent)
+
+        sys.excepthook = _our_excepthook
 
         # add central widget
         self._central_widget = QWidget(self)
@@ -183,15 +201,15 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
+        # self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -262,6 +280,8 @@ class PlateViewer(QMainWindow):
 
     def _show_init_dialog(self) -> None:
         """Show a dialog to select a zarr datastore file and segmentation path."""
+        raise NotImplementedError("This method is not implemented yet.")
+
         init_dialog = _InitDialog(
             self,
             datastore_path=(
