@@ -108,7 +108,6 @@ class TiffSequenceWriter(ImageSequenceWriter):
         self._imwrite(str(_dir / filename), frame, **self._imwrite_kwargs)
 
         # store metadata
-        meta["Event"] = json.loads(event.json(exclude={"sequence"}, exclude_unset=True))
         self._frame_metadata[filename] = meta
         # write metadata to disk every 10 frames
         if frame_idx % 10 == 0:
