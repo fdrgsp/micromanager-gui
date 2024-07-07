@@ -82,9 +82,6 @@ class MicroManagerGUI(QMainWindow):
         # extend size to fill the screen
         self.showMaximized()
 
-        # extend size to fill the screen
-        self.showMaximized()
-
         if config is not None:
             try:
                 self._mmc.unloadAllDevices()
