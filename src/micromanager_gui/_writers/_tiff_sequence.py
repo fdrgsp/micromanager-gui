@@ -11,6 +11,7 @@ import json
 from typing import TYPE_CHECKING, Any, Callable
 
 from pymmcore_plus.mda.handlers import ImageSequenceWriter
+from pymmcore_plus.metadata.serialize import to_builtins
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -86,7 +87,13 @@ class TiffSequenceWriter(ImageSequenceWriter):
             imwrite_kwargs=imwrite_kwargs,
         )
 
-    def frameReady(self, frame: np.ndarray, event: useq.MDAEvent, meta: dict) -> None:
+    def frameReady(
+        # meta should be FrameMetaV1 but we need to change it in pymmcore-plus
+        self,
+        frame: np.ndarray,
+        event: useq.MDAEvent,
+        meta: dict,  # FrameMetaV1
+    ) -> None:
         """Write a frame to disk."""
         frame_idx = next(self._counter)
         if self._name_template:
@@ -108,7 +115,7 @@ class TiffSequenceWriter(ImageSequenceWriter):
         self._imwrite(str(_dir / filename), frame, **self._imwrite_kwargs)
 
         # store metadata
-        self._frame_metadata[filename] = meta
+        self._frame_metadata[filename] = to_builtins(meta)
         # write metadata to disk every 10 frames
         if frame_idx % 10 == 0:
             self._frame_meta_file.write_text(json.dumps(self._frame_metadata, indent=2))

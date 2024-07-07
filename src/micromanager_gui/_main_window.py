@@ -47,10 +47,8 @@ class MicroManagerGUI(QMainWindow):
 
         # slack bot to handle slack messages
         self._slackbot = MMSlackBot() if slackbot else None
-        # # if the slackbot is not loaded correctly, set it to None. user will get a
-        # # warning message from the SlackBot class
-        # if self._slackbot is not None and self._slackbot.slack_client is None:
-        #     self._slackbot = None
+        # if the slackbot is not loaded correctly, set it to None. user will get a
+        # warning message from the SlackBot class
 
         self.setAcceptDrops(True)
 
