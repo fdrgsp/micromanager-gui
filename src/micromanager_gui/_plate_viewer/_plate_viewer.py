@@ -280,8 +280,6 @@ class PlateViewer(QMainWindow):
 
     def _show_init_dialog(self) -> None:
         """Show a dialog to select a zarr datastore file and segmentation path."""
-        raise NotImplementedError("This method is not implemented yet.")
-
         init_dialog = _InitDialog(
             self,
             datastore_path=(
