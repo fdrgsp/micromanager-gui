@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from itertools import product
 from typing import (
     TYPE_CHECKING,
     Iterable,
@@ -9,7 +10,6 @@ from typing import (
 from pymmcore_plus._logger import logger
 from pymmcore_plus.core._sequencing import SequencedEvent
 from pymmcore_plus.mda import MDAEngine
-from pymmcore_plus.mda._engine import ImagePayload
 from rich import print
 from useq import HardwareAutofocus, MDAEvent, MDASequence
 
@@ -92,9 +92,13 @@ class Engine(MDAEngine):
         This method is not part of the PMDAEngine protocol (it is called by
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
+
+        **Why Override?** to add slackbot notifications for buffer overflow.
         """
-        # TODO: add support for multiple camera devices
         n_events = len(event.events)
+
+        t0 = event.metadata.get("runner_t0") or time.perf_counter()
+        event_t0_ms = (time.perf_counter() - t0) * 1000
 
         # Start sequence
         # Note that the overload of startSequenceAcquisition that takes a camera
@@ -105,15 +109,17 @@ class Engine(MDAEngine):
             0,  # intervalMS  # TODO: add support for this
             True,  # stopOnOverflow
         )
-
         self.post_sequence_started(event)
 
+        n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
-        iter_events = iter(event.events)
+        iter_events = product(event.events, range(n_channels))
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
-            if self._mmc.getRemainingImageCount():
-                yield self._next_img_payload(next(iter_events))
+            if remaining := self._mmc.getRemainingImageCount():
+                yield self._next_seqimg_payload(
+                    *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+                )
                 count += 1
             else:
                 time.sleep(0.001)
@@ -125,29 +131,36 @@ class Engine(MDAEngine):
                 )
             raise MemoryError("Buffer overflowed")
 
-        while self._mmc.getRemainingImageCount():
-            yield self._next_img_payload(next(iter_events))
+        while remaining := self._mmc.getRemainingImageCount():
+            yield self._next_seqimg_payload(
+                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+            )
             count += 1
 
-        if count != n_events:
+        # necessary?
+        expected_images = n_events * n_channels
+        if count != expected_images:
             logger.warning(
                 "Unexpected number of images returned from sequence. "
                 "Expected %s, got %s",
-                n_events,
+                expected_images,
                 count,
             )
 
-    def _next_img_payload(self, event: MDAEvent) -> PImagePayload:
+    def _next_seqimg_payload(
+        self,
+        event: MDAEvent,
+        channel: int = 0,
+        *,
+        event_t0: float = 0.0,
+        remaining: int = 0,
+    ) -> PImagePayload:
         """Grab next image from the circular buffer and return it as an ImagePayload."""
-        img, meta = self._mmc.popNextImageAndMD()
-        tags = self.get_frame_metadata(meta)
-
-        # TEMPORARY SOLUTION
+        # TEMPORARY SOLUTION TO DTOP ACQUISITION
         if self._mmc.mda._wait_until_event(event):  # SLF001
             self._mmc.mda.cancel()
             self._mmc.stopSequenceAcquisition()
-
-        return ImagePayload(img, event, tags)
+        return super()._next_seqimg_payload(event)
 
     def teardown_sequence(self, sequence: MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""

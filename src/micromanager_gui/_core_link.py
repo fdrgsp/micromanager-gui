@@ -40,9 +40,17 @@ RUNNING_MSG = {"icon_emoji": WARNING_EMOJI, "text": "MDA Sequence already runnin
 
 def _progress_message(event: useq.MDAEvent) -> dict[str, Any]:
     """Return the progress message."""
-    pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
-    idx = ", ".join(f"{k}:{v}" for k, v in event.index.items())
-    return {"icon_emoji": PROGRESS_EMOJI, "text": f"Status -> `{pos_name} ({idx})`"}
+    if event.sequence is None:
+        text = "Status -> No MDASequence found!"
+    else:
+        try:
+            sizes = event.sequence.sizes
+            pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
+            info = (f"{key}{idx+1}/{sizes[key]}" for key, idx in event.index.items())
+            text = f"Status -> `{pos_name} [{', '.join(info)}]`"
+        except Exception as e:
+            text = f"Status -> {e}"
+    return {"icon_emoji": PROGRESS_EMOJI, "text": text}
 
 
 class CoreViewersLink(QObject):
