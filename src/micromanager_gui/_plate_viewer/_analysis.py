@@ -476,7 +476,7 @@ class _AnalyseCalciumTraces(QWidget):
 
             # anaglyzing the peaks
             amplitudes = self._get_amplitude(dff, peaks)
-            max_slopes = self._get_max_slope(dff, amplitudes)
+            # max_slopes = self._get_max_slope(dff, amplitudes)
 
             # store the analysis data
             update = data.replace(
@@ -484,8 +484,8 @@ class _AnalyseCalciumTraces(QWidget):
                 average_popts=average_popts.tolist(),
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=peak) for peak in peaks],
-                amplitudes=[Peaks(amplitude=amplitude) for amplitude in amplitudes['amplitudes']],
-                max_slopes=[Peaks(max_slope=max_slope) for max_slope in max_slopes],
+                # amplitudes=[Peaks(amplitude=amplitude) for amplitude in amplitudes['amplitudes']],
+                # max_slopes=[Peaks(max_slope=max_slope) for max_slope in max_slopes],
                 dff=dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
@@ -562,7 +562,7 @@ class _AnalyseCalciumTraces(QWidget):
         if len(peaks) > 0:
             dff_deriv = np.diff(peaks) # the difference between each spike
 
-            for i in range(peaks):
+            for i in range(len(peaks)):
                 amplitude_info['amplitudes'] = []
                 amplitude_info['peak_indices'] = []
                 amplitude_info['base_indices'] = []
@@ -572,6 +572,8 @@ class _AnalyseCalciumTraces(QWidget):
                 total_count = 0
                 start_index = peaks[i] # the frame for the first spike
 
+                # NOTE: something is wrong with this part 7/10
+                # "an error occurred in a chunk: index 21 is outof bounds for axis 0 with size 9"
                 if start_index > 0:
                     while searching:
                         start_index -= 1
@@ -608,50 +610,55 @@ class _AnalyseCalciumTraces(QWidget):
                         if under_thresh_count >= reset_num or start_index == 0 or total_count == total_dist:
                             searching = False
 
-                    # Search for ending index for current spike
-                    searching = True
-                    under_thresh_count = 0
-                    total_count = 0
-                    end_index = peaks[i]
+                # Search for ending index for current spike
+                searching = True
+                under_thresh_count = 0
+                total_count = 0
+                end_index = peaks[i]
 
-                    if end_index < (len(dff_deriv) - 1):
-                        while searching:
-                            end_index += 1
-                            total_count += 1
+                # if end_index < (len(dff_deriv) - 1):
+                #     while searching:
+                #         end_index += 1
+                #         total_count += 1
 
-                            # If collide with a new spike
-                            if end_index in peaks:
-                                subsearching = True
-                                negative_count = 0
-                                while subsearching:
-                                    end_index -= 1
-                                    if dff_deriv[end_index] < 0:
-                                        negative_count += 1
-                                    else:
-                                        negative_count = 0
-                                    if negative_count == neg_reset_num:
-                                        subsearching = False
-                                break
-                            if dff_deriv[end_index] < deriv_threhold:
-                                under_thresh_count += 1
-                            else:
-                                under_thresh_count = 0
+                #         # If collide with a new spike
+                #         if end_index in peaks:
+                #             subsearching = True
+                #             negative_count = 0
+                #             while subsearching:
+                #                 end_index -= 1
+                #                 if dff_deriv[end_index] < 0:
+                #                     negative_count += 1
+                #                 else:
+                #                     negative_count = 0
+                #                 if negative_count == neg_reset_num:
+                #                     subsearching = False
+                #             break
+                #         if dff_deriv[end_index] < deriv_threhold:
+                #             under_thresh_count += 1
+                #         else:
+                #             under_thresh_count = 0
 
-                            # NOTE: changed the operator from == to >=
-                            if under_thresh_count >= reset_num or end_index >= (len(dff_deriv) - 1) or \
-                                    total_count == total_dist:
-                                searching = False
+                #         # NOTE: changed the operator from == to >=
+                #         if under_thresh_count >= reset_num or end_index >= (len(dff_deriv) - 1) or \
+                #                 total_count == total_dist:
+                #             searching = False
 
-                    # Save data
-                    spk_to_end = dff[peaks[i]:(end_index + 1)]
-                    start_to_spk = dff[start_index:(peaks[i] + 1)]
-                    try:
-                        amplitude_info['amplitudes'].append(np.max(spk_to_end) - np.min(start_to_spk))
-                        amplitude_info['peak_indices'].append(int(peaks[i] + np.argmax(spk_to_end)))
-                        amplitude_info['base_indices'].append(int(peaks[i] -
-                                                                    (len(start_to_spk) - (np.argmin(start_to_spk) + 1))))
-                    except ValueError:
-                        pass
+                # Save data
+                spk_to_end = dff[peaks[i]:(end_index + 1)]
+                start_to_spk = dff[start_index:(peaks[i] + 1)]
+                try:
+                    amplitude = np.max(spk_to_end) - np.min(start_to_spk)
+                    print(f'-----------------------------{amplitude}')
+                    amplitude_info['amplitudes'].append(
+                        np.max(spk_to_end) - np.min(start_to_spk))
+                    # amplitude_info['peak_indices'].append(
+                    #     int(peaks[i] + np.argmax(spk_to_end)))
+                    # amplitude_info['base_indices'].append(
+                    #     int(peaks[i] -(len(start_to_spk) - (
+                    #         np.argmin(start_to_spk) + 1))))
+                except ValueError:
+                    pass
 
         return amplitude_info
 
