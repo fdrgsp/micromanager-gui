@@ -447,14 +447,14 @@ class _AnalyseCalciumTraces(QWidget):
         average_fitted_curve = single_exponential(time_points, *average_popts)
 
         # perform photobleaching correction
-        logger.info(f"Performing Belaching Correction for Well {well}.")
+        logger.info(f"Performing Bleaching Correction for Well {well}.")
         for label_value in tqdm(
-            labels_range, desc=f"Performing Belaching Correction for Well {well}"
+            labels_range, desc=f"Performing Bleaching Correction for Well {well}"
         ):
             if self._check_for_abort_requested():
                 break
 
-            data = self._analysis_data[well][str(label_value)]
+            data = self._analysis_data[well][str(label_value)] # for one ROI
 
             roi_trace = data.raw_trace
 
@@ -472,11 +472,11 @@ class _AnalyseCalciumTraces(QWidget):
 
             prominence = np.mean(dff) * 0.35
             # find the peaks in the bleach corrected trace
-            peaks = self._find_peaks(dff, prominence=prominence)
+            peaks, left_bases = self._find_peaks(dff, prominence=prominence) # for one ROI
 
-            # anaglyzing the peaks
-            amplitudes = self._get_amplitude(dff, peaks)
-            # max_slopes = self._get_max_slope(dff, amplitudes)
+            amplitudes, peaks = self._get_amplitude(dff, peaks, left_bases)
+            mean_amplitude = np.mean(amplitudes)
+            mean_amplitude_stdev = np.std(amplitudes)
 
             # store the analysis data
             update = data.replace(
@@ -484,8 +484,8 @@ class _AnalyseCalciumTraces(QWidget):
                 average_popts=average_popts.tolist(),
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=peak) for peak in peaks],
-                # amplitudes=[Peaks(amplitude=amplitude) for amplitude in amplitudes['amplitudes']],
-                # max_slopes=[Peaks(max_slope=max_slope) for max_slope in max_slopes],
+                mean_amplitude=mean_amplitude,
+                mean_amplitude_stdev=mean_amplitude_stdev,
                 dff=dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
@@ -548,29 +548,54 @@ class _AnalyseCalciumTraces(QWidget):
     ) -> list[int]:
         """Smooth the trace and find the peaks."""
         smoothed_normalized = self._smooth_and_normalize(trace)
-        # find the peaks # TODO: find the necessary parameters to use
-        peaks, _ = find_peaks(smoothed_normalized, width=3, prominence=prominence)
+        peaks, properties = find_peaks(smoothed_normalized, width=3, prominence=prominence)
         peaks = cast(np.ndarray, peaks)
-        return cast(list[int], peaks.tolist())
+        left_bases = cast(np.ndarray, properties['left_bases'])
+        return cast(list[int], peaks.tolist()), cast(list[int], left_bases.tolist())
 
-    def _get_amplitude(self, dff: list[float], peaks: list, deriv_threhold=0.01,
+    # NOTE: 7/11 change the way to calculate the amplitude; use the base detected by find_peaks
+    def _get_amplitude(self, dff: list[float], peaks: list[int], 
+                       left_bases: list[int]):
+        """Get the amplitude for each peak in an ROI."""
+        amplitudes = []
+        remove_peaks = []
+
+        if len(peaks) == len(left_bases):
+            for i in range(len(peaks)):
+                peak = dff[peaks[i]]
+                l_base = dff[left_bases[i]]
+
+                if l_base <= peak:
+                    amplitudes.append(peak-l_base)
+                else:
+                    remove_peaks.append(peak)
+            
+            # remove peaks that are not calculated from the valleys on its left
+            new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
+            # print(f"___________________REMOVED Peaks: {remove_peaks}")
+
+        return amplitudes, new_peaks
+            
+    def __get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
                        reset_num=17, neg_reset_num=2, total_dist=40
                        ) -> dict[list[float], list[int], list[int]]:
         """Calculate amplitudes, peak indices, and base_indices of each ROI."""
-        amplitude_info = {}
-
+        amplitudes = []
+        start_indices = []
+        base_indices = []
+        
         if len(peaks) > 0:
-            dff_deriv = np.diff(peaks) # the difference between each spike
+            dff_deriv = np.diff(dff) # the difference between each spike
 
-            for i in range(len(peaks)):
-                amplitude_info['amplitudes'] = []
-                amplitude_info['peak_indices'] = []
-                amplitude_info['base_indices'] = []
+            for peak in peaks:
+                # amplitude_info[i]['amplitudes'] = []
+                # amplitude_info[i]['peak_indices'] = []
+                # amplitude_info[i]['base_indices'] = []
 
                 searching = True
                 under_thresh_count = 0
                 total_count = 0
-                start_index = peaks[i] # the frame for the first spike
+                start_index = peak.peak # the frame for the first spike
 
                 # NOTE: something is wrong with this part 7/10
                 # "an error occurred in a chunk: index 21 is outof bounds for axis 0 with size 9"
@@ -614,53 +639,49 @@ class _AnalyseCalciumTraces(QWidget):
                 searching = True
                 under_thresh_count = 0
                 total_count = 0
-                end_index = peaks[i]
+                end_index = peak
 
-                # if end_index < (len(dff_deriv) - 1):
-                #     while searching:
-                #         end_index += 1
-                #         total_count += 1
+                if end_index < (len(dff_deriv) - 1):
+                    while searching:
+                        end_index += 1
+                        total_count += 1
 
-                #         # If collide with a new spike
-                #         if end_index in peaks:
-                #             subsearching = True
-                #             negative_count = 0
-                #             while subsearching:
-                #                 end_index -= 1
-                #                 if dff_deriv[end_index] < 0:
-                #                     negative_count += 1
-                #                 else:
-                #                     negative_count = 0
-                #                 if negative_count == neg_reset_num:
-                #                     subsearching = False
-                #             break
-                #         if dff_deriv[end_index] < deriv_threhold:
-                #             under_thresh_count += 1
-                #         else:
-                #             under_thresh_count = 0
+                        # If collide with a new spike
+                        if end_index in peaks:
+                            subsearching = True
+                            negative_count = 0
+                            while subsearching:
+                                end_index -= 1
+                                if dff_deriv[end_index] < 0:
+                                    negative_count += 1
+                                else:
+                                    negative_count = 0
+                                if negative_count == neg_reset_num:
+                                    subsearching = False
+                            break
+                        if dff_deriv[end_index] < deriv_threhold:
+                            under_thresh_count += 1
+                        else:
+                            under_thresh_count = 0
 
-                #         # NOTE: changed the operator from == to >=
-                #         if under_thresh_count >= reset_num or end_index >= (len(dff_deriv) - 1) or \
-                #                 total_count == total_dist:
-                #             searching = False
+                        # NOTE: changed the operator from == to >=
+                        if under_thresh_count >= reset_num or end_index >= (len(dff_deriv) - 1) or \
+                                total_count == total_dist:
+                            searching = False
 
                 # Save data
-                spk_to_end = dff[peaks[i]:(end_index + 1)]
-                start_to_spk = dff[start_index:(peaks[i] + 1)]
-                try:
-                    amplitude = np.max(spk_to_end) - np.min(start_to_spk)
-                    print(f'-----------------------------{amplitude}')
-                    amplitude_info['amplitudes'].append(
-                        np.max(spk_to_end) - np.min(start_to_spk))
-                    # amplitude_info['peak_indices'].append(
-                    #     int(peaks[i] + np.argmax(spk_to_end)))
-                    # amplitude_info['base_indices'].append(
-                    #     int(peaks[i] -(len(start_to_spk) - (
-                    #         np.argmin(start_to_spk) + 1))))
-                except ValueError:
-                    pass
+                spk_to_end = dff[peaks:(end_index + 1)]
+                start_to_spk = dff[start_index:(peaks + 1)]
 
-        return amplitude_info
+                amplitudes.append(
+                    np.max(spk_to_end) - np.min(start_to_spk))
+                start_indices.append(
+                    int(peaks + np.argmax(spk_to_end)))
+                base_indices.append(
+                    int(peaks -(len(start_to_spk) - (
+                        np.argmin(start_to_spk) + 1))))
+
+        return amplitudes, start_indices, base_indices
 
     def _get_max_slope(self, roi_dff: dict, amplitude_info: dict) -> list[float]:
         """Get max slope of each peak in one ROI."""
