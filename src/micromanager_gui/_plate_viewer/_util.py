@@ -43,6 +43,7 @@ class Peaks(BaseClass):
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
 
+    cell_size: float | None = None
     raw_trace: list[float] | None = None
     bleach_corrected_trace: list[float] | None = None
     peaks: list[Peaks] | None = None
