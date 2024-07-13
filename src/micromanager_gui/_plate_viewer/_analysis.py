@@ -479,20 +479,21 @@ class _AnalyseCalciumTraces(QWidget):
             # find the peaks in the bleach corrected trace
             peaks, left_bases, right_bases = self._find_peaks(dff, prominence=prominence) # for one ROI
 
-            amplitudes, start, end = self._get_amplitude(dff, peaks)
+            amplitudes, start, end, new_peaks = self._get_amplitude(dff, peaks)
+            print(f" length of old_peaks is {len(peaks)}, new peaks are {len(new_peaks)}")
             mean_amplitude = np.mean(amplitudes)
             mean_amplitude_stdev = np.std(amplitudes)
-            max_slopes = self._get_max_slope(dff, peaks, start)
+            max_slopes = self._get_max_slope(dff, new_peaks, start)
 
             # store the analysis data
             update = data.replace(
                 average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
                 average_popts=average_popts.tolist(),
                 bleach_corrected_trace=bleach_corrected.tolist(),
-                peaks=[Peaks(peak=peaks[i], 
+                peaks=[Peaks(peak=new_peaks[i], 
                              amplitude=amplitudes[i],
                              max_slope=max_slopes[i]
-                             ) for i in range(len(peaks))],
+                             ) for i in range(len(new_peaks))],
                 mean_amplitude=mean_amplitude,
                 mean_amplitude_stdev=mean_amplitude_stdev,
                 dff=dff.tolist(),
@@ -563,37 +564,6 @@ class _AnalyseCalciumTraces(QWidget):
         right_bases = cast(np.ndarray, properties['right_bases'])
         return cast(list[int], peaks.tolist()), cast(list[int], left_bases.tolist()), cast(list[int], right_bases.tolist())
 
-    # NOTE: 7/11 change the way to calculate the amplitude; use the base detected by find_peaks
-    def not_get_amplitude(self, dff: list[float], peaks: list[int], 
-                       left_bases: list[int], right_bases: list[int]
-                       ) -> tuple[list[float], list[int], list[int]]:
-        """Get the amplitude for each peak in an ROI."""
-        amplitudes = []
-        remove_peaks = []
-        remove_left_base_indices = []
-        remove_right_base_indices = []
-
-        if len(peaks) == len(left_bases):
-            for i in range(len(peaks)):
-                peak = dff[peaks[i]]
-                l_base = dff[left_bases[i]]
-
-                if l_base <= peak:
-                    amplitudes.append(peak-l_base)
-                else:
-                    remove_peaks.append(peaks[i])
-                    remove_left_base_indices.append(left_bases[i])
-                    remove_right_base_indices.append(right_bases[i])
-            
-            # remove peaks that are not calculated from the valleys on its left
-            new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
-            new_l_bases = [base for base in left_bases if (base not in remove_left_base_indices)]
-            new_r_bases = [base for base in right_bases if (base not in remove_right_base_indices)]
-
-        print(f"                peaks: {new_peaks}, left bases: {new_l_bases}, right bases: {new_r_bases}")
-
-        return amplitudes, new_peaks, new_l_bases, new_r_bases
-
     def _get_max_slope(self, dff: list[float], peaks: list[int], bases: list[int]) -> list[float]:
         """Get max slope of each peak in one ROI."""
         max_slopes = []
@@ -607,7 +577,7 @@ class _AnalyseCalciumTraces(QWidget):
                 slope_window = dff[base_index:(peak_index + 1)]
                 slope_window_a = slope_window[:-1]
                 slope_window_b = slope_window[1:]
-                max_slope = max([a-b for a,b in zip(slope_window_a, slope_window_b)])
+                max_slope = max([b-a for a,b in zip(slope_window_a, slope_window_b)])
                 max_slopes.append(max_slope)
                 print(f"           max slope is {max_slope}")
 
@@ -636,11 +606,10 @@ class _AnalyseCalciumTraces(QWidget):
         """Convert the cell size in pixel to um."""
         pass
     
-
-    # TODO: are there better ways to find the start and end of a peak? 
+    # TODO: are there better ways to find the start and end of a peak?
     def _get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
                         reset_num=17, neg_reset_num=2, total_dist=40, min_dist=5
-                        ) -> dict[list[float], list[int], list[int]]:
+                        ) -> tuple[list[float], list[int], list[int], list[int]]:
         """Calculate amplitudes, peak indices, and base_indices of each ROI."""
         amplitudes = []
         start_indices = []
@@ -670,7 +639,7 @@ class _AnalyseCalciumTraces(QWidget):
                                 if start_index < len(dff_deriv):
                                     if dff_deriv[start_index] < 0:
                                         negative_count += 1
-                                    elif start_index + min_dist >= peaks[i]:
+                                    elif peaks[i] - start_index <= min_dist:
                                         subsearching = False
                                     else:
                                         negative_count = 0
@@ -709,7 +678,7 @@ class _AnalyseCalciumTraces(QWidget):
                                 end_index -= 1
                                 if dff_deriv[end_index] > 0:
                                     negative_count += 1
-                                elif end_index - min_dist <= peaks[i]:
+                                elif end_index - peaks[i] <= min_dist:
                                     subsearching = False
                                 else:
                                     negative_count = 0
@@ -747,10 +716,10 @@ class _AnalyseCalciumTraces(QWidget):
                     end_indices.append(f_end_index)
                     amplitudes.append(amplitude)
                 else:
-                    remove_peaks.append(i)
+                    remove_peaks.append(peaks[i])
                     print(f"            REMOVING {peaks[i]} because the amplitude is {amplitude}")
                 
-                print(f"        amplitude: {amplitudes[-1]} from {start_indices[-1]} to {end_indices[-1]}")
+                # print(f"        amplitude: {amplitudes[-1]} from {start_indices[-1]} to {end_indices[-1]}")
         
         new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
 
