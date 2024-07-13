@@ -386,6 +386,14 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get position name from metadata
         well = meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+        
+        # TODO: to get from metadata
+        # total_frames
+        # binning
+        # magnification
+        # pixel size
+        # objective
+        # exposure -> framerate
 
         # create the dict for the well
         if well not in self._analysis_data:
@@ -429,7 +437,7 @@ class _AnalyseCalciumTraces(QWidget):
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
             # print(f"            the shape of masked_data is: {masked_data.shape}")
-            # roi_size_pixel = masked_data.shape[1]
+            roi_size_pixel = masked_data.shape[1]
             # roi_size_um = self._cell_size_in_um(roi_size_pixel, binning, pixel_size, objective, magnification)
 
             # calculate the exponential decay for photobleaching correction
@@ -441,7 +449,7 @@ class _AnalyseCalciumTraces(QWidget):
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
-                # cell_size=roi_size_pixel
+                cell_size=roi_size_pixel
             )
 
         # average the fitted curves
@@ -484,6 +492,9 @@ class _AnalyseCalciumTraces(QWidget):
             mean_amplitude = np.mean(amplitudes)
             mean_amplitude_stdev = np.std(amplitudes)
             max_slopes = self._get_max_slope(dff, new_peaks, start)
+            # iei = self._get_iei(start, framerate)
+            # raise_time = self._get_raise_time(new_peaks, start, framerate)
+            # decay_time = self._get_decay_time(new_peaks, end, framerate)
 
             # store the analysis data
             update = data.replace(
@@ -492,7 +503,9 @@ class _AnalyseCalciumTraces(QWidget):
                 bleach_corrected_trace=bleach_corrected.tolist(),
                 peaks=[Peaks(peak=new_peaks[i], 
                              amplitude=amplitudes[i],
-                             max_slope=max_slopes[i]
+                             max_slope=max_slopes[i],
+                            #  raise_time=raise_time[i],
+                            #  decay_time=decay_time[i]
                              ) for i in range(len(new_peaks))],
                 mean_amplitude=mean_amplitude,
                 mean_amplitude_stdev=mean_amplitude_stdev,
@@ -564,48 +577,6 @@ class _AnalyseCalciumTraces(QWidget):
         right_bases = cast(np.ndarray, properties['right_bases'])
         return cast(list[int], peaks.tolist()), cast(list[int], left_bases.tolist()), cast(list[int], right_bases.tolist())
 
-    def _get_max_slope(self, dff: list[float], peaks: list[int], bases: list[int]) -> list[float]:
-        """Get max slope of each peak in one ROI."""
-        max_slopes = []
-
-        if len(peaks) > 0:
-            for i in range(len(peaks)):
-                peak_index = peaks[i]
-                base_index = bases[i]
-
-                print(f"            peak index: {peak_index}, base_index: {base_index}")
-                slope_window = dff[base_index:(peak_index + 1)]
-                slope_window_a = slope_window[:-1]
-                slope_window_b = slope_window[1:]
-                max_slope = max([b-a for a,b in zip(slope_window_a, slope_window_b)])
-                max_slopes.append(max_slope)
-                print(f"           max slope is {max_slope}")
-
-        return max_slopes
-
-    def _get_time_to_rise(self, peaks: list[int], start_indices: list[int], framerate: float):
-        """Calculate the rise time."""
-        time_to_rise = []
-
-        if len(peaks) > 0:
-            for i in range(len(peaks)):
-                peak_index = peaks[i]
-                base_index = start_indices[i]
-                frames = peak_index - base_index + 1
-                if framerate:
-                    time = frames / framerate  # frames * (seconds/frames) = seconds
-                    time_to_rise.append(time)
-                else:
-                    time_to_rise.append(frames)
-
-        return time_to_rise
-    
-    def _cell_size_in_um(self, cell_size_pixel: int, binning: int,
-                         pixel_size: float, objective: int, magnification: float
-                         )-> int:
-        """Convert the cell size in pixel to um."""
-        pass
-    
     # TODO: are there better ways to find the start and end of a peak?
     def _get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
                         reset_num=17, neg_reset_num=2, total_dist=40, min_dist=5
@@ -724,3 +695,59 @@ class _AnalyseCalciumTraces(QWidget):
         new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
 
         return amplitudes, start_indices, end_indices, new_peaks
+
+    def _get_max_slope(self, dff: list[float], peaks: list[int], bases: list[int]) -> list[float]:
+        """Get max slope of each peak in one ROI."""
+        max_slopes = []
+
+        if len(peaks) > 0:
+            for i in range(len(peaks)):
+                peak_index = peaks[i]
+                base_index = bases[i]
+
+                print(f"            peak index: {peak_index}, base_index: {base_index}")
+                slope_window = dff[base_index:(peak_index + 1)]
+                slope_window_a = slope_window[:-1]
+                slope_window_b = slope_window[1:]
+                max_slope = max([b-a for a,b in zip(slope_window_a, slope_window_b)])
+                max_slopes.append(max_slope)
+                print(f"           max slope is {max_slope}")
+
+        return max_slopes
+
+    def _cell_size_in_um(self, cell_size_pixel: int, binning: int,
+                         pixel_size: float, objective: int, magnification: float
+                         )-> int:
+        """Convert the cell size in pixel to um."""
+        pass
+    
+    # NOTE: iei here is the time between the start index of each peak
+    # the old is between each peak
+    def _get_iei(self, start_indices: list[int], framerate: float) -> list[float]:
+        """Calculate the interevent interval."""
+        iei = []
+
+        iei_frames = np.diff(np.array(start_indices))
+
+        if framerate:
+            iei.append(iei_frames/framerate)
+
+        else:
+            iei.append(iei_frames)
+
+        return iei
+    
+    def _get_raise_time(self, peaks: list[int], start: list[int], framerate: float) -> list[float]:
+        """Get Raise Time for each peak."""
+        raise_time = [(peaks[i] - start[i] + 1)/framerate for i in range(len(peaks))]
+
+        return raise_time
+    
+    def _get_decay_time(self, peaks: list[int], end: list[int], framerate: float) -> list[float]:
+        """Get decay time for each peak."""
+        decay_time = [(end[i] - peaks[i] + 1)/ framerate for i in range(len(peaks))]
+
+        return decay_time
+    
+
+
