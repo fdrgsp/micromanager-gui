@@ -387,13 +387,8 @@ class _AnalyseCalciumTraces(QWidget):
         # get position name from metadata
         well = meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
         
-        # TODO: to get from metadata
-        # total_frames
-        # binning
-        # magnification
-        # pixel size
-        # objective
-        # exposure -> framerate
+        total_frames = data.shape[0]
+        binning, magnification, pixel_size, objective, exposure, framerate = self._extract_metadata(meta) 
 
         # create the dict for the well
         if well not in self._analysis_data:
@@ -421,7 +416,7 @@ class _AnalyseCalciumTraces(QWidget):
         fitted_curves: list[tuple[list[float], list[float], float]] = []
 
         roi_trace: np.ndarray | list[float] | None
-        # roi_size_um: float | None
+        roi_size_um: float | None
 
         # extract roi traces
         logger.info(f"Extracting Traces from Well {well}.")
@@ -438,7 +433,7 @@ class _AnalyseCalciumTraces(QWidget):
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
             # print(f"            the shape of masked_data is: {masked_data.shape}")
             roi_size_pixel = masked_data.shape[1]
-            # roi_size_um = self._cell_size_in_um(roi_size_pixel, binning, pixel_size, objective, magnification)
+            roi_size_um = self._cell_size_in_um(roi_size_pixel, binning, pixel_size, objective, magnification)
 
             # calculate the exponential decay for photobleaching correction
             exponential_decay = self._get_exponential_decay(roi_trace)
@@ -449,7 +444,7 @@ class _AnalyseCalciumTraces(QWidget):
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
-                cell_size=roi_size_pixel
+                cell_size=roi_size_um
             )
 
         # average the fitted curves
@@ -485,16 +480,16 @@ class _AnalyseCalciumTraces(QWidget):
 
             prominence = np.mean(dff) * 0.35
             # find the peaks in the bleach corrected trace
-            peaks, left_bases, right_bases = self._find_peaks(dff, prominence=prominence) # for one ROI
+            peaks = self._find_peaks(dff, prominence=prominence) # for one ROI
 
             amplitudes, start, end, new_peaks = self._get_amplitude(dff, peaks)
             print(f" length of old_peaks is {len(peaks)}, new peaks are {len(new_peaks)}")
             mean_amplitude = np.mean(amplitudes)
             mean_amplitude_stdev = np.std(amplitudes)
             max_slopes = self._get_max_slope(dff, new_peaks, start)
-            # iei = self._get_iei(start, framerate)
-            # raise_time = self._get_raise_time(new_peaks, start, framerate)
-            # decay_time = self._get_decay_time(new_peaks, end, framerate)
+            iei = self._get_iei(start, framerate)
+            raise_time = self._get_raise_time(new_peaks, start, framerate)
+            decay_time = self._get_decay_time(new_peaks, end, framerate)
 
             # store the analysis data
             update = data.replace(
@@ -504,8 +499,8 @@ class _AnalyseCalciumTraces(QWidget):
                 peaks=[Peaks(peak=new_peaks[i], 
                              amplitude=amplitudes[i],
                              max_slope=max_slopes[i],
-                            #  raise_time=raise_time[i],
-                            #  decay_time=decay_time[i]
+                             raise_time=raise_time[i],
+                             decay_time=decay_time[i]
                              ) for i in range(len(new_peaks))],
                 mean_amplitude=mean_amplitude,
                 mean_amplitude_stdev=mean_amplitude_stdev,
@@ -571,11 +566,9 @@ class _AnalyseCalciumTraces(QWidget):
     ) -> list[int]:
         """Smooth the trace and find the peaks."""
         smoothed_normalized = self._smooth_and_normalize(trace)
-        peaks, properties = find_peaks(smoothed_normalized, width=3, prominence=prominence)
+        peaks, _ = find_peaks(smoothed_normalized, width=3, prominence=prominence)
         peaks = cast(np.ndarray, peaks)
-        left_bases = cast(np.ndarray, properties['left_bases'])
-        right_bases = cast(np.ndarray, properties['right_bases'])
-        return cast(list[int], peaks.tolist()), cast(list[int], left_bases.tolist()), cast(list[int], right_bases.tolist())
+        return cast(list[int], peaks.tolist())
 
     # TODO: are there better ways to find the start and end of a peak?
     def _get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
@@ -749,5 +742,15 @@ class _AnalyseCalciumTraces(QWidget):
 
         return decay_time
     
+    def _extract_metadata(self, meta):
+        """Extract information from metadata."""
+        binning = int(meta[0].get('pco_camera-Binning'))
+        magnification = float(meta[0].get('IntermediateMagnification-Magnification')[:-1])
+        pixel_size = float(meta[0].get('PixelSizeUm'))
+        objective = int(meta[0].get('Nosepiece-Label').split(' ')[-1][:-1])
+        exposure = float(meta[0].get('Event').get('exposure'))
+        framerate = 1 / exposure
+
+        return binning, magnification, pixel_size, objective, exposure, framerate
 
 
