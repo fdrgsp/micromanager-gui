@@ -41,6 +41,7 @@ DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected"
 DFF_NORMALIZED_WITH_PEAKS = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
 TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
 TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED = "Traces used for Photobleaching Correction Normalized [0, 1]"  # noqa: E501
+RASTER_PLOT = "Raster plot"
 
 # dff=False, normalize=False, photobleach_corrected=False, with_peaks=False, used_for_bleach_correction=False  # noqa: E501
 COMBO_OPTIONS: dict[str, dict[str, bool]] = {
@@ -60,7 +61,7 @@ COMBO_OPTIONS: dict[str, dict[str, bool]] = {
     TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED: {"used_for_bleach_correction":True, "normalize":True},  # noqa: E501
     # "Mean Amplitude ± StD": ,
     # "Mean Frequency ± StD": ,
-    # "Raster Plot":
+    RASTER_PLOT: {"dff": True, "raster": True}
 }
 # fmt : on
 
