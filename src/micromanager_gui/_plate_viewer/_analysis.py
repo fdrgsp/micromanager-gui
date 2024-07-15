@@ -482,14 +482,23 @@ class _AnalyseCalciumTraces(QWidget):
             # find the peaks in the bleach corrected trace
             peaks = self._find_peaks(dff, prominence=prominence) # for one ROI
 
+            # Peaks
             amplitudes, start, end, new_peaks = self._get_amplitude(dff, peaks)
-            print(f" length of old_peaks is {len(peaks)}, new peaks are {len(new_peaks)}")
-            mean_amplitude = np.mean(amplitudes)
-            mean_amplitude_stdev = np.std(amplitudes)
             max_slopes = self._get_max_slope(dff, new_peaks, start)
-            iei = self._get_iei(start, framerate)
             raise_time = self._get_raise_time(new_peaks, start, framerate)
             decay_time = self._get_decay_time(new_peaks, end, framerate)
+
+            #ROIData
+            iei = self._get_iei(start, framerate)
+            mean_iei = np.mean(iei)
+            mean_iei_stdev = np.std(iei)         
+            mean_amplitude = np.mean(amplitudes)
+            mean_amplitude_stdev = np.std(amplitudes)
+            frequency = len(peaks) / (total_frames/framerate)
+            mean_raise_time = np.mean(raise_time)
+            mean_raise_time_stdev = np.std(raise_time)  
+            mean_decay_time = np.mean(decay_time)
+            mean_decay_time_stdev = np.std(decay_time)
 
             # store the analysis data
             update = data.replace(
@@ -504,6 +513,13 @@ class _AnalyseCalciumTraces(QWidget):
                              ) for i in range(len(new_peaks))],
                 mean_amplitude=mean_amplitude,
                 mean_amplitude_stdev=mean_amplitude_stdev,
+                frequency=frequency,
+                mean_raise_time=mean_raise_time,
+                mean_raise_time_stdev=mean_raise_time_stdev,
+                mean_decay_time=mean_decay_time,
+                mean_decay_time_stdev=mean_decay_time_stdev,
+                mean_iei=mean_iei,
+                mean_iei_stdev=mean_iei_stdev,
                 dff=dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
@@ -712,7 +728,11 @@ class _AnalyseCalciumTraces(QWidget):
                          pixel_size: float, objective: int, magnification: float
                          )-> int:
         """Convert the cell size in pixel to um."""
-        pass
+        cell_size_um = cell_size_pixel * binning * pixel_size / (
+            objective * magnification
+        )
+
+        return cell_size_um
     
     # NOTE: iei here is the time between the start index of each peak
     # the old is between each peak
@@ -730,15 +750,16 @@ class _AnalyseCalciumTraces(QWidget):
 
         return iei
     
+    # NOTE: raise time here is from base to peak; FluoroSNNAO uses from base to max_slope point
     def _get_raise_time(self, peaks: list[int], start: list[int], framerate: float) -> list[float]:
         """Get Raise Time for each peak."""
-        raise_time = [(peaks[i] - start[i] + 1)/framerate for i in range(len(peaks))]
+        raise_time = [((peaks[i] - start[i] + 1)/framerate) for i in range(len(peaks))]
 
         return raise_time
     
     def _get_decay_time(self, peaks: list[int], end: list[int], framerate: float) -> list[float]:
         """Get decay time for each peak."""
-        decay_time = [(end[i] - peaks[i] + 1)/ framerate for i in range(len(peaks))]
+        decay_time = [((end[i] - peaks[i] + 1)/ framerate) for i in range(len(peaks))]
 
         return decay_time
     

@@ -51,10 +51,15 @@ class ROIData(BaseClass):
     average_photobleaching_fitted_curve: list[float] | None = None
     average_popts: list[float] | None = None
     dff: list[float] | None = None
-    mean_frequency: float | None = None
-    mean_frequency_stdev: float | None = None
+    frequency: float | None = None
     mean_amplitude: float | None = None
     mean_amplitude_stdev: float | None = None
+    mean_raise_time: float | None = None
+    mean_raise_time_stdev: float | None = None
+    mean_decay_time: float | None = None
+    mean_decay_time_stdev: float | None = None
+    mean_iei: float | None = None
+    mean_iei_stdev: float | None = None
     # ... add whatever other data we need
 
 
