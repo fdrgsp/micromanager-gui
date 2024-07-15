@@ -676,20 +676,20 @@ class _AnalyseCalciumTraces(QWidget):
                             searching = False
 
                 # Save data
-                print(f"-----------------------------------------")
+                # print(f"-----------------------------------------")
 
                 spk_to_end = dff[peaks[i]:(end_index + 1)]
                 start_to_spk = dff[start_index:peaks[i]]
-                print(f"            spk_to_end: {spk_to_end}")
-                print(f"        start to spk: {start_to_spk}")
+                # print(f"            spk_to_end: {spk_to_end}")
+                # print(f"        start to spk: {start_to_spk}")
 
 
                 f_start_index = int(peaks[i] -(len(start_to_spk) - (np.argmin(start_to_spk) + 1)))
                 f_end_index = int(peaks[i] + np.argmin(spk_to_end))
                 amplitude = dff[peaks[i]]-dff[f_start_index]
-                print(f"    start_index: {f_start_index} of {dff[f_start_index]}")
-                print(f"            peak: {peaks[i]} of {dff[peaks[i]]}")                
-                print(f"       end_index: {f_end_index} of {dff[f_end_index]}")
+                # print(f"    start_index: {f_start_index} of {dff[f_start_index]}")
+                # print(f"            peak: {peaks[i]} of {dff[peaks[i]]}")                
+                # print(f"       end_index: {f_end_index} of {dff[f_end_index]}")
 
                 if amplitude > 0:
                     start_indices.append(f_start_index)
@@ -697,7 +697,7 @@ class _AnalyseCalciumTraces(QWidget):
                     amplitudes.append(amplitude)
                 else:
                     remove_peaks.append(peaks[i])
-                    print(f"            REMOVING {peaks[i]} because the amplitude is {amplitude}")
+                    # print(f"            REMOVING {peaks[i]} because the amplitude is {amplitude}")
                 
                 # print(f"        amplitude: {amplitudes[-1]} from {start_indices[-1]} to {end_indices[-1]}")
         
@@ -714,13 +714,13 @@ class _AnalyseCalciumTraces(QWidget):
                 peak_index = peaks[i]
                 base_index = bases[i]
 
-                print(f"            peak index: {peak_index}, base_index: {base_index}")
+                # print(f"            peak index: {peak_index}, base_index: {base_index}")
                 slope_window = dff[base_index:(peak_index + 1)]
                 slope_window_a = slope_window[:-1]
                 slope_window_b = slope_window[1:]
                 max_slope = max([b-a for a,b in zip(slope_window_a, slope_window_b)])
                 max_slopes.append(max_slope)
-                print(f"           max slope is {max_slope}")
+                # print(f"           max slope is {max_slope}")
 
         return max_slopes
 
