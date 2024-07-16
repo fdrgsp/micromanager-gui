@@ -587,7 +587,7 @@ class _AnalyseCalciumTraces(QWidget):
         return cast(list[int], peaks.tolist())
 
     # TODO: are there better ways to find the start and end of a peak?
-    def _get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
+    def old_get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
                         reset_num=17, neg_reset_num=2, total_dist=40, min_dist=5
                         ) -> tuple[list[float], list[int], list[int], list[int]]:
         """Calculate amplitudes, peak indices, and base_indices of each ROI."""
@@ -702,6 +702,87 @@ class _AnalyseCalciumTraces(QWidget):
                 # print(f"        amplitude: {amplitudes[-1]} from {start_indices[-1]} to {end_indices[-1]}")
         
         new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
+
+        return amplitudes, start_indices, end_indices, new_peaks
+
+    # ChatGPT-improved
+    def _get_amplitude(self, dff: list[float], peaks: list[int], deriv_threshold=0.01,
+                   reset_num=17, neg_reset_num=2, total_dist=40, min_dist=5
+                   ) -> tuple[list[float], list[int], list[int], list[int]]:
+        """Calculate amplitudes, peak indices, and base indices of each ROI."""
+        amplitudes = []
+        start_indices = []
+        end_indices = []
+        remove_peaks = []
+
+        if peaks:
+            dff_deriv = np.diff(dff)
+            len_dff = len(dff)
+            len_dff_deriv = len(dff_deriv)
+            
+            for peak in peaks:
+                start_index = peak
+                end_index = peak
+                under_thresh_count = 0
+                total_count = 0
+
+                if start_index > 0:
+                    while start_index > 0 and total_count < total_dist:
+                        start_index -= 1
+                        total_count += 1
+                        if start_index in peaks:
+                            negative_count = 0
+                            while start_index < len_dff_deriv and dff_deriv[start_index] < 0 and negative_count < neg_reset_num:
+                                start_index += 1
+                                if dff_deriv[start_index] < 0:
+                                    negative_count += 1
+                                else:
+                                    negative_count = 0
+                            break
+                        if dff_deriv[start_index] < deriv_threshold:
+                            under_thresh_count += 1
+                        else:
+                            under_thresh_count = 0
+                        if under_thresh_count >= reset_num:
+                            break
+
+                under_thresh_count = 0
+                total_count = 0
+
+                if end_index < len_dff_deriv - 1:
+                    while end_index < len_dff_deriv - 1 and total_count < total_dist:
+                        end_index += 1
+                        total_count += 1
+                        if end_index in peaks:
+                            negative_count = 0
+                            while end_index >= 0 and dff_deriv[end_index] > 0 and negative_count < neg_reset_num:
+                                end_index -= 1
+                                if dff_deriv[end_index] > 0:
+                                    negative_count += 1
+                                else:
+                                    negative_count = 0
+                            break
+                        if dff_deriv[end_index] < deriv_threshold:
+                            under_thresh_count += 1
+                        else:
+                            under_thresh_count = 0
+                        if under_thresh_count >= reset_num:
+                            break
+
+                spk_to_end = dff[peak:(end_index + 1)]
+                start_to_spk = dff[start_index:peak]
+                f_start_index = int(peak - (len(start_to_spk) - (np.argmin(start_to_spk) + 1)))
+                f_end_index = int(peak + np.argmin(spk_to_end))
+                amplitude = dff[peak] - dff[f_start_index]
+
+                if amplitude > 0:
+                    start_indices.append(f_start_index)
+                    end_indices.append(f_end_index)
+                    amplitudes.append(amplitude)
+                else:
+                    remove_peaks.append(peak)
+
+        new_peaks = [peak for peak in peaks if peak not in remove_peaks]
 
         return amplitudes, start_indices, end_indices, new_peaks
 

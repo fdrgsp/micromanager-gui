@@ -73,6 +73,8 @@ def plot_traces(
     colors = [f"C{i}" for i in range(len(data))]
     count = 0
     spikes = []
+    roi_to_draw = []
+    colors_to_plot = []
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
@@ -120,13 +122,15 @@ def plot_traces(
         if raster:
             peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
             spikes.append(peaks)
+            colors_to_plot.append(colors[int(key)-1])
+            roi_to_draw.append(int(key))
 
         count += COUNT_INCREMENT
     
     if raster and len(spikes)>0:
         ax.eventplot(
             spikes,
-            colors=colors
+            colors=colors_to_plot
             )
 
     # Add hover functionality using mplcursors
@@ -134,10 +138,21 @@ def plot_traces(
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
+        # if raster:
+        #     label_list = [num for num in sel.artist.get_label() if num.isdigit()]
+        #     index = int(''.join(label_list))
+        #     roi = f"ROI {str(roi_to_draw[index])}"
+        #     sel.artist.set_label(roi)
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         # emit the graph widget roiSelected signal
         if sel.artist.get_label():
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            if raster:
+                label_list = [num for num in sel.artist.get_label() if num.isdigit()]
+                index = int(''.join(label_list))
+                roi = f" ROI {str(roi_to_draw[index])}"
+            else:    
+                roi = cast(str, sel.artist.get_label().split(" ")[1])            
+            
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
 
