@@ -61,6 +61,8 @@ class ROIData(BaseClass):
     mean_iei: float | None = None
     mean_iei_stdev: float | None = None
     # ... add whatever other data we need
+    condition_1: str | None = None
+    condition_2: str | None = None
 
 
 def show_error_dialog(parent: QWidget, message: str) -> None:
