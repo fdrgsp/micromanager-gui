@@ -18,8 +18,7 @@ def get_trace(
     dff: bool,
     photobleach_corrected: bool,
     used_for_bleach_correction: bool,
-    raster: bool
-) -> list[float] | list[Peaks] | None:
+) -> list[float] | None:
     """Get the appropriate trace based on the flags."""
     if used_for_bleach_correction:
         trace = roi_data.use_for_bleach_correction
@@ -28,8 +27,6 @@ def get_trace(
         return roi_data.dff
     elif photobleach_corrected and not dff:
         return roi_data.bleach_corrected_trace
-    # elif raster:
-    #     return roi_data.peaks
     else:
         return roi_data.raw_trace
 
@@ -39,12 +36,6 @@ def normalize_trace(trace: list[float]) -> list[float]:
     tr = np.array(trace)
     normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
     return cast(list[float], normalized.tolist())
-
-def raster_plot(roi_data: ROIData) -> np.ndarray:
-    """Organize peaks objects into ndarray for raster plot."""
-    dff = roi_data.dff
-
-
 
 
 def plot_traces(
@@ -81,13 +72,14 @@ def plot_traces(
 
     colors = [f"C{i}" for i in range(len(data))]
     count = 0
+    spikes = []
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
 
         roi_data = cast("ROIData", data[key])
         trace = get_trace(
-            roi_data, dff, photobleach_corrected, used_for_bleach_correction, raster
+            roi_data, dff, photobleach_corrected, used_for_bleach_correction
         )
 
         if trace is None:
@@ -126,15 +118,16 @@ def plot_traces(
                 )
 
         if raster:
-            spikes = np.array(trace)[np.newaxis, :]
-            ax.eventplot(
-                spikes,
-                label=f"ROI {key}",
-                colors=colors[int(key)],
-                orientation="horizontal",
-            )
+            peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
+            spikes.append(peaks)
 
         count += COUNT_INCREMENT
+    
+    if raster and len(spikes)>0:
+        ax.eventplot(
+            spikes,
+            colors=colors
+            )
 
     # Add hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
