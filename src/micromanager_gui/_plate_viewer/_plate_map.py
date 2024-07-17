@@ -138,7 +138,9 @@ class _ConditionTable(QGroupBox):
             self._table.cellWidget(i, 0).value() for i in range(self._table.rowCount())
         ]
 
-    def setValue(self, value: list[tuple[str, str]]) -> None:
+    def setValue(
+        self, value: list[tuple[str, str]], block_signal: bool = False
+    ) -> None:
         """Set the value of the widget."""
         self._clear_table()
         for row, (condition, color) in enumerate(value):
@@ -264,18 +266,21 @@ class PlateMapWidget(QWidget):
             item.brush = UNSELECTED_COLOR
             item.setData(DATA_KEY, None)
 
+        add_to_conditions_list = set()
         for data in value:
+            # convert the data to a PlateMapData object if it is a list of strings
             if not isinstance(data, PlateMapData):
                 data = PlateMapData(*data)
-
-            # update the condition table
-            self.list.setValue([(data.condition, data.color)])
+            # store the data in a list to update the condition table
+            add_to_conditions_list.add((data.condition, data.color))
             # update the color and data of the selected wells
             for item in self.scene.items():
                 item = cast("_WellGraphicsItem", item)
                 if item.value().name == data.name:
                     item.brush = QBrush(QColor(data.color))
                     item.setData(DATA_KEY, (data.condition, data.color))
+            # update the condition table
+            self.list.setValue(list(add_to_conditions_list))
 
     def _assign_condition(self, value: tuple[str, str]) -> None:
         condition_name, color_name = value
