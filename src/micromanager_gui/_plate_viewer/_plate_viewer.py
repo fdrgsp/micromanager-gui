@@ -19,7 +19,8 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
 from qtpy.QtWidgets import (
     QGridLayout,
-    # QHBoxLayout,
+    QGroupBox,
+    QHBoxLayout,
     QMainWindow,
     QMenuBar,
     QSplitter,
@@ -38,10 +39,16 @@ from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
-
-# from ._plate_map import PlateMapWidget
+from ._plate_map import PlateMapWidget
 from ._segmentation import _CellposeSegmentation
-from ._util import Peaks, ROIData, _ProgressBarWidget, show_error_dialog
+from ._util import (
+    GENOTYPE_MAP,
+    TREATMENT_MAP,
+    Peaks,
+    ROIData,
+    _ProgressBarWidget,
+    show_error_dialog,
+)
 from ._wells_graphic_scene import _WellsGraphicsScene
 
 if TYPE_CHECKING:
@@ -80,6 +87,8 @@ class PlateViewer(QMainWindow):
         analysis_file_path: str | None = None,
     ) -> None:
         super().__init__(parent)
+
+        self.setWindowTitle("Plate Viewer")
 
         sys.excepthook = _our_excepthook
 
@@ -120,17 +129,29 @@ class PlateViewer(QMainWindow):
         self._image_viewer = _ImageViewer(self)
 
         # left widgets -------------------------------------------------
+        left_group = QGroupBox()
+        left_layout = QVBoxLayout(left_group)
+        left_layout.setContentsMargins(10, 10, 10, 10)
+        left_layout.setSpacing(5)
+        left_layout.addWidget(self.view)
+        left_layout.addWidget(self._fov_table)
+
         # splitter for the plate map and the fov table
         self.splitter_top_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
         self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_top_left.setChildrenCollapsible(False)
         self.splitter_top_left.addWidget(self.view)
         self.splitter_top_left.addWidget(self._fov_table)
+        top_left_group = QGroupBox()
+        top_left_layout = QVBoxLayout(top_left_group)
+        top_left_layout.setContentsMargins(10, 10, 10, 10)
+        top_left_layout.addWidget(self.splitter_top_left)
+
         # splitter for the plate map/fov table and the image viewer
         self.splitter_bottom_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
         self.splitter_bottom_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_bottom_left.setChildrenCollapsible(False)
-        self.splitter_bottom_left.addWidget(self.splitter_top_left)
+        self.splitter_bottom_left.addWidget(top_left_group)
         self.splitter_bottom_left.addWidget(self._image_viewer)
 
         # right widgets --------------------------------------------------
@@ -139,15 +160,15 @@ class PlateViewer(QMainWindow):
         self._tab.currentChanged.connect(self._on_tab_changed)
 
         # plate map tab
-        # self._plate_map_tab = QWidget()
-        # self._tab.addTab(self._plate_map_tab, "Plate Map Tab")
-        # plate_map_layout = QHBoxLayout(self._plate_map_tab)
-        # plate_map_layout.setContentsMargins(5, 5, 5, 5)
-        # plate_map_layout.setSpacing(5)
-        # self._plate_map_genotype = PlateMapWidget(self)
-        # plate_map_layout.addWidget(self._plate_map_genotype)
-        # self._plate_map_treatment = PlateMapWidget(self)
-        # plate_map_layout.addWidget(self._plate_map_treatment)
+        self._plate_map_tab = QWidget()
+        self._tab.addTab(self._plate_map_tab, "Plate Map Tab")
+        plate_map_layout = QHBoxLayout(self._plate_map_tab)
+        plate_map_layout.setContentsMargins(5, 5, 5, 5)
+        plate_map_layout.setSpacing(5)
+        self._plate_map_genotype = PlateMapWidget(self)
+        plate_map_layout.addWidget(self._plate_map_genotype)
+        self._plate_map_treatment = PlateMapWidget(self)
+        plate_map_layout.addWidget(self._plate_map_treatment)
 
         # analysis tab
         self._analysis_tab = QWidget()
@@ -174,6 +195,15 @@ class PlateViewer(QMainWindow):
         self._graph_wdg_4 = _GraphWidget(self)
         self._graph_wdg_5 = _GraphWidget(self)
         self._graph_wdg_6 = _GraphWidget(self)
+
+        self.GRAPHS = [
+            self._graph_wdg_1,
+            self._graph_wdg_2,
+            self._graph_wdg_3,
+            self._graph_wdg_4,
+            self._graph_wdg_5,
+            self._graph_wdg_6,
+        ]
         visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
         visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
         visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
@@ -183,14 +213,7 @@ class PlateViewer(QMainWindow):
 
         # connect the roiSelected signal from the graphs to the image viewer so we can
         # highlight the roi in the image viewer when a roi is selected in the graph
-        for graph in [
-            self._graph_wdg_1,
-            self._graph_wdg_2,
-            self._graph_wdg_3,
-            self._graph_wdg_4,
-            self._graph_wdg_5,
-            self._graph_wdg_6,
-        ]:
+        for graph in self.GRAPHS:
             graph.roiSelected.connect(self._highlight_roi)
 
         # splitter between the plate map/fov table/image viewer and the graphs
@@ -215,15 +238,16 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        data = (
+            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
         # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        # self._init_widget(reader)
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
+        self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -370,12 +394,17 @@ class PlateViewer(QMainWindow):
     def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
         """Load the analysis data from the given JSON file."""
         json_files = list(path.glob("*.json"))
+        # exclude plate maps
+        json_files = [
+            f for f in json_files if f.name not in {GENOTYPE_MAP, TREATMENT_MAP}
+        ]
         self._loading_bar.setRange(0, len(json_files))
         try:
             # loop over the files in the directory
             for idx, f in enumerate(tqdm(json_files, desc="Loading Analysis Data")):
                 yield idx + 1
                 # get the name of the file without the extensions
+                # TODO: raise error if not a well name
                 well = f.name.removesuffix(f.suffix)
                 # create the dict for the well
                 self._analysis_data[well] = {}
@@ -445,6 +474,24 @@ class PlateViewer(QMainWindow):
                 f"HCS Metadata: {hcs_meta}",
             )
             return
+
+        # set the plate map
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+        self._plate_map_genotype.setPlate(plate)
+        self._plate_map_treatment.setPlate(plate)
+        # load plate map if exists
+        print()
+        print("self._analysis_file_path", self._analysis_file_path)
+        if self._analysis_file_path is not None:
+            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
+            print("gen_path", gen_path, gen_path.exists())
+            if gen_path.exists():
+                self._plate_map_genotype.setValue(gen_path)
+            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
+            print("treat_path", treat_path, treat_path.exists())
+            if treat_path.exists():
+                self._plate_map_treatment.setValue(treat_path)
 
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
@@ -571,14 +618,7 @@ class PlateViewer(QMainWindow):
         combo_red: bool = False,
         clear: bool = False,
     ) -> None:
-        for graph in [
-            self._graph_wdg_1,
-            self._graph_wdg_2,
-            self._graph_wdg_3,
-            self._graph_wdg_4,
-            self._graph_wdg_5,
-            self._graph_wdg_6,
-        ]:
+        for graph in self.GRAPHS:
             if set_title is not None:
                 graph.fov = set_title
 

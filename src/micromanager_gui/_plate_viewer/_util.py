@@ -17,6 +17,9 @@ from qtpy.QtWidgets import (
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
 
+GENOTYPE_MAP = "genotype_plate_map.json"
+TREATMENT_MAP = "treatment_plate_map.json"
+
 
 @dataclass
 class BaseClass:
@@ -53,6 +56,8 @@ class ROIData(BaseClass):
     mean_frequency_stdev: float | None = None
     mean_amplitude: float | None = None
     mean_amplitude_stdev: float | None = None
+    condition_1: str | None = None
+    condition_2: str | None = None
     # ... add whatever other data we need
 
 

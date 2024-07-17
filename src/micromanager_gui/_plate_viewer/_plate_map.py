@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 from fonticon_mdi6 import MDI6
@@ -202,6 +203,7 @@ class PlateMapWidget(QWidget):
     def __init__(
         self,
         parent: QWidget | None = None,
+        plate: Plate | None = None,
     ) -> None:
         super().__init__(parent)
 
@@ -216,23 +218,34 @@ class PlateMapWidget(QWidget):
         self._load_map_btn = QPushButton("Load Plate Map")
         self._load_map_btn.clicked.connect(self._load_plate_map)
 
-        btns_wdg = QGroupBox()
-        btns_layout = QHBoxLayout(btns_wdg)
+        btns_layout = QHBoxLayout()
         btns_layout.setContentsMargins(0, 0, 0, 0)
         btns_layout.addWidget(self._clear_selection_btn)
         btns_layout.addStretch()
         btns_layout.addWidget(self._save_map_btn)
         btns_layout.addWidget(self._load_map_btn)
 
+        top_wdg = QGroupBox()
+        top_layout = QVBoxLayout(top_wdg)
+        top_layout.setContentsMargins(10, 10, 10, 10)
+        top_layout.setSpacing(5)
+        top_layout.addLayout(btns_layout)
+        top_layout.addWidget(self.view)
+
         self.list = _ConditionTable()
         self.list.valueChanged.connect(self._assign_condition)
         self.list.row_deleted.connect(self._remove_condition)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(btns_wdg)
-        layout.addWidget(self.view)
+        layout.addWidget(top_wdg)
         layout.addWidget(self.list)
 
+        if plate is not None:
+            self.setPlate(plate)
+
+    def setPlate(self, plate: Plate | dict) -> None:
+        if isinstance(plate, dict):
+            plate = Plate(**plate)
         draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)
 
     def value(self) -> list[PlateMapData]:
@@ -258,13 +271,18 @@ class PlateMapWidget(QWidget):
                 )
         return selected
 
-    def setValue(self, value: list[PlateMapData] | list[str]) -> None:
+    def setValue(self, value: list[PlateMapData] | list[str] | Path | str) -> None:
         """Set the value of the widget."""
         # unset all the wells and reset the items data
         for item in self.scene.items():
             item = cast("_WellGraphicsItem", item)
             item.brush = UNSELECTED_COLOR
             item.setData(DATA_KEY, None)
+
+        if isinstance(value, (Path, str)):
+            with open(value) as pmap:
+                data = json.load(pmap)
+            value = cast(list, data)
 
         add_to_conditions_list = set()
         for data in value:
@@ -281,6 +299,14 @@ class PlateMapWidget(QWidget):
                     item.setData(DATA_KEY, (data.condition, data.color))
             # update the condition table
             self.list.setValue(list(add_to_conditions_list))
+
+    def clear(self) -> None:
+        """Clear the plate map."""
+        for item in self.scene.items():
+            item = cast("_WellGraphicsItem", item)
+            item.brush = UNSELECTED_COLOR
+            item.setData(DATA_KEY, None)
+        self.list.setValue([])
 
     def _assign_condition(self, value: tuple[str, str]) -> None:
         condition_name, color_name = value
@@ -320,6 +346,10 @@ class PlateMapWidget(QWidget):
                     item.setSelected(False)
 
     def _save_plate_map(self) -> None:
+        # if no items in the scene, return
+        if not self.scene.items():
+            return
+
         (dir_file, _) = QFileDialog.getSaveFileName(
             self, "Saving directory and filename.", "", "json(*.json)"
         )

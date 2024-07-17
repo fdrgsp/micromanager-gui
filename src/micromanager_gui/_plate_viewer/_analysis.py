@@ -30,6 +30,8 @@ from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
 from ._util import (
+    GENOTYPE_MAP,
+    TREATMENT_MAP,
     Peaks,
     ROIData,
     _ElapsedTimer,
@@ -77,6 +79,8 @@ class _AnalyseCalciumTraces(QWidget):
         super().__init__(parent)
 
         self._plate_viewer: PlateViewer | None = parent
+
+        self._plate_map_data: dict[str, dict[str, str]] = {}
 
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
@@ -324,9 +328,52 @@ class _AnalyseCalciumTraces(QWidget):
     def _check_for_abort_requested(self) -> bool:
         return bool(self._worker is not None and self._worker.abort_requested)
 
+    def _handle_plate_map(self) -> None:
+        if self._plate_viewer is None:
+            return
+
+        conition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
+        conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+
+        # save plate map
+        logger.info("Saving Plate Maps.")
+        if conition_1_plate_map:
+            path = Path(self._output_path.value()) / GENOTYPE_MAP
+            with path.open("w") as f:
+                json.dump(
+                    self._plate_viewer._plate_map_genotype.value(),
+                    f,
+                    indent=2,
+                )
+        if conition_2_plate_map:
+            path = Path(self._output_path.value()) / TREATMENT_MAP
+            with path.open("w") as f:
+                json.dump(
+                    self._plate_viewer._plate_map_treatment.value(),
+                    f,
+                    indent=2,
+                )
+
+        self._plate_map_data.clear()
+
+        # update the stored _plate_map_data dict so we have the condition for each well
+        # name as the kek. eg.g:
+        # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
+        for data in conition_1_plate_map:
+            self._plate_map_data[data.name] = {"condition_1": data.condition}
+
+        for data in conition_2_plate_map:
+            if data.name in self._plate_map_data:
+                self._plate_map_data[data.name]["condition_2"] = data.condition
+            else:
+                self._plate_map_data[data.name] = {"condition_2": data.condition}
+
     def _extract_traces(self, positions: list[int]) -> None:
         """Extract the roi traces in multiple threads."""
         logger.info("Starting traces extraction...")
+
+        # save plate maps and update the stored _plate_map_data dict
+        self._handle_plate_map()
 
         cpu_count = os.cpu_count() or 1
         cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
@@ -433,10 +480,20 @@ class _AnalyseCalciumTraces(QWidget):
             if exponential_decay is not None:
                 fitted_curves.append(exponential_decay)
 
+            if self._plate_map_data:
+                well_name = well.split("_")[0]
+                if well_name in self._plate_map_data:
+                    condition_1 = self._plate_map_data[well_name].get("condition_1")
+                    condition_2 = self._plate_map_data[well_name].get("condition_2")
+                else:
+                    condition_1 = condition_2 = None
+
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
+                condition_1=condition_1,
+                condition_2=condition_2,
             )
 
         # average the fitted curves
