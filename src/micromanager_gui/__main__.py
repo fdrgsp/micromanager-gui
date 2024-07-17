@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
+from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
 from micromanager_gui import MicroManagerGUI
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -38,6 +42,7 @@ def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parser.parse_args(args)
 
     app = QApplication([])
+    app.setWindowIcon(QIcon(str(ICON)))
     win = MicroManagerGUI(config=parsed_args.config, slackbot=parsed_args.slack)
     win.show()
 
