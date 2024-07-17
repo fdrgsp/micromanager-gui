@@ -84,8 +84,8 @@ class _PlateMapScene(QGraphicsScene):
                     self._set_selected(item, False)
                 else:
                     self._set_selected(item, True)
-            # elif item not in self._selected_wells:
-            #     self._set_selected(item, False)
+            elif item not in self._selected_wells and item.brush == SELECTED_COLOR:
+                self._set_selected(item, False)
         self.valueChanged.emit()
 
     def _set_selected(self, item: _WellGraphicsItem, state: bool) -> None:
@@ -101,7 +101,8 @@ class _PlateMapScene(QGraphicsScene):
         """Clear the selection of all wells."""
         for item in self.items():
             item = cast("_WellGraphicsItem", item)
-            # if item.isSelected():
+            if item.brush != SELECTED_COLOR:
+                continue
             item.setSelected(False)
             item.brush = UNSELECTED_COLOR
         self.valueChanged.emit()

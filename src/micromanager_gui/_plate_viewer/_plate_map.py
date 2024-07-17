@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+import json
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 from fonticon_mdi6 import MDI6
 from pymmcore_widgets.hcs._plate_model import Plate
 from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
-from qtpy.QtCore import QSize, Qt, Signal
+from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QBrush, QColor, QIcon, QPen
 from qtpy.QtWidgets import (
-    QAction,
     QComboBox,
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QTableWidget,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -25,8 +25,11 @@ from superqt.fonticon import icon
 from ._plate_map_graphic_scene import _PlateMapScene
 
 if TYPE_CHECKING:
-    from pymmcore_widgets.hcs._graphics_items import Well, _WellGraphicsItem
+    from pymmcore_widgets.hcs._graphics_items import _WellGraphicsItem
 
+RED = "#C33"
+GREEN = "#00FF00"
+ALIGN_LEFT = "QPushButton { text-align: left;}"
 UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
 PEN = QPen(Qt.GlobalColor.black)
 PEN.setWidth(3)
@@ -69,7 +72,7 @@ class _ConditionWidget(QWidget):
         self._assign_btn.clicked.connect(self._on_value_changed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 0, 5, 0)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.addWidget(QLabel("Condition:"), 0)
         layout.addWidget(self._condition_lineedit, 1)
         layout.addWidget(QLabel("Color:"), 0)
@@ -94,36 +97,8 @@ class _ConditionTable(QGroupBox):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self._toolbar = QToolBar(self)
-        self._toolbar.setFloatable(False)
-        self._toolbar.setIconSize(QSize(22, 22))
-        self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-
-        self.act_add_row = QAction(
-            icon(MDI6.plus_thick, color="#00FF00"), "Add new condition", self
-        )
-        self.act_add_row.triggered.connect(self._add_row)
-        self.act_remove_row = QAction(
-            icon(MDI6.close_box_outline, color="#C33"),
-            "Remove selected condition",
-            self,
-        )
-        self.act_remove_row.triggered.connect(self._remove_selected)
-        self.act_clear = QAction(
-            icon(MDI6.close_box_multiple_outline, color="#C33"),
-            "Remove all conditions",
-            self,
-        )
-        self.act_clear.triggered.connect(self._remove_all)
-
-        self._toolbar.addAction(self.act_add_row)
-        self._toolbar.addSeparator()
-        self._toolbar.addAction(self.act_remove_row)
-        self._toolbar.addSeparator()
-        self._toolbar.addAction(self.act_clear)
-
         self._table = QTableWidget()
-        self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        # self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self._table.setColumnCount(1)
         self._table.setHorizontalHeaderLabels(["Conditions"])
         self._table.horizontalHeader().setStretchLastSection(True)
@@ -131,8 +106,30 @@ class _ConditionTable(QGroupBox):
         vh.setSectionResizeMode(vh.ResizeMode.ResizeToContents)
         vh.setVisible(False)
 
+        self._add_btn = QPushButton("Add condition")
+        self._add_btn.setIcon(icon(MDI6.plus_thick, color=GREEN))
+        self._add_btn.setStyleSheet(ALIGN_LEFT)
+        self._add_btn.clicked.connect(self._add_row)
+        self._remove_btn = QPushButton("Remove selected")
+        self._remove_btn.setIcon(icon(MDI6.close_box_outline, color=RED))
+        self._remove_btn.setStyleSheet(ALIGN_LEFT)
+        self._remove_btn.clicked.connect(self._remove_selected)
+        self._remove_all_btn = QPushButton("Remove all")
+        self._remove_all_btn.setIcon(icon(MDI6.close_box_multiple_outline, color=RED))
+        self._remove_all_btn.setStyleSheet(ALIGN_LEFT)
+        self._remove_all_btn.clicked.connect(self._remove_all)
+
+        btns_layout = QHBoxLayout()
+        btns_layout.setContentsMargins(0, 0, 0, 0)
+        btns_layout.addWidget(self._add_btn)
+        btns_layout.addWidget(self._remove_btn)
+        btns_layout.addWidget(self._remove_all_btn)
+        btns_layout.addStretch()
+
         layout = QVBoxLayout(self)
-        layout.addWidget(self._toolbar)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(5)
+        layout.addLayout(btns_layout)
         layout.addWidget(self._table)
 
     def value(self) -> list[tuple[str, str]]:
@@ -161,9 +158,10 @@ class _ConditionTable(QGroupBox):
 
     def _remove_selected(self) -> None:
         if selected := [i.row() for i in self._table.selectedIndexes()]:
-            value = self._table.cellWidget(selected[0], 0).value()
-            self._table.removeRow(selected[0])
-            self.row_deleted.emit(value)
+            for sel in selected:
+                value = self._table.cellWidget(sel, 0).value()
+                self._table.removeRow(sel)
+                self.row_deleted.emit(value)
 
     def _remove_all(self) -> None:
         for value in self.value():
@@ -188,6 +186,14 @@ class _ConditionTable(QGroupBox):
             raise ValueError("Color names must be unique.")
 
 
+class PlateMapData(NamedTuple):
+    name: str
+    row: int
+    column: int
+    condition: str
+    color: str
+
+
 class PlateMapWidget(QWidget):
     """A widget to create a plate map."""
 
@@ -201,30 +207,56 @@ class PlateMapWidget(QWidget):
         self.view = _ResizingGraphicsView(self.scene)
         self.view.setStyleSheet("background:grey; border-radius: 5px;")
 
+        self._clear_selection_btn = QPushButton("Clear Selection")
+        self._clear_selection_btn.clicked.connect(self.scene._clear_selection)
+        self._save_map_btn = QPushButton("Save Plate Map")
+        self._save_map_btn.clicked.connect(self._save_plate_map)
+        self._load_map_btn = QPushButton("Load Plate Map")
+        self._load_map_btn.clicked.connect(self._load_plate_map)
+
+        btns_wdg = QGroupBox()
+        btns_layout = QHBoxLayout(btns_wdg)
+        btns_layout.setContentsMargins(0, 0, 0, 0)
+        btns_layout.addWidget(self._clear_selection_btn)
+        btns_layout.addStretch()
+        btns_layout.addWidget(self._save_map_btn)
+        btns_layout.addWidget(self._load_map_btn)
+
         self.list = _ConditionTable()
         self.list.valueChanged.connect(self._assign_condition)
         self.list.row_deleted.connect(self._remove_condition)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(btns_wdg)
         layout.addWidget(self.view)
         layout.addWidget(self.list)
 
         draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)
 
-    def value(self) -> list[tuple[Well, tuple[str, str]]]:
+    def value(self) -> list[PlateMapData]:
         """Return the list of classified wells and their data.
 
         Returns a tuple containing the (well_name, row and column) and the data assigned
         to it, (condition_name, color_name).
         """
         selected = []
-        for item in self.scene.items():
+        for item in reversed(self.scene.items()):
             item = cast("_WellGraphicsItem", item)
             if item.brush != UNSELECTED_COLOR:
-                selected.append((item.value(), item.data(DATA_KEY)))
-        return list(reversed(selected))
+                well = item.value()
+                condition_name, color_name = item.data(DATA_KEY)
+                selected.append(
+                    PlateMapData(
+                        name=well.name,
+                        row=well.row,
+                        column=well.column,
+                        condition=condition_name,
+                        color=color_name,
+                    )
+                )
+        return selected
 
-    def setValue(self, value: list[tuple[Well, tuple[str, str]]]) -> None:
+    def setValue(self, value: list[PlateMapData] | list[str]) -> None:
         """Set the value of the widget."""
         # unset all the wells and reset the items data
         for item in self.scene.items():
@@ -232,16 +264,18 @@ class PlateMapWidget(QWidget):
             item.brush = UNSELECTED_COLOR
             item.setData(DATA_KEY, None)
 
-        for well, data in value:
-            condition_name, color_name = data
+        for data in value:
+            if not isinstance(data, PlateMapData):
+                data = PlateMapData(*data)
+
             # update the condition table
-            self.list.setValue([(condition_name, color_name)])
+            self.list.setValue([(data.condition, data.color)])
             # update the color and data of the selected wells
             for item in self.scene.items():
                 item = cast("_WellGraphicsItem", item)
-                if item.value() == well:
-                    item.brush = QBrush(QColor(color_name))
-                    item.setData(DATA_KEY, data)
+                if item.value().name == data.name:
+                    item.brush = QBrush(QColor(data.color))
+                    item.setData(DATA_KEY, (data.condition, data.color))
 
     def _assign_condition(self, value: tuple[str, str]) -> None:
         condition_name, color_name = value
@@ -279,3 +313,22 @@ class PlateMapWidget(QWidget):
                     item.brush = UNSELECTED_COLOR
                     item.setData(DATA_KEY, None)
                     item.setSelected(False)
+
+    def _save_plate_map(self) -> None:
+        (dir_file, _) = QFileDialog.getSaveFileName(
+            self, "Saving directory and filename.", "", "json(*.json)"
+        )
+        if not dir_file:
+            return
+        with open(dir_file, "w") as pmap:
+            json.dump(self.value(), pmap)
+
+    def _load_plate_map(self) -> None:
+        (filename, _) = QFileDialog.getOpenFileName(
+            self, "Open plate map json file.", "", "json(*.json)"
+        )
+        if not filename:
+            return
+        with open(filename) as pmap:
+            data = json.load(pmap)
+        self.setValue(data)
