@@ -19,6 +19,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
 from qtpy.QtWidgets import (
     QGridLayout,
+    # QHBoxLayout,
     QMainWindow,
     QMenuBar,
     QSplitter,
@@ -37,6 +38,8 @@ from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
+
+# from ._plate_map import PlateMapWidget
 from ._segmentation import _CellposeSegmentation
 from ._util import Peaks, ROIData, _ProgressBarWidget, show_error_dialog
 from ._wells_graphic_scene import _WellsGraphicsScene
@@ -134,6 +137,17 @@ class PlateViewer(QMainWindow):
         # tab widget
         self._tab = QTabWidget(self)
         self._tab.currentChanged.connect(self._on_tab_changed)
+
+        # plate map tab
+        # self._plate_map_tab = QWidget()
+        # self._tab.addTab(self._plate_map_tab, "Plate Map Tab")
+        # plate_map_layout = QHBoxLayout(self._plate_map_tab)
+        # plate_map_layout.setContentsMargins(5, 5, 5, 5)
+        # plate_map_layout.setSpacing(5)
+        # self._plate_map_genotype = PlateMapWidget(self)
+        # plate_map_layout.addWidget(self._plate_map_genotype)
+        # self._plate_map_treatment = PlateMapWidget(self)
+        # plate_map_layout.addWidget(self._plate_map_treatment)
 
         # analysis tab
         self._analysis_tab = QWidget()

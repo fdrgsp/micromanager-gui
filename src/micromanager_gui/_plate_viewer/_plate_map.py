@@ -10,6 +10,7 @@ from qtpy.QtGui import QBrush, QColor, QIcon, QPen
 from qtpy.QtWidgets import (
     QAction,
     QComboBox,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -86,7 +87,7 @@ class _ConditionWidget(QWidget):
         self.valueChanged.emit(self.value())
 
 
-class _ConditionTable(QWidget):
+class _ConditionTable(QGroupBox):
     valueChanged = Signal(object)
     row_deleted = Signal(object)
 
@@ -122,6 +123,7 @@ class _ConditionTable(QWidget):
         self._toolbar.addAction(self.act_clear)
 
         self._table = QTableWidget()
+        self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self._table.setColumnCount(1)
         self._table.setHorizontalHeaderLabels(["Conditions"])
         self._table.horizontalHeader().setStretchLastSection(True)
@@ -186,7 +188,7 @@ class _ConditionTable(QWidget):
             raise ValueError("Color names must be unique.")
 
 
-class PlateMap(QWidget):
+class PlateMapWidget(QWidget):
     """A widget to create a plate map."""
 
     def __init__(
