@@ -17,15 +17,7 @@ sequence = MDASequence(
     axis_order="tpcz",
 )
 
-writer = _TensorStoreHandler(
-    path="/example_ts",
-    delete_existing=True,
-    driver="zarr",
-    # Use 2GB in-memory cache.
-    spec={
-        "context": {"cache_pool": {"total_bytes_limit": 2_000_000_000}},
-    },
-)
+writer = _TensorStoreHandler(path="/example_ts", delete_existing=True, driver="zarr")
 
 with mda_listeners_connected(writer):
     core.mda.run(sequence)

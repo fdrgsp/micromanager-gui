@@ -6,16 +6,19 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import tifffile
-from qtpy.QtCore import Signal
+from fonticon_mdi6 import MDI6
+from qtpy.QtCore import QSize, Signal
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -25,11 +28,16 @@ from qtpy.QtWidgets import (
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks, savgol_filter
 from scipy.stats import pearsonr
+from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
 from ._util import (
+    GENOTYPE_MAP,
+    GREEN,
+    RED,
+    TREATMENT_MAP,
     Peaks,
     ROIData,
     _ElapsedTimer,
@@ -78,6 +86,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._plate_viewer: PlateViewer | None = parent
 
+        self._plate_map_data: dict[str, dict[str, str]] = {}
+
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
         self._labels_path: str | None = labels_path
@@ -105,7 +115,6 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # self._output_path = _SelectAnalysisPath(
         self._output_path = _BrowseWidget(
             self,
             "Analysis Output Path",
@@ -121,9 +130,13 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
+        self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
+        self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_bar = QProgressBar(self)
@@ -142,8 +155,8 @@ class _AnalyseCalciumTraces(QWidget):
         self.progress_bar_updated.connect(self._update_progress_bar)
 
         self.groupbox = QGroupBox("Extract Traces", self)
-        self.groupbox.setCheckable(True)
-        self.groupbox.setChecked(False)
+        # self.groupbox.setCheckable(True)
+        # self.groupbox.setChecked(False)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
@@ -152,7 +165,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 
@@ -253,6 +266,14 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No useq.MDAsequence found!")
             return None
 
+        if self._plate_viewer is not None and (
+            not self._plate_viewer._plate_map_genotype.value()
+            or not self._plate_viewer._plate_map_treatment.value()
+        ):
+            response = self._no_plate_map_msgbox()
+            if response == QMessageBox.StandardButton.No:
+                return None
+
         if path := self._output_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
@@ -280,11 +301,28 @@ class _AnalyseCalciumTraces(QWidget):
             return None
         return positions
 
+    def _no_plate_map_msgbox(self) -> Any:
+        """Show a message box to ask the user if wants to overwrite the labels."""
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText("The Plate Map is not set!\n\nDo you want to continue?")
+        msg.setWindowTitle("Plate Map")
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg.exec()
+
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
+        self._cancel_waiting_bar.setEnabled(True)
         self._pos_le.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._segmentation_wdg.setEnabled(enable)
 
     def _on_worker_finished(self) -> None:
         """Called when the extraction is finished."""
@@ -324,9 +362,52 @@ class _AnalyseCalciumTraces(QWidget):
     def _check_for_abort_requested(self) -> bool:
         return bool(self._worker is not None and self._worker.abort_requested)
 
+    def _handle_plate_map(self) -> None:
+        if self._plate_viewer is None:
+            return
+
+        conition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
+        conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+
+        # save plate map
+        logger.info("Saving Plate Maps.")
+        if conition_1_plate_map:
+            path = Path(self._output_path.value()) / GENOTYPE_MAP
+            with path.open("w") as f:
+                json.dump(
+                    self._plate_viewer._plate_map_genotype.value(),
+                    f,
+                    indent=2,
+                )
+        if conition_2_plate_map:
+            path = Path(self._output_path.value()) / TREATMENT_MAP
+            with path.open("w") as f:
+                json.dump(
+                    self._plate_viewer._plate_map_treatment.value(),
+                    f,
+                    indent=2,
+                )
+
+        self._plate_map_data.clear()
+
+        # update the stored _plate_map_data dict so we have the condition for each well
+        # name as the kek. eg.g:
+        # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
+        for data in conition_1_plate_map:
+            self._plate_map_data[data.name] = {"condition_1": data.condition}
+
+        for data in conition_2_plate_map:
+            if data.name in self._plate_map_data:
+                self._plate_map_data[data.name]["condition_2"] = data.condition
+            else:
+                self._plate_map_data[data.name] = {"condition_2": data.condition}
+
     def _extract_traces(self, positions: list[int]) -> None:
         """Extract the roi traces in multiple threads."""
         logger.info("Starting traces extraction...")
+
+        # save plate maps and update the stored _plate_map_data dict
+        self._handle_plate_map()
 
         cpu_count = os.cpu_count() or 1
         cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
@@ -440,11 +521,21 @@ class _AnalyseCalciumTraces(QWidget):
             if exponential_decay is not None:
                 fitted_curves.append(exponential_decay)
 
+            if self._plate_map_data:
+                well_name = well.split("_")[0]
+                if well_name in self._plate_map_data:
+                    condition_1 = self._plate_map_data[well_name].get("condition_1")
+                    condition_2 = self._plate_map_data[well_name].get("condition_2")
+                else:
+                    condition_1 = condition_2 = None
+
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
-                cell_size=roi_size_um
+                cell_size=roi_size_um,
+                condition_1=condition_1,
+                condition_2=condition_2,
             )
 
         # average the fitted curves

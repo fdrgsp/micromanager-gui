@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -30,7 +31,11 @@ from ._toolbar._snap_live import _SnapLive
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 
+ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
+
 # from ._segment_neurons import SegmentNeurons
+
+ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
 
 class MicroManagerGUI(QMainWindow):
@@ -45,6 +50,7 @@ class MicroManagerGUI(QMainWindow):
         slackbot: bool = False,
     ) -> None:
         super().__init__(parent)
+        self.setWindowIcon(QIcon(str(ICON)))
 
         # slack bot to handle slack messages
         self._slackbot = MMSlackBot() if slackbot else None

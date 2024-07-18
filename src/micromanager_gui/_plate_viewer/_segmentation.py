@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any, Generator
 import tifffile
 from cellpose import models
 from cellpose.models import CellposeModel
+from fonticon_mdi6 import MDI6
+from qtpy.QtCore import QSize
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -22,11 +25,12 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import _ElapsedTimer, parse_lineedit_text, show_error_dialog
+from ._util import GREEN, RED, _ElapsedTimer, parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -166,9 +170,13 @@ class _CellposeSegmentation(QWidget):
 
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
+        self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
+        self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_label = QLabel("[0/0]")
@@ -182,8 +190,8 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._elapsed_time_label)
 
         self.groupbox = QGroupBox("Cellpose Segmentation", self)
-        self.groupbox.setCheckable(True)
-        self.groupbox.setChecked(False)
+        # self.groupbox.setCheckable(True)
+        # self.groupbox.setChecked(False)
         settings_groupbox_layout = QGridLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
@@ -196,7 +204,7 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 
@@ -315,8 +323,10 @@ class _CellposeSegmentation(QWidget):
         """Show a message box to ask the user if wants to overwrite the labels."""
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Question)
-        msg.setText("The Labels directory already contains some files!")
-        msg.setInformativeText("Do you want to overwrite them?")
+        msg.setText(
+            "The Labels directory already contains some files!\n\n"
+            "Do you want to overwrite them?"
+        )
         msg.setWindowTitle("Overwrite Labels")
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
@@ -386,6 +396,10 @@ class _CellposeSegmentation(QWidget):
         self._channel_combo.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._analysis_wdg.setEnabled(enable)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""
