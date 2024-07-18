@@ -183,8 +183,8 @@ class PlateViewer(QMainWindow):
         self._plate_map_btn.setIcon(icon(MDI6.view_comfy, color="#00FF00"))
         self._plate_map_btn.setIconSize(QSize(25, 25))
         self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
-        plate_map_group = QGroupBox("Plate Map")
-        plate_map_group_layout = QHBoxLayout(plate_map_group)
+        self._plate_map_group = QGroupBox("Plate Map")
+        plate_map_group_layout = QHBoxLayout(self._plate_map_group)
         plate_map_group_layout.setContentsMargins(10, 10, 10, 10)
         plate_map_group_layout.setSpacing(5)
         plate_map_group_layout.addWidget(self._plate_map_btn)
@@ -196,7 +196,7 @@ class PlateViewer(QMainWindow):
         analysis_layout = QVBoxLayout(self._analysis_tab)
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
-        analysis_layout.addWidget(plate_map_group)
+        analysis_layout.addWidget(self._plate_map_group)
         analysis_layout.addWidget(self._segmentation_wdg)
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
@@ -257,16 +257,16 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
-        # self._init_widget(reader)
+        data = (
+            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+            "Chronic.tensorstore.zarr"
+        )
+        reader = TensorstoreZarrReader(data)
+        self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
+        self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
+        self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:

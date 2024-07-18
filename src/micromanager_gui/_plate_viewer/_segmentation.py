@@ -395,6 +395,10 @@ class _CellposeSegmentation(QWidget):
         self._channel_combo.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._analysis_wdg.setEnabled(enable)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""

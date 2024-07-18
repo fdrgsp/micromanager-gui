@@ -294,9 +294,14 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
+        self._cancel_waiting_bar.setEnabled(True)
         self._pos_le.setEnabled(enable)
         self._output_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._segmentation_wdg.setEnabled(enable)
 
     def _on_worker_finished(self) -> None:
         """Called when the extraction is finished."""
