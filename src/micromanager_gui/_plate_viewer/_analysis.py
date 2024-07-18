@@ -520,23 +520,23 @@ class _AnalyseCalciumTraces(QWidget):
             if exponential_decay is not None:
                 fitted_curves.append(exponential_decay)
 
-            # if self._plate_map_data:
-            #     well_name = well.split("_")[0]
-            #     if well_name in self._plate_map_data:
-            #         condition_1 = self._plate_map_data[well_name].get("condition_1")
-            #         condition_2 = self._plate_map_data[well_name].get("condition_2")
-            #     else:
-            #         condition_1 = condition_2 = None
+            if self._plate_map_data:
+                well_name = well.split("_")[0]
+                if well_name in self._plate_map_data:
+                    condition_1 = self._plate_map_data[well_name].get("condition_1")
+                    condition_2 = self._plate_map_data[well_name].get("condition_2")
+                else:
+                    condition_1 = condition_2 = None
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
                 cell_size=roi_size_um,
-                # condition_1=condition_1,
-                # condition_2=condition_2,
+                condition_1=condition_1,
+                condition_2=condition_2,
             )
-            # print(f" condition_1: {condition_1}")
+
 
         # average the fitted curves
         logger.info(f"Averaging the fitted curves well {well}.")
