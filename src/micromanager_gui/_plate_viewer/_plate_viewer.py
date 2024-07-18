@@ -79,9 +79,6 @@ class PlateViewer(QMainWindow):
         self.setWindowTitle("Plate Viewer")
         self.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
 
-        # used for the plate map
-        self._plate: Plate | None = None
-
         # add central widget
         self._central_widget = QWidget(self)
         self._central_widget_layout = QVBoxLayout(self._central_widget)
@@ -402,8 +399,6 @@ class PlateViewer(QMainWindow):
         # re-enable the whole widget
         self.setEnabled(True)
 
-        self._load_plate_map()
-
     # TODO: maybe use ThreadPoolExecutor
     def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
         """Load the analysis data from the given JSON file."""
@@ -448,31 +443,12 @@ class PlateViewer(QMainWindow):
             show_error_dialog(self, f"Error loading the analysis data: {e}")
             self._analysis_data.clear()
 
-    def _load_plate_map(self) -> None:
-        """Load the plate map from the given file."""
-        if self._plate is None:
-            return
-        self._plate_map_genotype.clear()
-        self._plate_map_treatment.clear()
-        self._plate_map_genotype.setPlate(self._plate)
-        self._plate_map_treatment.setPlate(self._plate)
-        # load plate map if exists
-        if self._analysis_file_path is not None:
-            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
-            if gen_path.exists():
-                self._plate_map_genotype.setValue(gen_path)
-            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
-            if treat_path.exists():
-                self._plate_map_treatment.setValue(treat_path)
-
     def _update_progress_bar(self, value: int) -> None:
         """Update the progress bar value."""
         self._loading_bar.setValue(value)
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
-        self._plate = None
-
         # load analysis json file if the path is not None
         if self._analysis_file_path:
             self._load_analysis_data(self._analysis_file_path)
@@ -507,7 +483,6 @@ class PlateViewer(QMainWindow):
                 f"HCS Metadata: {hcs_meta}",
             )
             return
-        #
 
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
@@ -518,7 +493,6 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg._output_path._path.setText(self._analysis_file_path)
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
-        self._plate = plate
 
         # draw plate
         draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)
@@ -538,6 +512,23 @@ class PlateViewer(QMainWindow):
                 item.brush = UNSELECTABLE_COLOR
                 to_exclude.append(item.value())
         self.scene.exclude_wells = to_exclude
+
+        self._load_plate_map(plate)
+
+    def _load_plate_map(self, plate: Plate) -> None:
+        """Load the plate map from the given file."""
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+        self._plate_map_genotype.setPlate(plate)
+        self._plate_map_treatment.setPlate(plate)
+        # load plate map if exists
+        if self._analysis_file_path is not None:
+            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
+            if gen_path.exists():
+                self._plate_map_genotype.setValue(gen_path)
+            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
+            if treat_path.exists():
+                self._plate_map_treatment.setValue(treat_path)
 
     def _on_scene_well_changed(self, value: Well | None) -> None:
         """Update the FOV table when a well is selected."""
