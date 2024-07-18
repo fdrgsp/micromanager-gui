@@ -324,8 +324,10 @@ class _CellposeSegmentation(QWidget):
         """Show a message box to ask the user if wants to overwrite the labels."""
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Question)
-        msg.setText("The Labels directory already contains some files!")
-        msg.setInformativeText("Do you want to overwrite them?")
+        msg.setText(
+            "The Labels directory already contains some files!\n\n"
+            "Do you want to overwrite them?"
+        )
         msg.setWindowTitle("Overwrite Labels")
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No

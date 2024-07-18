@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import tifffile
@@ -18,6 +18,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -265,6 +266,14 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No useq.MDAsequence found!")
             return None
 
+        if self._plate_viewer is not None and (
+            not self._plate_viewer._plate_map_genotype.value()
+            or not self._plate_viewer._plate_map_treatment.value()
+        ):
+            response = self._no_plate_map_msgbox()
+            if response == QMessageBox.StandardButton.No:
+                return None
+
         if path := self._output_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
@@ -291,6 +300,18 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "Input Positions out of range!")
             return None
         return positions
+
+    def _no_plate_map_msgbox(self) -> Any:
+        """Show a message box to ask the user if wants to overwrite the labels."""
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText("The Plate Map is not set!\n\nDo you want to continue?")
+        msg.setWindowTitle("Plate Map")
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg.exec()
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""

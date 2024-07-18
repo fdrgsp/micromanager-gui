@@ -165,7 +165,7 @@ class PlateViewer(QMainWindow):
         plate_map_layout.addWidget(self._plate_map_treatment)
 
         self._plate_map_btn = QPushButton("Show/Edit Plate Map")
-        self._plate_map_btn.setIcon(icon(MDI6.view_comfy, color="#00FF00"))
+        self._plate_map_btn.setIcon(icon(MDI6.view_comfy))
         self._plate_map_btn.setIconSize(QSize(25, 25))
         self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
         self._plate_map_group = QGroupBox("Plate Map")
