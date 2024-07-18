@@ -81,8 +81,8 @@ def plot_traces(
     spike_width = []
     roi_to_draw = []
     colors_to_plot = []
-    width_max = 0
     width_min = 5
+    total_frames = 0
 
     for key in data:
         if rois is not None and int(key) not in rois:
@@ -92,6 +92,8 @@ def plot_traces(
         trace = get_trace(
             roi_data, dff, photobleach_corrected, used_for_bleach_correction
         )
+        total_frames = len(trace)
+        print(f"        total frames: {total_frames}")
 
         if trace is None:
             continue
@@ -140,7 +142,6 @@ def plot_traces(
 
             if width:
                 linewidth = [pk.end - pk.start for pk in roi_data.peaks if pk.peak is not None]
-                width_max = max(max(linewidth), width_max) if len(linewidth) > 0 else width_max
                 width_min = min(min(linewidth), width_min) if len(linewidth) > 0 else width_min
 
                 print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
@@ -157,12 +158,12 @@ def plot_traces(
     if raster and len(spikes)>0:
         # print(f"        -----shape of spike_width: {len(spike_width)}")
         # print(f"        ==========shape of spikes: {len(spikes)}")
-        # if width:
-        #     spike_width = (spike_width-width_min)/(width_max-width_min)
+        if width:
+            spike_width = [(pk_width-width_min)/(total_frames-width_min) for pk_width in spike_width]
         ax.eventplot(
             spikes,
             colors=colors_to_plot,
-            # linewidths=spike_width
+            linewidths=spike_width
             )
 
     # Add hover functionality using mplcursors
