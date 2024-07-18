@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import sys
-import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, cast
+from typing import Generator, cast
 
 import numpy as np
 import tifffile
@@ -55,9 +53,6 @@ from ._util import (
 )
 from ._wells_graphic_scene import _WellsGraphicsScene
 
-if TYPE_CHECKING:
-    from types import TracebackType
-
 GREEN = "#00FF00"  # "#00C600"
 SELECTED_COLOR = QBrush(QColor(GREEN))
 UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
@@ -67,17 +62,6 @@ PEN.setWidth(3)
 OPACITY = 0.7
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
-
-
-def _our_excepthook(
-    type: type[BaseException], value: BaseException, tb: TracebackType | None
-) -> None:
-    """Excepthook that prints the traceback to the console.
-
-    By default, Qt's excepthook raises sys.exit(), which is not what we want.
-    """
-    # this could be elaborated to do all kinds of things...
-    traceback.print_exception(type, value, tb)
 
 
 class PlateViewer(QMainWindow):
@@ -95,7 +79,8 @@ class PlateViewer(QMainWindow):
         self.setWindowTitle("Plate Viewer")
         self.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
 
-        sys.excepthook = _our_excepthook
+        # used for the plate map
+        self._plate: Plate | None = None
 
         # add central widget
         self._central_widget = QWidget(self)
@@ -412,10 +397,12 @@ class PlateViewer(QMainWindow):
         )
 
     def _on_loading_finished(self) -> None:
-        """Called when the saving is finished."""
+        """Called when the loading of the analysis data is finished."""
         self._loading_bar.hide()
         # re-enable the whole widget
         self.setEnabled(True)
+
+        self._load_plate_map()
 
     # TODO: maybe use ThreadPoolExecutor
     def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
@@ -461,12 +448,31 @@ class PlateViewer(QMainWindow):
             show_error_dialog(self, f"Error loading the analysis data: {e}")
             self._analysis_data.clear()
 
+    def _load_plate_map(self) -> None:
+        """Load the plate map from the given file."""
+        if self._plate is None:
+            return
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+        self._plate_map_genotype.setPlate(self._plate)
+        self._plate_map_treatment.setPlate(self._plate)
+        # load plate map if exists
+        if self._analysis_file_path is not None:
+            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
+            if gen_path.exists():
+                self._plate_map_genotype.setValue(gen_path)
+            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
+            if treat_path.exists():
+                self._plate_map_treatment.setValue(treat_path)
+
     def _update_progress_bar(self, value: int) -> None:
         """Update the progress bar value."""
         self._loading_bar.setValue(value)
 
     def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
         """Initialize the widget with the given datastore."""
+        self._plate = None
+
         # load analysis json file if the path is not None
         if self._analysis_file_path:
             self._load_analysis_data(self._analysis_file_path)
@@ -501,20 +507,7 @@ class PlateViewer(QMainWindow):
                 f"HCS Metadata: {hcs_meta}",
             )
             return
-
-        # set the plate map
-        self._plate_map_genotype.clear()
-        self._plate_map_treatment.clear()
-        self._plate_map_genotype.setPlate(plate)
-        self._plate_map_treatment.setPlate(plate)
-        # load plate map if exists
-        if self._analysis_file_path is not None:
-            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
-            if gen_path.exists():
-                self._plate_map_genotype.setValue(gen_path)
-            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
-            if treat_path.exists():
-                self._plate_map_treatment.setValue(treat_path)
+        #
 
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
@@ -525,6 +518,7 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg._output_path._path.setText(self._analysis_file_path)
 
         plate = plate if isinstance(plate, Plate) else Plate(**plate)
+        self._plate = plate
 
         # draw plate
         draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)

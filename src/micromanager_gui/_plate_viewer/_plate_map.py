@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
+import numpy as np
 from fonticon_mdi6 import MDI6
 from pymmcore_widgets.hcs._plate_model import Plate
 from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
@@ -107,14 +108,17 @@ class _ConditionTable(QGroupBox):
         vh.setVisible(False)
 
         self._add_btn = QPushButton("Add Condition")
+        self._add_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._add_btn.setIcon(icon(MDI6.plus_thick, color=GREEN))
         self._add_btn.setStyleSheet(ALIGN_LEFT)
         self._add_btn.clicked.connect(self._add_row)
         self._remove_btn = QPushButton("Remove Selected")
+        self._remove_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._remove_btn.setIcon(icon(MDI6.close_box_outline, color=RED))
         self._remove_btn.setStyleSheet(ALIGN_LEFT)
         self._remove_btn.clicked.connect(self._remove_selected)
         self._remove_all_btn = QPushButton("Remove All")
+        self._remove_all_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._remove_all_btn.setIcon(icon(MDI6.close_box_multiple_outline, color=RED))
         self._remove_all_btn.setStyleSheet(ALIGN_LEFT)
         self._remove_all_btn.clicked.connect(self._remove_all)
@@ -153,14 +157,26 @@ class _ConditionTable(QGroupBox):
         self._table.clearContents()
 
     def _add_row(self) -> None:
+        # check the other colors and make sure the color is unique
+        current_colors = [
+            self._table.cellWidget(i, 0).value()[1]
+            for i in range(self._table.rowCount() - 1)
+        ]
+        new_color = QColor.colorNames()[0]
+        while True:
+            idx = np.random.randint(0, len(QColor.colorNames()))
+            new_color = QColor.colorNames()[idx]
+            if new_color not in current_colors:
+                break
         self._table.insertRow(self._table.rowCount())
         wdg = _ConditionWidget()
+        wdg.setValue(("", new_color))
         wdg.valueChanged.connect(self._on_value_changed)
         self._table.setCellWidget(self._table.rowCount() - 1, 0, wdg)
 
     def _remove_selected(self) -> None:
         if selected := [i.row() for i in self._table.selectedIndexes()]:
-            for sel in selected:
+            for sel in reversed(selected):
                 value = self._table.cellWidget(sel, 0).value()
                 self._table.removeRow(sel)
                 self.row_deleted.emit(value)
