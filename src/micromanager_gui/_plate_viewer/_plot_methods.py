@@ -47,7 +47,8 @@ def plot_traces(
     photobleach_corrected: bool = False,
     with_peaks: bool = False,
     used_for_bleach_correction: bool = False,
-    raster: bool = False
+    raster: bool = False,
+    width: bool = False
 ) -> None:
     """Plot various types of traces."""
     # Clear the figure
@@ -70,11 +71,17 @@ def plot_traces(
         title_parts.append("Raster Plot")
     ax.set_title(" - ".join(title_parts))
 
-    colors = [f"C{i}" for i in range(len(data))]
     count = 0
+
+    # raster
+    colors = [f"C{i}" for i in range(len(data))]
     spikes = []
+    spike_width = []
     roi_to_draw = []
     colors_to_plot = []
+    width_max = 0
+    width_min = 5
+
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
@@ -122,15 +129,38 @@ def plot_traces(
         if raster:
             peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
             spikes.append(peaks)
+            # print('+++++++++++++++++++++++++++++++++')
+            # print(f"    length of peaks at ={key}= is {len(peaks)}")
+            # print(f"{peaks}")
+            # print('--------------------------------')
             colors_to_plot.append(colors[int(key)-1])
             roi_to_draw.append(int(key))
+
+            # if width:
+            #     linewidth = [pk.end - pk.start for pk in roi_data.peaks if pk.peak is not None]
+            #     width_max = max(max(linewidth), width_max) if len(linewidth) > 0 else width_max
+            #     width_min = min(min(linewidth), width_min) if len(linewidth) > 0 else width_min
+
+            #     print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
+            #     print(f"{linewidth}")
+            #     print(f"shape of peaks and width is the same: {len(peaks)==len(linewidth)}")
+            #     print('==============================')
+            #     spike_width.append(linewidth)
+            # else:
+            #     spike_width.append(1)
+
 
         count += COUNT_INCREMENT
     
     if raster and len(spikes)>0:
+        # print(f"        -----shape of spike_width: {len(spike_width)}")
+        # print(f"        ==========shape of spikes: {len(spikes)}")
+        # if width:
+        #     spike_width = (spike_width-width_min)/(width_max-width_min)
         ax.eventplot(
             spikes,
-            colors=colors_to_plot
+            colors=colors_to_plot,
+            # linewidths=spike_width
             )
 
     # Add hover functionality using mplcursors
@@ -138,18 +168,14 @@ def plot_traces(
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
-        # if raster:
-        #     label_list = [num for num in sel.artist.get_label() if num.isdigit()]
-        #     index = int(''.join(label_list))
-        #     roi = f"ROI {str(roi_to_draw[index])}"
-        #     sel.artist.set_label(roi)
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         # emit the graph widget roiSelected signal
         if sel.artist.get_label():
             if raster:
                 label_list = [num for num in sel.artist.get_label() if num.isdigit()]
                 index = int(''.join(label_list))
-                roi = f" ROI {str(roi_to_draw[index])}"
+                roi = str(roi_to_draw[index])
+                sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
             else:    
                 roi = cast(str, sel.artist.get_label().split(" ")[1])            
             

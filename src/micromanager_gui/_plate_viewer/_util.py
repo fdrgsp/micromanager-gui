@@ -36,6 +36,8 @@ class Peaks(BaseClass):
     raise_time: float | None = None
     decay_time: float | None = None
     max_slope: float | None = None
+    start: int | None = None
+    end: int | None = None
     # ... add whatever other data we need
 
 

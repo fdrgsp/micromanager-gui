@@ -509,7 +509,9 @@ class _AnalyseCalciumTraces(QWidget):
                              amplitude=amplitudes[i],
                              max_slope=max_slopes[i],
                              raise_time=raise_time[i],
-                             decay_time=decay_time[i]
+                             decay_time=decay_time[i],
+                             start=start[i],
+                             end=end[i]
                              ) for i in range(len(new_peaks))],
                 mean_amplitude=mean_amplitude,
                 mean_amplitude_stdev=mean_amplitude_stdev,
