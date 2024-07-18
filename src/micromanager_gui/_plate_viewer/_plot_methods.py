@@ -69,6 +69,8 @@ def plot_traces(
         title_parts.append("Peaks")
     if raster:
         title_parts.append("Raster Plot")
+        if width:
+            title_parts.append("with width")
     ax.set_title(" - ".join(title_parts))
 
     count = 0
@@ -129,25 +131,25 @@ def plot_traces(
         if raster:
             peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
             spikes.append(peaks)
-            # print('+++++++++++++++++++++++++++++++++')
-            # print(f"    length of peaks at ={key}= is {len(peaks)}")
-            # print(f"{peaks}")
-            # print('--------------------------------')
+            print('+++++++++++++++++++++++++++++++++')
+            print(f"    length of peaks at ={key}= is {len(peaks)}")
+            print(f"{peaks}")
+            print('--------------------------------')
             colors_to_plot.append(colors[int(key)-1])
             roi_to_draw.append(int(key))
 
-            # if width:
-            #     linewidth = [pk.end - pk.start for pk in roi_data.peaks if pk.peak is not None]
-            #     width_max = max(max(linewidth), width_max) if len(linewidth) > 0 else width_max
-            #     width_min = min(min(linewidth), width_min) if len(linewidth) > 0 else width_min
+            if width:
+                linewidth = [pk.end - pk.start for pk in roi_data.peaks if pk.peak is not None]
+                width_max = max(max(linewidth), width_max) if len(linewidth) > 0 else width_max
+                width_min = min(min(linewidth), width_min) if len(linewidth) > 0 else width_min
 
-            #     print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
-            #     print(f"{linewidth}")
-            #     print(f"shape of peaks and width is the same: {len(peaks)==len(linewidth)}")
-            #     print('==============================')
-            #     spike_width.append(linewidth)
-            # else:
-            #     spike_width.append(1)
+                print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
+                print(f"{linewidth}")
+                print(f"shape of peaks and width is the same: {len(peaks)==len(linewidth)}")
+                print('==============================')
+                spike_width.append(linewidth)
+            else:
+                spike_width.append(1)
 
 
         count += COUNT_INCREMENT
