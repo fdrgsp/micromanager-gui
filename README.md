@@ -38,22 +38,10 @@ You also need to install the `Micro-Manager` device adapters and C++ core provid
 ## To run the Micro-Manger GUI
 
 ```bash
-python -m micromanager_gui
-```
-
-or
-
-```bash
 mmgui
 ```
 
 By passing the `-c` or `-config` flag, you can specify the path of a micromanager configuration file you want to load. For example:
-
-```bash
-python -m micromanager_gui -c path/to/config.cfg
-```
-
-or
 
 ```bash
 mmgui -c path/to/config.cfg
@@ -64,12 +52,6 @@ mmgui -c path/to/config.cfg
 By passing the `-s` or `-slack` boolean flag, you will be able to use a `SlackBot` to control the microscope. In particular, you will be able to start and stop the acquisition and to get the progress of the acquisition.
 
 For example:
-
-```bash
-python -m micromanager_gui -c path/to/config.cfg -s True
-```
-
-or
 
 ```bash
 mmgui -c path/to/config.cfg -s True
