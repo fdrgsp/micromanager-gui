@@ -35,6 +35,8 @@ ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
 # from ._segment_neurons import SegmentNeurons
 
+ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
+
 
 class MicroManagerGUI(QMainWindow):
     """Micro-Manager minimal GUI."""
