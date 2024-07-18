@@ -11,6 +11,8 @@ __author__ = "Federico Gasparoli"
 __email__ = "federico.gasparoli@gmail.com"
 
 
+from micromanager_gui._plate_viewer import PlateViewer
+
 from ._main_window import MicroManagerGUI
 
-__all__ = ["MicroManagerGUI"]
+__all__ = ["MicroManagerGUI", "PlateViewer"]

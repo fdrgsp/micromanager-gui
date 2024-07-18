@@ -85,7 +85,6 @@ class ArduinoEngine(MDAEngine):
         """Execute an individual event and return the image data."""
         action = getattr(event, "action", None)
         if isinstance(action, HardwareAutofocus):
-            print(f"***Autofocus Event: {event.index}, action: {action}***")
             # skip if no autofocus device is found
             if not self._mmc.getAutoFocusDevice():
                 logger.warning("No autofocus device found. Cannot execute autofocus.")

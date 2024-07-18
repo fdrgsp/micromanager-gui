@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
+from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
-from micromanager_gui import MicroManagerGUI
+from micromanager_gui import MicroManagerGUI, PlateViewer
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -38,11 +42,26 @@ def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parser.parse_args(args)
 
     app = QApplication([])
+    app.setWindowIcon(QIcon(str(ICON)))
     win = MicroManagerGUI(config=parsed_args.config, slackbot=parsed_args.slack)
     win.show()
 
     sys.excepthook = _our_excepthook
     app.exec_()
+
+
+def plate_viewer() -> None:
+    """Open the Plate Viewer."""
+    from fonticon_mdi6 import MDI6
+    from qtpy.QtGui import QIcon
+    from superqt.fonticon import icon
+
+    app = QApplication([])
+    app.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
+    pl = PlateViewer()
+    pl.show()
+    sys.excepthook = _our_excepthook
+    app.exec()
 
 
 def _our_excepthook(

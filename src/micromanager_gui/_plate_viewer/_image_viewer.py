@@ -313,7 +313,7 @@ class _ImageCanvas(QWidget):
 
         self.labels_image = self._imcls(
             labels,
-            cmap=cmap.Colormap("tab20").to_vispy(),
+            cmap=cmap.Colormap("glasbey").to_vispy(),
             clim=(labels.min(), labels.max()),
             parent=self.view.scene,
         )
