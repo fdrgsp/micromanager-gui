@@ -508,15 +508,11 @@ class PlateViewer(QMainWindow):
         self._plate_map_genotype.setPlate(plate)
         self._plate_map_treatment.setPlate(plate)
         # load plate map if exists
-        print()
-        print("self._analysis_file_path", self._analysis_file_path)
         if self._analysis_file_path is not None:
             gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
-            print("gen_path", gen_path, gen_path.exists())
             if gen_path.exists():
                 self._plate_map_genotype.setValue(gen_path)
             treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
-            print("treat_path", treat_path, treat_path.exists())
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 
