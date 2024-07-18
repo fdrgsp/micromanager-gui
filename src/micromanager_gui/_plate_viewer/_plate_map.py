@@ -242,6 +242,7 @@ class PlateMapWidget(QWidget):
         layout.setSpacing(5)
         if title:
             title_label = QLabel(title)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             title_label.setStyleSheet("font-weight: bold; font-size: 20pt;")
             layout.addWidget(title_label)
         layout.addWidget(top_wdg)

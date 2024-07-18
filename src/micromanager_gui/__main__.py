@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Sequence
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
-from micromanager_gui import MicroManagerGUI
+from micromanager_gui import MicroManagerGUI, PlateViewer
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -48,6 +48,15 @@ def main(args: Sequence[str] | None = None) -> None:
 
     sys.excepthook = _our_excepthook
     app.exec_()
+
+
+def plate_viewer() -> None:
+    """Open the Plate Viewer."""
+    app = QApplication([])
+    pl = PlateViewer()
+    pl.show()
+    sys.excepthook = _our_excepthook
+    app.exec()
 
 
 def _our_excepthook(
