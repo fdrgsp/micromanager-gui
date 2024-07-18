@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Generator, cast
 
 import numpy as np
 import tifffile
+from fonticon_mdi6 import MDI6
 from pymmcore_widgets._stack_viewer_v2 import StackViewer
 from pymmcore_widgets.hcs._graphics_items import Well, _WellGraphicsItem
 from pymmcore_widgets.hcs._plate_model import Plate
@@ -15,8 +16,8 @@ from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
 from pymmcore_widgets.mda._core_mda import HCS
 from pymmcore_widgets.mda._save_widget import OME_ZARR, WRITERS, ZARR_TESNSORSTORE
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QBrush, QColor, QPen
+from qtpy.QtCore import QSize, Qt
+from qtpy.QtGui import QBrush, QColor, QIcon, QPen
 from qtpy.QtWidgets import (
     QDialog,
     QGridLayout,
@@ -30,6 +31,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
@@ -91,6 +93,7 @@ class PlateViewer(QMainWindow):
         super().__init__(parent)
 
         self.setWindowTitle("Plate Viewer")
+        self.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
 
         sys.excepthook = _our_excepthook
 
@@ -177,6 +180,8 @@ class PlateViewer(QMainWindow):
         plate_map_layout.addWidget(self._plate_map_treatment)
 
         self._plate_map_btn = QPushButton("Show/Edit Plate Map")
+        self._plate_map_btn.setIcon(icon(MDI6.compass_outline))
+        self._plate_map_btn.setIconSize(QSize(25, 25))
         self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
         plate_map_group = QGroupBox("Plate Map")
         plate_map_group_layout = QHBoxLayout(plate_map_group)

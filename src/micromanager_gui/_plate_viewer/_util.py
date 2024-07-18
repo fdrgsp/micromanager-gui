@@ -17,6 +17,8 @@ from qtpy.QtWidgets import (
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
 
+RED = "#C33"
+GREEN = "#00FF00"
 GENOTYPE_MAP = "genotype_plate_map.json"
 TREATMENT_MAP = "treatment_plate_map.json"
 

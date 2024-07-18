@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any, Generator
 import tifffile
 from cellpose import models
 from cellpose.models import CellposeModel
+from fonticon_mdi6 import MDI6
+from qtpy.QtCore import QSize
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -22,11 +25,12 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
-from ._util import _ElapsedTimer, parse_lineedit_text, show_error_dialog
+from ._util import GREEN, RED, _ElapsedTimer, parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
     import numpy as np
@@ -166,9 +170,13 @@ class _CellposeSegmentation(QWidget):
 
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
+        self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
+        self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_label = QLabel("[0/0]")

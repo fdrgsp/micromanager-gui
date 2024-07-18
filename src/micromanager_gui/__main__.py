@@ -52,7 +52,12 @@ def main(args: Sequence[str] | None = None) -> None:
 
 def plate_viewer() -> None:
     """Open the Plate Viewer."""
+    from fonticon_mdi6 import MDI6
+    from qtpy.QtGui import QIcon
+    from superqt.fonticon import icon
+
     app = QApplication([])
+    app.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
     pl = PlateViewer()
     pl.show()
     sys.excepthook = _our_excepthook

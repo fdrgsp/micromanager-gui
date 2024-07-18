@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
-from qtpy.QtCore import Signal
+from fonticon_mdi6 import MDI6
+from qtpy.QtCore import QSize, Signal
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
@@ -25,12 +27,15 @@ from qtpy.QtWidgets import (
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks, savgol_filter
 from scipy.stats import pearsonr
+from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
 from ._util import (
     GENOTYPE_MAP,
+    GREEN,
+    RED,
     TREATMENT_MAP,
     Peaks,
     ROIData,
@@ -124,9 +129,13 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
+        self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
+        self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
+        self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
+        self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_bar = QProgressBar(self)

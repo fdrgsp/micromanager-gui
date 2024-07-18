@@ -24,12 +24,11 @@ from qtpy.QtWidgets import (
 from superqt.fonticon import icon
 
 from ._plate_map_graphic_scene import _PlateMapScene
+from ._util import GREEN, RED
 
 if TYPE_CHECKING:
     from pymmcore_widgets.hcs._graphics_items import _WellGraphicsItem
 
-RED = "#C33"
-GREEN = "#00FF00"
 ALIGN_LEFT = "QPushButton { text-align: left;}"
 UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
 PEN = QPen(Qt.GlobalColor.black)
