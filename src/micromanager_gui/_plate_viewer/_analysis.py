@@ -109,7 +109,6 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # self._output_path = _SelectAnalysisPath(
         self._output_path = _BrowseWidget(
             self,
             "Analysis Output Path",
@@ -146,8 +145,8 @@ class _AnalyseCalciumTraces(QWidget):
         self.progress_bar_updated.connect(self._update_progress_bar)
 
         self.groupbox = QGroupBox("Extract Traces", self)
-        self.groupbox.setCheckable(True)
-        self.groupbox.setChecked(False)
+        # self.groupbox.setCheckable(True)
+        # self.groupbox.setChecked(False)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
@@ -156,7 +155,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 

@@ -182,8 +182,8 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._elapsed_time_label)
 
         self.groupbox = QGroupBox("Cellpose Segmentation", self)
-        self.groupbox.setCheckable(True)
-        self.groupbox.setChecked(False)
+        # self.groupbox.setCheckable(True)
+        # self.groupbox.setChecked(False)
         settings_groupbox_layout = QGridLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
@@ -196,7 +196,7 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.groupbox)
         main_layout.addStretch(1)
 

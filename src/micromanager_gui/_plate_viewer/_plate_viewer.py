@@ -18,11 +18,13 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QBrush, QColor, QPen
 from qtpy.QtWidgets import (
+    QDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QMainWindow,
     QMenuBar,
+    QPushButton,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -155,30 +157,42 @@ class PlateViewer(QMainWindow):
         self.splitter_bottom_left.addWidget(self._image_viewer)
 
         # right widgets --------------------------------------------------
+
         # tab widget
         self._tab = QTabWidget(self)
         self._tab.currentChanged.connect(self._on_tab_changed)
 
-        # plate map tab
-        self._plate_map_tab = QWidget()
-        self._tab.addTab(self._plate_map_tab, "Plate Map Tab")
-        plate_map_layout = QHBoxLayout(self._plate_map_tab)
-        plate_map_layout.setContentsMargins(5, 5, 5, 5)
-        plate_map_layout.setSpacing(5)
-        self._plate_map_genotype = PlateMapWidget(self)
-        plate_map_layout.addWidget(self._plate_map_genotype)
-        self._plate_map_treatment = PlateMapWidget(self)
-        plate_map_layout.addWidget(self._plate_map_treatment)
-
         # analysis tab
         self._analysis_tab = QWidget()
         self._tab.addTab(self._analysis_tab, "Analysis Tab")
-        analysis_layout = QVBoxLayout(self._analysis_tab)
-        analysis_layout.setContentsMargins(5, 5, 5, 5)
-        analysis_layout.setSpacing(5)
+
+        # plate map
+        self._plate_map_dialog = QDialog(self)
+        plate_map_layout = QHBoxLayout(self._plate_map_dialog)
+        plate_map_layout.setContentsMargins(10, 10, 10, 10)
+        plate_map_layout.setSpacing(5)
+        self._plate_map_genotype = PlateMapWidget(self, title="Genotype Map")
+        plate_map_layout.addWidget(self._plate_map_genotype)
+        self._plate_map_treatment = PlateMapWidget(self, title="Treatment Map")
+        plate_map_layout.addWidget(self._plate_map_treatment)
+
+        self._plate_map_btn = QPushButton("Show/Edit Plate Map")
+        self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
+        plate_map_group = QGroupBox("Plate Map")
+        plate_map_group_layout = QHBoxLayout(plate_map_group)
+        plate_map_group_layout.setContentsMargins(10, 10, 10, 10)
+        plate_map_group_layout.setSpacing(5)
+        plate_map_group_layout.addWidget(self._plate_map_btn)
+        plate_map_group_layout.addStretch(1)
+
         self._segmentation_wdg = _CellposeSegmentation(self)
-        analysis_layout.addWidget(self._segmentation_wdg)
         self._analysis_wdg = _AnalyseCalciumTraces(self)
+
+        analysis_layout = QVBoxLayout(self._analysis_tab)
+        analysis_layout.setContentsMargins(10, 10, 10, 10)
+        analysis_layout.setSpacing(15)
+        analysis_layout.addWidget(plate_map_group)
+        analysis_layout.addWidget(self._segmentation_wdg)
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
@@ -188,13 +202,19 @@ class PlateViewer(QMainWindow):
         visualization_layout = QGridLayout(self._visualization_tab)
         visualization_layout.setContentsMargins(5, 5, 5, 5)
         visualization_layout.setSpacing(5)
-        # graphs widget
+
         self._graph_wdg_1 = _GraphWidget(self)
         self._graph_wdg_2 = _GraphWidget(self)
         self._graph_wdg_3 = _GraphWidget(self)
         self._graph_wdg_4 = _GraphWidget(self)
         self._graph_wdg_5 = _GraphWidget(self)
         self._graph_wdg_6 = _GraphWidget(self)
+        visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
+        visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
+        visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
+        visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
+        visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
+        visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
 
         self.GRAPHS = [
             self._graph_wdg_1,
@@ -204,12 +224,6 @@ class PlateViewer(QMainWindow):
             self._graph_wdg_5,
             self._graph_wdg_6,
         ]
-        visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
-        visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
-        visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
-        visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
-        visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
-        visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
 
         # connect the roiSelected signal from the graphs to the image viewer so we can
         # highlight the roi in the image viewer when a roi is selected in the graph
@@ -223,7 +237,7 @@ class PlateViewer(QMainWindow):
         self.main_splitter.addWidget(self.splitter_bottom_left)
         self.main_splitter.addWidget(self._tab)
 
-        # add widgets to the layout
+        # add widgets to central widget
         self._central_widget_layout.addWidget(self.main_splitter)
 
         self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
@@ -238,16 +252,16 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
         # reader = OMEZarrReader(data)
         # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
-        data = (
-            r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-            "Chronic.tensorstore.zarr"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
-        self._init_widget(reader)
+        # data = (
+        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
+        #     "Chronic.tensorstore.zarr"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
+        # # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
+        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
+        # self._init_widget(reader)
 
     @property
     def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -287,6 +301,14 @@ class PlateViewer(QMainWindow):
     @property
     def labels(self) -> dict[str, np.ndarray]:
         return self._segmentation_wdg.labels
+
+    def _show_plate_map_dialog(self) -> None:
+        """Show the plate map dialog."""
+        if self._plate_map_dialog.isHidden():
+            self._plate_map_dialog.show()
+        else:
+            self._plate_map_dialog.raise_()
+            self._plate_map_dialog.activateWindow()
 
     def _on_tab_changed(self, idx: int) -> None:
         """Update the grapg combo boxes when the tab is changed."""

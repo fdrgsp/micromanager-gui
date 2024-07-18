@@ -203,6 +203,7 @@ class PlateMapWidget(QWidget):
     def __init__(
         self,
         parent: QWidget | None = None,
+        title: str = "",
         plate: Plate | None = None,
     ) -> None:
         super().__init__(parent)
@@ -237,6 +238,12 @@ class PlateMapWidget(QWidget):
         self.list.row_deleted.connect(self._remove_condition)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        if title:
+            title_label = QLabel(title)
+            title_label.setStyleSheet("font-weight: bold; font-size: 20pt;")
+            layout.addWidget(title_label)
         layout.addWidget(top_wdg)
         layout.addWidget(self.list)
 
