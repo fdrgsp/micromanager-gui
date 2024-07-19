@@ -20,6 +20,7 @@ from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import qthrottled, signals_blocked
 from vispy import scene
+from vispy.color import Colormap
 
 from ._util import parse_lineedit_text, show_error_dialog
 
@@ -313,13 +314,21 @@ class _ImageCanvas(QWidget):
 
         self.labels_image = self._imcls(
             labels,
-            cmap=cmap.Colormap("glasbey").to_vispy(),
+            cmap=self._labels_custom_cmap(labels.max()),
             clim=(labels.min(), labels.max()),
             parent=self.view.scene,
         )
         self.labels_image.set_gl_state("additive", depth_test=False)
         self.labels_image.interactive = True
         self.labels_image.visible = False
+
+    def _labels_custom_cmap(self, n_labels: int) -> Colormap:
+        """Create a custom colormap for the labels."""
+        colors = np.zeros((n_labels + 1, 4))
+        colors[0] = [0, 0, 0, 1]  # Black for background (0)
+        for i in range(1, n_labels + 1):
+            colors[i] = [1, 1, 1, 1]  # White for all other labels
+        return Colormap(colors)
 
     def _on_mouse_move(self, event: SceneMouseEvent) -> None:
         """Update the pixel value when the mouse moves."""
