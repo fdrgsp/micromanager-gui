@@ -183,12 +183,19 @@ class PlateViewer(QMainWindow):
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
-        # visualization tab
+        # visualization/FOV tab
         self._visualization_tab = QWidget()
-        self._tab.addTab(self._visualization_tab, "Single Wells Visualization Tab")
+        self._tab.addTab(self._visualization_tab, "Single FOV Visualization Tab")
         visualization_layout = QGridLayout(self._visualization_tab)
         visualization_layout.setContentsMargins(5, 5, 5, 5)
         visualization_layout.setSpacing(5)
+
+        # visualization per well tab
+        self._vis_well_tab = QWidget()
+        self._tab.addTab(self._vis_well_tab, "Visualization by condition Tab")
+        vis_cond_layout = QGridLayout(self._vis_well_tab)
+        vis_cond_layout.setContentsMargins(5, 5, 5, 5)
+        vis_cond_layout.setSpacing(5)
 
         self._graph_wdg_1 = _GraphWidget(self)
         self._graph_wdg_2 = _GraphWidget(self)
@@ -202,6 +209,13 @@ class PlateViewer(QMainWindow):
         visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
         visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
         visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
+        
+        vis_cond_layout.addWidget(self._graph_wdg_1, 0, 0)
+        vis_cond_layout.addWidget(self._graph_wdg_2, 0, 1)
+        vis_cond_layout.addWidget(self._graph_wdg_3, 0, 2)
+        vis_cond_layout.addWidget(self._graph_wdg_4, 1, 0)
+        vis_cond_layout.addWidget(self._graph_wdg_5, 1, 1)
+        vis_cond_layout.addWidget(self._graph_wdg_6, 1, 2)
 
         self.GRAPHS = [
             self._graph_wdg_1,
