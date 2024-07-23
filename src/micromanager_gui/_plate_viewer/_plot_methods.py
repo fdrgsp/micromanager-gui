@@ -7,8 +7,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from ._graph_widget import _GraphWidget
-    from ._util import ROIData
-    from ._util import Peaks
+    from ._util import Peaks, ROIData
 
 COUNT_INCREMENT = 1
 
@@ -141,12 +140,13 @@ def plot_traces(
             roi_to_draw.append(int(key))
 
             if width:
-                linewidth = [pk.end - pk.start for pk in roi_data.peaks if pk.peak is not None]
-                width_min = min(min(linewidth), width_min) if len(linewidth) > 0 else width_min
+                linewidth = [pk.end - pk.start for pk in roi_data.peaks if (
+                    pk.peak is not None)]
+                width_min = min(min(linewidth), width_min) if len(linewidth
+                                                                  ) > 0 else width_min
 
                 print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
                 print(f"{linewidth}")
-                print(f"shape of peaks and width is the same: {len(peaks)==len(linewidth)}")
                 print('==============================')
                 spike_width.append(linewidth)
             else:
@@ -154,12 +154,13 @@ def plot_traces(
 
 
         count += COUNT_INCREMENT
-    
+
     if raster and len(spikes)>0:
         # print(f"        -----shape of spike_width: {len(spike_width)}")
         # print(f"        ==========shape of spikes: {len(spikes)}")
-        if width:
-            spike_width = [(pk_width-width_min)/(total_frames-width_min) for pk_width in spike_width]
+        # if width:
+        #     spike_width = [(pk_width-width_min)/(total_frames-width_min
+        #                                          ) for pk_width in spike_width]
         ax.eventplot(
             spikes,
             colors=colors_to_plot,
@@ -179,9 +180,9 @@ def plot_traces(
                 index = int(''.join(label_list))
                 roi = str(roi_to_draw[index])
                 sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
-            else:    
-                roi = cast(str, sel.artist.get_label().split(" ")[1])            
-            
+            else:
+                roi = cast(str, sel.artist.get_label().split(" ")[1])
+
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
 
