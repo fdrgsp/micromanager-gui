@@ -222,6 +222,7 @@ class PlateMapWidget(QWidget):
         plate: Plate | None = None,
     ) -> None:
         super().__init__(parent)
+        self.cond_list: dict | None = None
 
         self.scene = _PlateMapScene()
         self.view = _ResizingGraphicsView(self.scene)
@@ -381,6 +382,9 @@ class PlateMapWidget(QWidget):
         with open(dir_file, "w") as pmap:
             json.dump(self.value(), pmap)
 
+        if not self.cond_list:
+            self.cond_list = self._get_cond_list()
+
     def _load_plate_map(self) -> None:
         (filename, _) = QFileDialog.getOpenFileName(
             self, "Open plate map json file.", "", "json(*.json)"
@@ -390,3 +394,22 @@ class PlateMapWidget(QWidget):
         with open(filename) as pmap:
             data = json.load(pmap)
         self.setValue(data)
+
+        if not self.cond_list:
+            self.cond_list = self._get_cond_list()
+
+    # NOTE: should row and column be included?
+    def _get_cond_list(self) -> dict[str, dict[str]]:
+        """Get a list of condtions."""
+        wells = self.value()
+        cond_list = {}
+
+        if len(wells) > 0:
+            for well in wells:
+                cond = well.condition
+                if not cond_list.get(cond):
+                    cond_list[cond] = {'color': well.color,
+                                       'name': []}
+                cond_list[cond]['name'].append(well.name)
+
+        return cond_list

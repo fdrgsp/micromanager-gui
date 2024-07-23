@@ -39,6 +39,7 @@ from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrRe
 from ._analysis import _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
+from ._graph_widget_cond import _GraphWidget_cond
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
 from ._plate_map import PlateMapWidget
@@ -190,13 +191,6 @@ class PlateViewer(QMainWindow):
         visualization_layout.setContentsMargins(5, 5, 5, 5)
         visualization_layout.setSpacing(5)
 
-        # visualization per well tab
-        self._vis_well_tab = QWidget()
-        self._tab.addTab(self._vis_well_tab, "Visualization by condition Tab")
-        vis_cond_layout = QGridLayout(self._vis_well_tab)
-        vis_cond_layout.setContentsMargins(5, 5, 5, 5)
-        vis_cond_layout.setSpacing(5)
-
         self._graph_wdg_1 = _GraphWidget(self)
         self._graph_wdg_2 = _GraphWidget(self)
         self._graph_wdg_3 = _GraphWidget(self)
@@ -209,13 +203,26 @@ class PlateViewer(QMainWindow):
         visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
         visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
         visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
-        
-        vis_cond_layout.addWidget(self._graph_wdg_1, 0, 0)
-        vis_cond_layout.addWidget(self._graph_wdg_2, 0, 1)
-        vis_cond_layout.addWidget(self._graph_wdg_3, 0, 2)
-        vis_cond_layout.addWidget(self._graph_wdg_4, 1, 0)
-        vis_cond_layout.addWidget(self._graph_wdg_5, 1, 1)
-        vis_cond_layout.addWidget(self._graph_wdg_6, 1, 2)
+
+        # visualization per well tab
+        self._vis_well_tab = QWidget()
+        self._tab.addTab(self._vis_well_tab, "Visualization by condition Tab")
+        vis_cond_layout = QGridLayout(self._vis_well_tab)
+        vis_cond_layout.setContentsMargins(5, 5, 5, 5)
+        vis_cond_layout.setSpacing(5)
+
+        self._graph_wdg_7 = _GraphWidget_cond(self)
+        self._graph_wdg_8 = _GraphWidget_cond(self)
+        self._graph_wdg_9 = _GraphWidget_cond(self)
+        self._graph_wdg_10 = _GraphWidget_cond(self)
+        self._graph_wdg_11 = _GraphWidget_cond(self)
+        self._graph_wdg_12 = _GraphWidget_cond(self)
+        vis_cond_layout.addWidget(self._graph_wdg_7, 0, 0)
+        vis_cond_layout.addWidget(self._graph_wdg_8, 0, 1)
+        vis_cond_layout.addWidget(self._graph_wdg_9, 0, 2)
+        vis_cond_layout.addWidget(self._graph_wdg_10, 1, 0)
+        vis_cond_layout.addWidget(self._graph_wdg_11, 1, 1)
+        vis_cond_layout.addWidget(self._graph_wdg_12, 1, 2)
 
         self.GRAPHS = [
             self._graph_wdg_1,
@@ -312,7 +319,7 @@ class PlateViewer(QMainWindow):
             self._plate_map_dialog.activateWindow()
 
     def _on_tab_changed(self, idx: int) -> None:
-        """Update the grapg combo boxes when the tab is changed."""
+        """Update the graph combo boxes when the tab is changed."""
         if idx != 1:
             return
         # get the current fov
