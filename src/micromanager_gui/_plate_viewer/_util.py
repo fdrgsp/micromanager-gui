@@ -67,6 +67,8 @@ class ROIData(BaseClass):
     mean_decay_time_stdev: float | None = None
     mean_iei: float | None = None
     mean_iei_stdev: float | None = None
+    mean_max_slope: float | None = None
+    global_connectivity: float | None = None
     condition_1: str | None = None
     condition_2: str | None = None
     # ... add whatever other data we need

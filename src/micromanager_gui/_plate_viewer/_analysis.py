@@ -680,15 +680,16 @@ class _AnalyseCalciumTraces(QWidget):
         return cast(list[int], peaks.tolist())
 
     # TODO: are there better ways to find the start and end of a peak?
-    def old_get_amplitude(self, dff: list[float], peaks: list[Peaks], deriv_threhold=0.01,
-                        reset_num=17, neg_reset_num=2, total_dist=40, min_dist=5
+    def old_get_amplitude(self, dff: list[float], peaks: list[Peaks],
+                          deriv_threhold=0.01, reset_num=17, neg_reset_num=2,
+                          total_dist=40, min_dist=5
                         ) -> tuple[list[float], list[int], list[int], list[int]]:
         """Calculate amplitudes, peak indices, and base_indices of each ROI."""
         amplitudes = []
         start_indices = []
         end_indices = []
         remove_peaks = []
-        
+
         if len(peaks) > 0:
             dff_deriv = np.diff(dff) # the difference of dff across frames
 
@@ -793,7 +794,7 @@ class _AnalyseCalciumTraces(QWidget):
                     # print(f"            REMOVING {peaks[i]} because the amplitude is {amplitude}")
                 
                 # print(f"        amplitude: {amplitudes[-1]} from {start_indices[-1]} to {end_indices[-1]}")
-        
+
         new_peaks = [peak for peak in peaks if (peak not in remove_peaks)]
 
         return amplitudes, start_indices, end_indices, new_peaks
@@ -879,7 +880,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         return amplitudes, start_indices, end_indices, new_peaks
 
-    def _get_max_slope(self, dff: list[float], peaks: list[int], bases: list[int]) -> list[float]:
+    def _get_max_slope(self, dff: list[float], peaks: list[int], bases: list[int]
+                       ) -> list[float]:
         """Get max slope of each peak in one ROI."""
         max_slopes = []
 
@@ -907,7 +909,7 @@ class _AnalyseCalciumTraces(QWidget):
         )
 
         return cell_size_um
-    
+
     # NOTE: iei here is the time between the start index of each peak
     # the old is between each peak
     def _get_iei(self, start_indices: list[int], framerate: float) -> list[float]:
@@ -923,20 +925,23 @@ class _AnalyseCalciumTraces(QWidget):
             iei.append(iei_frames)
 
         return iei
-    
-    # NOTE: raise time here is from base to peak; FluoroSNNAO uses from base to max_slope point
-    def _get_raise_time(self, peaks: list[int], start: list[int], framerate: float) -> list[float]:
+
+    # NOTE: raise time here is from base to peak;
+    # FluoroSNNAO uses from base to max_slope point
+    def _get_raise_time(self, peaks: list[int], start: list[int], framerate: float
+                        ) -> list[float]:
         """Get Raise Time for each peak."""
         raise_time = [((peaks[i] - start[i] + 1)/framerate) for i in range(len(peaks))]
 
         return raise_time
-    
-    def _get_decay_time(self, peaks: list[int], end: list[int], framerate: float) -> list[float]:
+
+    def _get_decay_time(self, peaks: list[int], end: list[int], framerate: float
+                        ) -> list[float]:
         """Get decay time for each peak."""
         decay_time = [((end[i] - peaks[i] + 1)/ framerate) for i in range(len(peaks))]
 
         return decay_time
-    
+
     def _extract_metadata(self, meta):
         """Extract information from metadata."""
         binning = int(meta[0].get('pco_camera-Binning'))
