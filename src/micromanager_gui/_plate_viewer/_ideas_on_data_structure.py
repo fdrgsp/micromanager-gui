@@ -70,3 +70,20 @@
 
 
 # we can also convert it to a MultiIndex DataFrame
+
+
+# treatment_cond_list = {
+#     'Untreated': {'color': 'blue',
+#                   'name': ['B2', 'C2', 'D2',...]},
+#     'VC': {'color': 'green',
+#            'name': ['B3', 'C3', 'D3',...]},
+#     ...
+# }
+
+# genotype_cond_list = {
+#     '+/+': {'color': 'blue',
+#             'name': ['B2', 'B3', 'B4',...]},
+#     '+/-': {'color': 'green',
+#            'name': ['D2', 'D3', 'D4',...]},
+#     ...
+# }

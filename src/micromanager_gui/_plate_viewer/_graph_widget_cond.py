@@ -39,14 +39,14 @@ GLOBAL_CONNECTIVITY = "Global connectivity"
 
 # dff=False, normalize=False, photobleach_corrected=False, with_peaks=False, used_for_bleach_correction=False  # noqa: E501
 COMBO_OPTIONS: dict[str, dict[str, bool]] = {
-    AVERAGE_AMPLITUDES: {},
-    AVERAGE_FREQUENCY: {},
-    AVERAGE_MAX_SLOPE: {},
-    AVERAGE_RISE_TIME: {},
-    AVERAGE_DECAY_TIME: {},
-    AVERAGE_IEI: {},
-    AVERAGE_CELL_SIZE: {},
-    GLOBAL_CONNECTIVITY: {}
+    AVERAGE_AMPLITUDES: {"amplitude": True},
+    AVERAGE_FREQUENCY: {"frequency": True},
+    AVERAGE_MAX_SLOPE: {"max_slope": True},
+    AVERAGE_RISE_TIME: {"rise_time": True},
+    AVERAGE_DECAY_TIME: {"decay_time": True},
+    AVERAGE_IEI: {"iei": True},
+    AVERAGE_CELL_SIZE: {"cell_size": True},
+    GLOBAL_CONNECTIVITY: {"global_connectivity": True}
 }
 # fmt : on
 
@@ -87,15 +87,15 @@ class _CompareConditions(QWidget):
         group = self._group_sel.currentText()
 
         if not self._treatment_dict and \
-                self._graph._plate_viewer._plate_map_treatment.cond_list:
+                self._graph._plate_viewer._treatment_cond:
             self._treatment_dict = \
-                self._graph._plate_viewer._plate_map_treatment.cond_list
+                self._graph._plate_viewer._treatment_cond
             self._graph._treatment_dict = self._treatment_dict
 
         if not self._geno_dict and \
-            self._graph._plate_viewer._plate_map_genotype.cond_list:
+            self._graph._plate_viewer._genotype_cond:
             self._geno_dict = \
-                self._graph._plate_viewer._plate_map_genotype.cond_list
+                self._graph._plate_viewer._genotype_cond
             self._graph._geno_dict = self._geno_dict
 
         if self._treatment_dict or self._geno_dict:
@@ -147,28 +147,43 @@ class _GraphWidget_cond(QWidget):
         print(f"        group: {group}, condition: {condition}, metrics: {metrics}")
 
         fovs = self._plate_viewer._analysis_data.keys()
+        colors_to_compare = []
+        fovs_to_compare= []
         if group == "Genotype" and self._treatment_dict:
             wells_to_compare = self._treatment_dict[condition]['name']
-            colors_to_plot = self._treatment_dict[condition]['color']
-            # fov_grouped = [key for key, geno_data in self._geno_dict.items() if \
-            #                any(well in geno_data['name'] for well in wells_to_compare)]
+            colors_to_plot = [values['color'] for values in self._geno_dict.values()]
+            # for well, color in zip(wells_to_compare, colors_to_plot):
+            #     fovs_to_compare = [fov for fov in fovs if any(well in fov)]
+            #     colors_to_compare.append(color)
         elif group == "Treatment" and self._geno_dict:
-            print("here")
             wells_to_compare = self._geno_dict[condition]['name']
-            colors_to_plot = self._geno_dict[condition]['color']
-            # fov_grouped = [key for key, treatment_data in self._treatment_dict.items()\
-            #     if any(well in treatment_data['name'] for well in wells_to_compare)]
+            colors_to_plot = [values['color']\
+                              for values in self._treatment_dict.values()\
+                                if values['name'] != 'background']
+            
+        ###TODO: find a way to link the color
+
         elif condition == "All wells":
             ## TODO: all the wells
             return
 
-        fovs_to_compare = [fov for fov in fovs if any(
-            well in fov for well in wells_to_compare)]
+        for well, color in zip(wells_to_compare, colors_to_plot):
+            for fov in fovs:
+                if well in fov:
+                    print(f" well: {well}, fov: {fov}")
+                    fovs_to_compare.append(fov)
+                    colors_to_compare.append(color)
+
+        # fovs_to_compare = [fov for fov in fovs if any(
+        #     well in fov for well in wells_to_compare)]
         print(f" wells to compare for {condition} are {wells_to_compare}")
         print(f" fovs to compare are {fovs_to_compare}")
+        print(f'colors to plot: {colors_to_compare}')
 
         data = {fov: self._plate_viewer.analysis_data[fov] for fov in fovs_to_compare\
                 if fov in self._plate_viewer.analysis_data}
+
+        print(f"                data from: {data.keys()}")
 
         compare_conditions(self, data, x_axis=group, y_axis=condition,
                             colors=colors_to_plot, **COMBO_OPTIONS[metrics])
@@ -210,7 +225,6 @@ class _ChooseMetrics(QWidget):
 
     def _on_combo_changed(self, text: str) -> None:
         """Update the graph when the combo box is changed."""
-        print("-> inside on combo changed")
         # clear the plot
         self._graph.clear_plot()
         if text == "None":

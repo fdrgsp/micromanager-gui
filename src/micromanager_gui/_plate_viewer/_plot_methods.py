@@ -92,7 +92,7 @@ def plot_traces(
             roi_data, dff, photobleach_corrected, used_for_bleach_correction
         )
         total_frames = len(trace)
-        print(f"        total frames: {total_frames}")
+        # print(f"        total frames: {total_frames}")
 
         if trace is None:
             continue
@@ -132,10 +132,10 @@ def plot_traces(
         if raster:
             peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
             spikes.append(peaks)
-            print('+++++++++++++++++++++++++++++++++')
-            print(f"    length of peaks at ={key}= is {len(peaks)}")
-            print(f"{peaks}")
-            print('--------------------------------')
+            # print('+++++++++++++++++++++++++++++++++')
+            # print(f"    length of peaks at ={key}= is {len(peaks)}")
+            # print(f"{peaks}")
+            # print('--------------------------------')
             colors_to_plot.append(colors[int(key)-1])
             roi_to_draw.append(int(key))
 
@@ -145,9 +145,9 @@ def plot_traces(
                 width_min = min(min(linewidth), width_min) if len(linewidth
                                                                   ) > 0 else width_min
 
-                print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
-                print(f"{linewidth}")
-                print('==============================')
+                # print(f"     shape of linewidth of ={key}= is {len(linewidth)}")
+                # print(f"{linewidth}")
+                # print('==============================')
                 spike_width.append(linewidth)
             else:
                 spike_width.append(1)

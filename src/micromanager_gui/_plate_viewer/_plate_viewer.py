@@ -173,6 +173,9 @@ class PlateViewer(QMainWindow):
         plate_map_group_layout.addWidget(self._plate_map_btn)
         plate_map_group_layout.addStretch(1)
 
+        self._genotype_cond: dict | None = None
+        self._treatment_cond: dict | None = None
+
         self._segmentation_wdg = _CellposeSegmentation(self)
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
@@ -232,6 +235,15 @@ class PlateViewer(QMainWindow):
             self._graph_wdg_5,
             self._graph_wdg_6,
         ]
+
+        self.well_graphs = {
+            self._graph_wdg_7,
+            self._graph_wdg_8,
+            self._graph_wdg_9,
+            self._graph_wdg_10,
+            self._graph_wdg_11,
+            self._graph_wdg_12,
+        }
 
         # connect the roiSelected signal from the graphs to the image viewer so we can
         # highlight the roi in the image viewer when a roi is selected in the graph
@@ -320,16 +332,22 @@ class PlateViewer(QMainWindow):
 
     def _on_tab_changed(self, idx: int) -> None:
         """Update the graph combo boxes when the tab is changed."""
-        if idx != 1:
-            return
-        # get the current fov
-        value = self._fov_table.value() if self._fov_table.selectedItems() else None
-        if value is None:
-            return
-        # get the analysis data for the current fov if it exists
-        analysis = self._analysis_data.get(str(value.fov.name), None)
-        # update the graphs combo boxes
-        self._update_graphs_combo(combo_red=(analysis is None))
+        if idx < 2:
+            value = self._fov_table.value() if self._fov_table.selectedItems() else None
+            if value is None:
+                return
+            # get the analysis data for the current fov if it exists
+            analysis = self._analysis_data.get(str(value.fov.name), None)
+            # update the graphs combo boxes
+            self._update_graphs_combo(combo_red=(analysis is None))
+        else:
+            self._update_plate_map()
+            if self._genotype_cond and self._treatment_cond and self._analysis_data:
+                pm = False
+            else:
+                pm = True
+
+            self._update_graphs_combo(combo_red=pm, wells=True)
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -551,6 +569,11 @@ class PlateViewer(QMainWindow):
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 
+    def _update_plate_map(self):
+        """Update plate map."""
+        self._treatment_cond = self._plate_map_treatment._get_cond_list()
+        self._genotype_cond = self._plate_map_genotype._get_cond_list()
+
     def _on_scene_well_changed(self, value: Well | None) -> None:
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
@@ -646,8 +669,13 @@ class PlateViewer(QMainWindow):
         set_title: str | None = None,
         combo_red: bool = False,
         clear: bool = False,
+        wells: bool = False
     ) -> None:
-        for graph in self.GRAPHS:
+        graphs = self.GRAPHS
+        if wells:
+            graphs = self.well_graphs
+
+        for graph in graphs:
             if set_title is not None:
                 graph.fov = set_title
 

@@ -382,9 +382,6 @@ class PlateMapWidget(QWidget):
         with open(dir_file, "w") as pmap:
             json.dump(self.value(), pmap)
 
-        if not self.cond_list:
-            self.cond_list = self._get_cond_list()
-
     def _load_plate_map(self) -> None:
         (filename, _) = QFileDialog.getOpenFileName(
             self, "Open plate map json file.", "", "json(*.json)"
@@ -394,9 +391,6 @@ class PlateMapWidget(QWidget):
         with open(filename) as pmap:
             data = json.load(pmap)
         self.setValue(data)
-
-        if not self.cond_list:
-            self.cond_list = self._get_cond_list()
 
     # NOTE: should row and column be included?
     def _get_cond_list(self) -> dict[str, dict[str]]:

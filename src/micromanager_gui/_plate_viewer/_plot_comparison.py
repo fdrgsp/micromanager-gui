@@ -42,6 +42,7 @@ def compare_conditions(
     max_slope: bool = False,
     rise_time: bool = False,
     decay_time: bool = False,
+    iei: bool = False,
     global_connectivity: bool = False,
     width: bool = False
 ) -> None:
@@ -66,6 +67,8 @@ def compare_conditions(
         title_parts.append("Average decay time")
     if global_connectivity:
         title_parts.append("Global connectivity")
+    if iei:
+        title_parts.append("Average Interevent Interval")
     if y_axis:
         title_parts.append(f"compared by {y_axis}")
 
@@ -74,47 +77,58 @@ def compare_conditions(
     count = 0
     data_to_plot = {}
 
-    for key in data:
-        print(f" key is {key}, data is {data[key]}")
-        roi_data = cast("ROIData", data[key])
+    for fov, fov_data in data.items():
+        for roi in fov_data:
+            roi_data = cast("ROIData", data[fov][roi])
 
-        #### TODO: why is this not casting????
-        print(f" type of roi data is {type(roi_data)}")
 
-        if x_axis == "Genotype":
-            cond_to_plot = roi_data.condition_1
-        elif x_axis == "Treatment":
-            cond_to_plot = roi_data.condition_2
+            if x_axis == "Genotype":
+                cond_to_plot = roi_data.condition_1
+            elif x_axis == "Treatment":
+                cond_to_plot = roi_data.condition_2
+            print(f"        condition: {cond_to_plot}")
+            if not data_to_plot.get(cond_to_plot):
+                data_to_plot[cond_to_plot] = []
+                count += COUNT_INCREMENT
 
-        if not data_to_plot.get(cond_to_plot):
-            data_to_plot[cond_to_plot] = []
+            if amplitude:
+                data_to_plot[cond_to_plot].append(roi_data.mean_amplitude)
+                print(f"roi: {roi}, amplitude: {roi_data.mean_amplitude}")
+            if frequency:
+                data_to_plot[cond_to_plot].append(roi_data.frequency)
 
-            if count > 0:
-                group_to_plot = data_to_plot[list(data_to_plot.keys())[count]]
-                ax.boxplot(group_to_plot, positions = [count + 1])
-            count += COUNT_INCREMENT
+            if cell_size:
+                data_to_plot[cond_to_plot].append(roi_data.cell_size)
 
-        if amplitude:
-            data_to_plot[cond_to_plot].append(roi_data.mean_amplitude)
+            if max_slope:
+                data_to_plot[cond_to_plot].append(roi_data.mean_max_slope)
 
-        if frequency:
-            data_to_plot[cond_to_plot].append(roi_data.frequency)
+            if rise_time:
+                data_to_plot[cond_to_plot].append(roi_data.mean_raise_time)
 
-        if cell_size:
-            data_to_plot[cond_to_plot].append(roi_data.cell_size)
+            if decay_time:
+                data_to_plot[cond_to_plot].append(roi_data.mean_decay_time)
 
-        if max_slope:
-            data_to_plot[cond_to_plot].append(roi_data.mean_max_slope)
+            if iei:
+                data_to_plot[cond_to_plot].append(roi_data.mean_iei)
 
-        if rise_time:
-            data_to_plot[cond_to_plot].append(roi_data.mean_raise_time)
+            if global_connectivity:
+                data_to_plot[cond_to_plot].append(roi_data.global_connectivity)
 
-        if decay_time:
-            data_to_plot[cond_to_plot].append(roi_data.mean_decay_time)
+    groups = list(data_to_plot.keys())
+    values = list(data_to_plot.values())
+    # print(f"        group length: {len(groups)}, groups: {groups}")
+    # print(f"        values length: {len(values)}, groups: {values[0]}")
 
-        if global_connectivity:
-            data_to_plot[cond_to_plot].append(roi_data.global_connectivity)
+    bp = ax.boxplot(values, labels=groups, patch_artist=True)
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
 
+    widget.figure.legend([bp["boxes"][i] for i in range(len(groups))],
+                         groups, loc='upper right')
+
+    ax.set_xlabel(x_axis)
+    ax.set_ylabel(y_axis)
 
     # Add hover functionality using mplcursors
     # cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -130,4 +144,4 @@ def compare_conditions(
     #         if roi.isdigit():
     #             widget.roiSelected.emit(roi)
 
-    # widget.canvas.draw()
+    widget.canvas.draw()
