@@ -442,18 +442,19 @@ class PlateViewer(QMainWindow):
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
         # the json file names should be in the form A1_0000.json
         for f in path_list:
-            if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
-                path_list.remove(f)
-                continue
             name = f.name.removesuffix(f.suffix)  # A1_0000
-            split = name.split("_")  # ["A1", "0000"]
-            if len(split) != 2:
+            if name in {GENOTYPE_MAP, TREATMENT_MAP}:
                 path_list.remove(f)
                 continue
-            if not split[1].isdigit():
+            split_name = name.split("_")  # ["A1", "0000"]
+            if len(split_name) != 2:
                 path_list.remove(f)
                 continue
-            if not re.match(r"^[a-zA-Z0-9]+$", split[0]):  # only letters and numbers
+            well, pos = split_name
+            if not re.match(r"^[a-zA-Z0-9]+$", well):  # only letters and numbers
+                path_list.remove(f)
+                continue
+            if not pos.isdigit():  # only digits
                 path_list.remove(f)
                 continue
         return path_list
