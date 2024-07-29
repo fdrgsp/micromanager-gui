@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Generator, cast
 
@@ -441,18 +442,13 @@ class PlateViewer(QMainWindow):
     # TODO: maybe use ThreadPoolExecutor
     def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
         """Load the analysis data from the given JSON file."""
-        json_files = list(path.glob("*.json"))
-        # exclude plate maps
-        json_files = [
-            f for f in json_files if f.name not in {GENOTYPE_MAP, TREATMENT_MAP}
-        ]
+        json_files = self._filter_data(list(path.glob("*.json")))
         self._loading_bar.setRange(0, len(json_files))
         try:
             # loop over the files in the directory
             for idx, f in enumerate(tqdm(json_files, desc="Loading Analysis Data")):
                 yield idx + 1
                 # get the name of the file without the extensions
-                # TODO: raise error if not a well name
                 well = f.name.removesuffix(f.suffix)
                 # create the dict for the well
                 self._analysis_data[well] = {}
@@ -481,6 +477,26 @@ class PlateViewer(QMainWindow):
         except Exception as e:
             show_error_dialog(self, f"Error loading the analysis data: {e}")
             self._analysis_data.clear()
+
+    def _filter_data(self, path_list: list[Path]) -> list[Path]:
+        # the json file names should be in the form A1_0000.json
+        for f in path_list:
+            name = f.name.removesuffix(f.suffix)  # A1_0000
+            if name in {GENOTYPE_MAP, TREATMENT_MAP}:
+                path_list.remove(f)
+                continue
+            split_name = name.split("_")  # ["A1", "0000"]
+            if len(split_name) != 2:
+                path_list.remove(f)
+                continue
+            well, pos = split_name
+            if not re.match(r"^[a-zA-Z0-9]+$", well):  # only letters and numbers
+                path_list.remove(f)
+                continue
+            if not pos.isdigit():  # only digits
+                path_list.remove(f)
+                continue
+        return path_list
 
     def _update_progress_bar(self, value: int) -> None:
         """Update the progress bar value."""
