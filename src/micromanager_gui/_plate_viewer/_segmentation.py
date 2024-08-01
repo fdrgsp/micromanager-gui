@@ -289,7 +289,7 @@ class _CellposeSegmentation(QWidget):
             if not custom_model_path:
                 show_error_dialog(self, "Please select a custom model path.")
                 return
-            model = CellposeModel(gpu=True, pretrained_model=custom_model_path)
+            model = CellposeModel(pretrained_model=custom_model_path, gpu=True)
         else:
             model_type = self._models_combo.currentText()
             model = models.Cellpose(gpu=True, model_type=model_type)

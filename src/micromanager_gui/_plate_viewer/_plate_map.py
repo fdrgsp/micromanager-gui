@@ -70,6 +70,7 @@ class _ConditionWidget(QWidget):
         self._color_combo.currentIndexChanged.connect(self._on_value_changed)
 
         self._assign_btn = QPushButton("Assign")
+        self._assign_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._assign_btn.clicked.connect(self._on_value_changed)
 
         layout = QHBoxLayout(self)
@@ -229,10 +230,13 @@ class PlateMapWidget(QWidget):
         self.view.setStyleSheet("background:grey; border-radius: 5px;")
 
         self._clear_selection_btn = QPushButton("Clear Selection")
+        self._clear_selection_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._clear_selection_btn.clicked.connect(self.scene._clear_selection)
         self._save_map_btn = QPushButton("Save Plate Map")
+        self._save_map_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._save_map_btn.clicked.connect(self._save_plate_map)
         self._load_map_btn = QPushButton("Load Plate Map")
+        self._load_map_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._load_map_btn.clicked.connect(self._load_plate_map)
 
         btns_layout = QHBoxLayout()

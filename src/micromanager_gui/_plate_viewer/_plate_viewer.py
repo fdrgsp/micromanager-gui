@@ -480,12 +480,12 @@ class PlateViewer(QMainWindow):
 
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
         # the json file names should be in the form A1_0000.json
-        for f in path_list:
-            name = f.name.removesuffix(f.suffix)  # A1_0000
-            if name in {GENOTYPE_MAP, TREATMENT_MAP}:
+        for f in reversed(path_list):
+            if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
                 path_list.remove(f)
                 continue
-            split_name = name.split("_")  # ["A1", "0000"]
+            name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000
+            split_name = name_no_suffix.split("_")  # ["A1", "0000"]
             if len(split_name) != 2:
                 path_list.remove(f)
                 continue
