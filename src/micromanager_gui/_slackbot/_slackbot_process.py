@@ -58,7 +58,8 @@ class SlackBotProcess(QProcess):
                 "- `/run` -> Start the MDA Sequence\n"
                 "- `/cancel` -> Cancel the current MDA Sequence\n"
                 "- `/progress` -> Get the current MDA Sequence progress\n"
-                "- `/clear` -> Clear the chat from the SlackBot messages",
+                "- `/clear` -> Clear the chat from the SlackBot messages\n"
+                "- `/mda` -> Get the current MDASequence",
             }
         )
 

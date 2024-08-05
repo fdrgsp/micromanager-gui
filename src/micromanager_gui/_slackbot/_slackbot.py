@@ -41,6 +41,11 @@ logging.basicConfig(
 )
 logging.info("Starting...")
 
+# clear SLACK_BOT_TOKEN, SLACK_APP_TOKEN and CHANNEL_ID from environment variables
+os.environ.pop("SLACK_BOT_TOKEN", None)
+os.environ.pop("SLACK_APP_TOKEN", None)
+os.environ.pop("CHANNEL_ID", None)
+
 # add environment variables from .env file
 ENV_PATH = Path(__file__).parent.parent.parent.parent / ".env"
 if ENV_PATH.exists():
@@ -75,6 +80,8 @@ if CHANNEL_ID is None:
     channel_id_error = "SlackBot -> 'CHANNEL_ID' is not found!"
     logging.error(channel_id_error)
     raise ValueError(channel_id_error)
+else:
+    logging.info(f"SlackBot -> 'CHANNEL_ID' set correctly! ({CHANNEL_ID})")
 
 
 class SlackBot:
@@ -118,6 +125,11 @@ class SlackBot:
         def handle_clear_commands(ack: Ack, body: dict) -> None:
             ack()
             self._clear_chat()
+
+        @self._app.command("/mda")  # type: ignore [misc]
+        def handle_mda_commands(ack: Ack, body: dict) -> None:
+            ack()
+            self._forward_command(body.get("command", ""))
 
         self.handler = SocketModeHandler(self._app, SLACK_APP_TOKEN)
 
