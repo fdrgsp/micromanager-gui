@@ -57,7 +57,7 @@ For example:
 mmgui -c path/to/config.cfg -s True
 ```
 
-To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your `Slack App` and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particular, go through the `Create an app`, `Tokens and installing apps` and `Setting up your project` sections.
+To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your `Slack App` and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particular, go through the `Create an app`, `Tokens and installing apps` and `Setting up your project` sections (NOTE: you can use this [App Manifest](#slackbot-app-manifest-example) to create your `Slack App`).
 
 The `OAuth & Permissions` Scope required are:
 
@@ -71,6 +71,7 @@ Since this `SlackBot` comunicates with the Micro-Manager through a set of `Slack
 - `/cancel`: Cancel the current MDA Sequence
 - `/progress`: Get the current MDA Sequence progress
 - `/clear`: Clear the chat from the SlackBot messages
+- `/mda`: Get the current MDASequence
 
 Now that you have your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`, you can either create a `.env` file in the root of this project containing the `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` variables (e.g. `SLACK_BOT_TOKEN=xoxb-...` and `SLACK_APP_TOKEN=xapp...`) or set them as global environment variables (e.g. `export SLACK_BOT_TOKEN=xoxb-...` and
 `export SLACK_APP_TOKEN=xapp...`).
@@ -84,5 +85,47 @@ After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and
 ```bash
 pw
 ```
+
 <img width="1728" alt="Screenshot 2024-07-17 at 10 21 24 PM" src="https://github.com/user-attachments/assets/b81d0ad3-a6d4-4ada-97b5-b4734c7d8eea">
 
+#### SlackBot App Manifest example
+
+```yaml
+display_information:
+  name: Eve
+  description: A SlackBot for MicroManager & pymmcore-plus
+  background_color: "#737373"
+features:
+  bot_user:
+    display_name: Eve
+    always_online: false
+  slash_commands:
+    - command: /run
+      description: Run the MDA Acquisition
+      should_escape: true
+    - command: /cancel
+      description: Cancel the ongoing MDA Acquisition
+      should_escape: true
+    - command: /progress
+      description: Return the progress of the ongoing MDA Acquisition
+      should_escape: true
+    - command: /clear
+      description: Clear the chat form the bot messages
+      should_escape: true
+    - command: /mda
+      description: Return the current MDASequence.
+      should_escape: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - channels:read
+      - channels:history
+      - commands
+settings:
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
+```
