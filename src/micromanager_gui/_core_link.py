@@ -58,9 +58,24 @@ def _mda_sequence_message(event: useq.MDAEvent) -> dict[str, Any]:
     if seq is None:
         return {"icon_emoji": WARNING_EMOJI, "text": "No MDASequence found!"}
 
+    npos = len(seq.stage_positions)
+
     text = seq.model_dump_json(
-        exclude={"stage_positions"}, exclude_none=True, exclude_unset=True, indent=2
+        exclude={"stage_positions"} if npos > 3 else {},
+        exclude_none=True,
+        exclude_unset=True,
+        indent=2,
     )
+
+    # hide the stage_positions if there are too many
+    if npos > 3:
+        # split the string into lines
+        lines = text.strip().split("\n")
+        # insert the new line before the last line
+        pos_text = f'  "stage_positions": {npos} (hiding because too many)'
+        new_lines = lines[:-1] + [pos_text] + [lines[-1]]
+        # join the lines back into a single string
+        text = "\n".join(new_lines)
 
     return {"icon_emoji": INFO_EMOJI, "text": f"MDA Sequence:\n```{text}```"}
 
