@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 IMAGES_MAX_PROJ = 50
-MODEL_TYPE = "cyto3"  # or CellposeModel(custom_model_path)
+MODEL_TYPE = "cyto3"
 CHANNEL = [0, 0]
 DIAMETER = 0
 
