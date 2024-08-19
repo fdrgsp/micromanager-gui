@@ -22,6 +22,8 @@ class SegmentNeurons:
 
         self._segmentation_process: Process | None = None
 
+        self._timepoints: int | None = None
+
         # Create a multiprocessing Queue
         self._queue: mp.Queue[np.ndarray | None] = mp.Queue()
 
@@ -31,6 +33,8 @@ class SegmentNeurons:
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
+
+        # self._timepoints = sequence.time_plan.num_timepoints() or None
 
         # create a separate process for segmentation
         self._segmentation_process = Process(
@@ -42,8 +46,11 @@ class SegmentNeurons:
         self._segmentation_process.start()
 
     def _on_frame_ready(self, image: np.ndarray, event: useq.MDAEvent) -> None:
-        # if t=0, add the image to the queue
         t_index = event.index.get("t")
+        if t_index is None or self._timepoints is None:
+            return
+
+        # if t=0, add the image to the queue
         if t_index is not None and t_index == 0:
             # send the image to the segmentation process
             self._queue.put(image)
