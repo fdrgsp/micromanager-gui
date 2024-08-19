@@ -138,7 +138,7 @@ class _MenuBar(QMenuBar):
         self._mda = cast(_MDAWidget, mda.main_widget)
 
         # settings menu
-        self._settings_menu = self.addMenu("Settings")
+        self._settings_menu = self.addMenu("Segmentation")
         self._act_enable_segmentation = QAction("Enable Segmentation", self)
         self._act_enable_segmentation.setCheckable(True)
         self._act_enable_segmentation.setChecked(False)

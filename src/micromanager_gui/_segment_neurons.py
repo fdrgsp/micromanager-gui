@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import multiprocessing as mp
 from multiprocessing import Process
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from pymmcore_plus._logger import logger
+from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
+from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 if TYPE_CHECKING:
     import useq
@@ -27,12 +30,15 @@ class SegmentNeurons:
 
         self._segmentation_process: Process | None = None
 
+        self._save_dir: str | None = None
+
         self._timepoints: int | None = None
 
         self._max_proj: np.ndarray | None = None
 
         # Create a multiprocessing Queue
-        self._queue: mp.Queue[np.ndarray | None] = mp.Queue()
+        # self._queue: mp.Queue[np.ndarray | None] = mp.Queue()
+        self._queue: mp.Queue[tuple[np.ndarray, str] | None] = mp.Queue()
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
@@ -48,6 +54,13 @@ class SegmentNeurons:
         if not self._enabled:
             return
 
+        meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        self._save_dir = self._get_save_dir(meta)
+        if self._save_dir is None:
+            self._enabled = False
+            self._save_dir = None
+            logger.warning("SegmentNeurons -> No save directory found.")
+
         self._max_proj = None
         self._timepoints = None
         if sequence.time_plan is not None:
@@ -62,8 +75,23 @@ class SegmentNeurons:
         # start the segmentation process
         self._segmentation_process.start()
 
+    def _get_save_dir(self, meta: dict) -> str | None:
+        save_dir = meta.get("save_dir")
+        save_name = meta.get("save_name")
+
+        if not save_dir or not save_name:
+            return None
+
+        # remove extension if present
+        for ext in ALL_EXTENSIONS:
+            if save_name.endswith(ext):
+                save_name = save_name[: -len(ext)]
+                break
+
+        return str(Path(save_dir) / f"{save_name}_labels")
+
     def _on_frame_ready(self, image: np.ndarray, event: useq.MDAEvent) -> None:
-        if not self._enabled:
+        if not self._enabled or self._save_dir is None:
             return
 
         t_index = event.index.get("t")
@@ -79,7 +107,7 @@ class SegmentNeurons:
             # when the max_proj is ready, send it to the segmentation process
             if t_index == end_timepoint:
                 # send the max_proj image to the segmentation process
-                self._queue.put(self._max_proj)
+                self._queue.put((self._max_proj, self._save_dir))
                 self._max_proj = None
                 pos_idx = event.index.get("p", None)
                 pos = f"(pos{pos_idx})" if pos_idx is not None else ""
@@ -103,12 +131,13 @@ class SegmentNeurons:
 def _segmentation_worker(queue: mp.Queue) -> None:
     """Segmentation worker running in a separate process."""
     while True:
-        image = queue.get()
-        if image is None:
+        args = queue.get()
+        if args is None:
             break
-        _segment_image(image)
+        _segment_image(*args)
 
 
-def _segment_image(image: np.ndarray) -> None:
+def _segment_image(image: np.ndarray, save_dir: str) -> None:
     """Segment the image."""
-    logger.info(f"SegmentNeurons -> Segmenting image: {image.shape}")
+    print(image.shape)
+    logger.info(f"SegmentNeurons -> Segmenting image and saving to {save_dir}.")
