@@ -21,6 +21,8 @@ class SegmentNeurons:
     def __init__(self, mmcore: CMMCorePlus):
         self._mmc = mmcore
 
+        self._enabled: bool = False
+
         self._is_running: bool = False
 
         self._segmentation_process: Process | None = None
@@ -36,8 +38,15 @@ class SegmentNeurons:
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
+    def enable(self, enable: bool) -> None:
+        """Enable or disable the segmentation."""
+        self._enabled = enable
+
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
+
+        if not self._enabled:
+            return
 
         self._max_proj = None
         self._timepoints = None
@@ -54,6 +63,9 @@ class SegmentNeurons:
         self._segmentation_process.start()
 
     def _on_frame_ready(self, image: np.ndarray, event: useq.MDAEvent) -> None:
+        if not self._enabled:
+            return
+
         t_index = event.index.get("t")
         if t_index is None or self._timepoints is None:
             return
@@ -75,6 +87,9 @@ class SegmentNeurons:
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         self._is_running = False
+
+        if not self._enabled:
+            return
 
         # stop the segmentation process
         self._queue.put(None)
