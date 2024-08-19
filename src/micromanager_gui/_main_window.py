@@ -24,6 +24,7 @@ from micromanager_gui._readers._tensorstore_zarr_reader import (
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
+from ._segment_neurons import SegmentNeurons
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
@@ -31,7 +32,6 @@ from ._toolbar._snap_live import _SnapLive
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 
-from ._segment_neurons import SegmentNeurons
 
 ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
