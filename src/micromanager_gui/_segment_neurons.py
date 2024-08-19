@@ -35,8 +35,6 @@ class SegmentNeurons:
 
         self._segmentation_process: Process | None = None
 
-        self._save_dir: str | None = None
-
         self._timepoints: int | None = None
 
         self._max_proj: np.ndarray | None = None
