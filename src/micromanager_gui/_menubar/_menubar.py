@@ -137,11 +137,20 @@ class _MenuBar(QMenuBar):
         mda = self._create_dock_widget("MDA Widget")
         self._mda = cast(_MDAWidget, mda.main_widget)
 
+        # settings menu
+        self._settings_menu = self.addMenu("Settings")
+        self._act_enable_segmentation = QAction("Enable Segmentation", self)
+        self._act_enable_segmentation.setCheckable(True)
+        self._act_enable_segmentation.setChecked(False)
+        self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
+        self._settings_menu.addAction(self._act_enable_segmentation)
+
     def _enable(self, enable: bool) -> None:
         """Enable or disable the actions."""
         self._configurations_menu.setEnabled(enable)
         self._widgets_menu.setEnabled(enable)
         self._viewer_menu.setEnabled(enable)
+        self._settings_menu.setEnabled(enable)
 
     def _save_cfg(self) -> None:
         (filename, _) = QFileDialog.getSaveFileName(
@@ -242,3 +251,7 @@ class _MenuBar(QMenuBar):
         wdg.setWindowFlags(FLAGS)
         self._widgets[action_name] = wdg
         return wdg
+
+    def _enable_segmentation(self, enable: bool) -> None:
+        """Enable or disable the segmentation."""
+        self._main_window._segment_neurons.enable(enable)
