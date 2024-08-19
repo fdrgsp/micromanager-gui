@@ -31,7 +31,7 @@ from ._toolbar._snap_live import _SnapLive
 if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 
-# from ._segment_neurons import SegmentNeurons
+from ._segment_neurons import SegmentNeurons
 
 ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
 
@@ -82,7 +82,7 @@ class MicroManagerGUI(QMainWindow):
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
 
-        # self._segment_neurons = SegmentNeurons(self._mmc)
+        self._segment_neurons = SegmentNeurons(self._mmc)
 
         # extend size to fill the screen
         self.showMaximized()

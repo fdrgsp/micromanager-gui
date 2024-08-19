@@ -4,12 +4,15 @@ import multiprocessing as mp
 from multiprocessing import Process
 from typing import TYPE_CHECKING
 
+import numpy as np
 from pymmcore_plus._logger import logger
 
 if TYPE_CHECKING:
-    import numpy as np
     import useq
     from pymmcore_plus import CMMCorePlus
+
+
+IMAGES_MAX_PROJ = 50
 
 
 class SegmentNeurons:
@@ -24,6 +27,8 @@ class SegmentNeurons:
 
         self._timepoints: int | None = None
 
+        self._max_proj: np.ndarray | None = None
+
         # Create a multiprocessing Queue
         self._queue: mp.Queue[np.ndarray | None] = mp.Queue()
 
@@ -34,7 +39,10 @@ class SegmentNeurons:
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
 
-        # self._timepoints = sequence.time_plan.num_timepoints() or None
+        self._max_proj = None
+        self._timepoints = None
+        if sequence.time_plan is not None:
+            self._timepoints = sequence.time_plan.num_timepoints() or None
 
         # create a separate process for segmentation
         self._segmentation_process = Process(
@@ -49,12 +57,21 @@ class SegmentNeurons:
         t_index = event.index.get("t")
         if t_index is None or self._timepoints is None:
             return
-
-        # if t=0, add the image to the queue
-        if t_index is not None and t_index == 0:
-            # send the image to the segmentation process
-            self._queue.put(image)
-            logger.info(f"SegmentNeurons -> Sending image to segment: {event.index}")
+        start_timepoint = (self._timepoints // 2) - 1
+        end_timepoint = min(start_timepoint + IMAGES_MAX_PROJ, self._timepoints - 1)
+        # create a max projection of the images for segmentation
+        if t_index >= start_timepoint and t_index <= end_timepoint:
+            self._max_proj = (
+                image if self._max_proj is None else np.maximum(self._max_proj, image)
+            )
+            # when the max_proj is ready, send it to the segmentation process
+            if t_index == end_timepoint:
+                # send the max_proj image to the segmentation process
+                self._queue.put(self._max_proj)
+                self._max_proj = None
+                pos_idx = event.index.get("p", None)
+                pos = f"(pos{pos_idx})" if pos_idx is not None else ""
+                logger.info(f"SegmentNeurons -> Sending max_proj to segment {pos}.")
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         self._is_running = False
