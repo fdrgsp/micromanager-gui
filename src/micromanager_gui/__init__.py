@@ -13,6 +13,7 @@ __email__ = "federico.gasparoli@gmail.com"
 
 from micromanager_gui._plate_viewer import PlateViewer
 
+from ._batch_segmentation import CellposeBatchSegmentation
 from ._main_window import MicroManagerGUI
 
-__all__ = ["MicroManagerGUI", "PlateViewer"]
+__all__ = ["MicroManagerGUI", "PlateViewer", "CellposeBatchSegmentation"]
