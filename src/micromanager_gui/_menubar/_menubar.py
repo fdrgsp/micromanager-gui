@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import _MDAWidget
 from micromanager_gui._widgets._stage_control import _StagesControlWidget
+from micromanager_gui._widgets._console_widget import _ConsoleWidget
 
 if TYPE_CHECKING:
     from micromanager_gui._main_window import MicroManagerGUI
@@ -41,6 +42,7 @@ DOCKWIDGETS = {
     "Groups and Presets": GroupPresetTableWidget,
     "Stage Control": _StagesControlWidget,
     "Camera ROI": CameraRoiWidget,
+    "Console": _ConsoleWidget,
 }
 RIGHT = Qt.DockWidgetArea.RightDockWidgetArea
 LEFT = Qt.DockWidgetArea.LeftDockWidgetArea
