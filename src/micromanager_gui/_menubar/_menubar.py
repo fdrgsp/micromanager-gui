@@ -23,10 +23,10 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from micromanager_gui._widgets._console_widget import _ConsoleWidget
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import _MDAWidget
 from micromanager_gui._widgets._stage_control import _StagesControlWidget
-from micromanager_gui._widgets._console_widget import _ConsoleWidget
 
 if TYPE_CHECKING:
     from micromanager_gui._main_window import MicroManagerGUI

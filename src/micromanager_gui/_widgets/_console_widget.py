@@ -1,12 +1,12 @@
-from qtpy.QtWidgets import QWidget, QApplication, QVBoxLayout
-from pyqtconsole.console import PythonConsole
 from pymmcore_plus import CMMCorePlus
+from pyqtconsole.console import PythonConsole
+from qtpy.QtWidgets import QVBoxLayout, QWidget
 
 
 class _ConsoleWidget(QWidget):
-    def __init__(self,
-                 parent: QWidget | None = None,
-                 mmcore: CMMCorePlus | None = None):
+    def __init__(
+        self, parent: QWidget | None = None, mmcore: CMMCorePlus | None = None
+    ):
         super().__init__()
         self.console = PythonConsole()
         self.console.eval_in_thread()
