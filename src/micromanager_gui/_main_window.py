@@ -9,7 +9,6 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pathlib import Path
 
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
 from qtpy.QtWidgets import (
     QGridLayout,
     QMainWindow,
@@ -19,6 +18,7 @@ from qtpy.QtWidgets import (
 from micromanager_gui._readers._tensorstore_zarr_reader import (
     TensorstoreZarrReader,
 )
+from micromanager_gui._widgets._stack_viewer import StackViewer
 
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar

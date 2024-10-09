@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
 from qtpy.QtWidgets import QTabBar, QTabWidget
+
+from micromanager_gui._widgets._stack_viewer import MDAViewer
 
 from ._widgets._preview import Preview
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
     from ._main_window import MicroManagerGUI
     from ._slackbot._mm_slackbot import MMSlackBot
-    from ._widgets._mda_widget import _MDAWidget
+    from ._widgets.mda_widget import MDAWidget
 
 DIALOG = Qt.WindowType.Dialog
 VIEWER_TEMP_DIR = None
@@ -87,8 +88,8 @@ class CoreViewersLink(QObject):
         # keep track of the current event
         self._current_event: useq.MDAEvent | None = None
 
-        # the _MDAWidget. It should have been set in the _MenuBar at startup
-        self._mda = cast("_MDAWidget", self._main_window._menu_bar._mda)
+        # the MDAWidget. It should have been set in the _MenuBar at startup
+        self._mda = cast("MDAWidget", self._main_window._menu_bar._mda)
 
         ev = self._mmc.events
         ev.continuousSequenceAcquisitionStarted.connect(self._set_preview_tab)
@@ -158,7 +159,7 @@ class CoreViewersLink(QObject):
     def _on_sequence_started(
         self, sequence: useq.MDASequence, meta: SummaryMetaV1
     ) -> None:
-        """Called when the MDA sequence is started."""
+        """Show the MDAViewer when the MDA sequence starts."""
         self._mda_running = True
         self._current_event = None
 
