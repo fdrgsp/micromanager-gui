@@ -63,7 +63,7 @@ mmgui -c path/to/config.cfg -s True
 
 To enable the `SlackBot`, you first need to create your `Slack App` and get your `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` and `CHANNEL_ID`. Follow the instructions below to create a `Slack App` and get the required tokens.
 
-##### Creating a Slack App
+#### Creating a Slack App
 
 - go to the [Slack API page](https://api.slack.com/apps) and click on `Create New App`.
 - select `From a Manifest`.
@@ -112,7 +112,7 @@ settings:
 
 - in the `Review summary & create your app` window that appears, click on `Create`.
 
-##### Getting the Slack App tokens
+#### Getting the Slack App tokens
 
 The newly created `Slack App` will appear in the `Basic Information` section. To get the `SLACK_BOT_TOKEN` and the `SLACK_APP_TOKEN`:
 - in the `App-Level Tokens` box in the `Basic Information` section, click on `Generate Token and Scopes`.
@@ -123,7 +123,7 @@ The newly created `Slack App` will appear in the `Basic Information` section. To
 - in the `OAuth & Permissions` section, click on `Install App to Workspace` and flollow the instructions.
 - copy the `Bot User OAuth Token` value (e.g. `xoxb-...`). This will be your `SLACK_BOT_TOKEN`.
 
-##### Granting access to the Slack channel
+#### Granting access to the Slack channel
 
 The last step is to grant access to the desired `Slack channel` to the `Slack App`:
 - in your `Slack Workspace` (where you installed the `Slack App`), right-click on the `Slack channel` you want to use.
@@ -131,7 +131,7 @@ The last step is to grant access to the desired `Slack channel` to the `Slack Ap
 - copy the `channel ID`(e.g. `C02...`, should be visible in the bottom of the window). This will be your `CHANNEL_ID`.
 - select the `Integrations` tab, click on `Add Apps` and add the `Slack App` you created.
 
-##### Setting the environment variables
+#### Setting the environment variables
 
 Now that you have the `SLACK_BOT_TOKEN`, the `SLACK_APP_TOKEN` and the `CHANNEL_ID`, you can either create a `.env` file in the root of this project (the micromanager-gui folder) containing the `SLACK_BOT_TOKEN`, the `SLACK_APP_TOKEN` and the `CHANNEL_ID` variables:
 
@@ -143,7 +143,7 @@ CHANNEL_ID=C02...
 
 or set them as global environment variables (e.g. `export SLACK_BOT_TOKEN=xoxb-...`, `export SLACK_APP_TOKEN=xapp...` and `export CHANNEL_ID=C02...`).
 
-##### Running the SlackBot
+#### Running the SlackBot
 
 After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and start using the `Slack commands` to interact with the microscope.
 
