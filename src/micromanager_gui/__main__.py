@@ -9,6 +9,8 @@ from qtpy.QtWidgets import QApplication
 
 from micromanager_gui import MicroManagerGUI
 
+from ._sentry import install_error_reporter
+
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -34,6 +36,8 @@ def main(args: Sequence[str] | None = None) -> None:
     win.show()
 
     sys.excepthook = _our_excepthook
+    install_error_reporter()
+
     app.exec_()
 
 
