@@ -47,9 +47,13 @@ By passing the `-c` or `-config` flag, you can specify the path of a micromanage
 mmgui -c path/to/config.cfg
 ```
 
-## To run the Micro-Manger GUI with SlackBot
+## To run the Micro-Manger GUI with the SlackBot
 
-By passing the `-s` or `-slack` boolean flag, you will be able to use a `SlackBot` to control the microscope. In particular, you will be able to start and stop the acquisition and to get the progress of the acquisition.
+By passing the `-s` or `-slack` boolean flag, you will be able to use a `SlackBot` to control the microscope. In particular, you will be able to start and stop the acquisition and to get the progress of the acquisition through the following `Slack commands`:
+- `/run`: Start the MDA Sequence
+- `/cancel`: Cancel the current MDA Sequence
+- `/progress`: Get the current MDA Sequence progress
+- `/clear`: Clear the chat from the SlackBot messages
 
 For example:
 
@@ -57,24 +61,90 @@ For example:
 mmgui -c path/to/config.cfg -s True
 ```
 
-To enable the `SlackBot`, you first need to follow the instructions in the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started) to create your `Slack App` and get your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. In particular, go through the `Create an app`, `Tokens and installing apps` and `Setting up your project` sections.
+To enable the `SlackBot`, you first need to create your `Slack App` and get your `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` and `CHANNEL_ID`. Follow the instructions below to create a `Slack App` and get the required tokens.
 
-The `OAuth & Permissions` Scope required are:
+##### Creating a Slack App
 
-- `channels:history`
-- `channels:read`
-- `chat:write`
-- `commands`
+- go to the [Slack API page](https://api.slack.com/apps) and click on `Create New App`.
+- select `From a Manifest`.
+- select the `Slack workspace` where you want to install the `Slack App` and click on `Next`.
+- in the `Create app form Manifest` window that appears, select `YAML` and paste the following code and click on `Next`:
 
-Since this `SlackBot` comunicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
-- `/run`: Start the MDA Sequence
-- `/cancel`: Cancel the current MDA Sequence
-- `/progress`: Get the current MDA Sequence progress
-- `/clear`: Clear the chat from the SlackBot messages
+```yaml
+display_information:
+  name: MMBot
+  description: A SlackBot for MicroManager & pymmcore-plus
+  background_color: "#737373"
+features:
+  bot_user:
+    display_name: MMBot
+    always_online: false
+  slash_commands:
+    - command: /run
+      description: Run the MDA Acquisition
+      should_escape: true
+    - command: /cancel
+      description: Cancel the ongoing MDA Acquisition
+      should_escape: true
+    - command: /progress
+      description: Return the progress of the ongoing MDA Acquisition
+      should_escape: true
+    - command: /clear
+      description: Clear the chat form the bot messages
+      should_escape: true
+    - command: /mda
+      description: Return the current MDASequence.
+      should_escape: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - channels:read
+      - channels:history
+      - commands
+settings:
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
+```
 
-Now that you have your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`, you can either create a `.env` file in the root of this project containing the `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` variables (e.g. `SLACK_BOT_TOKEN=xoxb-...` and `SLACK_APP_TOKEN=xapp...`) or set them as global environment variables (e.g. `export SLACK_BOT_TOKEN=xoxb-...` and
-`export SLACK_APP_TOKEN=xapp...`).
+- in the `Review summary & create your app` window that appears, click on `Create`.
 
-The last step is to grant access to the desired `Slack channel` to the `Slack App`. This can be done by inviting the `Slack App` to the desired `Slack channel`: right-click on the channel name, select `View channel details`, select the `Integrations` tab and `Add Apps`. You now need to add to the `.env` file (or as global environment) a variable named `CHANNEL_ID` containing the `Slack channel` ID.
+##### Getting the Slack App tokens
+
+The newly created `Slack App` will appear in the `Basic Information` section. To get the `SLACK_BOT_TOKEN` and the `SLACK_APP_TOKEN`:
+- in the `App-Level Tokens` box in the `Basic Information` section, click on `Generate Token and Scopes`.
+- enter a name for the token (e.g. `mmbot_app_token`).
+- click on `Add Scope` and select `connections:write`.
+- click on `Generate`.
+- click on the newly created token and copy the `Token` value (e.g. `xapp-...`). This will be your `SLACK_APP_TOKEN`.
+- in the `OAuth & Permissions` section, click on `Install App to Workspace` and flollow the instructions.
+- copy the `Bot User OAuth Token` value (e.g. `xoxb-...`). This will be your `SLACK_BOT_TOKEN`.
+
+##### Granting access to the Slack channel
+
+The last step is to grant access to the desired `Slack channel` to the `Slack App`:
+- in your `Slack Workspace` (where you installed the `Slack App`), right-click on the `Slack channel` you want to use.
+- select `View channel details`.
+- copy the `channel ID`(e.g. `C02...`, should be visible in the bottom of the window). This will be your `CHANNEL_ID`.
+- select the `Integrations` tab, click on `Add Apps` and add the `Slack App` you created.
+
+##### Setting the environment variables
+
+Now that you have the `SLACK_BOT_TOKEN`, the `SLACK_APP_TOKEN` and the `CHANNEL_ID`, you can either create a `.env` file in the root of this project (the micromanager-gui folder) containing the `SLACK_BOT_TOKEN`, the `SLACK_APP_TOKEN` and the `CHANNEL_ID` variables:
+
+```bash
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_APP_TOKEN=xapp...
+CHANNEL_ID=C02...
+```
+
+or set them as global environment variables (e.g. `export SLACK_BOT_TOKEN=xoxb-...`, `export SLACK_APP_TOKEN=xapp...` and `export CHANNEL_ID=C02...`).
+
+##### Running the SlackBot
 
 After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and start using the `Slack commands` to interact with the microscope.
+
+For more information see the [Slack Bolt documentation](https://slack.dev/bolt-python/tutorial/getting-started).
