@@ -19,10 +19,9 @@ if TYPE_CHECKING:
 STAGE_DEVICES = {DeviceType.Stage, DeviceType.XYStage}
 
 
-class Group(QGroupBox):
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
-        self._name = name
+class _Group(QGroupBox):
+    def __init__(self, name: str, parent: QWidget | None = None) -> None:
+        super().__init__(name, parent)
 
         self.setLayout(QHBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
@@ -33,11 +32,11 @@ class Group(QGroupBox):
         )
 
 
-class Stage(StageWidget):
+class _Stage(StageWidget):
     """Stage control widget with wheel event for z-axis control."""
 
-    def __init__(self, device: str) -> None:
-        super().__init__(device=device)
+    def __init__(self, device: str, parent: QWidget | None = None) -> None:
+        super().__init__(device=device, parent=parent)
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         if self._dtype != DeviceType.Stage:
@@ -50,7 +49,7 @@ class Stage(StageWidget):
             self._move_stage(0, -increment)
 
 
-class _StagesControlWidget(QWidget):
+class StagesControlWidget(QWidget):
     """A widget to control all the XY and Z loaded stages."""
 
     def __init__(
@@ -58,7 +57,7 @@ class _StagesControlWidget(QWidget):
     ) -> None:
         super().__init__(parent=parent)
 
-        self._stage_wdgs: list[Group] = []
+        self._mmc = mmcore or CMMCorePlus.instance()
 
         self._context_menu = QMenu(self)
 
@@ -68,9 +67,9 @@ class _StagesControlWidget(QWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        self._mmc = CMMCorePlus.instance()
-        self._on_cfg_loaded()
         self._mmc.events.systemConfigurationLoaded.connect(self._on_cfg_loaded)
+
+        self._on_cfg_loaded()
 
     def _on_cfg_loaded(self) -> None:
         self._clear()
@@ -80,21 +79,20 @@ class _StagesControlWidget(QWidget):
         stage_dev_list = list(self._mmc.getLoadedDevicesOfType(DeviceType.XYStage))
         stage_dev_list.extend(iter(self._mmc.getLoadedDevicesOfType(DeviceType.Stage)))
         for idx, stage_dev in enumerate(stage_dev_list):
-            if self._mmc.getDeviceType(stage_dev) is DeviceType.XYStage:
-                bx = Group("XY Control")
-            elif self._mmc.getDeviceType(stage_dev) is DeviceType.Stage:
-                bx = Group("Z Control")
-            else:
+            if (
+                self._mmc.getDeviceType(stage_dev) is not DeviceType.XYStage
+                and self._mmc.getDeviceType(stage_dev) is not DeviceType.Stage
+            ):
                 continue
-            self._stage_wdgs.append(bx)
+            bx = _Group(stage_dev, self)
             bx.setSizePolicy(sizepolicy)
-            bx.layout().addWidget(Stage(device=stage_dev))
+            bx.layout().addWidget(_Stage(device=stage_dev, parent=bx))
             self._layout.addWidget(bx, idx // 2, idx % 2)
         self.resize(self.sizeHint())
 
     def _clear(self) -> None:
-        for i in reversed(range(self.layout().count())):
-            if item := self.layout().takeAt(i):
-                if wdg := item.widget():
-                    wdg.setParent(QWidget())
-                    wdg.deleteLater()
+        while self._layout.count():
+            item = self._layout.takeAt(0)
+            if widget := item.widget():
+                widget.setParent(self)
+                widget.deleteLater()
