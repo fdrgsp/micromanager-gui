@@ -37,7 +37,8 @@ dependencies = [
     "slack_bolt",
     "python-dotenv",
     "cmap",
-    "pyconify"
+    "pyconify",
+    "ndv"
 ]
 
 # extras

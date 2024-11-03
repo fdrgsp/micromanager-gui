@@ -9,9 +9,7 @@ from superqt.fonticon import icon
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
-    from qtpy.QtWidgets import (
-        QWidget,
-    )
+    from qtpy.QtWidgets import QWidget
 
 BTN_SIZE = 30
 ICON_SIZE = QSize(25, 25)
@@ -42,6 +40,6 @@ class Live(LiveButton):
         self.button_text_on = ""
         self.button_text_off = ""
         self.icon_color_on = ()
-        self.icon_color_off = "magenta"
+        self.icon_color_off = "#C33"
         self.setFixedWidth(BTN_SIZE)
         self.setIconSize(ICON_SIZE)
