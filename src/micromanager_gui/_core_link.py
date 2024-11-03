@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from ._main_window import MicroManagerGUI
     from ._slackbot._mm_slackbot import MMSlackBot
-    from ._widgets.mda_widget import MDAWidget
+    from ._widgets._mda_widget import MDAWidget
 
 DIALOG = Qt.WindowType.Dialog
 VIEWER_TEMP_DIR = None
