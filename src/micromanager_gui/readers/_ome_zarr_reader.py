@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import Any, Mapping, cast
 
 import numpy as np
 import useq
 import zarr
 from tifffile import imwrite
 from tqdm import tqdm
-
-if TYPE_CHECKING:
-    from zarr.hierarchy import Group
+from zarr.hierarchy import Group
 
 EVENT = "Event"
 FRAME_META = "frame_meta"
@@ -23,8 +21,8 @@ class OMEZarrReader:
 
     Parameters
     ----------
-    path : str | Path
-        The path to the ome-zarr file.
+    data : str | Path | Group
+        The path to the ome-zarr file or the zarr group itself.
 
     Attributes
     ----------
@@ -36,6 +34,11 @@ class OMEZarrReader:
         The acquired useq.MDASequence. It is loaded from the metadata using the
         `useq.MDASequence` key.
 
+    Methods
+    -------
+    metadata()
+        Return the unstructured full metadata.
+
     Usage
     -----
     reader = OMEZarrReader("path/to/file")
@@ -46,11 +49,9 @@ class OMEZarrReader:
     data, metadata = reader.isel({"p": 0, "t": 1, "z": 0}, metadata=True)
     """
 
-    def __init__(self, path: str | Path):
-        self._path = path
-
-        # open the zarr file
-        self._store: Group = zarr.open(self._path)
+    def __init__(self, data: str | Path | Group):
+        self._path = data.path if isinstance(data, Group) else data
+        self._store: Group = data if isinstance(data, Group) else zarr.open(self._path)
 
         # the useq.MDASequence if it exists
         self._sequence: useq.MDASequence | None = None
@@ -76,6 +77,16 @@ class OMEZarrReader:
         except KeyError:
             self._sequence = None
         return self._sequence
+
+    def metadata(self) -> list[dict]:
+        """Return the unstructured full metadata."""
+        # concatenate the metadata for all the positions
+        return [
+            meta
+            for key in self.store.keys()
+            if key.startswith("p") and key[1:].isdigit()
+            for meta in self.store[key].attrs.get(FRAME_META, [])
+        ]
 
     def isel(
         self,
