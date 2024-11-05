@@ -25,12 +25,14 @@ from qtpy.QtWidgets import (
 
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
+from micromanager_gui._widgets._mm_console import MMConsole
 from micromanager_gui._widgets._stage_control import StagesControlWidget
 
 if TYPE_CHECKING:
     from micromanager_gui._main_window import MicroManagerGUI
 
 FLAGS = Qt.WindowType.Dialog
+CONSOLE = "Console"
 WIDGETS = {
     "Property Browser": PropertyBrowser,
     "Pixel Configuration": PixelConfigurationWidget,
@@ -41,9 +43,17 @@ DOCKWIDGETS = {
     "Groups and Presets": GroupPresetTableWidget,
     "Stage Control": StagesControlWidget,
     "Camera ROI": CameraRoiWidget,
+    CONSOLE: MMConsole,
 }
 RIGHT = Qt.DockWidgetArea.RightDockWidgetArea
 LEFT = Qt.DockWidgetArea.LeftDockWidgetArea
+BOTTOM = Qt.DockWidgetArea.BottomDockWidgetArea
+
+MMC = "mmc"
+MDA = "mda"
+WDGS = "wdgs"
+VIEWERS = "viewers"
+PREVIEW = "preview"
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -97,6 +107,7 @@ class _MenuBar(QMenuBar):
         # widgets
         self._wizard: ConfigWizard | None = None  # is in a different menu
         self._mda: MDAWidget | None = None
+        self._mm_console: MMConsole | None = None
 
         # configurations_menu
         self._configurations_menu = self.addMenu("System Configurations")
@@ -185,9 +196,14 @@ class _MenuBar(QMenuBar):
         for index in reversed(range(viewer_tab.count())):
             if index in skip or index == 0:  # 0 to skip the prewiew tab
                 continue
+            tab_name = viewer_tab.tabText(index)
             widget = viewer_tab.widget(index)
             viewer_tab.removeTab(index)
             widget.deleteLater()
+
+            # update the viewers variable in the console
+            if self._mm_console is not None:
+                self._mm_console.shell.user_ns["viewers"].pop(tab_name, None)
 
     def _close_all_but_current(self) -> None:
         """Close all viewers except the current one."""
@@ -218,7 +234,10 @@ class _MenuBar(QMenuBar):
 
         # create dock widget
         if action_name in DOCKWIDGETS:
-            self._create_dock_widget(action_name)
+            if action_name == CONSOLE:
+                self._launch_mm_console()
+            else:
+                self._create_dock_widget(action_name)
         # create widget
         else:
             wdg = self._create_widget(action_name)
@@ -244,3 +263,38 @@ class _MenuBar(QMenuBar):
         wdg.setWindowFlags(FLAGS)
         self._widgets[action_name] = wdg
         return wdg
+
+    def _launch_mm_console(self) -> None:
+        if self._mm_console is not None:
+            return
+
+        # All values in the dictionary below can be accessed from the console using
+        # the associated string key
+        user_vars = {
+            MMC: self._mmc,  # CMMCorePlus instance
+            WDGS: self._widgets,  # dictionary of all the widgets
+            MDA: self._mda,  # quick access to the MDA widget
+            VIEWERS: self._get_current_mda_viewers(),  # dictionary of all the viewers
+            PREVIEW: self._main_window._core_link._preview,  # access to preview widget
+        }
+
+        self._mm_console = MMConsole(user_vars)
+
+        dock = QDockWidget(CONSOLE, self)
+        dock.setAllowedAreas(LEFT | RIGHT | BOTTOM)
+        dock.setWidget(self._mm_console)
+        self._widgets[CONSOLE] = dock
+
+        self._main_window.addDockWidget(RIGHT, dock)
+
+    def _get_current_mda_viewers(self) -> dict[str, QWidget]:
+        """Update the viewers variable in the MMConsole."""
+        viewers_dict = {}
+        tab = self._main_window._core_link._viewer_tab
+        for viewers in range(tab.count()):
+            if viewers == 0:  # skip the preview tab
+                continue
+            tab_name = tab.tabText(viewers)
+            wdg = tab.widget(viewers)
+            viewers_dict[tab_name] = wdg
+        return viewers_dict
