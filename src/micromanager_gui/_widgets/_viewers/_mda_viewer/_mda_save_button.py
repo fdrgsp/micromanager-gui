@@ -11,6 +11,8 @@ from qtpy.QtWidgets import (
 )
 from superqt.fonticon import icon
 
+from ._data_wrappers import MM5DWriterWrapper, MMTensorstoreWrapper
+
 if TYPE_CHECKING:
     from ndv import DataWrapper
 
@@ -29,14 +31,20 @@ class MDASaveButton(QPushButton):
         self._last_loc = str(Path.home())
 
     def _on_click(self) -> None:
-        # TODO: Add support for other file formats
         self._last_loc, _ = QFileDialog.getSaveFileName(
-            self, "Choose destination", str(self._last_loc), ""
+            self,
+            "Choose destination",
+            str(self._last_loc),
+            "TIFF (*.tif *.tiff);;ZARR (*.zarr)",
         )
         if not self._last_loc:
             return
         suffix = Path(self._last_loc).suffix
-        if suffix in (".zarr", ".ome.zarr", ""):
+        if suffix == ".zarr":
             self._data_wrapper.save_as_zarr(self._last_loc)
+        elif suffix in {".tif", ".tiff"} and isinstance(
+            self._data_wrapper, (MMTensorstoreWrapper, MM5DWriterWrapper)
+        ):
+            self._data_wrapper.save_as_tiff(self._last_loc)
         else:
             raise ValueError(f"File format not yet supported: {self._last_loc}")
