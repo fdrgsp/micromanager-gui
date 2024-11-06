@@ -8,17 +8,20 @@ from typing import Any, Mapping, cast
 import numpy as np
 import tensorstore as ts
 import useq
+from pymmcore_plus.metadata.serialize import json_loads
 from tifffile import imwrite
 from tqdm import tqdm
 
 
-class TensorstoreZarrReader:
+# Old because can be used to read data (and metadata) form files generated with the old
+# writer: _TensorStoreHandlerOld (micromanager_gui/_writers/_tensorstore_zarr_old.py)
+class TensorstoreZarrReaderOld:
     """Read a tensorstore zarr file generated with the 'TensorstoreZarrWriter'.
 
     Parameters
     ----------
-    path : str | Path
-        The path to the tensorstore zarr file.
+    data : str | Path | ts.Tensorstore
+        The path to the tensorstore zarr file or the tensorstore zarr file itself.
 
     Attributes
     ----------
@@ -26,6 +29,8 @@ class TensorstoreZarrReader:
         The path to the tensorstore zarr file.
     store : ts.TensorStore
         The tensorstore.
+    metadata : list[dict]
+        The unstructured full metadata.
     sequence : useq.MDASequence
         The acquired useq.MDASequence. It is loaded from the metadata using the
         `useq.MDASequence` key.
@@ -40,19 +45,22 @@ class TensorstoreZarrReader:
     data, metadata = reader.isel({"p": 0, "t": 1, "z": 0}, metadata=True)
     """
 
-    def __init__(self, path: str | Path):
-        self._path = path
+    def __init__(self, data: str | Path | ts.TensorStore):
+        if isinstance(data, ts.TensorStore):
+            self._path = data.kvstore.path
+            _store = data
+        else:
+            self._path = data
+            spec = {
+                "driver": "zarr",
+                "kvstore": {"driver": "file", "path": str(self._path)},
+            }
+            _store = ts.open(spec).result()
 
-        spec = {
-            "driver": "zarr",
-            "kvstore": {"driver": "file", "path": str(self._path)},
-        }
-
-        _store = ts.open(spec).result()
-
-        self._metadata: dict = {}
+        self._metadata: list = []
         if metadata_json := _store.kvstore.read(".zattrs").result().value:
-            self._metadata = json.loads(metadata_json)
+            metadata_dict = json_loads(metadata_json)
+            self._metadata = metadata_dict.get("frame_metadatas", [])
 
         # set the axis labels
         if self.sequence is not None:
@@ -81,9 +89,15 @@ class TensorstoreZarrReader:
         return self._store
 
     @property
+    def metadata(self) -> list[dict]:
+        """Return the unstructured full metadata."""
+        return self._metadata
+
+    @property
     def sequence(self) -> useq.MDASequence | None:
-        seq = self._metadata.get("useq_MDASequence")
-        return useq.MDASequence(**json.loads(seq)) if seq is not None else None
+        # getting the sequence from the first frame metadata within the "mda_event" key
+        seq = self._metadata[0].get("mda_event", {}).get("sequence")
+        return useq.MDASequence(**seq) if seq is not None else None
 
     # ___________________________Public Methods___________________________
 
@@ -121,11 +135,11 @@ class TensorstoreZarrReader:
                 )
 
         index = self._get_axis_index(indexers)
-        data = self.store[index].read().result().squeeze()
+        data = cast(np.ndarray, self.store[index].read().result().squeeze())
         if metadata:
             meta = self._get_metadata_from_index(indexers)
             return data, meta
-        return cast(np.ndarray, data)
+        return data
 
     def write_tiff(
         self,
@@ -150,6 +164,7 @@ class TensorstoreZarrReader:
             (e.g. p=0, t=1). NOTE: kwargs will overwrite the indexers if already present
             in the indexers mapping.
         """
+        # TODO: add support for ome-tiff
         if kwargs:
             indexers = indexers or {}
             if all(
@@ -173,12 +188,7 @@ class TensorstoreZarrReader:
 
         else:
             if self.sequence is None:
-                warnings.warn(
-                    "No 'useq.MDASequence' found in the metadata! Cannot determine "
-                    "the number of positions to save the data.",
-                    stacklevel=2,
-                )
-                return
+                raise ValueError("No 'useq.MDASequence' found in the metadata!")
             if pos := len(self.sequence.stage_positions):
                 if not Path(path).exists():
                     Path(path).mkdir(parents=True, exist_ok=False)
@@ -213,8 +223,8 @@ class TensorstoreZarrReader:
     def _get_metadata_from_index(self, indexers: Mapping[str, int]) -> list[dict]:
         """Return the metadata for the given indexers."""
         metadata = []
-        for meta in self._metadata.get("frame_metadatas", []):
-            event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
+        for meta in self._metadata:
+            event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
             if indexers.items() <= event_index.items():
                 metadata.append(meta)
         return metadata

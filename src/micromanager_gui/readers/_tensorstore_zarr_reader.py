@@ -1,44 +1,41 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import Any, Mapping, cast
 
 import numpy as np
+import tensorstore as ts
 import useq
-import zarr
+from pymmcore_plus.metadata.serialize import json_loads
 from tifffile import imwrite
 from tqdm import tqdm
 
-if TYPE_CHECKING:
-    from zarr.hierarchy import Group
 
-EVENT = "Event"
-FRAME_META = "frame_meta"
-ARRAY_DIMS = "_ARRAY_DIMENSIONS"
-
-
-class OMEZarrReader:
-    """Reads a ome-zarr file generated with the 'OMEZarrWriter'.
+class TensorstoreZarrReader:
+    """Read a tensorstore zarr file generated with the 'TensorstoreZarrWriter'.
 
     Parameters
     ----------
-    path : str | Path
-        The path to the ome-zarr file.
+    data : str | Path | ts.Tensorstore
+        The path to the tensorstore zarr file or the tensorstore zarr file itself.
 
     Attributes
     ----------
     path : Path
-        The path to the ome-zarr file.
-    store : zarr.Group
-        The zarr file.
-    sequence : useq.MDASequence | None
+        The path to the tensorstore zarr file.
+    store : ts.TensorStore
+        The tensorstore.
+    metadata : list[dict]
+        The unstructured full metadata.
+    sequence : useq.MDASequence
         The acquired useq.MDASequence. It is loaded from the metadata using the
         `useq.MDASequence` key.
 
     Usage
     -----
-    reader = OMEZarrReader("path/to/file")
+    reader = TensorZarrReader("path/to/file")
     # to get the numpy array for a specific axis, for example, the first time point for
     # the first position and the first z-slice:
     data = reader.isel({"p": 0, "t": 1, "z": 0})
@@ -46,16 +43,38 @@ class OMEZarrReader:
     data, metadata = reader.isel({"p": 0, "t": 1, "z": 0}, metadata=True)
     """
 
-    def __init__(self, path: str | Path):
-        self._path = path
+    def __init__(self, data: str | Path | ts.TensorStore):
+        if isinstance(data, ts.TensorStore):
+            self._path = data.kvstore.path
+            _store = data
+        else:
+            self._path = data
+            spec = {
+                "driver": "zarr",
+                "kvstore": {"driver": "file", "path": str(self._path)},
+            }
+            _store = ts.open(spec).result()
 
-        # open the zarr file
-        self._store: Group = zarr.open(self._path)
+        self._metadata: list = []
+        if metadata_json := _store.kvstore.read(".zattrs").result().value:
+            metadata_dict = json_loads(metadata_json)
+            self._metadata = metadata_dict.get("frame_metadatas", [])
 
-        # the useq.MDASequence if it exists
-        self._sequence: useq.MDASequence | None = None
+        # set the axis labels
+        if self.sequence is not None:
+            # not sure if is x, y or y, x
+            axis_order = (*self.sequence.axis_order, "y", "x")
+            if len(axis_order) > 2:
+                try:
+                    _store = _store[ts.d[:].label[axis_order]]
+                except IndexError as e:
+                    warnings.warn(
+                        f"Error setting the axis labels: {e}."
+                        "`axis_order`: {axis_order}, `shape`: {_store.shape}.",
+                        stacklevel=2,
+                    )
 
-    # ___________________________Public Methods___________________________
+        self._store = _store
 
     @property
     def path(self) -> Path:
@@ -63,19 +82,22 @@ class OMEZarrReader:
         return Path(self._path)
 
     @property
-    def store(self) -> Group:
-        """Return the zarr file."""
+    def store(self) -> ts.TensorStore:
+        """Return the tensorstore."""
         return self._store
 
     @property
+    def metadata(self) -> list[dict]:
+        """Return the unstructured full metadata."""
+        return self._metadata
+
+    @property
     def sequence(self) -> useq.MDASequence | None:
-        """Return the MDASequence if it exists."""
-        try:
-            seq = cast(dict, self._store["p0"].attrs["useq_MDASequence"])
-            self._sequence = useq.MDASequence(**seq) if seq is not None else None
-        except KeyError:
-            self._sequence = None
-        return self._sequence
+        # getting the sequence from the first frame metadata within the "mda_event" key
+        seq = self._metadata[0].get("mda_event", {}).get("sequence")
+        return useq.MDASequence(**seq) if seq is not None else None
+
+    # ___________________________Public Methods___________________________
 
     def isel(
         self,
@@ -87,10 +109,9 @@ class OMEZarrReader:
 
         Parameters
         ----------
-        indexers : Mapping[str, int]
-            The indexers to select the data. Thy should contain the 'p' axis since the
-            OMEZarrWriter saves each position as a separate array. If None, it
-            assume the first position {"p": 0}.
+        indexers : Mapping[str, int] | None
+            The indexers to select the data (e.g. {"p": 0, "t": 1}). If None, return
+            the entire data.
         metadata : bool
             If True, return the metadata as well as a list of dictionaries. By default,
             False.
@@ -107,19 +128,14 @@ class OMEZarrReader:
             ):
                 indexers = {**indexers, **kwargs}
             else:
-                raise TypeError("kwargs must be a mapping from strings to integers")
+                raise TypeError(
+                    "kwargs must be a mapping from strings to integers (e.g. p=0, t=1)!"
+                )
 
-        if len(self.store.keys()) > 1 and "p" not in indexers:
-            raise ValueError(
-                "The indexers should contain the 'p' axis since the zarr store has "
-                "more than one position."
-            )
-
-        pos_key = f"p{indexers.get('p', 0)}"
-        index = self._get_axis_index(indexers, pos_key)
-        data = cast(np.ndarray, self.store[pos_key][index].squeeze())
+        index = self._get_axis_index(indexers)
+        data = cast(np.ndarray, self.store[index].read().result().squeeze())
         if metadata:
-            meta = self._get_metadata_from_index(indexers, pos_key)
+            meta = self._get_metadata_from_index(indexers)
             return data, meta
         return data
 
@@ -146,6 +162,7 @@ class OMEZarrReader:
             (e.g. p=0, t=1). NOTE: kwargs will overwrite the indexers if already present
             in the indexers mapping.
         """
+        # TODO: add support for ome-tiff
         if kwargs:
             indexers = indexers or {}
             if all(
@@ -153,27 +170,24 @@ class OMEZarrReader:
             ):
                 indexers = {**indexers, **kwargs}
             else:
-                raise TypeError(
-                    "kwargs must be a mapping from strings to integers (e.g. p=0, t=1)!"
-                )
+                raise TypeError("kwargs must be a mapping from strings to integers")
 
         if indexers:
             data, metadata = self.isel(indexers, metadata=True)
             imj = len(data.shape) <= 5
             if Path(path).suffix not in {".tif", ".tiff"}:
                 path = Path(path).with_suffix(".tiff")
+            if not Path(path).parent.exists():
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
             imwrite(path, data, imagej=imj)
             # save metadata as json
             dest = Path(path).with_suffix(".json")
             dest.write_text(json.dumps(metadata))
 
         else:
-            keys = [
-                key
-                for key in self.store.keys()
-                if key.startswith("p") and key[1:].isdigit()
-            ]
-            if pos := len(keys):
+            if self.sequence is None:
+                raise ValueError("No 'useq.MDASequence' found in the metadata!")
+            if pos := len(self.sequence.stage_positions):
                 if not Path(path).exists():
                     Path(path).mkdir(parents=True, exist_ok=False)
                 with tqdm(total=pos) as pbar:
@@ -187,23 +201,16 @@ class OMEZarrReader:
 
     # ___________________________Private Methods___________________________
 
-    def _get_axis_index(
-        self, indexers: Mapping[str, int], pos_key: str
-    ) -> tuple[object, ...]:
+    def _get_axis_index(self, indexers: Mapping[str, int]) -> tuple[object, ...]:
         """Return a tuple to index the data for the given axis."""
-        axis_order = self.store[pos_key].attrs.get(ARRAY_DIMS, [])  # ['t','c','y','x']
-        # remove x and y from the axis order
-        if "x" in axis_order:
-            axis_order.remove("x")
-        if "y" in axis_order:
-            axis_order.remove("y")
+        if self.sequence is None:
+            raise ValueError("No 'useq.MDASequence' found in the metadata!")
 
-        # if any of the indexers are not in the axis order, raise an error, NOTE: we
-        # add "p" to the axis order since the ome-zarr is saved per position
-        if not set(indexers.keys()).issubset({"p", *axis_order}):
-            raise ValueError(
-                f"Invalid axis in indexers {indexers}: available {axis_order}"
-            )
+        axis_order = self.sequence.axis_order
+
+        # if any of the indexers are not in the axis order, raise an error
+        if not set(indexers.keys()).issubset(set(axis_order)):
+            raise ValueError("Invalid axis in indexers!")
 
         # get the correct index for the axis
         # e.g. (slice(None), 1, slice(None), slice(None))
@@ -211,13 +218,11 @@ class OMEZarrReader:
             indexers[axis] if axis in indexers else slice(None) for axis in axis_order
         )
 
-    def _get_metadata_from_index(
-        self, indexers: Mapping[str, int], pos_key: str
-    ) -> list[dict]:
+    def _get_metadata_from_index(self, indexers: Mapping[str, int]) -> list[dict]:
         """Return the metadata for the given indexers."""
         metadata = []
-        for meta in self.store[pos_key].attrs.get(FRAME_META, []):
-            event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
+        for meta in self._metadata:
+            event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
             if indexers.items() <= event_index.items():
                 metadata.append(meta)
         return metadata

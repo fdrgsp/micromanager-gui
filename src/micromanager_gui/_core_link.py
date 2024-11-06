@@ -3,25 +3,30 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets._stack_viewer_v2 import MDAViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QObject, Qt
 from qtpy.QtWidgets import QTabBar, QTabWidget
 
+from micromanager_gui._widgets._viewers import MDAViewer
+
+from ._menubar._menubar import PREVIEW, VIEWERS
 from ._widgets._preview import Preview
 
 if TYPE_CHECKING:
     import numpy as np
     import useq
+    from pymmcore_plus.metadata import SummaryMetaV1
 
     from ._main_window import MicroManagerGUI
     from ._slackbot._mm_slackbot import MMSlackBot
-    from ._widgets._mda_widget import _MDAWidget
+    from ._widgets._mda_widget import MDAWidget
+    from ._widgets._mm_console import MMConsole
 
 DIALOG = Qt.WindowType.Dialog
 VIEWER_TEMP_DIR = None
 NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
 NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
+MDA_VIEWER = "MDA Viewer"
 
 RUN = "run"
 CANCEL = "cancel"
@@ -100,8 +105,8 @@ class CoreViewersLink(QObject):
         self._main_window._central_wdg_layout.addWidget(self._viewer_tab, 0, 0)
 
         # preview tab
-        self._preview = Preview(self._main_window, mmcore=self._mmc)
-        self._viewer_tab.addTab(self._preview, "Preview")
+        self._preview: Preview = Preview(self._main_window, mmcore=self._mmc)
+        self._viewer_tab.addTab(self._preview, PREVIEW.capitalize())
         # remove the preview tab close button
         self._viewer_tab.tabBar().setTabButton(*NO_R_BTN)
         self._viewer_tab.tabBar().setTabButton(*NO_L_BTN)
@@ -114,8 +119,8 @@ class CoreViewersLink(QObject):
         # keep track of the current event
         self._current_event: useq.MDAEvent | None = None
 
-        # the _MDAWidget. It should have been set in the _MenuBar at startup
-        self._mda = cast("_MDAWidget", self._main_window._menu_bar._mda)
+        # the MDAWidget. It should have been set in the _MenuBar at startup
+        self._mda = cast("MDAWidget", self._main_window._menu_bar._mda)
 
         ev = self._mmc.events
         ev.continuousSequenceAcquisitionStarted.connect(self._set_preview_tab)
@@ -124,7 +129,7 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
         self._mmc.mda.events.sequenceCanceled.connect(self._on_sequence_canceled)
-        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
+        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_menubar)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
 
         # handle the slackbot
@@ -183,13 +188,23 @@ class CoreViewersLink(QObject):
         del self._current_viewer
         self._current_viewer = None
 
+        # remove the viewer from the console
+        if console := self._get_mm_console():
+            if VIEWERS not in console.get_user_variables():
+                return
+            # remove the item at pos index from the viewers variable in the console
+            viewer_name = list(console.shell.user_ns[VIEWERS].keys())[index - 1]
+            console.shell.user_ns[VIEWERS].pop(viewer_name, None)
+
     def _on_sequence_canceled(self, sequence: useq.MDASequence) -> None:
         """Called when the MDA sequence is cancelled."""
         # slack bot message
         if self._slackbot is not None:
             self._send_message(sequence, CANCEL_EMOJI, "MDA Sequence Cancelled!")
 
-    def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
+    def _on_sequence_started(
+        self, sequence: useq.MDASequence, meta: SummaryMetaV1
+    ) -> None:
         """Called when the MDA sequence is started."""
         self._mda_running = True
         self._current_event = None
@@ -200,7 +215,7 @@ class CoreViewersLink(QObject):
         # pause until the viewer is ready
         self._mmc.mda.toggle_pause()
         # setup the viewer
-        self._setup_viewer(sequence)
+        self._setup_viewer(sequence, meta)
         # resume the sequence
         self._mmc.mda.toggle_pause()
 
@@ -208,11 +223,11 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             self._send_message(sequence, RUN_EMOJI, "MDA Sequence Started!")
 
-    def _setup_viewer(self, sequence: useq.MDASequence) -> None:
+    def _setup_viewer(self, sequence: useq.MDASequence, meta: SummaryMetaV1) -> None:
         """Setup the MDAViewer."""
         # get the MDAWidget writer
         datastore = self._mda.writer if self._mda is not None else None
-        self._current_viewer = MDAViewer(parent=self._main_window, datastore=datastore)
+        self._current_viewer = MDAViewer(parent=self._main_window, data=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
         meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
@@ -222,13 +237,15 @@ class CoreViewersLink(QObject):
 
         # call it manually instead in _connect_viewer because this signal has been
         # emitted already
-        self._current_viewer.data.sequenceStarted(sequence)
+        self._current_viewer.data.sequenceStarted(sequence, meta)
 
-        # disable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(False)
+        self._enable_menubar(False)
 
         # connect the signals
         self._connect_viewer(self._current_viewer)
+
+        # update the viewers variable in the console with the new viewer
+        self._add_viewer_to_mm_console(viewer_name, self._current_viewer)
 
     def _get_viewer_name(self, viewer_name: str | None) -> str:
         """Get the viewer name from the metadata.
@@ -243,11 +260,11 @@ class CoreViewersLink(QObject):
         index = 0
         for v in range(self._viewer_tab.count()):
             tab_name = self._viewer_tab.tabText(v)
-            if tab_name.startswith("MDA Viewer"):
-                idx = tab_name.replace("MDA Viewer ", "")
+            if tab_name.startswith(MDA_VIEWER):
+                idx = tab_name.replace(f"{MDA_VIEWER} ", "")
                 if idx.isdigit():
                     index = max(index, int(idx))
-        return f"MDA Viewer {index + 1}"
+        return f"{MDA_VIEWER} {index + 1}"
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         """Called when the MDA sequence is finished."""
@@ -262,8 +279,7 @@ class CoreViewersLink(QObject):
         if self._current_viewer is None:
             return
 
-        # enable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(True)
+        self._enable_menubar(True)
 
         # call it before we disconnect the signals or it will not be called
         self._current_viewer.data.sequenceFinished(sequence)
@@ -292,17 +308,25 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.frameReady.disconnect(viewer.data.frameReady)
         self._mmc.mda.events.sequenceFinished.disconnect(viewer.data.sequenceFinished)
 
-    def _enable_gui(self, state: bool) -> None:
-        """Pause the viewer when the MDA sequence is paused."""
+    def _enable_menubar(self, state: bool) -> None:
+        """Enable or disable the GUI."""
         self._main_window._menu_bar._enable(state)
-        if self._current_viewer is None:
-            return
-
-        # self._current_viewer._lut_drop.setEnabled(state)
-        self._current_viewer._channel_mode_btn.setEnabled(state)
 
     def _set_preview_tab(self) -> None:
         """Set the preview tab."""
         if self._mda_running:
             return
         self._viewer_tab.setCurrentWidget(self._preview)
+
+    def _get_mm_console(self) -> MMConsole | None:
+        """Rertun the MMConsole if it exists."""
+        return self._main_window._menu_bar._mm_console
+
+    def _add_viewer_to_mm_console(
+        self, viewer_name: str, mda_viewer: MDAViewer
+    ) -> None:
+        """Update the viewers variable in the MMConsole."""
+        if console := self._get_mm_console():
+            if VIEWERS not in console.get_user_variables():
+                return
+            console.shell.user_ns[VIEWERS].update({viewer_name: mda_viewer})

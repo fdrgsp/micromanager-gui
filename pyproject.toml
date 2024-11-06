@@ -26,21 +26,24 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "pymmcore-widgets@git+https://github.com/fdrgsp/pymmcore-widgets.git@calcium",
-    "pymmcore-plus ==0.10.2",
+    "pymmcore-widgets",
+    "pymmcore-plus >=0.10.2",
     "qtpy",
     "vispy",
     "zarr",
     "tifffile",
     "tqdm",
     "pyyaml",
+    "cmap",
+    "pyconify",
     "slack_bolt",
     "python-dotenv",
     "rich",
-    "slack_bolt",
     "matplotlib",
     "mplcursors",
     "cellpose",
+    "ndv[vispy]",
+    "qtconsole",
 ]
 
 # extras

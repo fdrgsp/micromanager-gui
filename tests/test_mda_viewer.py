@@ -1,19 +1,30 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 import pytest
 import useq
-from pymmcore_plus.mda.handlers import OMETiffWriter, OMEZarrWriter, TensorStoreHandler
-from pymmcore_widgets._stack_viewer_v2 import MDAViewer
+from pymmcore_plus.mda.handlers import (
+    OMETiffWriter,
+    OMEZarrWriter,
+    TensorStoreHandler,
+)
+from pymmcore_plus.metadata import SummaryMetaV1
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 from micromanager_gui import MicroManagerGUI
+from micromanager_gui._widgets._mda_widget import MDAWidget
+from micromanager_gui._widgets._mda_widget._save_widget import (
+    OME_TIFF,
+    OME_ZARR,
+    TIFF_SEQ,
+    ZARR_TESNSORSTORE,
+)
+from micromanager_gui._widgets._viewers import MDAViewer
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from pymmcore_plus import CMMCorePlus
     from pytestqt.qtbot import QtBot
 
@@ -27,12 +38,12 @@ def test_mda_viewer_no_saving(
     mda = useq.MDASequence(channels=["DAPI", "FITC"])
 
     # simulate that the core run_mda method was called
-    gui._core_link._on_sequence_started(sequence=mda)
+    gui._core_link._on_sequence_started(sequence=mda, meta=SummaryMetaV1())
     assert gui._core_link._viewer_tab.count() == 2
     assert gui._core_link._viewer_tab.tabText(1) == "MDA Viewer 1"
     assert gui._core_link._viewer_tab.currentIndex() == 1
     # simulate that the core run_mda method was called again
-    gui._core_link._on_sequence_started(sequence=mda)
+    gui._core_link._on_sequence_started(sequence=mda, meta=SummaryMetaV1())
     assert gui._core_link._viewer_tab.count() == 3
     assert gui._core_link._viewer_tab.tabText(2) == "MDA Viewer 2"
     assert gui._core_link._viewer_tab.currentIndex() == 2
@@ -72,15 +83,14 @@ def test_mda_viewer_saving(
     gui._menu_bar._mda.setValue(mda)
 
     # patch the run_mda method to avoid running the MDA sequence
-    def _run_mda(seq):
-        print("Running MDA")
-        return True
+    def _run_mda(seq, output):
+        return
 
     # set the writer attribute of the MDAWidget without running the MDA sequence
     with patch.object(global_mmcore, "run_mda", _run_mda):
         gui._menu_bar._mda.run_mda()
     # simulate that the core run_mda method was called
-    gui._core_link._on_sequence_started(sequence=mda)
+    gui._core_link._on_sequence_started(sequence=mda, meta=SummaryMetaV1())
 
     assert isinstance(gui._menu_bar._mda.writer, writer)
     assert gui._core_link._viewer_tab.count() == 2
@@ -89,3 +99,21 @@ def test_mda_viewer_saving(
     # saving datastore and MDAViewer datastore should be the same
     viewer = cast(MDAViewer, gui._core_link._viewer_tab.widget(1))
     assert viewer.data == gui._core_link._mda.writer
+
+
+data = [
+    ("./test.ome.tiff", OME_TIFF, OMETiffWriter),
+    ("./test.ome.zarr", OME_ZARR, OMEZarrWriter),
+    ("./test.tensorstore.zarr", ZARR_TESNSORSTORE, TensorStoreHandler),
+    ("./test", TIFF_SEQ, None),
+]
+
+
+@pytest.mark.parametrize("data", data)
+def test_mda_writer(qtbot: QtBot, tmp_path: Path, data: tuple) -> None:
+    wdg = MDAWidget()
+    qtbot.addWidget(wdg)
+    wdg.show()
+    path, save_format, cls = data
+    writer = wdg._create_writer(save_format, Path(path))
+    assert isinstance(writer, cls) if writer is not None else writer is None

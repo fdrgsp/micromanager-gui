@@ -5,6 +5,7 @@ from micromanager_gui import MicroManagerGUI
 
 app = QApplication([])
 mmc = CMMCorePlus.instance()
+mmc.loadSystemConfiguration()
 gui = MicroManagerGUI()
 gui.show()
-app.exec_()
+app.exec()
