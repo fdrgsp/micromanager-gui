@@ -8,8 +8,8 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ndv import NDViewer
 from pymmcore_plus import CMMCorePlus
-from pymmcore_widgets._stack_viewer_v2._mda_viewer import StackViewer
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QGridLayout,
@@ -127,11 +127,11 @@ class MicroManagerGUI(QMainWindow):
 
         super().dropEvent(event)
 
-    def _open_datastore(self, idx: int, path: Path) -> StackViewer | None:
+    def _open_datastore(self, idx: int, path: Path) -> NDViewer | None:
         if path.name.endswith(".tensorstore.zarr"):
             try:
                 reader = TensorstoreZarrReader(path)
-                return StackViewer(reader.store, parent=self)
+                return NDViewer(reader.store, parent=self)
             except Exception as e:
                 warn(f"Error opening tensorstore-zarr: {e}!", stacklevel=2)
                 return None
