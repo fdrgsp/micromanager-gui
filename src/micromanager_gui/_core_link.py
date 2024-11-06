@@ -31,8 +31,9 @@ MDA_VIEWER = "MDA Viewer"
 RUN = "run"
 CANCEL = "cancel"
 PROGRESS = "progress"
+MDA = "mda"
 
-PROGRESS_EMOJI = ":page_facing_up:"
+INFO_EMOJI = ":information_source:"
 WARNING_EMOJI = ":warning:"
 CANCEL_EMOJI = ":x:"
 RUN_EMOJI = ":rocket:"
@@ -45,16 +46,15 @@ RUNNING_MSG = {"icon_emoji": WARNING_EMOJI, "text": "MDA Sequence already runnin
 def _progress_message(event: useq.MDAEvent) -> dict[str, Any]:
     """Return the progress message."""
     if event.sequence is None:
-        text = "Status -> No MDASequence found!"
-    else:
-        try:
-            sizes = event.sequence.sizes
-            pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
-            info = (f"{key}{idx+1}/{sizes[key]}" for key, idx in event.index.items())
-            text = f"Status -> `{pos_name} [{', '.join(info)}]`"
-        except Exception as e:
-            text = f"Status -> {e}"
-    return {"icon_emoji": PROGRESS_EMOJI, "text": text}
+        return {"icon_emoji": WARNING_EMOJI, "text": "No MDASequence found!"}
+    try:
+        sizes = event.sequence.sizes
+        pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
+        info = (f"{key}{idx+1}/{sizes[key]}" for key, idx in event.index.items())
+        text = f"Status -> `{pos_name} [{', '.join(info)}]`"
+        return {"icon_emoji": INFO_EMOJI, "text": text}
+    except Exception as e:
+        return {"icon_emoji": WARNING_EMOJI, "text": f"Status -> {e}"}
 
 
 class CoreViewersLink(QObject):
