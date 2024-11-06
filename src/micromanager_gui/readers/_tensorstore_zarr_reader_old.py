@@ -13,7 +13,9 @@ from tifffile import imwrite
 from tqdm import tqdm
 
 
-class TensorstoreZarrReader:
+# Old because can be used to read data (and metadata) form files generated with the old
+# writer: _TensorStoreHandlerOld (micromanager_gui/_writers/_tensorstore_zarr_old.py)
+class TensorstoreZarrReaderOld:
     """Read a tensorstore zarr file generated with the 'TensorstoreZarrWriter'.
 
     Parameters
