@@ -15,6 +15,7 @@ from ._widgets._preview import Preview
 if TYPE_CHECKING:
     import numpy as np
     import useq
+    from pymmcore_plus.metadata import SummaryMetaV1
 
     from ._main_window import MicroManagerGUI
     from ._slackbot._mm_slackbot import MMSlackBot
@@ -128,7 +129,7 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
         self._mmc.mda.events.sequenceCanceled.connect(self._on_sequence_canceled)
-        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
+        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_menubar)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
 
         # handle the slackbot
@@ -201,7 +202,9 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             self._send_message(sequence, CANCEL_EMOJI, "MDA Sequence Cancelled!")
 
-    def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
+    def _on_sequence_started(
+        self, sequence: useq.MDASequence, meta: SummaryMetaV1
+    ) -> None:
         """Called when the MDA sequence is started."""
         self._mda_running = True
         self._current_event = None
@@ -212,7 +215,7 @@ class CoreViewersLink(QObject):
         # pause until the viewer is ready
         self._mmc.mda.toggle_pause()
         # setup the viewer
-        self._setup_viewer(sequence)
+        self._setup_viewer(sequence, meta)
         # resume the sequence
         self._mmc.mda.toggle_pause()
 
@@ -220,7 +223,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is not None:
             self._send_message(sequence, RUN_EMOJI, "MDA Sequence Started!")
 
-    def _setup_viewer(self, sequence: useq.MDASequence) -> None:
+    def _setup_viewer(self, sequence: useq.MDASequence, meta: SummaryMetaV1) -> None:
         """Setup the MDAViewer."""
         # get the MDAWidget writer
         datastore = self._mda.writer if self._mda is not None else None
@@ -234,10 +237,9 @@ class CoreViewersLink(QObject):
 
         # call it manually instead in _connect_viewer because this signal has been
         # emitted already
-        self._current_viewer.data.sequenceStarted(sequence)
+        self._current_viewer.data.sequenceStarted(sequence, meta)
 
-        # disable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(False)
+        self._enable_menubar(False)
 
         # connect the signals
         self._connect_viewer(self._current_viewer)
@@ -277,8 +279,7 @@ class CoreViewersLink(QObject):
         if self._current_viewer is None:
             return
 
-        # enable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(True)
+        self._enable_menubar(True)
 
         # call it before we disconnect the signals or it will not be called
         self._current_viewer.data.sequenceFinished(sequence)
@@ -307,11 +308,9 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.frameReady.disconnect(viewer.data.frameReady)
         self._mmc.mda.events.sequenceFinished.disconnect(viewer.data.sequenceFinished)
 
-    def _enable_gui(self, state: bool) -> None:
-        """Pause the viewer when the MDA sequence is paused."""
+    def _enable_menubar(self, state: bool) -> None:
+        """Enable or disable the GUI."""
         self._main_window._menu_bar._enable(state)
-        if self._current_viewer is None:
-            return
 
     def _set_preview_tab(self) -> None:
         """Set the preview tab."""
