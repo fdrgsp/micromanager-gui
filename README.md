@@ -94,9 +94,6 @@ features:
     - command: /clear
       description: Clear the chat form the bot messages
       should_escape: true
-    - command: /mda
-      description: Return the current MDASequence.
-      should_escape: true
 oauth_config:
   scopes:
     bot:
