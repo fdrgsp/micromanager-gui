@@ -228,7 +228,11 @@ class OMEZarrReader:
         """Return the metadata for the given indexers."""
         metadata = []
         for meta in self.store[pos_key].attrs.get(FRAME_META, []):
-            event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+            try:
+                event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+            # this is for an older version of the metadata
+            except KeyError:
+                event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
             if indexers.items() <= event_index.items():
                 metadata.append(meta)
         return metadata
