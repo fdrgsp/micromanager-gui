@@ -56,12 +56,6 @@ class TensorstoreZarrReader:
         if metadata_json := _store.kvstore.read(".zattrs").result().value:
             self._metadata = json.loads(metadata_json)
 
-        # TO ADD, THIS IS FOR NEW MDAWidget
-        # self._metadata: list = []
-        # if metadata_json := _store.kvstore.read(".zattrs").result().value:
-        #     metadata_dict = json_loads(metadata_json)
-        #     self._metadata = metadata_dict.get("frame_metadatas", [])
-
         # set the axis labels
         if self.sequence is not None:
             # not sure if is x, y or y, x
@@ -89,7 +83,6 @@ class TensorstoreZarrReader:
         return self._store
 
     @property
-    # def metadata(self) -> list[dict]:  # TO ADD, THIS IS FOR NEW MDAWidget
     def metadata(self) -> dict:
         """Return the unstructured full metadata."""
         return self._metadata
