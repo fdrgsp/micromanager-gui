@@ -34,8 +34,12 @@ dependencies = [
     "tifffile",
     "tqdm",
     "pyyaml",
+    "cmap",
+    "pyconify",
     "slack_bolt",
     "python-dotenv",
+    "ndv[vispy]",
+    "qtconsole",
 ]
 
 # extras
