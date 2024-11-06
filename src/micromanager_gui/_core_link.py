@@ -12,12 +12,6 @@ from micromanager_gui._widgets._viewers import MDAViewer
 from ._menubar._menubar import PREVIEW, VIEWERS
 from ._widgets._viewers import Preview
 
-DIALOG = Qt.WindowType.Dialog
-VIEWER_TEMP_DIR = None
-NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
-NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
-MDA_VIEWER = "MDA Viewer"
-
 if TYPE_CHECKING:
     import useq
     from pymmcore_plus.metadata import SummaryMetaV1
@@ -25,6 +19,12 @@ if TYPE_CHECKING:
     from ._main_window import MicroManagerGUI
     from ._widgets._mda_widget import MDAWidget
     from ._widgets._mm_console import MMConsole
+
+DIALOG = Qt.WindowType.Dialog
+VIEWER_TEMP_DIR = None
+NO_R_BTN = (0, QTabBar.ButtonPosition.RightSide, None)
+NO_L_BTN = (0, QTabBar.ButtonPosition.LeftSide, None)
+MDA_VIEWER = "MDA Viewer"
 
 
 class CoreViewersLink(QObject):
@@ -62,9 +62,7 @@ class CoreViewersLink(QObject):
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
-        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
-
-        self._viewer_tab.tabCloseRequested.connect(self._remove_mda_viewer_from_console)
+        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_menubar)
 
     def _close_tab(self, index: int) -> None:
         """Close the tab at the given index."""
@@ -77,6 +75,14 @@ class CoreViewersLink(QObject):
         # Delete the current viewer
         del self._current_viewer
         self._current_viewer = None
+
+        # remove the viewer from the console
+        if console := self._get_mm_console():
+            if VIEWERS not in console.get_user_variables():
+                return
+            # remove the item at pos index from the viewers variable in the console
+            viewer_name = list(console.shell.user_ns[VIEWERS].keys())[index - 1]
+            console.shell.user_ns[VIEWERS].pop(viewer_name, None)
 
     def _on_sequence_started(
         self, sequence: useq.MDASequence, meta: SummaryMetaV1
@@ -110,8 +116,7 @@ class CoreViewersLink(QObject):
         # emitted already
         self._current_viewer.data.sequenceStarted(sequence, meta)
 
-        # disable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(False)
+        self._enable_menubar(False)
 
         # connect the signals
         self._connect_viewer(self._current_viewer)
@@ -147,8 +152,7 @@ class CoreViewersLink(QObject):
         if self._current_viewer is None:
             return
 
-        # enable the LUT drop down and the mono/composite button (temporary)
-        self._enable_gui(True)
+        self._enable_menubar(True)
 
         # call it before we disconnect the signals or it will not be called
         self._current_viewer.data.sequenceFinished(sequence)
@@ -166,11 +170,9 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.frameReady.disconnect(viewer.data.frameReady)
         self._mmc.mda.events.sequenceFinished.disconnect(viewer.data.sequenceFinished)
 
-    def _enable_gui(self, state: bool) -> None:
-        """Pause the viewer when the MDA sequence is paused."""
+    def _enable_menubar(self, state: bool) -> None:
+        """Enable or disable the GUI."""
         self._main_window._menu_bar._enable(state)
-        if self._current_viewer is None:
-            return
 
     def _set_preview_tab(self) -> None:
         """Set the preview tab."""
@@ -190,13 +192,3 @@ class CoreViewersLink(QObject):
             if VIEWERS not in console.get_user_variables():
                 return
             console.shell.user_ns[VIEWERS].update({viewer_name: mda_viewer})
-
-    def _remove_mda_viewer_from_console(self, index: int) -> None:
-        if index == 0:  #  preview tab
-            return
-        if console := self._get_mm_console():
-            if VIEWERS not in console.get_user_variables():
-                return
-            # remove the item at pos index from the viewers variable in the console
-            viewer_name = list(console.shell.user_ns[VIEWERS].keys())[index - 1]
-            console.shell.user_ns[VIEWERS].pop(viewer_name, None)
