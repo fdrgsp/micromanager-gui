@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,8 +17,6 @@ from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from pymmcore_plus import CMMCorePlus
     from pytestqt.qtbot import QtBot
 
@@ -85,9 +84,23 @@ def test_readers(
 
     assert dest.exists()
 
-    w = reader(path=dest)
+    w = reader(data=dest)
     assert w.store
     assert w.sequence
+    assert w.path == Path(dest)
+    assert (
+        w.metadata
+        if isinstance(w, TensorstoreZarrReader)
+        else w.metadata()
+        if isinstance(w, OMEZarrReader)
+        else None
+    )
+
+    # test that the reader can accept the actual store as input on top of the path
+    w1 = reader(data=w.store)
+    assert isinstance(w1, type(w))
+    assert w1.sequence == w.sequence
+    assert w1.path
 
     assert w.isel({"p": 0}).shape == (3, 2, 512, 512)
     assert w.isel({"p": 0, "t": 0}).shape == (2, 512, 512)
