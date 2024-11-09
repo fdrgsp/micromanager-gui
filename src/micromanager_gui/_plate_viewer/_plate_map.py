@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple, cast
+from typing import TYPE_CHECKING, Iterable, NamedTuple, Tuple, cast
 
 import numpy as np
 from fonticon_mdi6 import MDI6
-from pymmcore_widgets.hcs._plate_model import Plate
-from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
+from pymmcore_widgets.useq_widgets._well_plate_widget import (
+    DATA_COLOR,
+    DATA_INDEX,
+    DATA_POSITION,
+    DATA_SELECTED,
+    WellPlateView,
+)
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtGui import QBrush, QColor, QIcon, QPen
+from qtpy.QtGui import QColor, QIcon
 from qtpy.QtWidgets import (
+    QAbstractGraphicsShapeItem,
     QComboBox,
     QFileDialog,
     QGroupBox,
@@ -24,30 +30,13 @@ from qtpy.QtWidgets import (
 )
 from superqt.fonticon import icon
 
-from ._plate_map_graphic_scene import _PlateMapScene
 from ._util import GREEN, RED
 
 if TYPE_CHECKING:
-    from pymmcore_widgets.hcs._graphics_items import _WellGraphicsItem
+    import useq
 
 ALIGN_LEFT = "QPushButton { text-align: left;}"
-UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
-PEN = QPen(Qt.GlobalColor.black)
-PEN.setWidth(3)
-OPACITY = 0.7
-DATA_KEY = 0
-
-
-plate = Plate(
-    id="standard 96 wp",
-    circular=True,
-    rows=8,
-    columns=12,
-    well_spacing_x=9.0,
-    well_spacing_y=9.0,
-    well_size_x=6.4,
-    well_size_y=6.4,
-)
+DATA_CONDITION = 5
 
 
 class _ConditionWidget(QWidget):
@@ -67,6 +56,8 @@ class _ConditionWidget(QWidget):
         for color_name in QColor.colorNames():
             color_icon = QIcon(icon(MDI6.square, color=color_name))
             self._color_combo.addItem(color_icon, color_name)
+        self._color_combo.setMaxVisibleItems(10)
+
         self._color_combo.currentIndexChanged.connect(self._on_value_changed)
 
         self._assign_btn = QPushButton("Assign")
@@ -100,7 +91,6 @@ class _ConditionTable(QGroupBox):
         super().__init__(parent)
 
         self._table = QTableWidget()
-        # self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self._table.setColumnCount(1)
         self._table.setHorizontalHeaderLabels(["Conditions"])
         self._table.horizontalHeader().setStretchLastSection(True)
@@ -206,6 +196,16 @@ class _ConditionTable(QGroupBox):
 
 
 class PlateMapData(NamedTuple):
+    """Data structure for the plate map."""
+
+    name: str  # well name
+    row_col: Tuple[int, int]  # row, column  # noqa: UP006
+    condition: Tuple[str, str]  # condition name, color name # noqa: UP006
+
+
+class PlateMapDataOld(NamedTuple):
+    """Old data structure for the plate map."""
+
     name: str
     row: int
     column: int
@@ -220,17 +220,29 @@ class PlateMapWidget(QWidget):
         self,
         parent: QWidget | None = None,
         title: str = "",
-        plate: Plate | None = None,
+        plate: useq.WellPlate | None = None,
     ) -> None:
         super().__init__(parent)
 
-        self.scene = _PlateMapScene()
-        self.view = _ResizingGraphicsView(self.scene)
-        self.view.setStyleSheet("background:grey; border-radius: 5px;")
+        self._plate_view = WellPlateView()
+        self._plate_view._change_selection = self._change_selection
 
         self._clear_selection_btn = QPushButton("Clear Selection")
         self._clear_selection_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._clear_selection_btn.clicked.connect(self.scene._clear_selection)
+        self._clear_selection_btn.setToolTip("Clear the selection of the wells.")
+        self._clear_selection_btn.clicked.connect(self._plate_view.clearSelection)
+        self._clear_condition_btn = QPushButton("Clear Condition")
+        self._clear_condition_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._clear_condition_btn.setToolTip(
+            "Clear the condition of the selected wells."
+        )
+        self._clear_condition_btn.clicked.connect(self.clear_condition)
+        self._clear_all_btn = QPushButton("Clear All")
+        self._clear_all_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._clear_all_btn.setToolTip(
+            "Clear all the selection of the wells and all the conditions."
+        )
+        self._clear_all_btn.clicked.connect(self.clear)
         self._save_map_btn = QPushButton("Save Plate Map")
         self._save_map_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._save_map_btn.clicked.connect(self._save_plate_map)
@@ -241,6 +253,8 @@ class PlateMapWidget(QWidget):
         btns_layout = QHBoxLayout()
         btns_layout.setContentsMargins(0, 0, 0, 0)
         btns_layout.addWidget(self._clear_selection_btn)
+        btns_layout.addWidget(self._clear_condition_btn)
+        btns_layout.addWidget(self._clear_all_btn)
         btns_layout.addStretch()
         btns_layout.addWidget(self._save_map_btn)
         btns_layout.addWidget(self._load_map_btn)
@@ -250,7 +264,7 @@ class PlateMapWidget(QWidget):
         top_layout.setContentsMargins(10, 10, 10, 10)
         top_layout.setSpacing(5)
         top_layout.addLayout(btns_layout)
-        top_layout.addWidget(self.view)
+        top_layout.addWidget(self._plate_view)
 
         self.list = _ConditionTable()
         self.list.valueChanged.connect(self._assign_condition)
@@ -270,10 +284,34 @@ class PlateMapWidget(QWidget):
         if plate is not None:
             self.setPlate(plate)
 
-    def setPlate(self, plate: Plate | dict) -> None:
-        if isinstance(plate, dict):
-            plate = Plate(**plate)
-        draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)
+    def setPlate(self, plate: useq.WellPlate) -> None:
+        self._plate_view.drawPlate(plate)
+
+    def clear(self) -> None:
+        """Clear all the wells and the conditions."""
+        # clear the selection of the plate view
+        self._plate_view.clearSelection()
+        # clear the color and data of the condition wells
+        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+            self._plate_view._well_items
+        )
+        for well in wells.values():
+            if well.data(DATA_COLOR):
+                self._plate_view.setWellColor(well[0], well[1], None)
+                well.setData(DATA_COLOR, None)
+                well.setData(DATA_CONDITION, None)
+                well.setData(DATA_SELECTED, False)
+
+    def clear_condition(self) -> None:
+        """Clear the condition of the selected wells."""
+        print("clear condition")
+        wells: tuple[tuple[int, int]] = self._plate_view.selectedIndices()
+        for well in wells:
+            r, c = well
+            self._plate_view.setWellColor(r, c, None)
+            self._plate_view._well_items[well].setData(DATA_COLOR, None)
+            self._plate_view._well_items[well].setData(DATA_CONDITION, None)
+        self._plate_view.clearSelection()
 
     def value(self) -> list[PlateMapData]:
         """Return the list of classified wells and their data.
@@ -281,30 +319,26 @@ class PlateMapWidget(QWidget):
         Returns a tuple containing the (well_name, row and column) and the data assigned
         to it, (condition_name, color_name).
         """
-        selected = []
-        for item in reversed(self.scene.items()):
-            item = cast("_WellGraphicsItem", item)
-            if item.brush != UNSELECTED_COLOR:
-                well = item.value()
-                condition_name, color_name = item.data(DATA_KEY)
-                selected.append(
-                    PlateMapData(
-                        name=well.name,
-                        row=well.row,
-                        column=well.column,
-                        condition=condition_name,
-                        color=color_name,
-                    )
-                )
-        return selected
+        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+            self._plate_view._well_items
+        )
+        return [
+            PlateMapData(
+                well.data(DATA_POSITION).name,
+                well.data(DATA_INDEX),
+                well.data(DATA_CONDITION),
+            )
+            for well in wells.values()
+            if well.data(DATA_COLOR)
+        ]
 
-    def setValue(self, value: list[PlateMapData] | list[str] | Path | str) -> None:
+    def setValue(
+        self, value: list[PlateMapData | PlateMapDataOld] | list | Path | str
+    ) -> None:
         """Set the value of the widget."""
-        # unset all the wells and reset the items data
-        for item in self.scene.items():
-            item = cast("_WellGraphicsItem", item)
-            item.brush = UNSELECTED_COLOR
-            item.setData(DATA_KEY, None)
+        # clear the selection and the conditions of the plate
+        self._plate_view.clearSelection()
+        self.clear()
 
         if isinstance(value, (Path, str)):
             with open(value) as pmap:
@@ -315,68 +349,113 @@ class PlateMapWidget(QWidget):
         for data in value:
             # convert the data to a PlateMapData object if it is a list of strings
             if not isinstance(data, PlateMapData):
-                data = PlateMapData(*data)
+                # convert the old data to the new data
+                if isinstance(data, PlateMapDataOld):
+                    data = PlateMapData(
+                        data.name, (data.row, data.column), (data.condition, data.color)
+                    )
+                # convert old list of strings to new PlateMapData
+                elif len(data) == 5:  # from PlateMapDataOld
+                    name, r, c, condition, color = data
+                    data = PlateMapData(name, (r, c), (condition, color))
+                else:
+                    data = PlateMapData(*tuple(data))
             # store the data in a list to update the condition table
-            add_to_conditions_list.add((data.condition, data.color))
-            # update the color and data of the selected wells
-            for item in self.scene.items():
-                item = cast("_WellGraphicsItem", item)
-                if item.value().name == data.name:
-                    item.brush = QBrush(QColor(data.color))
-                    item.setData(DATA_KEY, (data.condition, data.color))
-            # update the condition table
-            self.list.setValue(list(add_to_conditions_list))
+            add_to_conditions_list.add(tuple(data.condition))
+            # update the color and data of the wells with the assigned conditions
+            wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+                self._plate_view._well_items
+            )
+            for well in wells.values():
+                if well.data(DATA_INDEX) == tuple(data.row_col):
+                    r, c = well.data(DATA_INDEX)
+                    _, color_name = data.condition
+                    self._plate_view.setWellColor(r, c, color_name)
+                    well.setData(DATA_CONDITION, tuple(data.condition))
+                # update the condition table
+        self.list.setValue(list(add_to_conditions_list))
 
-    def clear(self) -> None:
-        """Clear the plate map."""
-        for item in self.scene.items():
-            item = cast("_WellGraphicsItem", item)
-            item.brush = UNSELECTED_COLOR
-            item.setData(DATA_KEY, None)
-        self.list.setValue([])
+    # override the super method to change the color of the selected wells
+    # so it does not use the color stored in the data and this if we select a well
+    # with a condition and color assigned, the color will change to the selected color
+    # when the well is selected and back to the assigned color when it is deselected.
+    def _change_selection(
+        self,
+        select: Iterable[QAbstractGraphicsShapeItem],
+        deselect: Iterable[QAbstractGraphicsShapeItem],
+    ) -> None:
+        """Change the selection of the wells.
+
+        Overriding the super method to change the color of the selected wells so it
+        does not use the color stored in the data and this if we select a well with
+        a condition and color assigned, the color will change to the selected color
+        when the well is selected and back to the assigned color when deselected.
+        """
+        before = self._plate_view._selected_items.copy()
+
+        for item in select:
+            color = self._plate_view._selected_color
+            item.setBrush(color)
+            item.setData(DATA_SELECTED, True)
+        self._plate_view._selected_items.update(select)
+
+        for item in deselect:
+            if item.data(DATA_SELECTED):
+                color = item.data(DATA_COLOR) or self._plate_view._unselected_color
+                item.setBrush(color)
+                item.setData(DATA_SELECTED, False)
+        self._plate_view._selected_items.difference_update(deselect)
+
+        if before != self._plate_view._selected_items:
+            self._plate_view.selectionChanged.emit()
 
     def _assign_condition(self, value: tuple[str, str]) -> None:
         condition_name, color_name = value
+        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+            self._plate_view._well_items
+        )
+        for well_key in wells:
+            if wells[well_key].data(DATA_SELECTED):
+                # remove the well from the selected items
+                self._plate_view._selected_items.difference_update([wells[well_key]])
+                # update the data of the well
+                wells[well_key].setData(DATA_SELECTED, False)
+                wells[well_key].setData(DATA_CONDITION, (condition_name, color_name))
+                # setWellColor will also add the DATA_COLOR to the well item
+                r, c = wells[well_key].data(DATA_INDEX)
+                self._plate_view.setWellColor(r, c, color_name)
 
-        # update the color or data of already classified wells
-        for item in self.scene.items():
-            item = cast("_WellGraphicsItem", item)
-            if item.data(DATA_KEY) is not None:
-                cond, col = item.data(DATA_KEY)
+            if wells[well_key].data(DATA_CONDITION) is not None:
+                cond, col = wells[well_key].data(DATA_CONDITION)
                 # if the condition is assigned but the color is different, change color
                 if cond == condition_name and col != color_name:
-                    brush = QBrush(QColor(color_name))
-                    item.brush = brush
-                    item.setData(DATA_KEY, (condition_name, color_name))
+                    r, c = wells[well_key].data(DATA_INDEX)
+                    self._plate_view.setWellColor(r, c, color_name)
+                    wells[well_key].setData(
+                        DATA_CONDITION, (condition_name, color_name)
+                    )
                 # if the color is assigned but the condition is different, symply
                 # update the item data
                 elif cond != condition_name and col == color_name:
-                    item.setData(DATA_KEY, (condition_name, color_name))
-
-        # assign the color and the data to the selected wells
-        brush = QBrush(QColor(color_name))
-        for item in self.scene.selectedItems():
-            item = cast("_WellGraphicsItem", item)
-            item.brush = brush
-            item.setData(DATA_KEY, (condition_name, color_name))
-            item.setSelected(False)
+                    wells[well_key].setData(
+                        DATA_CONDITION, (condition_name, color_name)
+                    )
 
     def _remove_condition(self, value: tuple[str, str]) -> None:
         condition_name, color_name = value
-        for item in self.scene.items():
-            item = cast("_WellGraphicsItem", item)
-            if item.data(DATA_KEY) is not None:
-                cond, col = item.data(DATA_KEY)
+        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+            self._plate_view._well_items
+        )
+        for well_key in wells:
+            if wells[well_key].data(DATA_CONDITION) is not None:
+                cond, col = wells[well_key].data(DATA_CONDITION)
                 if cond == condition_name and col == color_name:
-                    item.brush = UNSELECTED_COLOR
-                    item.setData(DATA_KEY, None)
-                    item.setSelected(False)
+                    r, c = wells[well_key].data(DATA_INDEX)
+                    self._plate_view.setWellColor(r, c, None)
+                    wells[well_key].setData(DATA_CONDITION, None)
+                    wells[well_key].setData(DATA_SELECTED, False)
 
     def _save_plate_map(self) -> None:
-        # if no items in the scene, return
-        if not self.scene.items():
-            return
-
         (dir_file, _) = QFileDialog.getSaveFileName(
             self, "Saving directory and filename.", "", "json(*.json)"
         )

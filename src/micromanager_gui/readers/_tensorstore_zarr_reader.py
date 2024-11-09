@@ -43,7 +43,7 @@ class TensorstoreZarrReader:
     data, metadata = reader.isel({"p": 0, "t": 1, "z": 0}, metadata=True)
     """
 
-    def __init__(self, data: str | Path | ts.TensorStore):
+    def __init__(self, data: str | Path | ts.TensorStore) -> None:
         if isinstance(data, ts.TensorStore):
             self._path = data.kvstore.path
             _store = data
@@ -55,10 +55,15 @@ class TensorstoreZarrReader:
             }
             _store = ts.open(spec).result()
 
-        self._metadata: list = []
+        self._metadata: list[dict] = []
         if metadata_json := _store.kvstore.read(".zattrs").result().value:
             metadata_dict = json_loads(metadata_json)
-            self._metadata = metadata_dict.get("frame_metadatas", [])
+            # # this is for an older version of the metadata----------------------------
+            if metadata_dict.get("useq_MDASequence"):
+                self._metadata = metadata_dict
+            # --------------------------------------------------------------------------
+            else:
+                self._metadata = metadata_dict.get("frame_metadatas", [])
 
         # set the axis labels
         if self.sequence is not None:
@@ -70,7 +75,7 @@ class TensorstoreZarrReader:
                 except IndexError as e:
                     warnings.warn(
                         f"Error setting the axis labels: {e}."
-                        "`axis_order`: {axis_order}, `shape`: {_store.shape}.",
+                        f"`axis_order`: {axis_order}, `shape`: {_store.shape}.",
                         stacklevel=2,
                     )
 
@@ -87,15 +92,22 @@ class TensorstoreZarrReader:
         return self._store
 
     @property
-    def metadata(self) -> list[dict]:
+    def metadata(self) -> list[dict] | dict:
         """Return the unstructured full metadata."""
         return self._metadata
 
     @property
     def sequence(self) -> useq.MDASequence | None:
-        # getting the sequence from the first frame metadata within the "mda_event" key
-        seq = self._metadata[0].get("mda_event", {}).get("sequence")
-        return useq.MDASequence(**seq) if seq is not None else None
+        # getting the sequence from first frame metadata within the "mda_event" key
+        if isinstance(self._metadata, list):
+            seq = self._metadata[0].get("mda_event", {}).get("sequence")
+            return useq.MDASequence(**seq) if seq is not None else None
+
+        # this is for an older version of the metadata ---------------------------------
+        seq = self._metadata.get("useq_MDASequence")
+        if seq is not None:
+            return useq.MDASequence(**json.loads(seq))
+        # ------------------------------------------------------------------------------
 
     # ___________________________Public Methods___________________________
 
@@ -221,8 +233,21 @@ class TensorstoreZarrReader:
     def _get_metadata_from_index(self, indexers: Mapping[str, int]) -> list[dict]:
         """Return the metadata for the given indexers."""
         metadata = []
-        for meta in self._metadata:
-            event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+        _meta: list[dict] | dict
+        # in case of an older version of the metadata, the metadata is a dictionary
+        if isinstance(self._metadata, list):
+            _meta = self._metadata
+        # this is for an older version of the metadata -----------------------------
+        else:
+            _meta = self._metadata.get("frame_metadatas", [])
+        # --------------------------------------------------------------------------
+        for meta in _meta:
+            try:
+                # this is for an older version of the metadata -------------------------
+                event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+            except KeyError:
+                event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
+            # --------------------------------------------------------------------------
             if indexers.items() <= event_index.items():
                 metadata.append(meta)
         return metadata

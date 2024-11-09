@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Generator
 import tifffile
 from cellpose import models
 from fonticon_mdi6 import MDI6
-from pymmcore_widgets.mda._save_widget import OME_ZARR, WRITERS, ZARR_TESNSORSTORE
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
@@ -24,9 +23,13 @@ from tqdm import tqdm
 
 from micromanager_gui._plate_viewer._init_dialog import _BrowseWidget
 from micromanager_gui._plate_viewer._util import GREEN, RED
+from micromanager_gui._widgets._mda_widget._save_widget import (
+    OME_ZARR,
+    WRITERS,
+    ZARR_TESNSORSTORE,
+)
 
-from ._readers._ome_zarr_reader import OMEZarrReader
-from ._readers._tensorstore_zarr_reader import TensorstoreZarrReader
+from .readers import OMEZarrReader, TensorstoreZarrReader
 
 if TYPE_CHECKING:
     import numpy as np

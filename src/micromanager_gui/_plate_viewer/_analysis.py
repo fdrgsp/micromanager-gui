@@ -50,8 +50,7 @@ if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
-    from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
-    from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
+    from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
     from ._plate_viewer import PlateViewer
 
@@ -174,7 +173,9 @@ class _AnalyseCalciumTraces(QWidget):
         )
 
     @property
-    def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
+    def data(
+        self,
+    ) -> TensorstoreZarrReader | OMEZarrReader | None:
         return self._data
 
     @data.setter
@@ -394,13 +395,13 @@ class _AnalyseCalciumTraces(QWidget):
         # name as the kek. eg.g:
         # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
         for data in conition_1_plate_map:
-            self._plate_map_data[data.name] = {"condition_1": data.condition}
+            self._plate_map_data[data.name] = {"condition_1": data.condition[0]}
 
         for data in conition_2_plate_map:
             if data.name in self._plate_map_data:
-                self._plate_map_data[data.name]["condition_2"] = data.condition
+                self._plate_map_data[data.name]["condition_2"] = data.condition[0]
             else:
-                self._plate_map_data[data.name] = {"condition_2": data.condition}
+                self._plate_map_data[data.name] = {"condition_2": data.condition[0]}
 
     def _extract_traces(self, positions: list[int]) -> None:
         """Extract the roi traces in multiple threads."""

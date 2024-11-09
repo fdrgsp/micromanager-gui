@@ -7,17 +7,18 @@ from typing import Generator, cast
 
 import numpy as np
 import tifffile
+import useq
 from fonticon_mdi6 import MDI6
-from pymmcore_widgets._stack_viewer_v2 import StackViewer
-from pymmcore_widgets.hcs._graphics_items import Well, _WellGraphicsItem
-from pymmcore_widgets.hcs._plate_model import Plate
-from pymmcore_widgets.hcs._util import _ResizingGraphicsView, draw_plate
-from pymmcore_widgets.mda._core_mda import HCS
-from pymmcore_widgets.mda._save_widget import OME_ZARR, WRITERS, ZARR_TESNSORSTORE
+from ndv import NDViewer
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
+from pymmcore_widgets.useq_widgets._well_plate_widget import (
+    DATA_POSITION,
+    WellPlateView,
+)
 from qtpy.QtCore import QSize, Qt
-from qtpy.QtGui import QBrush, QColor, QIcon, QPen
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
+    QAbstractGraphicsShapeItem,
     QDialog,
     QGridLayout,
     QGroupBox,
@@ -34,14 +35,19 @@ from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
-from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
-from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
+from micromanager_gui._widgets._mda_widget._save_widget import (
+    OME_ZARR,
+    WRITERS,
+    ZARR_TESNSORSTORE,
+)
+from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 from ._analysis import _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widget import _GraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
+from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
 from ._segmentation import _CellposeSegmentation
 from ._util import (
@@ -52,15 +58,9 @@ from ._util import (
     _ProgressBarWidget,
     show_error_dialog,
 )
-from ._wells_graphic_scene import _WellsGraphicsScene
 
-GREEN = "#00FF00"  # "#00C600"
-SELECTED_COLOR = QBrush(QColor(GREEN))
-UNSELECTED_COLOR = QBrush(Qt.GlobalColor.lightGray)
-UNSELECTABLE_COLOR = QBrush(Qt.GlobalColor.darkGray)
-PEN = QPen(Qt.GlobalColor.black)
-PEN.setWidth(3)
-OPACITY = 0.7
+HCS = "hcs"
+UNSELECTABLE_COLOR = "#404040"
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
 
@@ -102,9 +102,10 @@ class PlateViewer(QMainWindow):
         self.setMenuBar(self.menu_bar)
 
         # scene and view for the plate map
-        self.scene = _WellsGraphicsScene()
-        self.view = _ResizingGraphicsView(self.scene)
-        self.view.setStyleSheet("background:grey; border-radius: 5px;")
+        self._plate_view = WellPlateView()
+        self._plate_view.setDragMode(WellPlateView.DragMode.NoDrag)
+        self._plate_view.setSelectionMode(WellPlateView.SelectionMode.SingleSelection)
+        # self._plate_view.setSelectedColor(Qt.GlobalColor.yellow)
 
         # table for the fields of view
         self._fov_table = _FOVTable(self)
@@ -121,14 +122,14 @@ class PlateViewer(QMainWindow):
         left_layout = QVBoxLayout(left_group)
         left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(5)
-        left_layout.addWidget(self.view)
+        left_layout.addWidget(self._plate_view)
         left_layout.addWidget(self._fov_table)
 
         # splitter for the plate map and the fov table
         self.splitter_top_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
         self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_top_left.setChildrenCollapsible(False)
-        self.splitter_top_left.addWidget(self.view)
+        self.splitter_top_left.addWidget(self._plate_view)
         self.splitter_top_left.addWidget(self._fov_table)
         top_left_group = QGroupBox()
         top_left_layout = QVBoxLayout(top_left_group)
@@ -228,7 +229,7 @@ class PlateViewer(QMainWindow):
         # add widgets to central widget
         self._central_widget_layout.addWidget(self.main_splitter)
 
-        self.scene.selectedWellChanged.connect(self._on_scene_well_changed)
+        self._plate_view.selectionChanged.connect(self._on_scene_well_changed)
 
         self._loading_bar = _ProgressBarWidget(self, text="Loading Analysis Data...")
 
@@ -237,26 +238,37 @@ class PlateViewer(QMainWindow):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        # data = "/Users/fdrgsp/Desktop/test/z.ome.zarr"
-        # reader = OMEZarrReader(data)
-        # data = "/Users/fdrgsp/Desktop/test/ts.tensorstore.zarr"
         # data = (
-        #     r"/Volumes/T7 Shield/Neurons/NC240509_240523_Chronic/NC240509_240523_"
-        #     "Chronic.tensorstore.zarr"
+        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/NC240509_240523"
+        #     "_Chronic.tensorstore.zarr"
+        # )
+        # self._labels_path = (
+        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/"
+        #     "NC240509_240523_Chronic_labels"
+        # )
+        # self._analysis_file_path = (
+        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/"
+        #     "NC240509_240523_Chronic_analysis"
         # )
         # reader = TensorstoreZarrReader(data)
-        # self._labels_path = "/Users/fdrgsp/Desktop/labels"
-        # # # self._analysis_file_path = "/Users/fdrgsp/Desktop/analysis.json"
-        # # self._analysis_file_path = "/Users/fdrgsp/Desktop/out"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/o1"
         # self._init_widget(reader)
+        # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
+        # self._labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
+        # self._analysis_file_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
+        # reader = TensorstoreZarrReader(data)
+        # self._init_widget(reader)
+        # ____________________________________________________________________________
 
     @property
-    def datastore(self) -> TensorstoreZarrReader | OMEZarrReader | None:
+    def datastore(
+        self,
+    ) -> TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader | None:
         return self._datastore
 
     @datastore.setter
-    def datastore(self, value: TensorstoreZarrReader | OMEZarrReader) -> None:
+    def datastore(
+        self, value: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
+    ) -> None:
         self._datastore = value
         self._init_widget(value)
 
@@ -267,7 +279,11 @@ class PlateViewer(QMainWindow):
     @labels_path.setter
     def labels_path(self, value: str | None) -> None:
         self._labels_path = value
-        self._on_fov_table_selection_changed()
+        # self._on_fov_table_selection_changed()
+
+    @property
+    def labels(self) -> dict[str, np.ndarray]:
+        return self._segmentation_wdg.labels
 
     @property
     def analysis_file_path(self) -> str | None:
@@ -285,10 +301,6 @@ class PlateViewer(QMainWindow):
     @analysis_data.setter
     def analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
         self._analysis_data = value
-
-    @property
-    def labels(self) -> dict[str, np.ndarray]:
-        return self._segmentation_wdg.labels
 
     def _show_plate_map_dialog(self) -> None:
         """Show the plate map dialog."""
@@ -341,8 +353,8 @@ class PlateViewer(QMainWindow):
             # clear fov table
             self._fov_table.clear()
             # clear scene
-            self.scene.clear()
-            reader: TensorstoreZarrReader | OMEZarrReader
+            self._plate_view.clearSelection()
+            reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
             if datastore.endswith(TS):
                 # read tensorstore
                 reader = TensorstoreZarrReader(datastore)
@@ -463,7 +475,9 @@ class PlateViewer(QMainWindow):
         """Update the progress bar value."""
         self._loading_bar.setValue(value)
 
-    def _init_widget(self, reader: TensorstoreZarrReader | OMEZarrReader) -> None:
+    def _init_widget(
+        self, reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
+    ) -> None:
         """Initialize the widget with the given datastore."""
         # load analysis json file if the path is not None
         if self._analysis_file_path:
@@ -474,31 +488,38 @@ class PlateViewer(QMainWindow):
         if self._datastore.sequence is None:
             show_error_dialog(
                 self,
-                "useq.MDASequence not found! Cannot use the  `PlateViewer` without"
+                "useq.MDASequence not found! Cannot use the  `PlateViewer` without "
                 "the useq.MDASequence in the datastore metadata!",
             )
             return
 
-        meta = cast(
-            dict, self._datastore.sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = (
+            self._datastore.sequence.stage_positions
         )
-        hcs_meta = meta.get(HCS, {})
-        if not hcs_meta:
-            show_error_dialog(
-                self,
-                "Cannot open a zarr datastore without HCS metadata! "
-                f"Metadata: {meta}",
-            )
-            return
+        plate: useq.WellPlate | None = None
 
-        plate = hcs_meta.get("plate")
-        if not plate:
-            show_error_dialog(
-                self,
-                "Cannot find plate information in the HCS metadata! "
-                f"HCS Metadata: {hcs_meta}",
-            )
-            return
+        if not isinstance(plate_plan, useq.WellPlatePlan):
+            plate_plan = self._retrieve_plate_plan()
+            if plate_plan is None:
+                show_error_dialog(self, "Cannot find the plate plan in the metadata!")
+                return
+
+        plate = plate_plan.plate
+
+        # draw plate
+        self._plate_view.drawPlate(plate)
+
+        # disable non-acquired wells
+        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+            self._plate_view._well_items
+        )
+        selected = [
+            tuple(plate_plan.selected_well_indices[i])
+            for i in range(len(plate_plan.selected_well_indices))
+        ]
+        for r, c in wells.keys():
+            if (r, c) not in selected:
+                self._plate_view.setWellColor(r, c, UNSELECTABLE_COLOR)
 
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
@@ -508,30 +529,75 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.labels_path = self._labels_path
         self._analysis_wdg._output_path._path.setText(self._analysis_file_path)
 
-        plate = plate if isinstance(plate, Plate) else Plate(**plate)
-
-        # draw plate
-        draw_plate(self.view, self.scene, plate, UNSELECTED_COLOR, PEN, OPACITY)
-
-        # get acquired wells (use row and column and not the name to be safer)
-        wells_row_col = []
-        for well in hcs_meta.get("wells", []):
-            well = well if isinstance(well, Well) else Well(**well)
-            wells_row_col.append((well.row, well.column))
-
-        # disable non-acquired wells
-        to_exclude = []
-        for item in self.scene.items():
-            item = cast(_WellGraphicsItem, item)
-            well = item.value()
-            if (well.row, well.column) not in wells_row_col:
-                item.brush = UNSELECTABLE_COLOR
-                to_exclude.append(item.value())
-        self.scene.exclude_wells = to_exclude
-
         self._load_plate_map(plate)
 
-    def _load_plate_map(self, plate: Plate) -> None:
+    def _retrieve_plate_plan(self) -> useq.WellPlatePlan | None:
+        """Retrieve the plate plan from the old metadata version."""
+        if self._datastore is None:
+            return None
+
+        if self._datastore.sequence is None:
+            return None
+
+        meta = cast(
+            dict, self._datastore.sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+        )
+
+        # in the old version the HCS metadata was in the root of the metadata
+        if old_hcs_meta := meta.get(HCS, {}):
+            old_plate = old_hcs_meta.get("plate")
+            if not old_plate:
+                return None
+
+            old_plate = (
+                old_plate if isinstance(old_plate, OldPlate) else OldPlate(**old_plate)
+            )
+
+            # old plate to new useq.WellPlate
+            plate = useq.WellPlate(
+                name=old_plate.id,
+                rows=old_plate.rows,
+                columns=old_plate.columns,
+                well_spacing=(old_plate.well_spacing_x, old_plate.well_spacing_y),
+                well_size=(old_plate.well_size_x, old_plate.well_size_y),
+                circular_wells=old_plate.circular,
+            )
+
+            # old_meta should be like this:
+            # plate: OldPlate] = None
+            # wells: list[Well] = None
+            # name: str
+            # row: int
+            # column: int
+            # calibration: CalibrationData = None
+            # plate: OldPlatePlate] = None
+            # well_A1_center: tuple[float, float] = None
+            # rotation_matrix: list[list[float]] = None
+            # calibration_positions_a1: list[tuple[float, float]] = None
+            # calibration_positions_an: list[tuple[float, float]] = None
+            # positions: list[Position] = None
+
+            # group the selected wells by row and column
+            selected_wells = tuple(
+                zip(
+                    *(
+                        (well["row"], well["column"])
+                        for well in old_hcs_meta.get("wells", [])
+                    )
+                )
+            )
+            # create useq plate plan
+            plate_plan = useq.WellPlatePlan(
+                plate=plate,
+                a1_center_xy=old_hcs_meta["calibration"]["well_A1_center"],
+                selected_wells=cast(
+                    tuple[tuple[int, int], tuple[int, int]], selected_wells
+                ),
+            )
+
+        return plate_plan
+
+    def _load_plate_map(self, plate: useq.WellPlate) -> None:
         """Load the plate map from the given file."""
         self._plate_map_genotype.clear()
         self._plate_map_treatment.clear()
@@ -546,12 +612,12 @@ class PlateViewer(QMainWindow):
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 
-    def _on_scene_well_changed(self, value: Well | None) -> None:
+    def _on_scene_well_changed(self) -> None:
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
         self._image_viewer._clear_highlight()
 
-        if self._datastore is None or value is None:
+        if self._datastore is None:
             return
 
         if self._datastore.sequence is None:
@@ -562,9 +628,14 @@ class PlateViewer(QMainWindow):
             )
             return
 
+        well_dict: set[QAbstractGraphicsShapeItem] = self._plate_view._selected_items
+        if not well_dict or len(well_dict) != 1:
+            return
+        well_name = next(iter(well_dict)).data(DATA_POSITION).name
+
         # add the fov per position to the table
         for idx, pos in enumerate(self._datastore.sequence.stage_positions):
-            if pos.name and value.name in pos.name:
+            if pos.name and well_name in pos.name:
                 self._fov_table.add_position(WellInfo(idx, pos))
 
         if self._fov_table.rowCount() > 0:
@@ -631,7 +702,7 @@ class PlateViewer(QMainWindow):
             return
 
         data = self._datastore.isel(p=value.pos_idx)
-        viewer = StackViewer(data, parent=self)
+        viewer = NDViewer(data, parent=self)
         viewer.setWindowTitle(value.fov.name or f"Position {value.pos_idx}")
         viewer.setWindowFlag(Qt.WindowType.Dialog)
         viewer.show()

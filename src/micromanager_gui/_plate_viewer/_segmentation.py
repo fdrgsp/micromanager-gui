@@ -37,8 +37,7 @@ if TYPE_CHECKING:
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
-    from micromanager_gui._readers._ome_zarr_reader import OMEZarrReader
-    from micromanager_gui._readers._tensorstore_zarr_reader import TensorstoreZarrReader
+    from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
     from ._plate_viewer import PlateViewer
 
@@ -209,7 +208,9 @@ class _CellposeSegmentation(QWidget):
         main_layout.addStretch(1)
 
     @property
-    def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
+    def data(
+        self,
+    ) -> TensorstoreZarrReader | OMEZarrReader | None:
         return self._data
 
     @data.setter
@@ -292,7 +293,8 @@ class _CellposeSegmentation(QWidget):
             model = CellposeModel(pretrained_model=custom_model_path, gpu=True)
         else:
             model_type = self._models_combo.currentText()
-            model = models.Cellpose(gpu=True, model_type=model_type)
+            # model = models.Cellpose(gpu=True, model_type=model_type)
+            model = models.Cellpose(gpu=False, model_type=model_type)
 
         # set the channel to segment
         channel = [self._channel_combo.currentIndex(), 0]
@@ -313,7 +315,7 @@ class _CellposeSegmentation(QWidget):
             positions=positions,
             _start_thread=True,
             _connect={
-                "yielded": self._update_progress,
+                "yielded": self._update_progress_bar,
                 "finished": self._on_worker_finished,
                 "errored": self._on_worker_finished,
             },
@@ -341,7 +343,7 @@ class _CellposeSegmentation(QWidget):
         channel: list[int],
         diameter: float,
         positions: list[int],
-    ) -> Generator[str, None, None]:
+    ) -> Generator[tuple[str, list[int]], None, None]:
         """Perform the segmentation using Cellpose."""
         if self._data is None:
             return
@@ -354,10 +356,13 @@ class _CellposeSegmentation(QWidget):
             # get the data
             data, meta = self._data.isel(p=p, metadata=True)
             # get position name from metadata
-            pos_name = (
-                meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-            )
-            yield f"[Well {pos_name} (p{p})]"
+            try:
+                meta[0].get("mda_event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+            except KeyError:  # in case of older metadata
+                pos_name = (
+                    meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+                )
+            yield (f"[Well {pos_name} (p{p})]", positions)
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
@@ -374,10 +379,13 @@ class _CellposeSegmentation(QWidget):
         else:
             self._browse_custom_model.hide()
 
-    def _update_progress(self, state: str) -> None:
+    def _update_progress_bar(self, args: tuple[str, list[int]]) -> None:
         """Update the progress bar with the current state."""
+        state, positions = args
         self._progress_label.setText(state)
-        self._progress_bar.setValue(self._progress_bar.value() + 1)
+        # if len(positions) is one, just output 0, otherwise output the current value+1
+        val = self._progress_bar.value() + 1 if len(positions) > 1 else 0
+        self._progress_bar.setValue(val)
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""

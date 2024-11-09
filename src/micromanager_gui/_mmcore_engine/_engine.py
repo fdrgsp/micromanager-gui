@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import time
+from itertools import product
 from typing import (
     TYPE_CHECKING,
-    Any,
     Iterable,
     Iterator,
-    Mapping,
     cast,
 )
 
 from pyfirmata2 import Arduino
 from pyfirmata2.pyfirmata2 import Pin
 from pymmcore_plus._logger import logger
+from pymmcore_plus.core._constants import Keyword
 from pymmcore_plus.core._sequencing import SequencedEvent
 from pymmcore_plus.mda import MDAEngine
 from pymmcore_plus.mda._engine import ImagePayload
@@ -22,6 +22,7 @@ from useq import AcquireImage, HardwareAutofocus, MDAEvent, MDASequence
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
+    from pymmcore_plus.metadata import SummaryMetaV1
 
     from micromanager_gui._slackbot._mm_slackbot import MMSlackBot
 
@@ -41,6 +42,7 @@ class ArduinoEngine(MDAEngine):
         slackbot: MMSlackBot | None = None,
     ) -> None:
         super().__init__(mmc, use_hardware_sequencing)
+
         self._slackbot = slackbot
 
         # for LED stimulation
@@ -56,7 +58,7 @@ class ArduinoEngine(MDAEngine):
         """Set the pin on the Arduino board to use for LED stimulation."""
         self._arduino_led_pin = arduino_led_pin
 
-    def setup_sequence(self, sequence: MDASequence) -> Mapping[str, Any]:
+    def setup_sequence(self, sequence: MDASequence) -> SummaryMetaV1 | None:
         """Setup the hardware for the entire sequence."""
         # Arduino LED Setup
         self._exec_stimulation.clear()
@@ -165,8 +167,10 @@ class ArduinoEngine(MDAEngine):
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
         """
-        # TODO: add support for multiple camera devices
         n_events = len(event.events)
+
+        t0 = event.metadata.get("runner_t0") or time.perf_counter()
+        event_t0_ms = (time.perf_counter() - t0) * 1000
 
         # Start sequence
         # Note that the overload of startSequenceAcquisition that takes a camera
@@ -177,15 +181,17 @@ class ArduinoEngine(MDAEngine):
             0,  # intervalMS  # TODO: add support for this
             True,  # stopOnOverflow
         )
-
         self.post_sequence_started(event)
 
+        n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
-        iter_events = iter(event.events)
+        iter_events = product(event.events, range(n_channels))
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
-            if self._mmc.getRemainingImageCount():
-                yield self._next_img_payload(next(iter_events))
+            if remaining := self._mmc.getRemainingImageCount():
+                yield self._next_seqimg_payload(
+                    *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+                )
                 count += 1
             else:
                 time.sleep(0.001)
@@ -197,29 +203,129 @@ class ArduinoEngine(MDAEngine):
                 )
             raise MemoryError("Buffer overflowed")
 
-        while self._mmc.getRemainingImageCount():
-            yield self._next_img_payload(next(iter_events))
+        while remaining := self._mmc.getRemainingImageCount():
+            yield self._next_seqimg_payload(
+                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+            )
             count += 1
 
-        if count != n_events:
+        # necessary?
+        expected_images = n_events * n_channels
+        if count != expected_images:
             logger.warning(
                 "Unexpected number of images returned from sequence. "
                 "Expected %s, got %s",
-                n_events,
+                expected_images,
                 count,
             )
 
-    def _next_img_payload(self, event: MDAEvent) -> PImagePayload:
+    def _next_seqimg_payload(
+        self,
+        event: MDAEvent,
+        channel: int = 0,
+        *,
+        event_t0: float = 0.0,
+        remaining: int = 0,
+    ) -> PImagePayload:
         """Grab next image from the circular buffer and return it as an ImagePayload."""
-        img, meta = self._mmc.popNextImageAndMD()
-        tags = self.get_frame_metadata(meta)
-
-        # TEMPORARY SOLUTION
+        # TEMPORARY SOLUTION TO CANCEL THE RUN ----------------
         if self._mmc.mda._wait_until_event(event):  # SLF001
             self._mmc.mda.cancel()
             self._mmc.stopSequenceAcquisition()
+        # ----------------------------------------------------
 
-        return ImagePayload(img, event, tags)
+        _slice = 0  # ?
+        img, mm_meta = self._mmc.popNextImageAndMD(channel, _slice)
+        try:
+            seq_time = float(mm_meta.get(Keyword.Elapsed_Time_ms))
+        except Exception:
+            seq_time = 0.0
+        try:
+            # note, when present in circular buffer meta, this key is called "Camera".
+            # It's NOT actually Keyword.CoreCamera (but it's the same value)
+            # it is hardcoded in various places in mmCoreAndDevices, see:
+            # see: https://github.com/micro-manager/mmCoreAndDevices/pull/468
+            camera_device = mm_meta.GetSingleTag("Camera").GetValue()
+        except Exception:
+            camera_device = self._mmc.getPhysicalCameraDevice(channel)
+
+        # TODO: determine whether we want to try to populate changing property values
+        # during the course of a triggered sequence
+        meta = self.get_frame_metadata(
+            event,
+            prop_values=(),
+            runner_time_ms=event_t0 + seq_time,
+            camera_device=camera_device,
+        )
+        meta["hardware_triggered"] = True
+        meta["images_remaining_in_buffer"] = remaining
+        meta["camera_metadata"] = dict(mm_meta)
+
+        # https://github.com/python/mypy/issues/4976
+        return ImagePayload(img, event, meta)  # type: ignore[return-value]
+
+    # def exec_sequenced_event(self, event: SequencedEvent) -> Iterable[PImagePayload]:
+    #     """Execute a sequenced (triggered) event and return the image data.
+
+    #     This method is not part of the PMDAEngine protocol (it is called by
+    #     `exec_event`, which *is* part of the protocol), but it is made public
+    #     in case a user wants to subclass this engine and override this method.
+    #     """
+    #     # TODO: add support for multiple camera devices
+    #     n_events = len(event.events)
+
+    #     # Start sequence
+    #     # Note that the overload of startSequenceAcquisition that takes a camera
+    #     # label does NOT automatically initialize a circular buffer.  So if this call
+    #     # is changed to accept the camera in the future, that should be kept in mind.
+    #     self._mmc.startSequenceAcquisition(
+    #         n_events,
+    #         0,  # intervalMS  # TODO: add support for this
+    #         True,  # stopOnOverflow
+    #     )
+
+    #     self.post_sequence_started(event)
+
+    #     count = 0
+    #     iter_events = iter(event.events)
+    #     # block until the sequence is done, popping images in the meantime
+    #     while self._mmc.isSequenceRunning():
+    #         if self._mmc.getRemainingImageCount():
+    #             yield self._next_img_payload(next(iter_events))
+    #             count += 1
+    #         else:
+    #             time.sleep(0.001)
+
+    #     if self._mmc.isBufferOverflowed():  # pragma: no cover
+    #         if self._slackbot is not None:
+    #             self._slackbot.send_message(
+    #                 {"icon_emoji": ALARM_EMOJI, "text": "Buffer Overflowed!"}
+    #             )
+    #         raise MemoryError("Buffer overflowed")
+
+    #     while self._mmc.getRemainingImageCount():
+    #         yield self._next_img_payload(next(iter_events))
+    #         count += 1
+
+    #     if count != n_events:
+    #         logger.warning(
+    #             "Unexpected number of images returned from sequence. "
+    #             "Expected %s, got %s",
+    #             n_events,
+    #             count,
+    #         )
+
+    # def _next_img_payload(self, event: MDAEvent) -> PImagePayload:
+    #     """Grab next image from circular buffer and return it as an ImagePayload."""
+    #     img, meta = self._mmc.popNextImageAndMD()
+    #     tags = self.get_frame_metadata(meta)
+
+    #     # TEMPORARY SOLUTION
+    #     if self._mmc.mda._wait_until_event(event):  # SLF001
+    #         self._mmc.mda.cancel()
+    #         self._mmc.stopSequenceAcquisition()
+
+    #     return ImagePayload(img, event, tags)
 
     def event_iterator(self, events: Iterable[MDAEvent]) -> Iterator[MDAEvent]:
         """Event iterator that merges events for hardware sequencing if possible.
@@ -236,7 +342,7 @@ class ArduinoEngine(MDAEngine):
         for event in events:
             # if the sequence is empty or the current event can be sequenced with the
             # previous event, add it to the sequence
-            if not seq or self.can_sequence_events(seq[-1], event, len(seq)):
+            if not seq or self._canSequenceEvents(seq[-1], event, len(seq)):
                 seq.append(event)
             else:
                 # otherwise, yield a SequencedEvent if the sequence has accumulated
@@ -248,7 +354,7 @@ class ArduinoEngine(MDAEngine):
         if seq:
             yield seq[0] if len(seq) == 1 else SequencedEvent.create(seq)
 
-    def can_sequence_events(
+    def _canSequenceEvents(
         self,
         e1: MDAEvent,
         e2: MDAEvent,
@@ -315,6 +421,7 @@ class ArduinoEngine(MDAEngine):
         (False, "'Dichroic-Label' is not sequenceable")
         ```
         """
+        print("------------------")
 
         def _nope(reason: str) -> tuple[bool, str] | bool:
             return (False, reason) if return_reason else False
