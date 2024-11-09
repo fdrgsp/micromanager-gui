@@ -11,7 +11,7 @@ from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QGridLayout,
+    QCheckBox,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -65,10 +65,11 @@ class CellposeBatchSegmentation(QWidget):
         )
 
         buttons_wdg = QWidget(self)
-        buttons_wdg.setSizePolicy(*FIXED)
         buttons_layout = QHBoxLayout(buttons_wdg)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(5)
+        self._use_gpu = QCheckBox("Use GPU")
+        self._use_gpu.setChecked(True)
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
@@ -79,16 +80,17 @@ class CellposeBatchSegmentation(QWidget):
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
         self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
+        buttons_layout.addWidget(self._use_gpu)
         buttons_layout.addStretch(1)
         buttons_layout.addWidget(self._run_btn)
         buttons_layout.addWidget(self._cancel_btn)
 
         self.groupbox = QGroupBox("Batch Cellpose Segmentation", self)
-        settings_groupbox_layout = QGridLayout(self.groupbox)
+        settings_groupbox_layout = QVBoxLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
-        settings_groupbox_layout.addWidget(self._input_path, 0, 0, 1, 2)
-        settings_groupbox_layout.addWidget(buttons_wdg, 1, 0, 2, 1)
+        settings_groupbox_layout.addWidget(self._input_path)
+        settings_groupbox_layout.addWidget(buttons_wdg)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -126,7 +128,10 @@ class CellposeBatchSegmentation(QWidget):
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
             self._futures = [
-                executor.submit(_segment_data, f, self._stop_event) for f in files
+                executor.submit(
+                    _segment_data, f, self._stop_event, self._use_gpu.isChecked()
+                )
+                for f in files
             ]
 
             for future in tqdm(
@@ -140,7 +145,7 @@ class CellposeBatchSegmentation(QWidget):
                     print(f"An error occurred: {e}")
 
 
-def _segment_data(data_path: str, stop_event: Event) -> None:
+def _segment_data(data_path: str, stop_event: Event, use_gpu: bool) -> None:
     """Segment the data with Cellpose."""
     if stop_event.is_set():
         print(f"Segmentation process stopped for {data_path}")
@@ -163,7 +168,7 @@ def _segment_data(data_path: str, stop_event: Event) -> None:
 
     positions = list(range(len(sequence.stage_positions)))
 
-    model = models.Cellpose(gpu=True, model_type=MODEL)
+    model = models.Cellpose(gpu=use_gpu, model_type=MODEL)
 
     file_name = data.path.name
     for ext in EXT:

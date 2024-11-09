@@ -9,6 +9,7 @@ from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
+    QCheckBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -62,10 +63,11 @@ class CellposeBatchSegmentation(QWidget):
         )
 
         buttons_wdg = QWidget(self)
-        buttons_wdg.setSizePolicy(*FIXED)
         buttons_layout = QHBoxLayout(buttons_wdg)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(5)
+        self._use_gpu = QCheckBox("Use GPU")
+        self._use_gpu.setChecked(True)
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
@@ -76,6 +78,7 @@ class CellposeBatchSegmentation(QWidget):
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
         self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
+        buttons_layout.addWidget(self._use_gpu)
         buttons_layout.addStretch(1)
         buttons_layout.addWidget(self._run_btn)
         buttons_layout.addWidget(self._cancel_btn)
@@ -130,7 +133,7 @@ class CellposeBatchSegmentation(QWidget):
 
             positions = list(range(len(sequence.stage_positions)))
 
-            model = models.Cellpose(gpu=True, model_type=MODEL)
+            model = models.Cellpose(gpu=self._use_gpu.isChecked(), model_type=MODEL)
 
             file_name = d.path.name
             for ext in EXT:
