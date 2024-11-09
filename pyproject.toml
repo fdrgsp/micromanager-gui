@@ -45,6 +45,7 @@ dependencies = [
     "cellpose",
     "ndv[vispy]",
     "qtconsole",
+    "pyfirmata2"
 ]
 
 # extras
