@@ -105,7 +105,6 @@ class PlateViewer(QMainWindow):
         self._plate_view = WellPlateView()
         self._plate_view.setDragMode(WellPlateView.DragMode.NoDrag)
         self._plate_view.setSelectionMode(WellPlateView.SelectionMode.SingleSelection)
-        # self._plate_view.setSelectedColor(Qt.GlobalColor.yellow)
 
         # table for the fields of view
         self._fov_table = _FOVTable(self)
@@ -175,6 +174,9 @@ class PlateViewer(QMainWindow):
         plate_map_group_layout.addStretch(1)
 
         self._segmentation_wdg = _CellposeSegmentation(self)
+        self._segmentation_wdg.segmentationFinished.connect(
+            self._on_fov_table_selection_changed
+        )
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
         analysis_layout = QVBoxLayout(self._analysis_tab)
@@ -238,20 +240,6 @@ class PlateViewer(QMainWindow):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        # data = (
-        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/NC240509_240523"
-        #     "_Chronic.tensorstore.zarr"
-        # )
-        # self._labels_path = (
-        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/"
-        #     "NC240509_240523_Chronic_labels"
-        # )
-        # self._analysis_file_path = (
-        #     r"/Volumes/T7 Shield/neurons/NC240509_240523_Chronic/"
-        #     "NC240509_240523_Chronic_analysis"
-        # )
-        # reader = TensorstoreZarrReader(data)
-        # self._init_widget(reader)
         # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
         # self._labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._analysis_file_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
@@ -279,7 +267,7 @@ class PlateViewer(QMainWindow):
     @labels_path.setter
     def labels_path(self, value: str | None) -> None:
         self._labels_path = value
-        # self._on_fov_table_selection_changed()
+        self._on_fov_table_selection_changed()
 
     @property
     def labels(self) -> dict[str, np.ndarray]:
@@ -703,6 +691,7 @@ class PlateViewer(QMainWindow):
 
         data = self._datastore.isel(p=value.pos_idx)
         viewer = NDViewer(data, parent=self)
+        viewer._ndims_btn.hide()
         viewer.setWindowTitle(value.fov.name or f"Position {value.pos_idx}")
         viewer.setWindowFlag(Qt.WindowType.Dialog)
         viewer.show()

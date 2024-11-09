@@ -72,6 +72,8 @@ def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarra
 
 
 class _AnalyseCalciumTraces(QWidget):
+    """Widget to extract the roi traces from the data."""
+
     progress_bar_updated = Signal()
 
     def __init__(

@@ -7,9 +7,10 @@ import tifffile
 from cellpose import models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
-from qtpy.QtCore import QSize
+from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
@@ -66,6 +67,10 @@ class _SelectModelPath(_BrowseWidget):
 
 
 class _CellposeSegmentation(QWidget):
+    """Widget to perform Cellpose segmentation on a PlateViewer data."""
+
+    segmentationFinished = Signal()
+
     def __init__(
         self,
         parent: PlateViewer | None = None,
@@ -95,8 +100,12 @@ class _CellposeSegmentation(QWidget):
         # self._models_combo.addItems(["nuclei", "cyto", "cyto2", "cyto3", "custom"])
         self._models_combo.addItems(["cyto3", "custom"])
         self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
+        self._use_gpu_checkbox = QCheckBox("Use GPU")
+        self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
+        self._use_gpu_checkbox.setChecked(True)
         model_wdg_layout.addWidget(self._models_combo_label)
-        model_wdg_layout.addWidget(self._models_combo)
+        model_wdg_layout.addWidget(self._models_combo, 1)
+        model_wdg_layout.addWidget(self._use_gpu_checkbox)
 
         channel_wdg = QWidget(self)
         channel_layout = QHBoxLayout(channel_wdg)
@@ -189,8 +198,6 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._elapsed_time_label)
 
         self.groupbox = QGroupBox("Cellpose Segmentation", self)
-        # self.groupbox.setCheckable(True)
-        # self.groupbox.setChecked(False)
         settings_groupbox_layout = QGridLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
@@ -284,16 +291,17 @@ class _CellposeSegmentation(QWidget):
             self._plate_viewer.labels_path = path
 
         # set the model type
+        use_gpu = self._use_gpu_checkbox.isChecked()
         if self._models_combo.currentText() == "custom":
             # get the path to the custom model
             custom_model_path = self._browse_custom_model.value()
             if not custom_model_path:
                 show_error_dialog(self, "Please select a custom model path.")
                 return
-            model = CellposeModel(pretrained_model=custom_model_path, gpu=True)
+            model = CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
         else:
             model_type = self._models_combo.currentText()
-            model = models.Cellpose(gpu=True, model_type=model_type)
+            model = models.Cellpose(gpu=use_gpu, model_type=model_type)
 
         # set the channel to segment
         channel = [self._channel_combo.currentIndex(), 0]
@@ -347,20 +355,14 @@ class _CellposeSegmentation(QWidget):
         if self._data is None:
             return
 
-        # pos = self._data.sequence.sizes.get("p", 0)  # type: ignore
-        # progress_bar = tqdm(range(pos))
         for p in tqdm(positions):
             if self._worker is not None and self._worker.abort_requested:
                 break
             # get the data
             data, meta = self._data.isel(p=p, metadata=True)
-            # get position name from metadata
-            try:
-                meta[0].get("mda_event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-            except KeyError:  # in case of older metadata
-                pos_name = (
-                    meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-                )
+            # get position name from metadata (in old metadata, the key was "Event")
+            key = "mda_event" if "mda_event" in meta[0] else "Event"
+            pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             yield (f"[Well {pos_name} (p{p})]", positions)
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
@@ -395,6 +397,7 @@ class _CellposeSegmentation(QWidget):
         self._enable(True)
         self._elapsed_timer.stop()
         self._progress_bar.setValue(self._progress_bar.maximum())
+        self.segmentationFinished.emit()
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
