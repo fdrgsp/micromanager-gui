@@ -293,8 +293,7 @@ class _CellposeSegmentation(QWidget):
             model = CellposeModel(pretrained_model=custom_model_path, gpu=True)
         else:
             model_type = self._models_combo.currentText()
-            # model = models.Cellpose(gpu=True, model_type=model_type)
-            model = models.Cellpose(gpu=False, model_type=model_type)
+            model = models.Cellpose(gpu=True, model_type=model_type)
 
         # set the channel to segment
         channel = [self._channel_combo.currentIndex(), 0]
