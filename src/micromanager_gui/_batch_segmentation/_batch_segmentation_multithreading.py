@@ -29,8 +29,7 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
     WRITERS,
     ZARR_TESNSORSTORE,
 )
-
-from .readers import OMEZarrReader, TensorstoreZarrReader
+from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 if TYPE_CHECKING:
     import numpy as np
