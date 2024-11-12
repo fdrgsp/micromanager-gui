@@ -7,10 +7,10 @@ provided.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Callable
 
 from pymmcore_plus.mda.handlers import ImageSequenceWriter
+from pymmcore_plus.metadata.serialize import json_dumps
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -108,8 +108,9 @@ class _TiffSequenceWriter(ImageSequenceWriter):
         self._imwrite(str(_dir / filename), frame, **self._imwrite_kwargs)
 
         # store metadata
-        meta["Event"] = json.loads(event.json(exclude={"sequence"}, exclude_unset=True))
         self._frame_metadata[filename] = meta
         # write metadata to disk every 10 frames
         if frame_idx % 10 == 0:
-            self._frame_meta_file.write_text(json.dumps(self._frame_metadata, indent=2))
+            self._frame_meta_file.write_bytes(
+                json_dumps(self._frame_metadata, indent=2)
+            )
