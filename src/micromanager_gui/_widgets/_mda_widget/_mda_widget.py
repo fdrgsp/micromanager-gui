@@ -70,9 +70,11 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
     if (stem := requested_path.stem).endswith(".ome"):
         extension = f".ome{extension}"
         stem = stem[:-4]
+    # NOTE: added in micromanager_gui ---------------------------------------------
     elif (stem := requested_path.stem).endswith(".tensorstore"):
         extension = f".tensorstore{extension}"
         stem = stem[:-12]
+    # -----------------------------------------------------------------------------
 
     # look for ANY existing files in the folder that follow the pattern of
     # stem_###.extension
@@ -84,7 +86,10 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
         if (
             (match := NUM_SPLIT.match(base))
             and (num := match.group(2))
+            # NOTE: added in micromanager_gui -------------------------------------
+            # this brakes pymmcore_widgets test_get_next_available_paths_special_cases
             and match.group(1) == stem
+            # ---------------------------------------------------------------------
         ):
             current_max = max(int(num), current_max)
             # if it has more digits than expected, update the ndigits
