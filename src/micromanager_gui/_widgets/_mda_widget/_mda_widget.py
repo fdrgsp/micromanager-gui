@@ -80,13 +80,16 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
     for existing in directory.glob(f"*{extension}"):
         # cannot use existing.stem because of the ome (2-part-extension) special case
         base = existing.name.replace(extension, "")
-        # if the base name ends with a number, increase the current_max
-        if (match := NUM_SPLIT.match(base)) and (num := match.group(2)):
+        # if base name ends with a number and stem is the same, increase current_max
+        if (
+            (match := NUM_SPLIT.match(base))
+            and (num := match.group(2))
+            and match.group(1) == stem
+        ):
             current_max = max(int(num), current_max)
             # if it has more digits than expected, update the ndigits
             if len(num) > min_digits:
                 min_digits = len(num)
-
     # if the path does not exist and there are no existing files,
     # return the requested path
     if not requested_path.exists() and current_max == 0:
