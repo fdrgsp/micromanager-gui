@@ -87,7 +87,7 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
             (match := NUM_SPLIT.match(base))
             and (num := match.group(2))
             # NOTE: added in micromanager_gui -------------------------------------
-            # this brakes pymmcore_widgets test_get_next_available_paths_special_cases
+            # this breaks pymmcore_widgets test_get_next_available_paths_special_cases
             and match.group(1) == stem
             # ---------------------------------------------------------------------
         ):
