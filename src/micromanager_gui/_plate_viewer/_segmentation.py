@@ -360,6 +360,9 @@ class _CellposeSegmentation(QWidget):
                 break
             # get the data
             data, meta = self._data.isel(p=p, metadata=True)
+
+            # TODO: try to add photobleaching correction here. Add checkbox to enable it
+
             # get position name from metadata (in old metadata, the key was "Event")
             key = "mda_event" if "mda_event" in meta[0] else "Event"
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")

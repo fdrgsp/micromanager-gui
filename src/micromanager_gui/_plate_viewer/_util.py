@@ -21,6 +21,8 @@ RED = "#C33"
 GREEN = "#00FF00"
 GENOTYPE_MAP = "genotype_plate_map.json"
 TREATMENT_MAP = "treatment_plate_map.json"
+COND1 = "condition_1"
+COND2 = "condition_2"
 
 
 @dataclass
@@ -54,12 +56,15 @@ class ROIData(BaseClass):
     average_photobleaching_fitted_curve: list[float] | None = None
     average_popts: list[float] | None = None
     dff: list[float] | None = None
+    d_dff: list[float] | None = None  # deconvolved dff with oasis package
     mean_frequency: float | None = None
     mean_frequency_stdev: float | None = None
     mean_amplitude: float | None = None
     mean_amplitude_stdev: float | None = None
     condition_1: str | None = None
     condition_2: str | None = None
+    cell_size: float | None = None
+    cell_size_units: str | None = None
     # ... add whatever other data we need
 
 

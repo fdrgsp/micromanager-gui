@@ -8,9 +8,11 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
 from fonticon_mdi6 import MDI6
+from oasis.functions import deconvolve
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
@@ -34,6 +36,8 @@ from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
 from ._util import (
+    COND1,
+    COND2,
     GENOTYPE_MAP,
     GREEN,
     RED,
@@ -55,6 +59,8 @@ if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+DFF_WINDOW = 100
+R_SQUARED_THRESHOLD = 0.98
 
 
 logger = logging.getLogger("analysis_logger")
@@ -94,6 +100,8 @@ class _AnalyseCalciumTraces(QWidget):
         self._labels_path: str | None = labels_path
 
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
+
+        self._bleach_error_path: Path | None = None
 
         self._worker: GeneratorWorker | None = None
 
@@ -156,8 +164,6 @@ class _AnalyseCalciumTraces(QWidget):
         self.progress_bar_updated.connect(self._update_progress_bar)
 
         self.groupbox = QGroupBox("Extract Traces", self)
-        # self.groupbox.setCheckable(True)
-        # self.groupbox.setChecked(False)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
@@ -258,12 +264,12 @@ class _AnalyseCalciumTraces(QWidget):
         if self._worker is not None and self._worker.is_running:
             return None
 
-        if self._data is None or self._labels_path is None:
+        if self.data is None or self._labels_path is None:
             logger.error("No data or labels path provided!")
             show_error_dialog(self, "No data or labels path provided!")
             return None
 
-        sequence = self._data.sequence
+        sequence = self.data.sequence
         if sequence is None:
             logger.error("No useq.MDAsequence found!")
             show_error_dialog(self, "No useq.MDAsequence found!")
@@ -286,6 +292,9 @@ class _AnalyseCalciumTraces(QWidget):
             # create the save path if it does not exist
             if not save_path.exists():
                 save_path.mkdir(parents=True, exist_ok=True)
+                # create bleach correction error path
+                self._bleach_error_path = save_path / "bleach_correction_error"
+                self._bleach_error_path.mkdir(parents=True, exist_ok=True)
         else:
             logger.error("No Output Path provided!")
             show_error_dialog(self, "No Output Path provided!")
@@ -335,6 +344,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.stop()
+
+        self._bleach_error_path = None
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
@@ -397,13 +408,13 @@ class _AnalyseCalciumTraces(QWidget):
         # name as the kek. eg.g:
         # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
         for data in conition_1_plate_map:
-            self._plate_map_data[data.name] = {"condition_1": data.condition[0]}
+            self._plate_map_data[data.name] = {COND1: data.condition[0]}
 
         for data in conition_2_plate_map:
             if data.name in self._plate_map_data:
-                self._plate_map_data[data.name]["condition_2"] = data.condition[0]
+                self._plate_map_data[data.name][COND2] = data.condition[0]
             else:
-                self._plate_map_data[data.name] = {"condition_2": data.condition[0]}
+                self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
     def _extract_traces(self, positions: list[int]) -> None:
         """Extract the roi traces in multiple threads."""
@@ -463,13 +474,15 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_trace_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
-        if self._data is None or self._check_for_abort_requested():
+        if self.data is None or self._check_for_abort_requested():
             return
 
-        data, meta = self._data.isel(p=p, metadata=True)
+        data, meta = self.data.isel(p=p, metadata=True)
 
         # get position name from metadata
-        well = meta[0].get("Event", {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+        # the "Event" key was used in the old metadata format
+        event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+        well = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
 
         # create the dict for the well
         if well not in self._analysis_data:
@@ -491,10 +504,20 @@ class _AnalyseCalciumTraces(QWidget):
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
 
-        logger.info("Processing well %s", well)
+        logger.info("Processing Well %s", well)
 
-        # temporary storage for trace to use for photobleaching correction
-        fitted_curves: list[tuple[list[float], list[float], float]] = []
+        # calculate exponential decay for photobleaching correction:
+        # first get the average trace for the position, fit an exponential decay
+        # and use the fitted curve for photobleaching correction for each roi
+        logger.info(f"Calculating Exponential Decay for well {well}.")
+        average_trace = data.mean(axis=(1, 2))
+        exponential_decay = self._get_exponential_decay(average_trace, well)
+        if exponential_decay is None:
+            logger.error(
+                f"Exponential Decay could not be calculated for Well {well} - pos{p}."
+            )
+        else:
+            average_fitted_curve, average_popts, _ = exponential_decay
 
         roi_trace: np.ndarray | list[float] | None
 
@@ -512,16 +535,20 @@ class _AnalyseCalciumTraces(QWidget):
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
 
-            # calculate the exponential decay for photobleaching correction
-            exponential_decay = self._get_exponential_decay(roi_trace)
-            if exponential_decay is not None:
-                fitted_curves.append(exponential_decay)
+            # get the size of the roi in µm or px if µm is not available
+            roi_size_pixel = masked_data.shape[1]  # area
+            px_size = meta[0].get("PixelSizeUm", None)
+            # calculate the size of the roi in µm if px_size is available or not 0,
+            # otherwise use the size is in pixels
+            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
 
+            # get the conditions for the roi if available
+            condition_1 = condition_2 = None
             if self._plate_map_data:
                 well_name = well.split("_")[0]
                 if well_name in self._plate_map_data:
-                    condition_1 = self._plate_map_data[well_name].get("condition_1")
-                    condition_2 = self._plate_map_data[well_name].get("condition_2")
+                    condition_1 = self._plate_map_data[well_name].get(COND1)
+                    condition_2 = self._plate_map_data[well_name].get(COND2)
                 else:
                     condition_1 = condition_2 = None
 
@@ -529,16 +556,11 @@ class _AnalyseCalciumTraces(QWidget):
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
                 use_for_bleach_correction=exponential_decay,
+                cell_size=roi_size,
+                cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,
                 condition_2=condition_2,
             )
-
-        # average the fitted curves
-        logger.info(f"Averaging the fitted curves well {well}.")
-        popts = np.array([popt for _, popt, _ in fitted_curves])
-        average_popts = np.mean(popts, axis=0)
-        time_points = np.arange(data.shape[0])
-        average_fitted_curve = single_exponential(time_points, *average_popts)
 
         # perform photobleaching correction
         logger.info(f"Performing Belaching Correction for Well {well}.")
@@ -556,23 +578,30 @@ class _AnalyseCalciumTraces(QWidget):
                 continue
 
             # calculate the bleach corrected trace
-            bleach_corrected = (
-                np.array(roi_trace) - average_fitted_curve + average_popts[2]
-            )
+            if exponential_decay is not None:
+                bleach_corrected = (
+                    np.array(roi_trace) - average_fitted_curve + average_popts[2]
+                )
+            # if no exponential decay was calculated, use the raw trace
+            else:
+                bleach_corrected = np.array(roi_trace)
 
-            # calculate the dF/F TODO: how to calculate F0?
-            F0 = np.min(bleach_corrected)
-            dff = (bleach_corrected - F0) / F0
+            # calculate the dF/F
+            dff = self._calculate_dff(bleach_corrected, window=DFF_WINDOW)
+            d_dff, _, _, _, _ = deconvolve(dff, g=(None, None), penalty=1)
 
             # find the peaks in the bleach corrected trace
-            peaks = self._find_peaks(dff, 0.1)
+            prominence = np.mean(d_dff) * 0.2  # 20% of the mean of the derivative
+            peaks = self._find_peaks(d_dff, prominence=prominence)
+
             # store the analysis data
             update = data.replace(
-                average_photobleaching_fitted_curve=average_fitted_curve.tolist(),
-                average_popts=average_popts.tolist(),
+                average_photobleaching_fitted_curve=average_fitted_curve,
+                average_popts=average_popts,
                 bleach_corrected_trace=bleach_corrected.tolist(),
-                peaks=[Peaks(peak=peak) for peak in peaks],
+                peaks=[Peaks(peak=peak) for peak in peaks] if len(peaks) > 2 else None,
                 dff=dff.tolist(),
+                d_dff=d_dff.tolist(),
             )
             self._analysis_data[well][str(label_value)] = update
 
@@ -601,7 +630,7 @@ class _AnalyseCalciumTraces(QWidget):
         )
 
     def _get_exponential_decay(
-        self, trace: np.ndarray
+        self, trace: np.ndarray, well: str = ""
     ) -> tuple[list[float], list[float], float] | None:
         """Fit an exponential decay to the trace.
 
@@ -623,11 +652,64 @@ class _AnalyseCalciumTraces(QWidget):
             logger.error("Error fitting curve: %s", e)
             return None
 
+        # save the fitted curve if the R squared value is less than 0.98
+        if r_squared <= 0.98 and self._bleach_error_path is not None and well:
+            plt.plot(fitted_curve, "black", "--")
+            plt.plot(trace, "green")
+            plt.savefig(
+                self._bleach_error_path
+                / f"failed_fitted_curve_r2{r_squared}_{well}.png"
+            )
+
         return (
             None
-            if r_squared <= 0.98
+            if r_squared <= R_SQUARED_THRESHOLD
             else (fitted_curve.tolist(), popt.tolist(), float(r_squared))
         )
+
+    def _calculate_dff(self, trace: np.ndarray, window: int = 100) -> np.ndarray:
+        """Calculate the ΔF/F (delta F over F) signal for a given calcium trace.
+
+        Parameters
+        ----------
+        trace : np.ndarray
+            The input signal as a 1D numpy array.
+        window : int, optional
+            The size of the sliding window for background calculation, by default 100.
+        """
+        background, _ = self._calculate_bg(trace, window)
+        dff = (trace - background) / background
+        dff -= np.min(dff)  # Shift the signal to ensure non-negative values.
+        return np.array(dff)
+
+    def _calculate_bg(
+        self, trace: np.ndarray, window: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the background and median trace for a given signal...
+
+        ...using a sliding window approach.
+
+        Parameters
+        ----------
+        trace : np.ndarray
+            The input signal as a 1D numpy array.
+        window : int
+            The size of the sliding window for background calculation.
+        """
+        n = len(trace)
+        background = np.zeros_like(trace)
+        median = np.zeros_like(trace)
+
+        for i in range(n):
+            start = max(0, i - window)
+            window_slice = trace[start : i + 1]
+            median_value = np.median(window_slice)
+            lower_quantile = window_slice <= median_value
+            background[i] = np.mean(window_slice[lower_quantile])
+            median[i] = median_value
+
+        return background, median
 
     def _find_peaks(
         self, trace: np.ndarray, prominence: float | None = None
