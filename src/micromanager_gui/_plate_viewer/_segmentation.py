@@ -350,7 +350,7 @@ class _CellposeSegmentation(QWidget):
         channel: list[int],
         diameter: float,
         positions: list[int],
-    ) -> Generator[tuple[str, list[int]], None, None]:
+    ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
         if self._data is None:
             return
@@ -361,18 +361,23 @@ class _CellposeSegmentation(QWidget):
             # get the data
             data, meta = self._data.isel(p=p, metadata=True)
 
-            # TODO: try to add photobleaching correction here. Add checkbox to enable it
-
             # get position name from metadata (in old metadata, the key was "Event")
             key = "mda_event" if "mda_event" in meta[0] else "Event"
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-            yield (f"[Well {pos_name} (p{p})]", positions)
+            # yield the current position name to update the progress bar
+            yield f"[Well {pos_name} (p{p} / {len(positions)})]"
+
+            # TODO: try to add photobleaching correction here. Add checkbox to enable it
+
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
             cyto_frame = data_half_to_end.max(axis=0)
             masks, _, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
+            # store the masks in the labels dict
             self._labels[f"{pos_name}_p{p}"] = masks
+            # yield the current position to update the progress bar
+            yield p
             # save to disk
             tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
 
@@ -383,13 +388,13 @@ class _CellposeSegmentation(QWidget):
         else:
             self._browse_custom_model.hide()
 
-    def _update_progress_bar(self, args: tuple[str, list[int]]) -> None:
-        """Update the progress bar with the current state."""
-        state, positions = args
-        self._progress_label.setText(state)
-        # if len(positions) is one, just output 0, otherwise output the current value+1
-        val = self._progress_bar.value() + 1 if len(positions) > 1 else 0
-        self._progress_bar.setValue(val)
+    def _update_progress_bar(self, value: str | int) -> None:
+        # update only the progress label if the value is a string
+        if isinstance(value, str):
+            self._progress_label.setText(value)
+            return
+        # update the progress bar value
+        self._progress_bar.setValue(value)
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
