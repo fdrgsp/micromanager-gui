@@ -492,11 +492,11 @@ class _AnalyseCalciumTraces(QWidget):
         labels_name = f"{well}_p{p}.tif"
 
         # get the labels file
-        labels = tifffile.imread(self._get_labels_file(labels_name))
-        if labels is None:
+        labels_path = self._get_labels_file(labels_name)
+        if labels_path is None:
             logger.error("No labels found for %s!", labels_name)
-            show_error_dialog(self, f"No labels found for {labels_name}!")
             return
+        labels = tifffile.imread(labels_path)
 
         # get the range of labels
         labels_range = range(1, labels.max())
