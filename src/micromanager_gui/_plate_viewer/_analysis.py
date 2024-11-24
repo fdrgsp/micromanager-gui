@@ -720,3 +720,87 @@ class _AnalyseCalciumTraces(QWidget):
         peaks, _ = find_peaks(smoothed_normalized, width=3, prominence=prominence)
         peaks = cast(np.ndarray, peaks)
         return cast(list[int], peaks.tolist())
+
+    def _get_amplitude(
+        self,
+        dff: list[float],
+        peaks: list[int],
+        deriv_threshold: float = 0.01,
+        reset_num: int = 17,
+        neg_reset_num: int = 2,
+        total_dist: int = 40,
+    ) -> tuple[list[float], list[int], list[int], list[int]]:
+        """Calculate amplitudes, peak indices, and base indices of each ROI."""
+        if not peaks:
+            return [], [], [], []
+
+        dff_deriv = np.diff(dff)
+        len_dff_deriv = len(dff_deriv)
+
+        def find_boundary(index: int, direction: str) -> int:
+            """Find start or end boundary around a peak."""
+            step = -1 if direction == "backward" else 1
+            boundary = index
+            under_thresh_count = total_count = 0
+
+            while 0 <= boundary < len_dff_deriv and total_count < total_dist:
+                boundary += step
+                total_count += 1
+
+                # Ensure boundary does not go out of bounds
+                if boundary < 0 or boundary >= len_dff_deriv:
+                    break
+
+                if boundary in peaks:  # Handle crossing other peaks
+                    neg_count = 0
+                    while 0 <= boundary < len_dff_deriv and neg_count < neg_reset_num:
+                        if (
+                            dff_deriv[boundary] * step < 0
+                        ):  # Negative slope for backward, positive for forward
+                            neg_count += 1
+                        else:
+                            neg_count = 0
+                        boundary += step
+                    return boundary - step
+
+                if abs(dff_deriv[boundary]) < deriv_threshold:
+                    under_thresh_count += 1
+                else:
+                    under_thresh_count = 0
+
+                if under_thresh_count >= reset_num:
+                    break
+
+            return boundary
+
+        amplitudes, start_indices, end_indices, valid_peaks = [], [], [], []
+
+        for peak in peaks:
+            start_index = find_boundary(peak, "backward")
+            end_index = find_boundary(peak, "forward")
+
+            # Ensure valid indices for slicing
+            if start_index < 0:
+                start_index = 0
+            if end_index >= len(dff):
+                end_index = len(dff) - 1
+
+            # Slice and check for empty arrays
+            start_to_peak = dff[start_index:peak]
+            peak_to_end = dff[peak : end_index + 1]
+
+            if len(start_to_peak) == 0 or len(peak_to_end) == 0:
+                continue  # Skip this peak if slices are invalid
+
+            # Calculate f_start_index, f_end_index, and amplitude
+            f_start_index = start_index + np.argmin(start_to_peak)
+            f_end_index = peak + np.argmin(peak_to_end)
+            amplitude = dff[peak] - dff[f_start_index]
+
+            if amplitude > 0:
+                amplitudes.append(amplitude)
+                start_indices.append(f_start_index)
+                end_indices.append(f_end_index)
+                valid_peaks.append(peak)
+
+        return amplitudes, start_indices, end_indices, valid_peaks  # type: ignore
