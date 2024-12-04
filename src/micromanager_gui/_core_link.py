@@ -32,7 +32,6 @@ MDA_VIEWER = "MDA Viewer"
 RUN = "run"
 CANCEL = "cancel"
 PROGRESS = "progress"
-MDA = "mda"
 
 INFO_EMOJI = ":information_source:"
 WARNING_EMOJI = ":warning:"
