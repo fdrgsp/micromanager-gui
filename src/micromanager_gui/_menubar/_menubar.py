@@ -10,6 +10,7 @@ from pymmcore_widgets import (
     GroupPresetTableWidget,
     PixelConfigurationWidget,
     PropertyBrowser,
+    StageExplorer,
 )
 from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
@@ -42,6 +43,7 @@ DOCKWIDGETS = {
     "MDA Widget": MDAWidget,
     "Groups and Presets": GroupPresetTableWidget,
     "Stage Control": StagesControlWidget,
+    "Stage Explorer": StageExplorer,
     "Camera ROI": CameraRoiWidget,
     CONSOLE: MMConsole,
 }
@@ -257,6 +259,17 @@ class _MenuBar(QMenuBar):
             title=action_name,
             widget=wdg,
         )
+
+        if action_name == "Stage Explorer":
+            # connect the undocking signal to reset the poll thread timer
+            def _on_dock_undock(is_undocked: bool) -> None:
+                """Handle undocking and docking of the widget."""
+                if wdg.poll_stage_position:
+                    wdg._on_poll_stage(False)
+                    wdg._on_poll_stage(True)
+
+            dock.topLevelChanged.connect(_on_dock_undock)
+
         self._main_window.addDockWidget(dock_area, dock)
         self._widgets[action_name] = dock
         return dock
