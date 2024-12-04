@@ -102,7 +102,7 @@ class CoreViewersLink(QObject):
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
         self._mmc.mda.events.sequenceCanceled.connect(self._on_sequence_canceled)
-        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_gui)
+        self._mmc.mda.events.sequencePauseToggled.connect(self._enable_menubar)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
 
         # handle the slackbot
