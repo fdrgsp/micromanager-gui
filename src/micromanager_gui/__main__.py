@@ -5,6 +5,7 @@ import sys
 import traceback
 from typing import TYPE_CHECKING, Sequence
 
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 
 from micromanager_gui import MicroManagerGUI
@@ -29,6 +30,9 @@ def main(args: Sequence[str] | None = None) -> None:
     )
     parsed_args = parser.parse_args(args)
 
+    # this is necessary for the StageExplorer widget. If it is not set, when undocking
+    # the widget, the app will crash.
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication([])
     win = MicroManagerGUI(config=parsed_args.config)
     win.show()
