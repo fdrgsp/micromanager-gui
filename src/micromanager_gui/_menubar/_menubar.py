@@ -262,7 +262,9 @@ class _MenuBar(QMenuBar):
 
         if action_name == "Stage Explorer":
             # connect the undocking signal to reset the poll thread timer
-            def _on_dock_undock(is_undocked: bool) -> None:
+            # find a better way, this is anyway called after the error occurs the first
+            # time
+            def _on_dock_undock(floating: bool) -> None:
                 """Handle undocking and docking of the widget."""
                 if wdg.poll_stage_position:
                     wdg._on_poll_stage(False)
