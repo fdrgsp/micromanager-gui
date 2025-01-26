@@ -30,7 +30,7 @@ dependencies = [
     "pymmcore-plus >=0.10.2",
     "qtpy",
     "vispy",
-    "zarr==2.18.4",
+    "zarr",
     "tifffile",
     "tqdm",
     "pyyaml",
@@ -43,10 +43,10 @@ dependencies = [
     "matplotlib",
     "mplcursors",
     "cellpose",
-    "ndv[vispy]",
+    "ndv[vispy]==0.0.4",
     "qtconsole",
     "pyfirmata2",
-    "oasis-deconv"
+    "oasis-deconv",
 ]
 
 # extras

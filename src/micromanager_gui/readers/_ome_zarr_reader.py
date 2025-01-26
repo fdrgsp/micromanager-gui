@@ -9,7 +9,12 @@ import useq
 import zarr
 from tifffile import imwrite
 from tqdm import tqdm
-from zarr.hierarchy import Group
+
+try:  # if zarr < 3.0.0
+    from zarr.hierarchy import Group
+except ImportError:  # if zarr >= 3.0.0
+    from zarr import Group
+
 
 EVENT = "Event"
 FRAME_META = "frame_meta"
