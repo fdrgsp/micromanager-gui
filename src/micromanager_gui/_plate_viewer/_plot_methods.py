@@ -103,7 +103,8 @@ def plot_traces(
                 peaks_indices = np.array(roi_data.peaks_dec_dff)
                 ax.plot(
                     peaks_indices,
-                    np.array(trace)[peaks_indices] + (count if normalize else 0),
+                    np.array(trace)[peaks_indices.astype(int)]
+                    + (count if normalize else 0),
                     "x",
                     label=f"Peaks ROI {key}",
                 )

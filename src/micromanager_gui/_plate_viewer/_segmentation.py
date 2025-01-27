@@ -365,7 +365,7 @@ class _CellposeSegmentation(QWidget):
             key = "mda_event" if "mda_event" in meta[0] else "Event"
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             # yield the current position name to update the progress bar
-            yield f"[Well {pos_name} (p{p} / {len(positions)})]"
+            yield f"[Well {pos_name} p{p} ({p+1} / {len(positions)})]"
 
             # TODO: try to add photobleaching correction here. Add checkbox to enable it
 
