@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
@@ -33,6 +32,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._init_dialog import _BrowseWidget
+from ._logger import LOGGER
 from ._util import (
     COND1,
     COND2,
@@ -57,16 +57,6 @@ if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-
-
-logger = logging.getLogger("analysis_logger")
-logger.setLevel(logging.DEBUG)
-log_file = Path(__file__).parent / "analysis_logger.log"
-file_handler = logging.FileHandler(log_file)
-file_handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -211,7 +201,7 @@ class _AnalyseCalciumTraces(QWidget):
         if pos is None:
             return
 
-        logger.info("Number of positions: %s", len(pos))
+        LOGGER.info("Number of positions: %s", len(pos))
 
         self._progress_bar.reset()
         self._progress_bar.setRange(0, len(pos))
@@ -261,13 +251,13 @@ class _AnalyseCalciumTraces(QWidget):
             return None
 
         if self.data is None or self._labels_path is None:
-            logger.error("No data or labels path provided!")
+            LOGGER.error("No data or labels path provided!")
             show_error_dialog(self, "No data or labels path provided!")
             return None
 
         sequence = self.data.sequence
         if sequence is None:
-            logger.error("No useq.MDAsequence found!")
+            LOGGER.error("No useq.MDAsequence found!")
             show_error_dialog(self, "No useq.MDAsequence found!")
             return None
 
@@ -282,7 +272,7 @@ class _AnalyseCalciumTraces(QWidget):
         if path := self._output_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
-                logger.error("Output Path is not a directory!")
+                LOGGER.error("Output Path is not a directory!")
                 show_error_dialog(self, "Output Path is not a directory!")
                 return None
             # create the save path if it does not exist
@@ -292,7 +282,7 @@ class _AnalyseCalciumTraces(QWidget):
                 self._bleach_error_path = save_path / "bleach_correction_error"
                 self._bleach_error_path.mkdir(parents=True, exist_ok=True)
         else:
-            logger.error("No Output Path provided!")
+            LOGGER.error("No Output Path provided!")
             show_error_dialog(self, "No Output Path provided!")
             return None
 
@@ -334,7 +324,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _on_worker_finished(self) -> None:
         """Called when the extraction is finished."""
-        logger.info("Extraction of traces finished.")
+        LOGGER.info("Extraction of traces finished.")
 
         self._enable(True)
 
@@ -380,7 +370,7 @@ class _AnalyseCalciumTraces(QWidget):
         conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
 
         # save plate map
-        logger.info("Saving Plate Maps.")
+        LOGGER.info("Saving Plate Maps.")
         if conition_1_plate_map:
             path = Path(self._output_path.value()) / GENOTYPE_MAP
             with path.open("w") as f:
@@ -414,18 +404,18 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_traces(self, positions: list[int]) -> None:
         """Extract the roi traces in multiple threads."""
-        logger.info("Starting traces extraction...")
+        LOGGER.info("Starting traces extraction...")
 
         # save plate maps and update the stored _plate_map_data dict
         self._handle_plate_map()
 
         cpu_count = os.cpu_count() or 1
-        cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
+        cpu_count = max(1, cpu_count - 1)  # leave a couple of cores for the system
         pos = len(positions)
         chunk_size = max(1, pos // cpu_count)
 
-        logger.info("CPU count: %s", cpu_count)
-        logger.info("Chunk size: %s", chunk_size)
+        LOGGER.info("CPU count: %s", cpu_count)
+        LOGGER.info("Chunk size: %s", chunk_size)
 
         try:
             with ThreadPoolExecutor(max_workers=cpu_count) as executor:
@@ -441,22 +431,22 @@ class _AnalyseCalciumTraces(QWidget):
 
                 for idx, future in enumerate(as_completed(futures)):
                     if self._check_for_abort_requested():
-                        logger.info("Abort requested, cancelling all futures.")
+                        LOGGER.info("Abort requested, cancelling all futures.")
                         for f in futures:
                             f.cancel()
                         break
                     try:
                         future.result()
-                        logger.info(f"Chunk {idx + 1} completed.")
+                        LOGGER.info(f"Chunk {idx + 1} completed.")
                     except Exception as e:
-                        logger.error("An error occurred in a chunk: %s", e)
+                        LOGGER.error("An error occurred in a chunk: %s", e)
                         show_error_dialog(self, f"An error occurred in a chunk: {e}")
                         break
 
-            logger.info("All tasks completed.")
+            LOGGER.info("All tasks completed.")
 
         except Exception as e:
-            logger.error("An error occurred: %s", e)
+            LOGGER.error("An error occurred: %s", e)
             show_error_dialog(self, f"An error occurred: {e}")
 
     def _extract_trace_for_chunk(
@@ -490,7 +480,8 @@ class _AnalyseCalciumTraces(QWidget):
         # get the labels file
         labels_path = self._get_labels_file(labels_name)
         if labels_path is None:
-            logger.error("No labels found for %s!", labels_name)
+            LOGGER.error("No labels found for %s!", labels_name)
+            print(f"No labels found for {labels_name}!")
             return
         labels = tifffile.imread(labels_path)
 
@@ -500,7 +491,7 @@ class _AnalyseCalciumTraces(QWidget):
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
 
-        logger.info("Processing Well %s", well)
+        LOGGER.info("Processing Well %s", well)
 
         # get average time interval between frames from the "ElapsedTime-ms" metadata
         elapsed_time: list = []
@@ -518,7 +509,7 @@ class _AnalyseCalciumTraces(QWidget):
         roi_trace: np.ndarray | list[float] | None
 
         # extract roi traces
-        logger.info(f"Extracting Traces from Well {well}.")
+        LOGGER.info(f"Extracting Traces from Well {well}.")
         for label_value, mask in tqdm(
             masks.items(), desc=f"Extracting Traces from Well {well}"
         ):
@@ -607,7 +598,7 @@ class _AnalyseCalciumTraces(QWidget):
             )
 
         # save json file
-        logger.info("Saving JSON file for Well %s.", well)
+        LOGGER.info("Saving JSON file for Well %s.", well)
         path = Path(self._output_path.value()) / f"{well}.json"
         with path.open("w") as f:
             json.dump(
