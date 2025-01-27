@@ -29,38 +29,31 @@ RED = "#C33"
 # fmt: off
 RAW_TRACES = "Raw Traces"
 RAW_TRACES_WITH_PEAKS = "Raw Traces with Peaks"
-RAW_TRACES_PHOTOBLEACH_CORRECTED = "Raw Traces Photobleach Corrected"
-RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = "Raw Traces Photobleach Corrected with Peaks"  # noqa: E501
 NORMALIZED_TRACES = "Normalized Traces [0, 1]"
-NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED = "Normalized Traces [0, 1] Photobleach Corrected"  # noqa: E501
 NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
-NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS = "Normalized Traces [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
-DFF = "DeltaF/F0 Photobleach Corrected"
-DFF_WITH_PEAKS = "DeltaF/F0 Photobleach Corrected with Peaks"
-DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected"
-DFF_NORMALIZED_WITH_PEAKS = "DeltaF/F0 Normalized [0, 1] Photobleach Corrected with Peaks"  # noqa: E501
-TRACES_FOR_BLEACH_CORRECTIONS = "Traces used for Photobleaching Correction"
-TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED = "Traces used for Photobleaching Correction Normalized [0, 1]"  # noqa: E501
+DFF = "DeltaF/F0"
+DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1]"
+DEC_DFF = "Deconvolved DeltaF/F0"
+DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
+DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized [0, 1]"
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized [0, 1] with Peaks"
+DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
+DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 
-# dff=False, normalize=False, photobleach_corrected=False, with_peaks=False, used_for_bleach_correction=False  # noqa: E501
+# dff=False, def=False, normalize=False, with_peaks=False, amp=False, freq=False
+# NOTE: def & dec can't be True at the same time
+# NOTE: amp & freq can't be True at the same time
 COMBO_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
-    RAW_TRACES_PHOTOBLEACH_CORRECTED: {"photobleach_corrected":True},
-    RAW_TRACES_WITH_PEAKS: {"with_peaks":True},
-    RAW_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: {"photobleach_corrected":True, "with_peaks":True},  # noqa: E501
     NORMALIZED_TRACES: {"normalize":True},
-    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED: {"normalize":True, "photobleach_corrected":True},  # noqa: E501
-    NORMALIZED_TRACES_WITH_PEAKS: {"normalize":True, "with_peaks":True},
-    NORMALIZED_TRACES_PHOTOBLEACH_CORRECTED_WITH_PEAKS: {"normalize":True, "photobleach_corrected":True, "with_peaks":True},  # noqa: E501
     DFF: {"dff":True},
     DFF_NORMALIZED: {"dff":True, "normalize":True},
-    DFF_WITH_PEAKS: {"dff":True, "with_peaks":True},
-    DFF_NORMALIZED_WITH_PEAKS: {"dff":True, "normalize":True, "with_peaks":True},
-    TRACES_FOR_BLEACH_CORRECTIONS: {"used_for_bleach_correction":True},
-    TRACES_FOR_BLEACH_CORRECTIONS_NORMALIZED: {"used_for_bleach_correction":True, "normalize":True},  # noqa: E501
-    # "Mean Amplitude ± StD": ,
-    # "Mean Frequency ± StD": ,
-    # "Raster Plot":
+    DEC_DFF: {"dec":True},
+    DEC_DFF_WITH_PEAKS: {"dec":True, "with_peaks":True},
+    DEC_DFF_NORMALIZED: {"dec":True, "normalize":True},
+    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec":True, "normalize":True, "with_peaks":True},
+    DEC_DFF_AMPLITUDE: {"dec":True, "amp":True},
+    DEC_DFF_FREQUENCY: {"dec":True, "freq":True},
 }
 # fmt : on
 

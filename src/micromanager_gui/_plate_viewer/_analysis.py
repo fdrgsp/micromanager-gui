@@ -8,9 +8,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
+import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
 from qtpy.QtCore import QSize, Signal
@@ -27,9 +27,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from scipy.optimize import curve_fit
-from scipy.signal import find_peaks, savgol_filter
-from scipy.stats import pearsonr
+from scipy.signal import find_peaks
 from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
@@ -42,10 +40,10 @@ from ._util import (
     GREEN,
     RED,
     TREATMENT_MAP,
-    Peaks,
     ROIData,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
+    calculate_dff,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -506,18 +504,18 @@ class _AnalyseCalciumTraces(QWidget):
 
         logger.info("Processing Well %s", well)
 
-        # calculate exponential decay for photobleaching correction:
-        # first get the average trace for the position, fit an exponential decay
-        # and use the fitted curve for photobleaching correction for each roi
-        logger.info(f"Calculating Exponential Decay for well {well}.")
-        average_trace = data.mean(axis=(1, 2))
-        exponential_decay = self._get_exponential_decay(average_trace, well)
-        if exponential_decay is None:
-            logger.error(
-                f"Exponential Decay could not be calculated for Well {well} - pos{p}."
-            )
+        # get average time interval between frames from the "ElapsedTime-ms" metadata
+        elapsed_time: list = []
+        elapsed_time.extend(m.get("ElapsedTime-ms") for m in meta)
+        if None in elapsed_time:
+            mean_elapsed_time_ms = 0
         else:
-            average_fitted_curve, average_popts, _ = exponential_decay
+            # calculate actuar time interval by subtracting the previous time point
+            # from the current time point
+            elapsed_time = np.array(elapsed_time) - np.roll(np.array(elapsed_time), 1)
+            elapsed_time[0] = 0
+            # get the average time interval between frames
+            mean_elapsed_time_ms = np.mean(elapsed_time)
 
         roi_trace: np.ndarray | list[float] | None
 
@@ -534,6 +532,48 @@ class _AnalyseCalciumTraces(QWidget):
 
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
+
+            # CALCULATE DELATA F OVER F ----------------------------------------------
+            dff = calculate_dff(roi_trace, window=10, plot=False)
+
+            # DECONVOLVE DFF --------------------------------------------------------
+            dec_dff, spikes, _, k, _ = deconvolve(dff, penalty=1)
+
+            # FIND PEAKS ------------------------------------------------------------
+            # Get the prominence:
+            # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
+            # median is the “middle” value of the dataset when sorted, which is robust
+            # to outliers (unlike the mean).
+            # -	Step 2: np.abs(dff - np.median(dff)) -> The absolute deviation of each
+            # value in dff from the median is calculated. This measures how far each
+            # value is from the central point (the median).
+            # -	Step 3: np.median(...) -> The median of the absolute deviations is
+            # computed. This gives the Median Absolute Deviation (MAD), which is a
+            # robust measure of the spread of the data. Unlike standard deviation, the
+            # MAD is not influenced by extreme outliers.
+            # -	Step 4: Division by 0.6745 -> The constant 0.6745 rescales the MAD to
+            # make it comparable to the standard deviation if the data follows a normal
+            # (Gaussian) distribution. Specifically: for a normal distribution,
+            # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
+            # into an estimate of the standard deviation.
+            noise_level_dec_dff = (
+                np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+            )
+            peaks_prominence_dec_dff = noise_level_dec_dff * 2
+
+            # find the peaks in the dec_dff trace
+            peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
+
+            # get the amplitudes of the peaks in the dec_dff trace
+            peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
+
+            # get the frequency of the peaks in the dec_dff trace
+            seq = cast(useq.MDASequence, self.data.sequence)
+            tot_time_sec = seq.sizes["t"] * mean_elapsed_time_ms / 1000  # in seconds
+            try:
+                frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
+            except ZeroDivisionError:
+                frequency = 0  # in Hz
 
             # get the size of the roi in µm or px if µm is not available
             roi_size_pixel = masked_data.shape[1]  # area
@@ -555,55 +595,18 @@ class _AnalyseCalciumTraces(QWidget):
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=roi_trace.tolist(),
-                use_for_bleach_correction=exponential_decay,
+                dff=dff.tolist(),
+                dec_dff=dec_dff.tolist(),
+                peaks_dec_dff=peaks_dec_dff.tolist(),
+                peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
+                peaks_prominence_dec_dff=peaks_prominence_dec_dff,
+                dec_dff_frequency=frequency,  # in Hz
+                inferred_spikes=spikes.tolist(),
                 cell_size=roi_size,
                 cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,
                 condition_2=condition_2,
             )
-
-        # perform photobleaching correction
-        logger.info(f"Performing Belaching Correction for Well {well}.")
-        for label_value in tqdm(
-            labels_range, desc=f"Performing Belaching Correction for Well {well}"
-        ):
-            if self._check_for_abort_requested():
-                break
-
-            data = self._analysis_data[well][str(label_value)]
-
-            roi_trace = data.raw_trace
-
-            if roi_trace is None:
-                continue
-
-            # calculate the bleach corrected trace
-            if exponential_decay is not None:
-                bleach_corrected = (
-                    np.array(roi_trace) - average_fitted_curve + average_popts[2]
-                )
-            # if no exponential decay was calculated, use the raw trace
-            else:
-                bleach_corrected = np.array(roi_trace)
-
-            # calculate the dF/F
-            dff = self._calculate_dff(bleach_corrected, window=DFF_WINDOW)
-            d_dff, _, _, _, _ = deconvolve(dff, g=(None, None), penalty=1)
-
-            # find the peaks in the bleach corrected trace
-            prominence = np.mean(d_dff) * 0.2  # 20% of the mean of the derivative
-            peaks = self._find_peaks(d_dff, prominence=prominence)
-
-            # store the analysis data
-            update = data.replace(
-                average_photobleaching_fitted_curve=average_fitted_curve,
-                average_popts=average_popts,
-                bleach_corrected_trace=bleach_corrected.tolist(),
-                peaks=[Peaks(peak=peak) for peak in peaks] if len(peaks) > 2 else None,
-                dff=dff.tolist(),
-                d_dff=d_dff.tolist(),
-            )
-            self._analysis_data[well][str(label_value)] = update
 
         # save json file
         logger.info("Saving JSON file for Well %s.", well)
@@ -618,189 +621,3 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the progress bar
         self.progress_bar_updated.emit()
-
-    def _smooth_and_normalize(self, trace: np.ndarray) -> np.ndarray:
-        """Smooth and normalize the trace between 0 and 1."""
-        # smoothing that preserves the peaks
-        smoothed = savgol_filter(trace, window_length=5, polyorder=2)
-        # normalize the smoothed trace from 0 to 1
-        return cast(
-            np.ndarray,
-            (smoothed - np.min(smoothed)) / (np.max(smoothed) - np.min(smoothed)),
-        )
-
-    def _get_exponential_decay(
-        self, trace: np.ndarray, well: str = ""
-    ) -> tuple[list[float], list[float], float] | None:
-        """Fit an exponential decay to the trace.
-
-        Returns None if the R squared value is less than 0.9.
-        """
-        time_points = np.arange(len(trace))
-        initial_guess = [max(trace), 0.01, min(trace)]
-        try:
-            popt, _ = curve_fit(
-                single_exponential, time_points, trace, p0=initial_guess, maxfev=2000
-            )
-            fitted_curve = single_exponential(time_points, *popt)
-            residuals = trace - fitted_curve
-            r, _ = pearsonr(trace, fitted_curve)
-            ss_total = np.sum((trace - np.mean(trace)) ** 2)
-            ss_res = np.sum(residuals**2)
-            r_squared = 1 - (ss_res / ss_total)
-        except Exception as e:
-            logger.error("Error fitting curve: %s", e)
-            return None
-
-        # save the fitted curve if the R squared value is less than 0.98
-        if r_squared <= 0.98 and self._bleach_error_path is not None and well:
-            plt.plot(fitted_curve, "black", "--")
-            plt.plot(trace, "green")
-            plt.savefig(
-                self._bleach_error_path
-                / f"failed_fitted_curve_r2{r_squared}_{well}.png"
-            )
-
-        return (
-            None
-            if r_squared <= R_SQUARED_THRESHOLD
-            else (fitted_curve.tolist(), popt.tolist(), float(r_squared))
-        )
-
-    def _calculate_dff(self, trace: np.ndarray, window: int = 100) -> np.ndarray:
-        """Calculate the ΔF/F (delta F over F) signal for a given calcium trace.
-
-        Parameters
-        ----------
-        trace : np.ndarray
-            The input signal as a 1D numpy array.
-        window : int, optional
-            The size of the sliding window for background calculation, by default 100.
-        """
-        background, _ = self._calculate_bg(trace, window)
-        dff = (trace - background) / background
-        dff -= np.min(dff)  # Shift the signal to ensure non-negative values.
-        return np.array(dff)
-
-    def _calculate_bg(
-        self, trace: np.ndarray, window: int
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Calculate the background and median trace for a given signal...
-
-        ...using a sliding window approach.
-
-        Parameters
-        ----------
-        trace : np.ndarray
-            The input signal as a 1D numpy array.
-        window : int
-            The size of the sliding window for background calculation.
-        """
-        n = len(trace)
-        background = np.zeros_like(trace)
-        median = np.zeros_like(trace)
-
-        for i in range(n):
-            start = max(0, i - window)
-            window_slice = trace[start : i + 1]
-            median_value = np.median(window_slice)
-            lower_quantile = window_slice <= median_value
-            background[i] = np.mean(window_slice[lower_quantile])
-            median[i] = median_value
-
-        return background, median
-
-    def _find_peaks(
-        self, trace: np.ndarray, prominence: float | None = None
-    ) -> list[int]:
-        """Smooth the trace and find the peaks."""
-        smoothed_normalized = self._smooth_and_normalize(trace)
-        # find the peaks # TODO: find the necessary parameters to use
-        peaks, _ = find_peaks(smoothed_normalized, width=3, prominence=prominence)
-        peaks = cast(np.ndarray, peaks)
-        return cast(list[int], peaks.tolist())
-
-    def _get_amplitude(
-        self,
-        dff: list[float],
-        peaks: list[int],
-        deriv_threshold: float = 0.01,
-        reset_num: int = 17,
-        neg_reset_num: int = 2,
-        total_dist: int = 40,
-    ) -> tuple[list[float], list[int], list[int], list[int]]:
-        """Calculate amplitudes, peak indices, and base indices of each ROI."""
-        if not peaks:
-            return [], [], [], []
-
-        dff_deriv = np.diff(dff)
-        len_dff_deriv = len(dff_deriv)
-
-        def find_boundary(index: int, direction: str) -> int:
-            """Find start or end boundary around a peak."""
-            step = -1 if direction == "backward" else 1
-            boundary = index
-            under_thresh_count = total_count = 0
-
-            while 0 <= boundary < len_dff_deriv and total_count < total_dist:
-                boundary += step
-                total_count += 1
-
-                # Ensure boundary does not go out of bounds
-                if boundary < 0 or boundary >= len_dff_deriv:
-                    break
-
-                if boundary in peaks:  # Handle crossing other peaks
-                    neg_count = 0
-                    while 0 <= boundary < len_dff_deriv and neg_count < neg_reset_num:
-                        if (
-                            dff_deriv[boundary] * step < 0
-                        ):  # Negative slope for backward, positive for forward
-                            neg_count += 1
-                        else:
-                            neg_count = 0
-                        boundary += step
-                    return boundary - step
-
-                if abs(dff_deriv[boundary]) < deriv_threshold:
-                    under_thresh_count += 1
-                else:
-                    under_thresh_count = 0
-
-                if under_thresh_count >= reset_num:
-                    break
-
-            return boundary
-
-        amplitudes, start_indices, end_indices, valid_peaks = [], [], [], []
-
-        for peak in peaks:
-            start_index = find_boundary(peak, "backward")
-            end_index = find_boundary(peak, "forward")
-
-            # Ensure valid indices for slicing
-            if start_index < 0:
-                start_index = 0
-            if end_index >= len(dff):
-                end_index = len(dff) - 1
-
-            # Slice and check for empty arrays
-            start_to_peak = dff[start_index:peak]
-            peak_to_end = dff[peak : end_index + 1]
-
-            if len(start_to_peak) == 0 or len(peak_to_end) == 0:
-                continue  # Skip this peak if slices are invalid
-
-            # Calculate f_start_index, f_end_index, and amplitude
-            f_start_index = start_index + np.argmin(start_to_peak)
-            f_end_index = peak + np.argmin(peak_to_end)
-            amplitude = dff[peak] - dff[f_start_index]
-
-            if amplitude > 0:
-                amplitudes.append(amplitude)
-                start_indices.append(f_start_index)
-                end_indices.append(f_end_index)
-                valid_peaks.append(peak)
-
-        return amplitudes, start_indices, end_indices, valid_peaks  # type: ignore

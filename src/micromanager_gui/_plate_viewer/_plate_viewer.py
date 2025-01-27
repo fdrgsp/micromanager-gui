@@ -53,7 +53,6 @@ from ._segmentation import _CellposeSegmentation
 from ._util import (
     GENOTYPE_MAP,
     TREATMENT_MAP,
-    Peaks,
     ROIData,
     _ProgressBarWidget,
     show_error_dialog,
@@ -427,12 +426,6 @@ class PlateViewer(QMainWindow):
                     for roi in data.keys():
                         # get the data for the roi
                         roi_data = cast(dict, data[roi])
-                        # if there are peaks, convert them to Peaks objects
-                        if peaks := roi_data.get("peaks", {}):
-                            peaks_objects = []
-                            for p in peaks:
-                                peaks_objects.append(Peaks(**p))
-                                roi_data["peaks"] = peaks_objects
                         # convert to a ROIData object and add store it in _analysis_data
                         self._analysis_data[well][roi] = ROIData(**roi_data)
         except Exception as e:

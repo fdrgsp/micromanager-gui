@@ -15,19 +15,17 @@ COUNT_INCREMENT = 1
 def get_trace(
     roi_data: ROIData,
     dff: bool,
-    photobleach_corrected: bool,
-    used_for_bleach_correction: bool,
+    dec: bool,
 ) -> list[float] | None:
     """Get the appropriate trace based on the flags."""
-    if used_for_bleach_correction:
-        trace = roi_data.use_for_bleach_correction
-        return trace[0] if trace is not None else None
-    elif dff and not photobleach_corrected:
+    # NOTE: dff and dec can't be True at the same time
+    if dff and dec:
+        return None
+    if dff:
         return roi_data.dff
-    elif photobleach_corrected and not dff:
-        return roi_data.bleach_corrected_trace
-    else:
-        return roi_data.raw_trace
+    if dec:
+        return roi_data.dec_dff
+    return roi_data.raw_trace
 
 
 def normalize_trace(trace: list[float]) -> list[float]:
@@ -42,10 +40,11 @@ def plot_traces(
     data: dict,
     rois: list[int] | None = None,
     dff: bool = False,
+    dec: bool = False,
     normalize: bool = False,
-    photobleach_corrected: bool = False,
     with_peaks: bool = False,
-    used_for_bleach_correction: bool = False,
+    amp: bool = False,
+    freq: bool = False,
 ) -> None:
     """Plot various types of traces."""
     # Clear the figure
@@ -54,14 +53,8 @@ def plot_traces(
 
     # Set the title
     title_parts = []
-    if used_for_bleach_correction:
-        title_parts.append("Traces Used for Bleach Correction")
     if normalize:
         title_parts.append("Normalized Traces [0, 1]")
-    if dff and not used_for_bleach_correction:
-        title_parts.append("ΔF/F - Photobleach Correction")
-    if photobleach_corrected and not dff and not used_for_bleach_correction:
-        title_parts.append("Photobleach Correction")
     if with_peaks:
         title_parts.append("Peaks")
     ax.set_title(" - ".join(title_parts))
@@ -72,43 +65,47 @@ def plot_traces(
             continue
 
         roi_data = cast("ROIData", data[key])
-        trace = get_trace(
-            roi_data, dff, photobleach_corrected, used_for_bleach_correction
-        )
+        trace = get_trace(roi_data, dff, dec)
 
         if trace is None:
             continue
 
-        if normalize:
-            trace = normalize_trace(trace)
+        if amp:
+            if roi_data.peaks_amplitudes_dec_dff is None:
+                continue
             ax.plot(
-                np.array(trace) + (0 if used_for_bleach_correction else count),
+                [int(key)] * len(roi_data.peaks_amplitudes_dec_dff),
+                roi_data.peaks_amplitudes_dec_dff,
+                "o",
                 label=f"ROI {key}",
             )
-        else:
-            ax.plot(trace, label=f"ROI {key}")
-
-        if with_peaks and roi_data.peaks is not None:
-            peaks = [pk.peak for pk in roi_data.peaks if pk.peak is not None]
+            ax.set_xlabel("ROIs")
+            ax.set_ylabel("Amplitude")
+        elif freq:
             ax.plot(
-                peaks,
-                np.array(trace)[peaks]
-                + (count if normalize and not used_for_bleach_correction else 0),
-                "x",
-                label=f"Peaks ROI {key}",
+                int(key),
+                roi_data.dec_dff_frequency,
+                "o",
+                label=f"ROI {key}",
             )
+            ax.set_xlabel("ROIs")
+            ax.set_ylabel("Frequency")
+        else:
+            if normalize:
+                trace = normalize_trace(trace)
+                ax.plot(np.array(trace) + count, label=f"ROI {key}")
+            else:
+                ax.plot(trace, label=f"ROI {key}")
 
-        if used_for_bleach_correction:
-            curve = data[next(iter(data.keys()))].average_photobleaching_fitted_curve
-            if curve is not None:
-                if normalize:
-                    curve = normalize_trace(curve)
+            if with_peaks:
+                if roi_data.peaks_dec_dff is None:
+                    continue
+                peaks_indices = np.array(roi_data.peaks_dec_dff)
                 ax.plot(
-                    curve,
-                    label="Fitted Curve",
-                    linestyle="--",
-                    color="black",
-                    linewidth=2,
+                    peaks_indices,
+                    np.array(trace)[peaks_indices] + (count if normalize else 0),
+                    "x",
+                    label=f"Peaks ROI {key}",
                 )
 
         count += COUNT_INCREMENT

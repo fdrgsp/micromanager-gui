@@ -4,6 +4,8 @@ import contextlib
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
+import matplotlib.pyplot as plt
+import numpy as np
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
@@ -35,29 +37,17 @@ class BaseClass:
 
 
 @dataclass
-class Peaks(BaseClass):
-    """NamedTuple to store peak data."""
-
-    peak: int | None = None
-    amplitude: float | None = None
-    raise_time: float | None = None
-    decay_time: float | None = None
-    # ... add whatever other data we need
-
-
-@dataclass
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
 
     raw_trace: list[float] | None = None
-    bleach_corrected_trace: list[float] | None = None
-    peaks: list[Peaks] | None = None
-    use_for_bleach_correction: tuple[list[float], list[float], float] | None = None
-    average_photobleaching_fitted_curve: list[float] | None = None
-    average_popts: list[float] | None = None
     dff: list[float] | None = None
-    d_dff: list[float] | None = None  # deconvolved dff with oasis package
-    mean_frequency: float | None = None
+    dec_dff: list[float] | None = None  # deconvolved dff with oasis package
+    peaks_dec_dff: list[float] | None = None
+    peaks_amplitudes_dec_dff: list[float] | None = None
+    peaks_prominence_dec_dff: float | None = None
+    inferred_spikes: list[float] | None = None
+    dec_dff_frequency: float | None = None
     mean_frequency_stdev: float | None = None
     mean_amplitude: float | None = None
     mean_amplitude_stdev: float | None = None
@@ -211,3 +201,70 @@ def parse_lineedit_text(input_str: str) -> list[int]:
             with contextlib.suppress(ValueError):
                 numbers.append(int(part))
     return numbers
+
+
+def calculate_dff(
+    data: np.ndarray, window: int = 100, percentile: int = 10, plot: bool = False
+) -> np.ndarray:
+    """Calculate the delta F/F using a sliding window and a percentile.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Array representing the fluorescence trace.
+    window : int
+        Size of the moving window for the background calculation. Default is 100.
+    percentile : int
+        Percentile to use for the background calculation. Default is 10.
+    plot : bool
+        Whether to show a plot of the background and trace. Default is False.
+
+    Returns
+    -------
+    np.ndarray
+        Array representing the delta F/F.
+    """
+    dff: np.ndarray = np.array([])
+    bg: np.ndarray = _calculate_bg(data, window, percentile)
+    dff = (data - bg) / bg
+    dff -= np.min(dff)
+
+    # plot background and trace
+    if plot:
+        plt.figure(figsize=(10, 8))
+        plt.plot(bg, label="background", color="black")
+        plt.plot(data, label="trace", color="green")
+        plt.legend()
+        plt.show()
+
+    return dff
+
+
+def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.ndarray:
+    """
+    Calculate the background using a moving window and a specified percentile.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Array representing the fluorescence trace.
+    window : int
+        Size of the moving window.
+    percentile : int
+        Percentile to use for the background calculation. Default is 10.
+
+    Returns
+    -------
+    np.ndarray
+        Array representing the background.
+    """
+    # Initialize background array
+    background: np.ndarray = np.zeros_like(data)
+
+    # Use the lower percentile (e.g., 10th percentile)
+    for y in range(len(data)):
+        x = max(0, y - window // 2)
+        lower_percentile = np.percentile(data[x : y + 1], percentile)
+        background[y] = lower_percentile
+
+    return background
