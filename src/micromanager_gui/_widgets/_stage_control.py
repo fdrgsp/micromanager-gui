@@ -44,9 +44,9 @@ class _Stage(StageWidget):
         delta = event.angleDelta().y()
         increment = self._step.value()
         if delta > 0:
-            self._move_stage(0, increment)
+            self._move_stage_relative(0, increment)
         elif delta < 0:
-            self._move_stage(0, -increment)
+            self._move_stage_relative(0, -increment)
 
 
 class StagesControlWidget(QWidget):
