@@ -46,7 +46,7 @@ dependencies = [
     "ndv[vispy]==0.0.4",
     "qtconsole",
     "pyfirmata2",
-    "oasis-deconv",
+    "oasis-deconv!=0.2.1",
 ]
 
 # extras
