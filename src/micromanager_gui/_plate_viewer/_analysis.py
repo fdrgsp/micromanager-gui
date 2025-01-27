@@ -57,8 +57,6 @@ if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-DFF_WINDOW = 100
-R_SQUARED_THRESHOLD = 0.98
 
 
 logger = logging.getLogger("analysis_logger")
