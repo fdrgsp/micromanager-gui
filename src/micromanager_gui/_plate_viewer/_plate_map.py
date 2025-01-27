@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, NamedTuple, Tuple, cast
+from typing import TYPE_CHECKING, Any, Iterable, NamedTuple, Tuple, cast
 
 import numpy as np
 from fonticon_mdi6 import MDI6
@@ -245,10 +246,10 @@ class PlateMapWidget(QWidget):
         self._clear_all_btn.clicked.connect(self.clear)
         self._save_map_btn = QPushButton("Save Plate Map")
         self._save_map_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._save_map_btn.clicked.connect(self._save_plate_map)
+        self._save_map_btn.clicked.connect(self.save_plate_map)
         self._load_map_btn = QPushButton("Load Plate Map")
         self._load_map_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._load_map_btn.clicked.connect(self._load_plate_map)
+        self._load_map_btn.clicked.connect(self.load_plate_map)
 
         btns_layout = QHBoxLayout()
         btns_layout.setContentsMargins(0, 0, 0, 0)
@@ -319,13 +320,17 @@ class PlateMapWidget(QWidget):
         Returns a tuple containing the (well_name, row and column) and the data assigned
         to it, (condition_name, color_name).
         """
+        def convert_np_int64(value: Any) -> Any:
+            """Convert np.int64 to int."""
+            return int(value) if isinstance(value, np.int64) else value
+
         wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
             self._plate_view._well_items
         )
         return [
             PlateMapData(
                 well.data(DATA_POSITION).name,
-                well.data(DATA_INDEX),
+                tuple(map(convert_np_int64, well.data(DATA_INDEX))),
                 well.data(DATA_CONDITION),
             )
             for well in wells.values()
@@ -340,40 +345,68 @@ class PlateMapWidget(QWidget):
         self._plate_view.clearSelection()
         self.clear()
 
-        if isinstance(value, (Path, str)):
-            with open(value) as pmap:
-                data = json.load(pmap)
-            value = cast(list, data)
+        try:
+            if isinstance(value, (Path, str)):
+                with open(value) as pmap:
+                    data = json.load(pmap)
+                value = cast(list, data)
 
-        add_to_conditions_list = set()
-        for data in value:
-            # convert the data to a PlateMapData object if it is a list of strings
-            if not isinstance(data, PlateMapData):
-                # convert the old data to the new data
-                if isinstance(data, PlateMapDataOld):
-                    data = PlateMapData(
-                        data.name, (data.row, data.column), (data.condition, data.color)
-                    )
-                # convert old list of strings to new PlateMapData
-                elif len(data) == 5:  # from PlateMapDataOld
-                    name, r, c, condition, color = data
-                    data = PlateMapData(name, (r, c), (condition, color))
-                else:
-                    data = PlateMapData(*tuple(data))
-            # store the data in a list to update the condition table
-            add_to_conditions_list.add(tuple(data.condition))
-            # update the color and data of the wells with the assigned conditions
-            wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
-                self._plate_view._well_items
-            )
-            for well in wells.values():
-                if well.data(DATA_INDEX) == tuple(data.row_col):
-                    r, c = well.data(DATA_INDEX)
-                    _, color_name = data.condition
-                    self._plate_view.setWellColor(r, c, color_name)
-                    well.setData(DATA_CONDITION, tuple(data.condition))
-                # update the condition table
-        self.list.setValue(list(add_to_conditions_list))
+            add_to_conditions_list = set()
+            for data in value:
+                # convert the data to a PlateMapData object if it is a list of strings
+                if not isinstance(data, PlateMapData):
+                    # convert the old data to the new data
+                    if isinstance(data, PlateMapDataOld):
+                        data = PlateMapData(
+                            data.name,
+                            (data.row, data.column),
+                            (data.condition, data.color),
+                        )
+                    # convert old list of strings to new PlateMapData
+                    elif len(data) == 5:  # from PlateMapDataOld
+                        name, r, c, condition, color = data
+                        data = PlateMapData(name, (r, c), (condition, color))
+                    else:
+                        data = PlateMapData(*tuple(data))
+                # store the data in a list to update the condition table
+                add_to_conditions_list.add(tuple(data.condition))
+                # update the color and data of the wells with the assigned conditions
+                wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
+                    self._plate_view._well_items
+                )
+                for well in wells.values():
+                    if well.data(DATA_INDEX) == tuple(data.row_col):
+                        r, c = well.data(DATA_INDEX)
+                        _, color_name = data.condition
+                        self._plate_view.setWellColor(r, c, color_name)
+                        well.setData(DATA_CONDITION, tuple(data.condition))
+                    # update the condition table
+            self.list.setValue(list(add_to_conditions_list))
+        except Exception as e:
+            warnings.warn(f"Error loading the plate map: {e}", stacklevel=2)
+            return
+
+    def save_plate_map(self) -> None:
+        """Save the plate map to a json file."""
+        (dir_file, _) = QFileDialog.getSaveFileName(
+            self, "Saving directory and filename.", "", "json(*.json)"
+        )
+        if not dir_file:
+            return
+
+        with open(dir_file, "w") as pmap:
+            json.dump(self.value(), pmap, indent=2)
+
+    def load_plate_map(self) -> None:
+        """Load a plate map from a json file."""
+        (filename, _) = QFileDialog.getOpenFileName(
+            self, "Open plate map json file.", "", "json(*.json)"
+        )
+        if not filename:
+            return
+        with open(filename) as pmap:
+            data = json.load(pmap)
+        self.setValue(data)
 
     # override the super method to change the color of the selected wells
     # so it does not use the color stored in the data and this if we select a well
@@ -454,22 +487,3 @@ class PlateMapWidget(QWidget):
                     self._plate_view.setWellColor(r, c, None)
                     wells[well_key].setData(DATA_CONDITION, None)
                     wells[well_key].setData(DATA_SELECTED, False)
-
-    def _save_plate_map(self) -> None:
-        (dir_file, _) = QFileDialog.getSaveFileName(
-            self, "Saving directory and filename.", "", "json(*.json)"
-        )
-        if not dir_file:
-            return
-        with open(dir_file, "w") as pmap:
-            json.dump(self.value(), pmap)
-
-    def _load_plate_map(self) -> None:
-        (filename, _) = QFileDialog.getOpenFileName(
-            self, "Open plate map json file.", "", "json(*.json)"
-        )
-        if not filename:
-            return
-        with open(filename) as pmap:
-            data = json.load(pmap)
-        self.setValue(data)
