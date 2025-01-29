@@ -263,7 +263,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         if self._plate_viewer is not None and (
             not self._plate_viewer._plate_map_genotype.value()
-            or not self._plate_viewer._plate_map_treatment.value()
+            and not self._plate_viewer._plate_map_treatment.value()
         ):
             response = self._no_plate_map_msgbox()
             if response == QMessageBox.StandardButton.No:
