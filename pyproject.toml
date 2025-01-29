@@ -26,8 +26,8 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "pymmcore-widgets",
-    "pymmcore-plus >=0.10.2",
+    "pymmcore-widgets >=0.8.0",
+    "pymmcore-plus >=0.11.0",
     "qtpy",
     "vispy",
     "zarr==2.*",
