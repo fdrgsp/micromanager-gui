@@ -163,14 +163,6 @@ class _MenuBar(QMenuBar):
         self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
         self._settings_menu.addAction(self._act_enable_segmentation)
 
-        # settings menu
-        self._settings_menu = self.addMenu("Segmentation")
-        self._act_enable_segmentation = QAction("Enable Segmentation", self)
-        self._act_enable_segmentation.setCheckable(True)
-        self._act_enable_segmentation.setChecked(False)
-        self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
-        self._settings_menu.addAction(self._act_enable_segmentation)
-
     def _enable(self, enable: bool) -> None:
         """Enable or disable the actions."""
         self._configurations_menu.setEnabled(enable)

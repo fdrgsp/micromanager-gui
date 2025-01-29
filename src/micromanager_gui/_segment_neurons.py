@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
 
 
-IMAGES_MAX_PROJ = 50
 MODEL_TYPE = "cyto3"
 CHANNEL = [0, 0]
 DIAMETER = 0
@@ -84,14 +83,13 @@ class SegmentNeurons:
         if t_index is None or self._timepoints is None:
             return
         start_timepoint = (self._timepoints // 2) - 1
-        end_timepoint = min(start_timepoint + IMAGES_MAX_PROJ, self._timepoints - 1)
         # create a max projection of the images for segmentation
-        if t_index >= start_timepoint and t_index <= end_timepoint:
+        if t_index >= start_timepoint and t_index <= self._timepoints - 1:
             self._max_proj = (
                 image if self._max_proj is None else np.maximum(self._max_proj, image)
             )
             # when the max_proj is ready, send it to the segmentation process
-            if t_index == end_timepoint:
+            if t_index == self._timepoints - 1:
                 # send the max_proj image to the segmentation process
                 self._queue.put((self._max_proj, event.model_dump()))
                 self._max_proj = None
