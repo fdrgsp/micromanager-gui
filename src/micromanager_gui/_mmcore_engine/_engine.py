@@ -421,7 +421,6 @@ class ArduinoEngine(MDAEngine):
         (False, "'Dichroic-Label' is not sequenceable")
         ```
         """
-        print("------------------")
 
         def _nope(reason: str) -> tuple[bool, str] | bool:
             return (False, reason) if return_reason else False

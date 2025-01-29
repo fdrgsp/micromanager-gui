@@ -261,13 +261,27 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No useq.MDAsequence found!")
             return None
 
-        if self._plate_viewer is not None and (
-            not self._plate_viewer._plate_map_genotype.value()
-            and not self._plate_viewer._plate_map_treatment.value()
-        ):
-            response = self._no_plate_map_msgbox()
-            if response == QMessageBox.StandardButton.No:
-                return None
+        if self._plate_viewer is not None:
+            tr_map = self._plate_viewer._plate_map_treatment.value()
+            gen_map = self._plate_viewer._plate_map_genotype.value()
+            # if both plate map genotype and treatment are not set, ask the user if
+            # they want to continue without the plate map
+            if not gen_map and not tr_map:
+                msg = "The Plate Map is not set!\n\nDo you want to continue?"
+                response = self._no_plate_map_msgbox(msg)
+                if response == QMessageBox.StandardButton.No:
+                    return None
+            # if only one of the plate map genotype or treatment is set, ask the user
+            # if they want to continue without both the plate maps
+            elif (gen_map and not tr_map) or not gen_map:
+                msg = (
+                    f"Only one of the {"Genotype" if gen_map else "Treatment"} Plate "
+                    " Map is set!\n\nDo you want to continue without both the Plate "
+                    "Maps?"
+                )
+                response = self._no_plate_map_msgbox(msg)
+                if response == QMessageBox.StandardButton.No:
+                    return None
 
         if path := self._output_path.value():
             save_path = Path(path)
@@ -299,11 +313,11 @@ class _AnalyseCalciumTraces(QWidget):
             return None
         return positions
 
-    def _no_plate_map_msgbox(self) -> Any:
+    def _no_plate_map_msgbox(self, msg: str) -> Any:
         """Show a message box to ask the user if wants to overwrite the labels."""
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Question)
-        msg.setText("The Plate Map is not set!\n\nDo you want to continue?")
+        msg.setText(msg)
         msg.setWindowTitle("Plate Map")
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
