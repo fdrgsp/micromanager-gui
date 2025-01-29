@@ -268,18 +268,18 @@ class _AnalyseCalciumTraces(QWidget):
             # they want to continue without the plate map
             if not gen_map and not tr_map:
                 msg = "The Plate Map is not set!\n\nDo you want to continue?"
-                response = self._no_plate_map_msgbox(msg)
+                response = self._plate_map_msgbox(msg)
                 if response == QMessageBox.StandardButton.No:
                     return None
             # if only one of the plate map genotype or treatment is set, ask the user
             # if they want to continue without both the plate maps
             elif (gen_map and not tr_map) or not gen_map:
                 msg = (
-                    f"Only one of the {"Genotype" if gen_map else "Treatment"} Plate "
-                    " Map is set!\n\nDo you want to continue without both the Plate "
+                    f"Only the '{"Genotype" if gen_map else "Treatment"} Plate Map' is "
+                    "set!\n\nDo you want to continue without both the Plate "
                     "Maps?"
                 )
-                response = self._no_plate_map_msgbox(msg)
+                response = self._plate_map_msgbox(msg)
                 if response == QMessageBox.StandardButton.No:
                     return None
 
@@ -313,17 +313,17 @@ class _AnalyseCalciumTraces(QWidget):
             return None
         return positions
 
-    def _no_plate_map_msgbox(self, msg: str) -> Any:
+    def _plate_map_msgbox(self, msg: str) -> Any:
         """Show a message box to ask the user if wants to overwrite the labels."""
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Icon.Question)
-        msg.setText(msg)
-        msg.setWindowTitle("Plate Map")
-        msg.setStandardButtons(
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setText(msg)
+        msg_box.setWindowTitle("Plate Map")
+        msg_box.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        msg.setDefaultButton(QMessageBox.StandardButton.No)
-        return msg.exec()
+        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg_box.exec()
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
