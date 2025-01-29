@@ -15,14 +15,22 @@ from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QDockWidget,
     QFileDialog,
+    QHBoxLayout,
+    QLabel,
     QMenuBar,
     QScrollArea,
     QTabWidget,
+    QVBoxLayout,
     QWidget,
 )
 
+from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
@@ -55,6 +63,10 @@ MDA = "mda"
 WDGS = "wdgs"
 VIEWERS = "viewers"
 PREVIEW = "preview"
+
+CUSTOM = "custom"
+CYTO3 = "cyto3"
+MODELS = [CYTO3, CUSTOM]
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -154,6 +166,10 @@ class _MenuBar(QMenuBar):
         self._create_dock_widget("Groups and Presets", dock_area=LEFT)
         mda = self._create_dock_widget("MDA Widget")
         self._mda = cast(MDAWidget, mda.main_widget)
+
+        # segmentation widget
+        self._segment_widget = _SegmentWidget(self)
+        self._segment_widget.hide()
 
         # settings menu
         self._settings_menu = self.addMenu("Segmentation")
@@ -326,5 +342,82 @@ class _MenuBar(QMenuBar):
         return viewers_dict
 
     def _enable_segmentation(self, enable: bool) -> None:
-        """Enable or disable the segmentation."""
-        self._main_window._segment_neurons.enable(enable)
+        """Enable or disable the segmentation and pass the parameters."""
+        print("Enable segmentation", enable)
+        self._segment_widget.show() if enable else self._segment_widget.hide()
+
+        if not enable:
+            return
+
+        if self._segment_widget.exec():
+            model, gpu = self._segment_widget.value()
+            self._main_window._segment_neurons.enable(enable, model, gpu)
+        else:
+            self._act_enable_segmentation.setChecked(False)
+            self._main_window._segment_neurons.enable(False)
+
+
+class _SegmentWidget(QDialog):
+    """A Widget to set the segmentation parameters."""
+
+    # TODO: update with more parameters if necessary
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Segmentation Parameters")
+        self.setMinimumWidth(300)
+
+        self.setWindowFlags(Qt.WindowType.Sheet)
+
+        self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.hide()
+
+        self._models_combo = QComboBox()
+        self._models_combo.addItems(MODELS)
+        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
+        self._use_gpu_checkbox = QCheckBox("Use GPU")
+        self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
+        self._use_gpu_checkbox.setChecked(True)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(QLabel("Model:"))
+        layout.addWidget(self._models_combo, 1)
+        layout.addWidget(self._use_gpu_checkbox)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(3, 3, 3, 3)
+        main_layout.setSpacing(3)
+        main_layout.addLayout(layout)
+        main_layout.addWidget(self._browse_custom_model)
+
+        # Add Ok and Cancel buttons
+        self._button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self._button_box.accepted.connect(self.accept)
+        self._button_box.rejected.connect(self.reject)
+
+        # Add buttons to the main layout
+        main_layout.addWidget(self._button_box)
+
+    def value(self) -> tuple[str, bool]:
+        """Return the model and the use_gpu value."""
+        if (model := self._models_combo.currentText()) == CUSTOM and (
+            path := self._browse_custom_model.value()
+        ):
+            model = path
+        else:
+            model = CYTO3
+
+        print(model, self._use_gpu_checkbox.isChecked())
+
+        return model, self._use_gpu_checkbox.isChecked()
+
+    def _on_model_combo_changed(self, model: str) -> None:
+        """Show the custom model path if the model is 'custom'."""
+        (
+            self._browse_custom_model.show()
+            if model == "custom"
+            else self._browse_custom_model.hide()
+        )

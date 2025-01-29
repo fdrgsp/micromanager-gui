@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
 
 
-MODEL_TYPE = "cyto3"
+CYTO3 = "cyto3"
 CHANNEL = [0, 0]
 DIAMETER = 0
 
@@ -38,6 +38,9 @@ class SegmentNeurons:
 
         self._max_proj: np.ndarray | None = None
 
+        self._model: str | None = None
+        self._gpu: bool = False
+
         # Create a multiprocessing Queue
         self._queue: mp.Queue[tuple[np.ndarray, dict] | None] = mp.Queue()
 
@@ -45,9 +48,27 @@ class SegmentNeurons:
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
-    def enable(self, enable: bool) -> None:
+    @property
+    def model(self) -> str | None:
+        return self._model
+
+    @model.setter
+    def model(self, model: str) -> None:
+        self._model = model
+
+    @property
+    def gpu(self) -> bool:
+        return self._gpu
+
+    @gpu.setter
+    def gpu(self, gpu: bool) -> None:
+        self._gpu = gpu
+
+    def enable(self, enable: bool, model: str = CYTO3, gpu: bool = False) -> None:
         """Enable or disable the segmentation."""
         self._enabled = enable
+        self._model = model
+        self._gpu = gpu
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
@@ -91,7 +112,9 @@ class SegmentNeurons:
             # when the max_proj is ready, send it to the segmentation process
             if t_index == self._timepoints - 1:
                 # send the max_proj image to the segmentation process
-                self._queue.put((self._max_proj, event.model_dump()))
+                self._queue.put(
+                    (self._max_proj, event.model_dump(), self._model, self._gpu)
+                )
                 self._max_proj = None
                 pos_idx = event.index.get("p", None)
                 pos = f"(pos{pos_idx})" if pos_idx is not None else ""
@@ -121,7 +144,7 @@ def _segmentation_worker(queue: mp.Queue) -> None:
         _segment_image(*args)
 
 
-def _segment_image(image: np.ndarray, event: dict) -> None:
+def _segment_image(image: np.ndarray, event: dict, model: str, gpu: bool) -> None:
     """Segment the image."""
     useq_event = useq.MDAEvent(**event)
     seq = useq_event.sequence
@@ -155,7 +178,7 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
     label_name = f"{useq_event.pos_name}_p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model = models.Cellpose(gpu=True, model_type=MODEL_TYPE)
+    model = models.Cellpose(gpu=gpu, model_type=model or CYTO3)
 
     # run cellpose
     logger.info(f"SegmentNeurons -> Segmenting image: {label_name}...")
