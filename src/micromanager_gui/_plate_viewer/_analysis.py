@@ -609,6 +609,7 @@ class _AnalyseCalciumTraces(QWidget):
                 cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,
                 condition_2=condition_2,
+                average_time_interval=mean_elapsed_time_ms,
             )
 
         # save json file

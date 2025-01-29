@@ -94,8 +94,13 @@ def plot_traces(
             if normalize:
                 trace = normalize_trace(trace)
                 ax.plot(np.array(trace) + count, label=f"ROI {key}")
+                ax.set_ylabel("ROI")
             else:
                 ax.plot(trace, label=f"ROI {key}")
+                if dff or dec:
+                    ax.set_ylabel("Amplitude (AU)")
+                else:
+                    ax.set_ylabel("Fluorescence Intensity")
 
             if with_peaks:
                 if roi_data.peaks_dec_dff is None:
@@ -108,6 +113,7 @@ def plot_traces(
                     "x",
                     label=f"Peaks ROI {key}",
                 )
+            ax.set_xlabel("Frames")
 
         count += COUNT_INCREMENT
 

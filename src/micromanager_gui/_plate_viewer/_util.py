@@ -48,13 +48,11 @@ class ROIData(BaseClass):
     peaks_prominence_dec_dff: float | None = None
     inferred_spikes: list[float] | None = None
     dec_dff_frequency: float | None = None
-    mean_frequency_stdev: float | None = None
-    mean_amplitude: float | None = None
-    mean_amplitude_stdev: float | None = None
     condition_1: str | None = None
     condition_2: str | None = None
     cell_size: float | None = None
     cell_size_units: str | None = None
+    average_time_interval: float | None = None
     # ... add whatever other data we need
 
 
