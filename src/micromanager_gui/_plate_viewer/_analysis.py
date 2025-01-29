@@ -366,12 +366,12 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is None:
             return
 
-        conition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
+        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
         conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
-        if conition_1_plate_map:
+        if condition_1_plate_map:
             path = Path(self._output_path.value()) / GENOTYPE_MAP
             with path.open("w") as f:
                 json.dump(
@@ -393,7 +393,7 @@ class _AnalyseCalciumTraces(QWidget):
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the kek. eg.g:
         # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
-        for data in conition_1_plate_map:
+        for data in condition_1_plate_map:
             self._plate_map_data[data.name] = {COND1: data.condition[0]}
 
         for data in conition_2_plate_map:
