@@ -111,6 +111,8 @@ def plot_traces(
 
         count += COUNT_INCREMENT
 
+    widget.figure.tight_layout()
+
     # Add hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 

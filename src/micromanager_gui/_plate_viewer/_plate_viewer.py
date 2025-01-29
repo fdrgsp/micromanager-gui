@@ -195,24 +195,24 @@ class PlateViewer(QMainWindow):
 
         self._graph_wdg_1 = _GraphWidget(self)
         self._graph_wdg_2 = _GraphWidget(self)
-        self._graph_wdg_3 = _GraphWidget(self)
+        # self._graph_wdg_3 = _GraphWidget(self)
         self._graph_wdg_4 = _GraphWidget(self)
         self._graph_wdg_5 = _GraphWidget(self)
-        self._graph_wdg_6 = _GraphWidget(self)
+        # self._graph_wdg_6 = _GraphWidget(self)
         visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
         visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
-        visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
+        # visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
         visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
         visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
-        visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
+        # visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
 
         self.GRAPHS = [
             self._graph_wdg_1,
             self._graph_wdg_2,
-            self._graph_wdg_3,
+            # self._graph_wdg_3,
             self._graph_wdg_4,
             self._graph_wdg_5,
-            self._graph_wdg_6,
+            # self._graph_wdg_6,
         ]
 
         # connect the roiSelected signal from the graphs to the image viewer so we can
