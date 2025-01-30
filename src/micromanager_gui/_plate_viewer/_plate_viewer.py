@@ -426,14 +426,10 @@ class PlateViewer(QMainWindow):
                     for roi in data.keys():
                         # get the data for the roi
                         roi_data = cast(dict, data[roi])
-                        # remove old key values if any
-                        old_keys = [
-                            "mean_frequency_stdev",
-                            "mean_amplitude",
-                            "mean_amplitude_stdev",
-                        ]
-                        for key in old_keys:
-                            roi_data.pop(key, None)
+                        # remove any key that is not in ROIData
+                        for key in list(roi_data.keys()):
+                            if key not in ROIData.__annotations__:
+                                roi_data.pop(key)
                         # convert to a ROIData object and add store it in _analysis_data
                         self._analysis_data[well][roi] = ROIData(**roi_data)
         except Exception as e:

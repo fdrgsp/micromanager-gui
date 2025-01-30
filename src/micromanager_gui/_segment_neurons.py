@@ -42,7 +42,7 @@ class SegmentNeurons:
         self._gpu: bool = False
 
         # Create a multiprocessing Queue
-        self._queue: mp.Queue[tuple[np.ndarray, dict] | None] = mp.Queue()
+        self._queue: mp.Queue[tuple[np.ndarray, dict, str, bool] | None] = mp.Queue()
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
@@ -113,7 +113,12 @@ class SegmentNeurons:
             if t_index == self._timepoints - 1:
                 # send the max_proj image to the segmentation process
                 self._queue.put(
-                    (self._max_proj, event.model_dump(), self._model, self._gpu)
+                    (
+                        self._max_proj,
+                        event.model_dump(),
+                        self._model or CYTO3,
+                        self._gpu,
+                    )
                 )
                 self._max_proj = None
                 pos_idx = event.index.get("p", None)
@@ -178,11 +183,11 @@ def _segment_image(image: np.ndarray, event: dict, model: str, gpu: bool) -> Non
     label_name = f"{useq_event.pos_name}_p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model = models.Cellpose(gpu=gpu, model_type=model or CYTO3)
+    cellpose_model = models.Cellpose(gpu=gpu, model_type=model or CYTO3)
 
     # run cellpose
     logger.info(f"SegmentNeurons -> Segmenting image: {label_name}...")
-    labels, _, _, _ = model.eval(image, diameter=DIAMETER, channels=CHANNEL)
+    labels, _, _, _ = cellpose_model.eval(image, diameter=DIAMETER, channels=CHANNEL)
 
     # save to disk
     tifffile.imsave(save_dir / label_name, labels)

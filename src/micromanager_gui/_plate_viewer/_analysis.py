@@ -274,8 +274,9 @@ class _AnalyseCalciumTraces(QWidget):
             # if only one of the plate map genotype or treatment is set, ask the user
             # if they want to continue without both the plate maps
             elif (gen_map and not tr_map) or not gen_map:
+                map_type = "Genotype" if gen_map else "Treatment"
                 msg = (
-                    f"Only the '{"Genotype" if gen_map else "Treatment"} Plate Map' is "
+                    f"Only the '{map_type}' Plate Map is "
                     "set!\n\nDo you want to continue without both the Plate "
                     "Maps?"
                 )
