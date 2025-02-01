@@ -268,7 +268,10 @@ class _ImageViewer(QGroupBox):
             image = self._viewer.labels_image
         tform = image.get_transform("canvas", "visual")
         px, py, *_ = (int(x) for x in tform.map(event.pos))
-        roi = image._data[py, px]
+        try:
+            roi = image._data[py, px]
+        except IndexError:
+            return
         # exclude background
         if roi == 0:
             return
