@@ -301,17 +301,26 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No Output Path provided!")
             return None
 
-        # return all positions if the input is empty
+        # if the input is empty, return all positions that have labels. this can speed
+        # up analysis since we will be sure that the labels exist for the positions.
         if not self._pos_le.text():
-            return list(range(len(sequence.stage_positions)))
-        # parse the input positions
-        positions = parse_lineedit_text(self._pos_le.text())
-        if not positions:
-            show_error_dialog(self, "Invalid Positions provided!")
-            return None
-        if max(positions) >= len(sequence.stage_positions):
-            show_error_dialog(self, "Input Positions out of range!")
-            return None
+            positions: list[int] = []
+            pos = list(sequence.stage_positions)
+            for i, p in enumerate(pos):
+                well = p.name or f"pos_{str(i).zfill(4)}"
+                label = f"{well}_p{i}.tif"
+                if self._get_labels_file(label) is None:
+                    continue
+                positions.append(i)
+        else:
+            # parse the input positions
+            positions = parse_lineedit_text(self._pos_le.text())
+            if not positions:
+                show_error_dialog(self, "Invalid Positions provided!")
+                return None
+            if max(positions) >= len(sequence.stage_positions):
+                show_error_dialog(self, "Input Positions out of range!")
+                return None
         return positions
 
     def _plate_map_msgbox(self, msg: str) -> Any:

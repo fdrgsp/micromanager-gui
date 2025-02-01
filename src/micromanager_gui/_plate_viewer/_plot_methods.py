@@ -111,9 +111,9 @@ def _plot_traces(
                 continue
             amp_list = roi_data.peaks_amplitudes_dec_dff
             roi_freq_list = [roi_data.dec_dff_frequency] * len(amp_list)
-            ax.plot(roi_freq_list, amp_list, "o", label=f"ROI {key}")
-            ax.set_xlabel("Frequency")
-            ax.set_ylabel("Amplitude")
+            ax.plot(amp_list, roi_freq_list, "o", label=f"ROI {key}")
+            ax.set_xlabel("Amplitude")
+            ax.set_ylabel("Frequency")
 
         elif amp:
             # plot amplitude
