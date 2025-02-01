@@ -20,42 +20,13 @@ from qtpy.QtWidgets import (
 )
 
 from ._plot_methods import plot_traces
+from ._util import COMBO_OPTIONS
 
 if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
 
 RED = "#C33"
 
-# fmt: off
-RAW_TRACES = "Raw Traces"
-RAW_TRACES_WITH_PEAKS = "Raw Traces with Peaks"
-NORMALIZED_TRACES = "Normalized Traces [0, 1]"
-NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
-DFF = "DeltaF/F0"
-DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1]"
-DEC_DFF = "Deconvolved DeltaF/F0"
-DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
-DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized [0, 1]"
-DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized [0, 1] with Peaks"
-DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
-DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
-
-# dff=False, def=False, normalize=False, with_peaks=False, amp=False, freq=False
-# NOTE: def & dec can't be True at the same time
-# NOTE: amp & freq can't be True at the same time
-COMBO_OPTIONS: dict[str, dict[str, bool]] = {
-    RAW_TRACES: {},
-    NORMALIZED_TRACES: {"normalize":True},
-    DFF: {"dff":True},
-    DFF_NORMALIZED: {"dff":True, "normalize":True},
-    DEC_DFF: {"dec":True},
-    DEC_DFF_WITH_PEAKS: {"dec":True, "with_peaks":True},
-    DEC_DFF_NORMALIZED: {"dec":True, "normalize":True},
-    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec":True, "normalize":True, "with_peaks":True},
-    DEC_DFF_AMPLITUDE: {"dec":True, "amp":True},
-    DEC_DFF_FREQUENCY: {"dec":True, "freq":True},
-}
-# fmt : on
 
 class _DisplayTraces(QGroupBox):
     def __init__(self, parent: _GraphWidget) -> None:
@@ -110,7 +81,7 @@ class _DisplayTraces(QGroupBox):
             rois = self._get_rois(data)
             if rois is None:
                 return
-            plot_traces(self._graph, data, rois=rois, **COMBO_OPTIONS[text])
+            plot_traces(self._graph, data, text, rois=rois)
 
     def _get_rois(self, data: dict) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
@@ -147,7 +118,6 @@ class _DisplayTraces(QGroupBox):
 
 
 class _GraphWidget(QWidget):
-
     roiSelected = Signal(str)
 
     def __init__(self, parent: PlateViewer) -> None:
@@ -158,7 +128,7 @@ class _GraphWidget(QWidget):
         self._fov: str = ""
 
         self._combo = QComboBox(self)
-        self._combo.addItems(["None", *list(COMBO_OPTIONS.keys())])
+        self._combo.addItems(["None", *COMBO_OPTIONS])
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         self._choose_dysplayed_traces = _DisplayTraces(self)
@@ -214,6 +184,6 @@ class _GraphWidget(QWidget):
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
             data = self._plate_viewer._analysis_data[well_name]
-            plot_traces(self, data,rois=None, **COMBO_OPTIONS[text])
+            plot_traces(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()
