@@ -316,7 +316,7 @@ class PlateViewer(QMainWindow):
             self._plate_map_dialog.activateWindow()
 
     def _on_tab_changed(self, idx: int) -> None:
-        """Update the grapg combo boxes when the tab is changed."""
+        """Update the graph combo boxes when the tab is changed."""
         if idx != 1:
             return
         # get the current fov
