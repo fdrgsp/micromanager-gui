@@ -16,6 +16,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from skimage.measure import find_contours
 from superqt import QLabeledRangeSlider
 from superqt.fonticon import icon
 from superqt.utils import qthrottled, signals_blocked
@@ -149,8 +150,11 @@ class _ImageViewer(QGroupBox):
 
         if labels is None:
             self._labels.setChecked(False)
-        elif self._viewer.labels_image is not None:
-            self._viewer.labels_image.visible = self._labels.isChecked()
+        elif (
+            self._viewer.labels_image is not None
+            and self._viewer.contours_image is not None
+        ):
+            self._viewer.contours_image.visible = self._labels.isChecked()
 
     def data(self) -> np.ndarray | None:
         """Return the image data."""
@@ -181,6 +185,9 @@ class _ImageViewer(QGroupBox):
         if self._viewer.labels_image is not None:
             self._viewer.labels_image.parent = None
             self._viewer.labels_image = None
+        if self._viewer.contours_image is not None:
+            self._viewer.contours_image.parent = None
+            self._viewer.contours_image = None
         self._viewer.view.camera.set_range(margin=0)
 
     def _clear_highlight(self) -> None:
@@ -194,8 +201,11 @@ class _ImageViewer(QGroupBox):
         """Show the labels."""
         self._clear_highlight()
 
-        if self._viewer.labels_image is not None:
-            self._viewer.labels_image.visible = state
+        if (
+            self._viewer.labels_image is not None
+            and self._viewer.contours_image is not None
+        ):
+            self._viewer.contours_image.visible = state
 
     def _highlight_rois(self, roi: int | bool | None = None) -> None:
         """Highlight the label set in the spinbox."""
@@ -238,7 +248,7 @@ class _ImageViewer(QGroupBox):
         )
         self._viewer.highlight_roi.set_gl_state("additive", depth_test=False)
         self._viewer.highlight_roi.interactive = True
-        self._viewer.view.camera.set_range(margin=0)
+        # self._viewer.view.camera.set_range(margin=0)
 
         self._viewer.labels_image.visible = False
         with signals_blocked(self._labels):
@@ -284,6 +294,7 @@ class _ImageCanvas(QWidget):
 
         self.image: scene.visuals.Image | None = None
         self.labels_image: scene.visuals.Image | None = None
+        self.contours_image: scene.visuals.Image | None = None
         self.highlight_roi: scene.visuals.Image | None = None
 
         self.setLayout(QVBoxLayout())
@@ -350,13 +361,56 @@ class _ImageCanvas(QWidget):
         self.labels_image.interactive = True
         self.labels_image.visible = False
 
+        self.contours_image = self._imcls(
+            self._extract_label_contours(labels),
+            # cmap=cmap.Colormap("yellow").to_vispy(),
+            cmap=self._labels_custom_cmap(labels.max()),
+            clim=(labels.min(), labels.max()),
+            parent=self.view.scene,
+        )
+        self.contours_image.set_gl_state("additive", depth_test=False)
+        self.contours_image.interactive = True
+        self.contours_image.visible = False
+
     def _labels_custom_cmap(self, n_labels: int) -> Colormap:
         """Create a custom colormap for the labels."""
         colors = np.zeros((n_labels + 1, 4))
         colors[0] = [0, 0, 0, 1]  # Black for background (0)
         for i in range(1, n_labels + 1):
-            colors[i] = [1, 1, 1, 1]  # White for all other labels
+            colors[i] = [1, 1, 0, 1]  # yellow for all other labels
         return Colormap(colors)
+
+    def _extract_label_contours(
+        self, labels: np.ndarray, thickness: int = 1
+    ) -> np.ndarray:
+        """Extracts contours of the labels and increases thickness using NumPy."""
+        contours = np.zeros_like(labels, dtype=np.uint8)
+
+        for label in np.unique(labels):
+            if label == 0:
+                continue  # Skip background
+
+            mask = labels == label  # Binary mask for the current label
+            contour_list = find_contours(mask.astype(float), level=0.5)  # Find contours
+
+            for contour in contour_list:
+                contour = np.round(contour).astype(
+                    int
+                )  # Convert to integer coordinates
+
+                # Expand the contour by setting a small square around each point
+                for x, y in contour:
+                    x_min, x_max = (
+                        max(0, x - thickness),
+                        min(labels.shape[0], x + thickness + 1),
+                    )
+                    y_min, y_max = (
+                        max(0, y - thickness),
+                        min(labels.shape[1], y + thickness + 1),
+                    )
+                    contours[x_min:x_max, y_min:y_max] = label  # Assign label value
+
+        return contours
 
     def _on_mouse_move(self, event: SceneMouseEvent) -> None:
         """Update the pixel value when the mouse moves."""

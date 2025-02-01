@@ -67,6 +67,7 @@ dev = [
     "pytest",
     "rich",
     "ruff",
+    "skimage",
 ]
 
 [project.urls]
