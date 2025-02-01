@@ -366,9 +366,6 @@ class _CellposeSegmentation(QWidget):
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             # yield the current position name to update the progress bar
             yield f"[Well {pos_name} p{p} ({p+1} / {len(positions)})]"
-
-            # TODO: try to add photobleaching correction here. Add checkbox to enable it
-
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
