@@ -114,6 +114,7 @@ class PlateViewer(QMainWindow):
 
         # image viewer
         self._image_viewer = _ImageViewer(self)
+        self._image_viewer.valueChanged.connect(self._update_graphs_with_roi)
 
         # left widgets -------------------------------------------------
         left_group = QGroupBox()
@@ -288,6 +289,23 @@ class PlateViewer(QMainWindow):
     @analysis_data.setter
     def analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
         self._analysis_data = value
+
+    def _update_graphs_with_roi(self, roi: int) -> None:
+        """Update the graphs with the given roi.
+
+        This function is called when a roi is selected in the image viewer and will
+        update the graphs with the traces of the selected roi.
+        """
+        # get the current tab index
+        idx = self._tab.currentIndex()
+        if idx == 0:
+            return
+        for graph in self.GRAPHS:
+            if graph._combo.currentText() == "None":
+                continue
+            graph._choose_dysplayed_traces.setChecked(True)
+            graph._choose_dysplayed_traces._roi_le.setText(str(roi))
+            graph._choose_dysplayed_traces._update()
 
     def _show_plate_map_dialog(self) -> None:
         """Show the plate map dialog."""

@@ -57,6 +57,8 @@ def plot_traces(
     """Plot traces based on the text."""
     # get the options for the text using the GRAPHS_OPTIONS dictionary that maps the
     # text to the options
+    if not text or text == "None":
+        return
 
     # TODO: add raster plot
     # if "raster" in text.lower():

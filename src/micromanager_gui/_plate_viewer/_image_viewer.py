@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import cmap
 import numpy as np
 from fonticon_mdi6 import MDI6
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
@@ -65,10 +65,13 @@ SliderLabel {
 class _ImageViewer(QGroupBox):
     """A widget for displaying an image."""
 
+    valueChanged = Signal(int)
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent=parent)
 
         self._viewer = _ImageCanvas(parent=self)
+        self._viewer._canvas.events.mouse_press.connect(self._on_mouse_press)
 
         # roi number indicator
         find_roi_lbl = QLabel("ROI:")
@@ -194,7 +197,7 @@ class _ImageViewer(QGroupBox):
         if self._viewer.labels_image is not None:
             self._viewer.labels_image.visible = state
 
-    def _highlight_rois(self) -> None:
+    def _highlight_rois(self, roi: int | bool | None = None) -> None:
         """Highlight the label set in the spinbox."""
         if self._viewer.labels_image is None:
             show_error_dialog(self, "No labels image to highlight.")
@@ -202,7 +205,12 @@ class _ImageViewer(QGroupBox):
 
         labels_data = self._viewer.labels_image._data
 
-        rois = parse_lineedit_text(self._roi_number_le.text())
+        # roi could be a bool when called from the find button. In that case, we
+        # need to parse the text from the line edit
+        if isinstance(roi, bool):
+            roi = None
+        rois = parse_lineedit_text(self._roi_number_le.text()) if roi is None else [roi]
+
         if not rois:
             show_error_dialog(self, "Invalid ROIs provided!")
             return None
@@ -235,6 +243,26 @@ class _ImageViewer(QGroupBox):
         self._viewer.labels_image.visible = False
         with signals_blocked(self._labels):
             self._labels.setChecked(False)
+
+    def _on_mouse_press(self, event: SceneMouseEvent) -> None:
+        """Emit the value of the clicked ROI.
+
+        This is used to update the graphs when a ROI is clicked.
+        """
+        visual = self._viewer._canvas.visual_at(event.pos)
+        image = self._viewer._find_image(visual)
+        if image is None or self._viewer.labels_image is None:
+            return
+        if image != self._viewer.labels_image:
+            image = self._viewer.labels_image
+        tform = image.get_transform("canvas", "visual")
+        px, py, *_ = (int(x) for x in tform.map(event.pos))
+        roi = image._data[py, px]
+        # exclude background
+        if roi == 0:
+            return
+        self._highlight_rois(roi)
+        self.valueChanged.emit(roi)
 
 
 class _ImageCanvas(QWidget):
@@ -334,12 +362,18 @@ class _ImageCanvas(QWidget):
         """Update the pixel value when the mouse moves."""
         visual = self._canvas.visual_at(event.pos)
         image = self._find_image(visual)
-        if image != self.labels_image or image is None:
+        if image is None or self.labels_image is None:
             self._viewer._roi_number_le.setText("")
             return
+        if image != self.labels_image:
+            image = self.labels_image
         tform = image.get_transform("canvas", "visual")
         px, py, *_ = (int(x) for x in tform.map(event.pos))
-        pixel_value = image._data[py, px]
+        try:
+            pixel_value = image._data[py, px]
+        # necessary when the mouse is outside the image
+        except IndexError:
+            return
         pixel_value = "" if pixel_value == 0 else pixel_value
         self._viewer._roi_number_le.setText(f"{pixel_value}")
 
