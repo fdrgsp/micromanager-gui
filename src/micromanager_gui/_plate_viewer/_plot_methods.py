@@ -27,13 +27,13 @@ COUNT_INCREMENT = 1
 
 GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
-    DFF: {"dff": True},
-    DEC_DFF: {"dec": True},
     NORMALIZED_TRACES: {"normalize": True},
+    DFF: {"dff": True},
     DFF_NORMALIZED: {"dff": True, "normalize": True},
+    DEC_DFF: {"dec": True},
+    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True},
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
-    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True},
     DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},

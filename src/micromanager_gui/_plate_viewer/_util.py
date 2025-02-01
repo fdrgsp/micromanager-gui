@@ -32,9 +32,7 @@ COND2 = "condition_2"
 # logic for the new options.
 
 RAW_TRACES = "Raw Traces"
-RAW_TRACES_WITH_PEAKS = "Raw Traces with Peaks"
 NORMALIZED_TRACES = "Normalized Traces [0, 1]"
-NORMALIZED_TRACES_WITH_PEAKS = "Normalized Traces [0, 1] with Peaks"
 DFF = "DeltaF/F0"
 DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1]"
 DEC_DFF = "Deconvolved DeltaF/F0"
@@ -47,9 +45,7 @@ DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencie
 
 COMBO_OPTIONS = [
     RAW_TRACES,
-    RAW_TRACES_WITH_PEAKS,
     NORMALIZED_TRACES,
-    NORMALIZED_TRACES_WITH_PEAKS,
     DFF,
     DFF_NORMALIZED,
     DEC_DFF,
