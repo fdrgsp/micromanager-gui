@@ -482,6 +482,9 @@ class PlateViewer(QMainWindow):
         self, reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
     ) -> None:
         """Initialize the widget with the given datastore."""
+        # clear the image viewer cache
+        self._image_viewer._viewer._contour_cache.clear()
+
         # load analysis json file if the path is not None
         if self._analysis_file_path:
             self._load_analysis_data(self._analysis_file_path)

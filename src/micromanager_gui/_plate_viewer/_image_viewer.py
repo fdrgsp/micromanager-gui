@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING
 
 import cmap
@@ -297,6 +298,8 @@ class _ImageCanvas(QWidget):
         self.contours_image: scene.visuals.Image | None = None
         self.highlight_roi: scene.visuals.Image | None = None
 
+        self._contour_cache: dict[str, np.ndarray] = {}
+
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
         self.layout().addWidget(self._canvas.native)
@@ -361,9 +364,12 @@ class _ImageCanvas(QWidget):
         self.labels_image.interactive = True
         self.labels_image.visible = False
 
+        contour_key = self._hash_labels(labels)
+        if contour_key not in self._contour_cache:
+            self._contour_cache[contour_key] = self._extract_label_contours(labels)
+
         self.contours_image = self._imcls(
-            self._extract_label_contours(labels),
-            # cmap=cmap.Colormap("yellow").to_vispy(),
+            self._contour_cache[contour_key],
             cmap=self._labels_custom_cmap(labels.max()),
             clim=(labels.min(), labels.max()),
             parent=self.view.scene,
@@ -371,6 +377,10 @@ class _ImageCanvas(QWidget):
         self.contours_image.set_gl_state("additive", depth_test=False)
         self.contours_image.interactive = True
         self.contours_image.visible = False
+
+    def _hash_labels(self, labels: np.ndarray) -> str:
+        """Generate a unique hash for a given labels array."""
+        return hashlib.sha256(labels.tobytes()).hexdigest()
 
     def _labels_custom_cmap(self, n_labels: int) -> Colormap:
         """Create a custom colormap for the labels."""
