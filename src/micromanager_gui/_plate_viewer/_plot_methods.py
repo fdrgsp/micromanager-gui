@@ -148,8 +148,10 @@ def _plot_traces(
             else:
                 ax.plot(trace, label=f"ROI {key}")
                 # set the y-axis label depending on the flags
-                if dff or dec:
-                    ax.set_ylabel("Amplitude (AU)")
+                if dff:
+                    ax.set_ylabel("dF/F")
+                elif dec:
+                    ax.set_ylabel("Deconvolved dF/F")
                 else:
                     # this in case or raw traces
                     ax.set_ylabel("Fluorescence Intensity")
