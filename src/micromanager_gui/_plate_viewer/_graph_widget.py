@@ -53,6 +53,8 @@ class _DisplayTraces(QGroupBox):
 
         self._roi_le = QLineEdit()
         self._roi_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
+        # when pressing enter in the line edit, update the graph
+        self._roi_le.returnPressed.connect(self._update)
         self._update_btn = QPushButton("Update", self)
 
         main_layout = QHBoxLayout(self)
