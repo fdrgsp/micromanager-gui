@@ -321,6 +321,7 @@ class _AnalyseCalciumTraces(QWidget):
             if max(positions) >= len(sequence.stage_positions):
                 show_error_dialog(self, "Input Positions out of range!")
                 return None
+        LOGGER.info("Positions to analyze: %s", positions)
         return positions
 
     def _plate_map_msgbox(self, msg: str) -> Any:
