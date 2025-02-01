@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -131,6 +132,15 @@ class _GraphWidget(QWidget):
         self._combo.addItems(["None", *COMBO_OPTIONS])
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
+        self._save_btn = QPushButton("Save", self)
+        self._save_btn.clicked.connect(self._on_save)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(5)
+        top.addWidget(self._combo, 1)
+        top.addWidget(self._save_btn, 0)
+
         self._choose_dysplayed_traces = _DisplayTraces(self)
 
         # Create a figure and a canvas
@@ -140,7 +150,7 @@ class _GraphWidget(QWidget):
         # Create a layout and add the canvas to it
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._combo)
+        layout.addLayout(top)
         layout.addWidget(self._choose_dysplayed_traces)
         layout.addWidget(self.canvas)
 
@@ -187,3 +197,14 @@ class _GraphWidget(QWidget):
             plot_traces(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()
+
+    def _on_save(self) -> None:
+        """Save the current plot as a .png file."""
+        # open a file dialog to select the save location
+        name = self._combo.currentText().replace(" ", "_")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Image", name, "PNG Image (*.png)"
+        )
+        if not filename:
+            return
+        self.figure.savefig(filename, dpi=300)
