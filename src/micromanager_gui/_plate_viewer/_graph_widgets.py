@@ -20,8 +20,8 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ._plot_methods import plot_traces
-from ._util import COMBO_OPTIONS
+from ._plot_methods import plot_multi_well_data, plot_single_well_traces
+from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS
 
 if TYPE_CHECKING:
     from ._plate_viewer import PlateViewer
@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 RED = "#C33"
 
 
-class _DisplayTraces(QGroupBox):
-    def __init__(self, parent: _GraphWidget) -> None:
+class _DisplaySingleWellTraces(QGroupBox):
+    def __init__(self, parent: _SingleWellGraphWidget) -> None:
         super().__init__(parent)
         self.setTitle("Choose which ROI to display")
         self.setCheckable(True)
@@ -49,7 +49,7 @@ class _DisplayTraces(QGroupBox):
             QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         )
 
-        self._graph: _GraphWidget = parent
+        self._graph: _SingleWellGraphWidget = parent
 
         self._roi_le = QLineEdit()
         self._roi_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
@@ -84,7 +84,7 @@ class _DisplayTraces(QGroupBox):
             rois = self._get_rois(data)
             if rois is None:
                 return
-            plot_traces(self._graph, data, text, rois=rois)
+            plot_single_well_traces(self._graph, data, text, rois=rois)
 
     def _get_rois(self, data: dict) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
@@ -120,7 +120,7 @@ class _DisplayTraces(QGroupBox):
         return numbers
 
 
-class _GraphWidget(QWidget):
+class _SingleWellGraphWidget(QWidget):
     roiSelected = Signal(str)
 
     def __init__(self, parent: PlateViewer) -> None:
@@ -131,7 +131,7 @@ class _GraphWidget(QWidget):
         self._fov: str = ""
 
         self._combo = QComboBox(self)
-        self._combo.addItems(["None", *COMBO_OPTIONS])
+        self._combo.addItems(["None", *SINGLE_WELL_COMBO_OPTIONS])
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         self._save_btn = QPushButton("Save", self)
@@ -143,7 +143,7 @@ class _GraphWidget(QWidget):
         top.addWidget(self._combo, 1)
         top.addWidget(self._save_btn, 0)
 
-        self._choose_dysplayed_traces = _DisplayTraces(self)
+        self._choose_dysplayed_traces = _DisplaySingleWellTraces(self)
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -196,9 +196,133 @@ class _GraphWidget(QWidget):
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
             data = self._plate_viewer._analysis_data[well_name]
-            plot_traces(self, data, text, rois=None)
+            plot_single_well_traces(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()
+
+    def _on_save(self) -> None:
+        """Save the current plot as a .png file."""
+        # open a file dialog to select the save location
+        name = self._combo.currentText().replace(" ", "_")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Image", name, "PNG Image (*.png)"
+        )
+        if not filename:
+            return
+        self.figure.savefig(filename, dpi=300)
+
+
+class _DisplayMultiWellPositions(QGroupBox):
+    def __init__(self, parent: _MultilWellGraphWidget) -> None:
+        super().__init__(parent)
+        self.setTitle("Choose which Position to display")
+        self.setCheckable(True)
+        self.setChecked(False)
+
+        self.setToolTip(
+            "By default, the widget will display the data form all the positions "
+            "acquired. Here you can choose to only display a subset of Positions. You "
+            "can input a range (e.g. 1-10 to plot the first 10), single positions "
+            "(e.g. 30, 33 to plot positions 30 and 33) or, if you only want to pick n "
+            "positions, you can type 'rnd' followed by the number or positions you "
+            "want to display (e.g. rnd10 to plot 10 random positions)."
+        )
+
+        self.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        )
+
+        self._graph: _MultilWellGraphWidget = parent
+
+        self._pos_le = QLineEdit()
+        self._pos_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
+        # when pressing enter in the line edit, update the graph
+        self._pos_le.returnPressed.connect(self._update)
+        self._update_btn = QPushButton("Update", self)
+
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.addWidget(QLabel("Positions:"))
+        main_layout.addWidget(self._pos_le)
+        main_layout.addWidget(self._update_btn)
+        self._update_btn.clicked.connect(self._update)
+
+        self.toggled.connect(self._on_toggle)
+
+    def _on_toggle(self, state: bool) -> None: ...
+
+    def _update(self) -> None: ...
+
+
+class _MultilWellGraphWidget(QWidget):
+    def __init__(self, parent: PlateViewer) -> None:
+        super().__init__(parent)
+
+        self._plate_viewer: PlateViewer = parent
+
+        self._fov: str = ""
+
+        self._combo = QComboBox(self)
+        self._combo.addItems(["None", *MULTI_WELL_COMBO_OPTIONS])
+        self._combo.currentTextChanged.connect(self._on_combo_changed)
+
+        self._save_btn = QPushButton("Save", self)
+        self._save_btn.clicked.connect(self._on_save)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(5)
+        top.addWidget(self._combo, 1)
+        top.addWidget(self._save_btn, 0)
+
+        self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
+
+        # Create a figure and a canvas
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        # Create a layout and add the canvas to it
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(top)
+        layout.addWidget(self._choose_dysplayed_positions)
+        layout.addWidget(self.canvas)
+
+        self.set_combo_text_red(True)
+
+    @property
+    def fov(self) -> str:
+        return self._fov
+
+    @fov.setter
+    def fov(self, fov: str) -> None:
+        self._fov = fov
+        self._on_combo_changed(self._combo.currentText())
+
+    def clear_plot(self) -> None:
+        """Clear the plot."""
+        self.figure.clear()
+        self.canvas.draw()
+
+    def set_combo_text_red(self, state: bool) -> None:
+        """Set the combo text color to red if state is True or to black otherwise."""
+        if state:
+            self._combo.setStyleSheet(f"color: {RED};")
+        else:
+            self._combo.setStyleSheet("")
+
+    def _on_combo_changed(self, text: str) -> None:
+        """Update the graph when the combo box is changed."""
+        # clear the plot
+        self.clear_plot()
+        if text == "None":
+            return
+
+        plot_multi_well_data(
+            self, text, self._plate_viewer._analysis_data, positions=None
+        )
+        if self._choose_dysplayed_positions.isChecked():
+            self._choose_dysplayed_positions._update()
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""

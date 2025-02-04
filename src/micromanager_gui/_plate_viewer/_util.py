@@ -43,7 +43,11 @@ DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 
-COMBO_OPTIONS = [
+DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
+DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
+DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
+
+SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
     NORMALIZED_TRACES,
     DFF,
@@ -55,6 +59,12 @@ COMBO_OPTIONS = [
     DEC_DFF_AMPLITUDE,
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+]
+
+MULTI_WELL_COMBO_OPTIONS = [
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL,
+    DEC_DFF_AMPLITUDE_ALL,
+    DEC_DFF_FREQUENCY_ALL,
 ]
 # ------------------------------------------------------------------------------------
 

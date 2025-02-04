@@ -20,12 +20,12 @@ from ._util import (
 )
 
 if TYPE_CHECKING:
-    from ._graph_widget import _GraphWidget
+    from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
     from ._util import ROIData
 
 COUNT_INCREMENT = 1
 
-GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
+SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
     NORMALIZED_TRACES: {"normalize": True},
     DFF: {"dff": True},
@@ -39,24 +39,29 @@ GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
 }
 
+MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
+    DEC_DFF_AMPLITUDE: {"amp": True},
+    DEC_DFF_FREQUENCY: {"freq": True},
+}
 
-# --------------------------------------NOTE--------------------------------------
+
+# ------------------------------SINGLE-WELL PLOTTING------------------------------------
 # To add a new option to the dropdown menu in the graph widget, add the option to
-# the COMBO_OPTIONS list in _util.py. Then, add the corresponding key-value pair to
-# the GRAPHS_OPTIONS dictionary in this file. Finally, add the corresponding plotting
-# logic to the `plot_traces` or `_plot_traces` functions below.
-# --------------------------------------------------------------------------------
+# the SINGLE_WELL_COMBO_OPTIONS list in _util.py. Then, add the corresponding key-value
+# pair to the SINGLE_WELL_GRAPHS_OPTIONS dictionary in this file. Finally, add the
+# corresponding plotting logic to the `plot_single_well_traces` or
+# `_plot_single_well_traces` functions below.
+# --------------------------------------------------------------------------------------
 
 
-def plot_traces(
-    widget: _GraphWidget,
+def plot_single_well_traces(
+    widget: _SingleWellGraphWidget,
     data: dict,
     text: str,
     rois: list[int] | None = None,
 ) -> None:
     """Plot traces based on the text."""
-    # get the options for the text using the GRAPHS_OPTIONS dictionary that maps the
-    # text to the options
     if not text or text == "None":
         return
 
@@ -64,11 +69,15 @@ def plot_traces(
     # if "raster" in text.lower():
     # return _plot_raster(...)
 
-    return _plot_traces(widget, data, rois, **GRAPHS_OPTIONS[text])
+    # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary that
+    # maps the text to the options
+    return _plot_single_well_traces(
+        widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+    )
 
 
-def _plot_traces(
-    widget: _GraphWidget,
+def _plot_single_well_traces(
+    widget: _SingleWellGraphWidget,
     data: dict,
     rois: list[int] | None = None,
     dff: bool = False,
@@ -205,3 +214,92 @@ def normalize_trace(trace: list[float]) -> list[float]:
     tr = np.array(trace)
     normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
     return cast(list[float], normalized.tolist())
+
+
+# ------------------------------MULTI-WELL PLOTTING-------------------------------------
+# To add a new option to the dropdown menu in the graph widget, add the option to
+# the MULTI_WELL_COMBO_OPTIONS list in _util.py. Then, add the corresponding key-value
+# pair to the MULTI_WELL_GRAPHS_OPTIONS dictionary in this file. Finally, add the
+# corresponding plotting logic to the `plot_multi_well_data` or
+# `_plot_multi_well_data` functions below.
+# --------------------------------------------------------------------------------------
+
+
+def plot_multi_well_data(
+    widget: _MultilWellGraphWidget,
+    text: str,
+    data: dict[str, dict[str, ROIData]],
+    positions: list[int] | None = None,
+) -> None:
+    """Plot the multi-well data."""
+    if not text or text == "None" or not data:
+        return
+
+    # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
+    # maps the text to the options
+    return _plot_multi_well_data(
+        widget, data, positions, **MULTI_WELL_GRAPHS_OPTIONS[text]
+    )
+
+
+def _plot_multi_well_data(
+    widget: _MultilWellGraphWidget,
+    data: dict[str, dict[str, ROIData]],
+    positions: list[int] | None = None,
+    amp: bool = False,
+    freq: bool = False,
+) -> None:
+    """Plot the multi-well data."""
+    widget.figure.clear()
+    ax = widget.figure.add_subplot(111)
+
+    # loop over the data and plot the data
+    for key, position_data in data.items():
+        if positions is not None and int(key) not in positions:
+            continue
+
+        for well in position_data:
+            if amp and freq:
+                well_data = position_data[well]
+                if well_data.peaks_amplitudes_dec_dff is None:
+                    continue
+                amp_list = well_data.peaks_amplitudes_dec_dff
+                well_freq_list = [well_data.dec_dff_frequency] * len(amp_list)
+                ax.plot(amp_list, well_freq_list, "o", label=f"{key} - pos{well}")
+                ax.set_xlabel("Amplitude")
+                ax.set_ylabel("Frequency")
+
+            elif amp:
+                well_data = position_data[well]
+                if well_data.peaks_amplitudes_dec_dff is None:
+                    continue
+                ax.plot(
+                    [int(well)] * len(well_data.peaks_amplitudes_dec_dff),
+                    well_data.peaks_amplitudes_dec_dff,
+                    "o",
+                    label=f"{key} - pos{well}",
+                )
+                ax.set_xlabel("Wells")
+                ax.set_ylabel("Amplitude")
+
+            elif freq:
+                well_data = position_data[well]
+                ax.plot(
+                    int(well),
+                    well_data.dec_dff_frequency,
+                    "o",
+                    label=f"{key} - pos{well}",
+                )
+                ax.set_xlabel("Wells")
+                ax.set_ylabel("Frequency")
+
+    widget.figure.tight_layout()
+
+    # add hover functionality to display the well position
+    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
+
+    @cursor.connect("add")  # type: ignore [misc]
+    def on_add(sel: mplcursors.Selection) -> None:
+        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
+
+    widget.canvas.draw()

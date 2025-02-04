@@ -44,7 +44,7 @@ from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 from ._analysis import _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
-from ._graph_widget import _GraphWidget
+from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
 from ._old_plate_model import OldPlate
@@ -187,39 +187,56 @@ class PlateViewer(QMainWindow):
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
-        # visualization tab
-        self._visualization_tab = QWidget()
-        self._tab.addTab(self._visualization_tab, "Single Wells Visualization Tab")
-        visualization_layout = QGridLayout(self._visualization_tab)
-        visualization_layout.setContentsMargins(5, 5, 5, 5)
-        visualization_layout.setSpacing(5)
+        # single wells visualization tab
+        self._single_well_vis_tab = QWidget()
+        self._tab.addTab(self._single_well_vis_tab, "Single Wells Visualization Tab")
+        single_well_vis_layout = QGridLayout(self._single_well_vis_tab)
+        single_well_vis_layout.setContentsMargins(5, 5, 5, 5)
+        single_well_vis_layout.setSpacing(5)
 
-        self._graph_wdg_1 = _GraphWidget(self)
-        self._graph_wdg_2 = _GraphWidget(self)
-        # self._graph_wdg_3 = _GraphWidget(self)
-        self._graph_wdg_4 = _GraphWidget(self)
-        self._graph_wdg_5 = _GraphWidget(self)
-        # self._graph_wdg_6 = _GraphWidget(self)
-        visualization_layout.addWidget(self._graph_wdg_1, 0, 0)
-        visualization_layout.addWidget(self._graph_wdg_2, 0, 1)
-        # visualization_layout.addWidget(self._graph_wdg_3, 0, 2)
-        visualization_layout.addWidget(self._graph_wdg_4, 1, 0)
-        visualization_layout.addWidget(self._graph_wdg_5, 1, 1)
-        # visualization_layout.addWidget(self._graph_wdg_6, 1, 2)
+        self._single_well_graph_wdg_1 = _SingleWellGraphWidget(self)
+        self._single_well_graph_wdg_2 = _SingleWellGraphWidget(self)
+        self._single_well_graph_wdg_3 = _SingleWellGraphWidget(self)
+        self._single_well_graph_wdg_4 = _SingleWellGraphWidget(self)
+        single_well_vis_layout.addWidget(self._single_well_graph_wdg_1, 0, 0)
+        single_well_vis_layout.addWidget(self._single_well_graph_wdg_2, 0, 1)
+        single_well_vis_layout.addWidget(self._single_well_graph_wdg_3, 1, 0)
+        single_well_vis_layout.addWidget(self._single_well_graph_wdg_4, 1, 1)
 
-        self.GRAPHS = [
-            self._graph_wdg_1,
-            self._graph_wdg_2,
-            # self._graph_wdg_3,
-            self._graph_wdg_4,
-            self._graph_wdg_5,
-            # self._graph_wdg_6,
+        self.SW_GRAPHS = [
+            self._single_well_graph_wdg_1,
+            self._single_well_graph_wdg_2,
+            self._single_well_graph_wdg_3,
+            self._single_well_graph_wdg_4,
         ]
 
         # connect the roiSelected signal from the graphs to the image viewer so we can
         # highlight the roi in the image viewer when a roi is selected in the graph
-        for graph in self.GRAPHS:
+        for graph in self.SW_GRAPHS:
             graph.roiSelected.connect(self._highlight_roi)
+
+        # multi wells visualization tab
+        self._multi_well_vis_tab = QWidget()
+        self._tab.addTab(self._multi_well_vis_tab, "Multi Wells Visualization Tab")
+        multi_well_layout = QGridLayout(self._multi_well_vis_tab)
+        multi_well_layout.setContentsMargins(5, 5, 5, 5)
+        multi_well_layout.setSpacing(5)
+
+        self._multi_well_graph_wdg_1 = _MultilWellGraphWidget(self)
+        self._multi_well_graph_wdg_2 = _MultilWellGraphWidget(self)
+        self._multi_well_graph_wdg_3 = _MultilWellGraphWidget(self)
+        self._multi_well_graph_wdg_4 = _MultilWellGraphWidget(self)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_1, 0, 0)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 0, 1)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_3, 1, 0)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_4, 1, 1)
+
+        self.MW_GRAPHS = [
+            self._multi_well_graph_wdg_1,
+            self._multi_well_graph_wdg_2,
+            self._multi_well_graph_wdg_3,
+            self._multi_well_graph_wdg_4,
+        ]
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
@@ -300,7 +317,7 @@ class PlateViewer(QMainWindow):
         idx = self._tab.currentIndex()
         if idx == 0:
             return
-        for graph in self.GRAPHS:
+        for graph in self.SW_GRAPHS:
             if graph._combo.currentText() == "None":
                 continue
             graph._choose_dysplayed_traces.setChecked(True)
@@ -317,16 +334,24 @@ class PlateViewer(QMainWindow):
 
     def _on_tab_changed(self, idx: int) -> None:
         """Update the graph combo boxes when the tab is changed."""
-        if idx != 1:
+        # skip if the tab is the analysis tab
+        if idx == 0:
             return
-        # get the current fov
-        value = self._fov_table.value() if self._fov_table.selectedItems() else None
-        if value is None:
-            return
-        # get the analysis data for the current fov if it exists
-        analysis = self._analysis_data.get(str(value.fov.name), None)
-        # update the graphs combo boxes
-        self._update_graphs_combo(combo_red=(analysis is None))
+
+        # if single wells tab is selected
+        if idx == 1:
+            # get the current fov
+            value = self._fov_table.value() if self._fov_table.selectedItems() else None
+            if value is None:
+                return
+            # get the analysis data for the current fov if it exists
+            analysis = self._analysis_data.get(str(value.fov.name), None)
+            # update the graphs combo boxes
+            self._update_single_wells_graphs_combo(combo_red=(analysis is None))
+
+        # if multi wells tab is selected
+        elif idx == 2:
+            self._update_multi_wells_graphs_combo()
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -654,7 +679,7 @@ class PlateViewer(QMainWindow):
 
         if value is None:
             self._image_viewer.setData(None, None)
-            self._update_graphs_combo(combo_red=True, clear=True)
+            self._update_single_wells_graphs_combo(combo_red=True, clear=True)
             return
 
         if self._datastore is None:
@@ -676,7 +701,7 @@ class PlateViewer(QMainWindow):
         self._image_viewer.setData(data, labels)
         self._set_graphs_fov(value)
 
-        self._update_graphs_combo(
+        self._update_single_wells_graphs_combo(
             combo_red=(analysis is None), clear=(analysis is None)
         )
 
@@ -685,7 +710,7 @@ class PlateViewer(QMainWindow):
         if value is None:
             return
         title = value.fov.name or f"Position {value.pos_idx}"
-        self._update_graphs_combo(set_title=title)
+        self._update_single_wells_graphs_combo(set_title=title)
 
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
@@ -714,17 +739,21 @@ class PlateViewer(QMainWindow):
         viewer.setWindowFlag(Qt.WindowType.Dialog)
         viewer.show()
 
-    def _update_graphs_combo(
+    def _update_single_wells_graphs_combo(
         self,
         set_title: str | None = None,
         combo_red: bool = False,
         clear: bool = False,
     ) -> None:
-        for graph in self.GRAPHS:
+        for sw_graph in self.SW_GRAPHS:
             if set_title is not None:
-                graph.fov = set_title
+                sw_graph.fov = set_title
 
             if clear:
-                graph.clear_plot()
+                sw_graph.clear_plot()
 
-            graph.set_combo_text_red(combo_red)
+            sw_graph.set_combo_text_red(combo_red)
+
+    def _update_multi_wells_graphs_combo(self) -> None:
+        for mw_graph in self.MW_GRAPHS:
+            mw_graph.set_combo_text_red(not self._analysis_data)
