@@ -47,6 +47,7 @@ dependencies = [
     "qtconsole",
     "pyfirmata2",
     "oasis-deconv!=0.2.1",
+    "scikit-image",
 ]
 
 # extras
