@@ -128,7 +128,7 @@ class ArduinoEngine(MDAEngine):
             self._mmc.setShutterOpen(True)
             time.sleep(1)
 
-        # execute stimulation if the event if it is in the sequence metadata
+        # execute stimulation if the event it is in the sequence metadata
         # if self._arduino_board is not None and self._arduino_led_pin is not None:
         if t_index := event.index.get("t", None):
             if t_index in self._exec_stimulation:
