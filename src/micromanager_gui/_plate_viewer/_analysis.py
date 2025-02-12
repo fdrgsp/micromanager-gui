@@ -547,7 +547,9 @@ class _AnalyseCalciumTraces(QWidget):
             # otherwise use the size is in pixels
             roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
 
-            if px_size and roi_size < 10: # might not be necessary if trained cellpose performs better
+            if (
+                px_size and roi_size < 10
+            ):  # might not be necessary if trained cellpose performs better
                 continue
 
             # compute the mean for each frame
@@ -599,7 +601,9 @@ class _AnalyseCalciumTraces(QWidget):
 
                 # get the frequency of the peaks in the dec_dff trace
                 seq = cast(useq.MDASequence, self.data.sequence)
-                tot_time_sec = seq.sizes["t"] * mean_elapsed_time_ms / 1000  # in seconds
+                tot_time_sec = (
+                    seq.sizes["t"] * mean_elapsed_time_ms / 1000
+                )  # in seconds
                 try:
                     frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
                 except ZeroDivisionError:
@@ -638,22 +642,26 @@ class _AnalyseCalciumTraces(QWidget):
                 average_time_interval=mean_elapsed_time_ms,
                 active=active,
                 linear_phase=linear_phase,
-                cubic_phase=cubic_phase
+                cubic_phase=cubic_phase,
             )
 
         # calculate connectivity
         cubic_fig_path = Path(self._output_path.value()) / f"{well}_cubic.png"
         linear_fig_path = Path(self._output_path.value()) / f"{well}_linear.png"
-        cubic_connectivity_matrix = get_connectivity_matrix(cubic_phase_dict,
-                                                            cubic_fig_path)
-        linear_connectivity_matrix = get_connectivity_matrix(linear_phase_dict,
-                                                             linear_fig_path)
+        cubic_connectivity_matrix = get_connectivity_matrix(
+            cubic_phase_dict, cubic_fig_path
+        )
+        linear_connectivity_matrix = get_connectivity_matrix(
+            linear_phase_dict, linear_fig_path
+        )
         cubic_mean_global_connectivity = get_connectivity(cubic_connectivity_matrix)
         linear_mean_global_connectivity = get_connectivity(linear_connectivity_matrix)
-        self._analysis_data[well]["cubic global connectivity"
-                                  ] = cubic_mean_global_connectivity
-        self._analysis_data[well]["linear global connectivity"
-                                  ] = linear_mean_global_connectivity
+        self._analysis_data[well]["cubic global connectivity"] = (
+            cubic_mean_global_connectivity
+        )
+        self._analysis_data[well]["linear global connectivity"] = (
+            linear_mean_global_connectivity
+        )
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)

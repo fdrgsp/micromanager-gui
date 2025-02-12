@@ -207,6 +207,7 @@ def parse_lineedit_text(input_str: str) -> list[int]:
                 numbers.append(int(part))
     return numbers
 
+
 def calculate_dff(
     data: np.ndarray, window: int = 100, percentile: int = 10, plot: bool = False
 ) -> np.ndarray:
@@ -243,6 +244,7 @@ def calculate_dff(
 
     return dff
 
+
 def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.ndarray:
     """
     Calculate the background using a moving window and a specified percentile.
@@ -271,6 +273,7 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
         background[y] = lower_percentile
 
     return background
+
 
 def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float] | None:
     """Calculate the linear phase progression."""
@@ -302,6 +305,7 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float] | None:
 
     return phase
 
+
 def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float] | None:
     """Calculate the instantaneous phase with smooth interpolation and handle negative values."""  # noqa: E501
     peaks_copy = peaks.copy().tolist()
@@ -319,7 +323,7 @@ def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float] | None:
 
     peak_phases = np.arange(num_cycles + 1) * 2 * np.pi
 
-    cubic_spline = CubicSpline(peaks_copy, peak_phases, bc_type='clamped')
+    cubic_spline = CubicSpline(peaks_copy, peak_phases, bc_type="clamped")
 
     frames = np.arange(total_frames)
     phase = cubic_spline(frames)
@@ -329,6 +333,7 @@ def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float] | None:
 
     return phase.tolist()
 
+
 def get_connectivity(connection_matrix: np.ndarray):
     """Calculate the connection matrix."""
     if connection_matrix is None or connection_matrix.size == 0:
@@ -336,17 +341,21 @@ def get_connectivity(connection_matrix: np.ndarray):
 
     # Ensure the matrix is at least 2x2 and square
     if connection_matrix.shape[0] < 2 or (
-        connection_matrix.shape[0] != connection_matrix.shape[1]):
+        connection_matrix.shape[0] != connection_matrix.shape[1]
+    ):
         return None
 
     # Compute mean connectivity
-    mean_connect = np.median(np.sum(connection_matrix, axis=0) - 1) /\
-        (connection_matrix.shape[0] - 1)
+    mean_connect = np.median(np.sum(connection_matrix, axis=0) - 1) / (
+        connection_matrix.shape[0] - 1
+    )
 
     return mean_connect
 
-def get_connectivity_matrix(phase_dict: dict[str, list[float]],
-                          path: Path) -> np.ndarray | None:
+
+def get_connectivity_matrix(
+    phase_dict: dict[str, list[float]], path: Path
+) -> np.ndarray | None:
     """Calculate global connectivity using vectorized operations."""
     active_rois = list(phase_dict.keys())  # ROI names
 
@@ -357,8 +366,9 @@ def get_connectivity_matrix(phase_dict: dict[str, list[float]],
     phase_array = np.array([phase_dict[roi] for roi in active_rois])  # Shape (N, T)
 
     # Compute pairwise phase difference using broadcasting (Shape: (N, N, T))
-    phase_diff = np.expand_dims(phase_array, axis=1) \
-        - np.expand_dims(phase_array, axis=0)
+    phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
+        phase_array, axis=0
+    )
 
     # Ensure phase difference is within valid range [0, 2π]
     phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
@@ -374,8 +384,10 @@ def get_connectivity_matrix(phase_dict: dict[str, list[float]],
 
     return connect_matrix
 
-def _plot_connection(connect_matrix: np.ndarray, path: Path,
-                        roi_labels: list[str]) -> None:
+
+def _plot_connection(
+    connect_matrix: np.ndarray, path: Path, roi_labels: list[str]
+) -> None:
     """Plot the connection matrix."""
     fig, ax = plt.subplots()
     im = ax.imshow(connect_matrix)

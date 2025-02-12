@@ -320,6 +320,7 @@ class PlateMapWidget(QWidget):
         Returns a tuple containing the (well_name, row and column) and the data assigned
         to it, (condition_name, color_name).
         """
+
         def convert_np_int64(value: Any) -> Any:
             """Convert np.int64 to int."""
             return int(value) if isinstance(value, np.int64) else value
