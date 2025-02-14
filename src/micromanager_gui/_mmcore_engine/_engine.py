@@ -13,7 +13,6 @@ from pyfirmata2.pyfirmata2 import Pin
 from pymmcore_plus._logger import logger
 from pymmcore_plus.core._sequencing import SequencedEvent
 from pymmcore_plus.mda import MDAEngine
-from rich import print
 from useq import AcquireImage, CustomAction, HardwareAutofocus, MDAEvent, MDASequence
 
 if TYPE_CHECKING:
@@ -103,9 +102,7 @@ class ArduinoEngine(MDAEngine):
                 and action.name == "arduino_stimulation"
                 and action.data
             ):
-                t0 = time.perf_counter()
                 self._exec_led_stimulation(action.data)
-                print(f"LED Stimulation took {time.perf_counter() - t0:.2f} s")
             return
 
         # if the autofocus was engaged at the start of the sequence AND autofocus action
