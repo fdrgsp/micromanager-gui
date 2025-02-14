@@ -55,7 +55,7 @@ jobs:
           python -m pip install -U pip
           pip install --upgrade numpy
           python -m pip install -e .[test,${{ matrix.backend }}]
-          pip install --no-cache-dir --force-reinstall --no-binary :all: "oasis-deconv!=0.2.1"
+          pip install --no-cache-dir --force-reinstall "oasis-deconv!=0.2.1"
 
       - name: Install Windows OpenGL
         if: runner.os == 'Windows'
