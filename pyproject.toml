@@ -47,7 +47,7 @@ dependencies = [
     "pyfirmata2",
     "oasis-deconv!=0.2.1",
     "scikit-image",
-    "PyQt6",
+    # "PyQt6",
 ]
 
 # extras
