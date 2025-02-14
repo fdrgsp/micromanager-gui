@@ -115,65 +115,40 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
     return directory / f"{stem}_{current_max:0{min_digits}d}{extension}"
 
 
-class CustomMDASequence:
-    """A sequence of events to be executed by the MDAEngine.
-
-    Parameters
-    ----------
-    sequence : useq.MDASequence | None
-        The MDA sequence for the experiment. Can be set (or retrieved) using the
-        setter sequence property.
-    events : list[useq.MDAEvent] | None
-        The actual sequence of events that is executed when iterating ovet this object.
-        Example: 
-        custom = CustomMDASequence()
-        evs = [event1, event2, event3, event4, event5]
-        custom.add_events(evs)
-        list(custom) -> [event1, event2, event3, event4, event5]
-
-    It has a metadata property that when called returns the metadata of the sequence.
-    This necesary because within the code we are using the metadata of the sequence
-    and since to use the stimulationw we create an iterable of events and not a
-    useq.MDASequence, we need to access the metadata of the sequence.
+class CustomMDASequence(MDASequence):
+    """A subclass of `useq.MDASequence`.
+    
+    The particularity of this class is that it has an events attribute that is a list
+    of `useq.MDAEvent`. If this attribute is empty, the parent __iter__ method is called.
+    Otherwise, the events attribute is iterated instead of the MDASequence.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Bypass Pydantic's frozen model restriction
+        object.__setattr__(self, "events", [])
 
-    def __init__(
-        self,
-        sequence: useq.MDASequence | None = None,
-        events: list[useq.MDAEvent] | None = None,
-    ):
-        self._sequence = sequence
-        self.events = events or []
+    def __iter__(self) -> Iterable[MDAEvent]:
+        """Iterate over the events in the sequence.
 
-    @property
-    def sequence(self) -> useq.MDASequence | None:
-        """Return the sequence."""
-        return self._sequence
+        If the events attribute is empty, the parent __iter__ method is called.
+        """
+        return iter(self.events) if self.events else super().__iter__()
 
-    @sequence.setter
-    def sequence(self, sequence: useq.MDASequence | None) -> None:
-        """Set the sequence."""
-        self._sequence = sequence
-
-    @property
-    def metadata(self) -> dict:
-        """Return the metadata."""
-        return self.sequence.metadata
+    def events(self) -> list[MDAEvent]:
+        """Return the events."""
+        return self.events
 
     def clear_events(self) -> None:
         """Clear the events."""
-        self.events.clear()
+        object.__setattr__(self, "events", [])
 
-    def add_events(self, event: useq.MDAEvent | list[useq.MDAEvent]) -> None:
+    def add_events(self, event: MDAEvent | list[MDAEvent]) -> None:
         """Add an event to the sequence."""
         if isinstance(event, list):
-            self.events.extend(event)
+            object.__setattr__(self, "events", self.events + event)
         else:
-            self.events.append(event)
-
-    def __iter__(self) -> Iterable[useq.MDAEvent]:
-        """Iterate over the events in the sequence."""
-        return iter(self.events)
+            object.__setattr__(self, "events", self.events + [event])
 
 
 class MDAWidget_(MDAWidget):
@@ -209,18 +184,17 @@ class MDAWidget_(MDAWidget):
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
         val = super().value()
+        
         arduino_settings = self._arduino_led_wdg.value()
-
         if not arduino_settings:
             return val
+        
+        meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
+        meta[STIMULATION] = arduino_settings
+        val_with_stim = CustomMDASequence(**val.model_dump())
 
         # TODO: if stimulation is selected and there are multiple positions but the
         # axis order is not starting with 'p', raise a warning message
-
-        meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
-        meta[STIMULATION] = arduino_settings
-
-        val_with_stim = CustomMDASequence(sequence=val)
 
         pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
         duration = arduino_settings.get("led_pulse_duration", None)
@@ -325,16 +299,12 @@ class MDAWidget_(MDAWidget):
 
         sequence = self.value()
 
-        # in case we have the arduino stimulation, the sequence is a list of events
-        # and we need to get the sequence from the first event
-        seq = sequence.sequence if isinstance(sequence, CustomMDASequence) else sequence
-
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
-            save_path = self._update_save_path_from_metadata(seq, update_metadata=True)
+            save_path = self._update_save_path_from_metadata(sequence, update_metadata=True)
             if isinstance(save_path, Path):
                 # get save format from metadata
-                save_meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
+                save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
                 save_format = save_meta.get("format")
                 # set the writer to use for saving the MDA sequence.
                 # NOTE: 'self._writer' is used by the 'MDAViewer' to set its datastore
