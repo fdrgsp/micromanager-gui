@@ -1,6 +1,8 @@
 import re
+from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pyfirmata2 import Arduino, Pin
 from pymmcore_plus import CMMCorePlus
@@ -13,7 +15,7 @@ from pymmcore_plus.mda.handlers import (
 from pymmcore_widgets import MDAWidget
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
-from useq import MDASequence
+from useq import CustomAction, MDAEvent, MDASequence
 
 from micromanager_gui._writers import (
     _OMETiffWriter,
@@ -112,6 +114,44 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
     return directory / f"{stem}_{current_max:0{min_digits}d}{extension}"
 
 
+class CustomMDASequence(MDASequence):
+    """A subclass of `useq.MDASequence`.
+
+    The particularity of this class is that it has an events attribute that is a list
+    of `useq.MDAEvent`. If this attribute is empty, the parent __iter__ method is
+    called. Otherwise, the events attribute is iterated instead of the MDASequence.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        # Bypass Pydantic's frozen model restriction
+        object.__setattr__(self, "events", [])
+
+    def __iter__(self) -> Iterator[MDAEvent]:  # type: ignore
+        """Iterate over the events in the sequence.
+
+        If the events attribute is empty, the parent __iter__ method is called.
+        """
+        return iter(self.events) if self.events else super().__iter__()  # type: ignore
+
+    def events(self) -> list[MDAEvent]:
+        """Return the events."""
+        return cast(list[MDAEvent], object.__getattribute__(self, "events"))
+
+    def clear_events(self) -> None:
+        """Clear the events."""
+        object.__setattr__(self, "events", [])
+
+    def add_events(self, event: MDAEvent | list[MDAEvent]) -> None:
+        """Add an event to the sequence."""
+        events = cast(list[MDAEvent], object.__getattribute__(self, "events"))
+        if isinstance(event, list):
+            object.__setattr__(self, "events", events + event)
+        else:
+            object.__setattr__(self, "events", [*events, event])
+
+
 class MDAWidget_(MDAWidget):
     """Multi-dimensional acquisition widget."""
 
@@ -144,10 +184,50 @@ class MDAWidget_(MDAWidget):
 
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
-        val = super().value()
+        val = cast(MDASequence, super().value())
+
+        arduino_settings = self._arduino_led_wdg.value()
+        if not arduino_settings:
+            return val
+
         meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
-        meta[STIMULATION] = self._arduino_led_wdg.value()
-        return val  # type: ignore
+        meta[STIMULATION] = arduino_settings
+        val_with_stim = CustomMDASequence(**val.model_dump())
+
+        # TODO: if stimulation is selected and there are multiple positions but the
+        # axis order is not starting with 'p', raise a warning message
+
+        pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
+        duration = arduino_settings.get("led_pulse_duration", None)
+        initial_delay = arduino_settings.get("initial_delay", 0)
+
+        pos_lists = self._group_by_position(list(val))
+        for idx, pos_list in enumerate(pos_lists):
+            # copy the first event of the position list. If we have an initial delay,
+            # copy the event at the index of the delay
+            stim_event = pos_list[initial_delay if idx == 0 else 0].model_copy()
+            # get if the first event is an autofocus event
+            has_af = stim_event.action.type == "hardware_autofocus"
+            for pulse_on, power in pulse_on_frame.items():
+                stim_event = stim_event.replace(
+                    action=CustomAction(
+                        name="arduino_stimulation",
+                        data={"led_power": power, "led_pulse_duration": duration},
+                    ),
+                )
+                # if the first event is an autofocus event, insert the stimulation event
+                # after the autofocus event. we are also considering the initial delay
+                if initial_delay:
+                    i = pulse_on + 2 if has_af else pulse_on + 1
+                else:
+                    i = pulse_on + 1 if has_af else pulse_on
+                pos_list.insert(i, stim_event)
+
+        # concatenate the list of lists into a single list
+        val_with_stim.add_events(
+            [event for pos_list in pos_lists for event in pos_list]
+        )
+        return val_with_stim
 
     def setValue(self, sequence: MDASequence) -> None:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
@@ -256,6 +336,14 @@ class MDAWidget_(MDAWidget):
 
     # ------------------- private Methods ----------------------
 
+    def _group_by_position(self, events: list[MDAEvent]) -> list[list[MDAEvent]]:
+        """Group the MDA events by position."""
+        grouped_events = defaultdict(list)
+        for event in events:
+            pos_index = event.index.get("p")
+            grouped_events[pos_index].append(event)
+        return list(grouped_events.values())
+
     def _set_arduino_props(self, arduino: Arduino | None, led: Pin | None) -> None:
         """Enable the Arduino board and the LED pin in the MDA engine."""
         if not self._mmc.mda.engine:
@@ -314,3 +402,14 @@ class MDAWidget_(MDAWidget):
             delete_existing=True,
             spec={"context": {"cache_pool": {"total_bytes_limit": GB_CACHE}}},
         )
+
+    def _update_time_estimate(self) -> None:
+        """Update the time estimate for the MDA experiment."""
+        # this is a hack to avoid the error since MDASEquence does how to include
+        # the stimulation events in the estimate_duration method. Need to fix this
+        val = super().value()
+        try:
+            self._time_estimate = val.estimate_duration()
+        except ValueError as e:  # pragma: no cover
+            self._duration_label.setText(f"Error estimating time:\n{e}")
+            return

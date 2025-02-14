@@ -278,8 +278,9 @@ class _AnalyseCalciumTraces(QWidget):
             # if only one of the plate map genotype or treatment is set, ask the user
             # if they want to continue without both the plate maps
             elif (gen_map and not tr_map) or not gen_map:
+                map_type = "Genotype" if gen_map else "Treatment"
                 msg = (
-                    f"Only the '{"Genotype" if gen_map else "Treatment"} Plate Map' is "
+                    f"Only the '{map_type}' Plate Map is "
                     "set!\n\nDo you want to continue without both the Plate "
                     "Maps?"
                 )
@@ -304,17 +305,27 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, "No Output Path provided!")
             return None
 
-        # return all positions if the input is empty
+        # if the input is empty, return all positions that have labels. this can speed
+        # up analysis since we will be sure that the labels exist for the positions.
         if not self._pos_le.text():
-            return list(range(len(sequence.stage_positions)))
-        # parse the input positions
-        positions = parse_lineedit_text(self._pos_le.text())
-        if not positions:
-            show_error_dialog(self, "Invalid Positions provided!")
-            return None
-        if max(positions) >= len(sequence.stage_positions):
-            show_error_dialog(self, "Input Positions out of range!")
-            return None
+            positions: list[int] = []
+            pos = list(sequence.stage_positions)
+            for i, p in enumerate(pos):
+                well = p.name or f"pos_{str(i).zfill(4)}"
+                label = f"{well}_p{i}.tif"
+                if self._get_labels_file(label) is None:
+                    continue
+                positions.append(i)
+        else:
+            # parse the input positions
+            positions = parse_lineedit_text(self._pos_le.text())
+            if not positions:
+                show_error_dialog(self, "Invalid Positions provided!")
+                return None
+            if max(positions) >= len(sequence.stage_positions):
+                show_error_dialog(self, "Input Positions out of range!")
+                return None
+        LOGGER.info("Positions to analyze: %s", positions)
         return positions
 
     def _plate_map_msgbox(self, msg: str) -> Any:
@@ -525,7 +536,7 @@ class _AnalyseCalciumTraces(QWidget):
             # get the average time interval between frames
             mean_elapsed_time_ms = np.mean(elapsed_time)
 
-        roi_trace: np.ndarray | list[float] | None
+        roi_trace: np.ndarray
         linear_phase_dict: dict[str, list[float]] | None = {}
         cubic_phase_dict: dict[str, list[float]] | None = {}
 
@@ -627,14 +638,14 @@ class _AnalyseCalciumTraces(QWidget):
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
-                raw_trace=roi_trace.tolist(),
-                dff=dff.tolist(),
-                dec_dff=dec_dff.tolist(),
-                peaks_dec_dff=peaks_dec_dff.tolist(),
+                raw_trace=cast(list[float], roi_trace.tolist()),
+                dff=cast(list[float], dff.tolist()),
+                dec_dff=cast(list[float], dec_dff.tolist()),
+                peaks_dec_dff=cast(list[float], peaks_dec_dff.tolist()),
                 peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
                 peaks_prominence_dec_dff=peaks_prominence_dec_dff,
                 dec_dff_frequency=frequency,  # in Hz
-                inferred_spikes=spikes.tolist(),
+                inferred_spikes=cast(list[float], spikes.tolist()),
                 cell_size=roi_size,
                 cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,

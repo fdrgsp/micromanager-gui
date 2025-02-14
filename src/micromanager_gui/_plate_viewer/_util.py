@@ -30,6 +30,48 @@ TREATMENT_MAP = "treatment_plate_map.json"
 COND1 = "condition_1"
 COND2 = "condition_2"
 
+# -----------------------------------GRAPH PLOTTING-----------------------------------
+# Anything added here will appear in the dropdown menu in the graph widget.
+# Modify the plot_traces function in _plot_methods.py to add the corresponding plotting
+# logic for the new options.
+
+RAW_TRACES = "Raw Traces"
+NORMALIZED_TRACES = "Normalized Traces [0, 1]"
+DFF = "DeltaF/F0"
+DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1]"
+DEC_DFF = "Deconvolved DeltaF/F0"
+DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
+DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized [0, 1]"
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized [0, 1] with Peaks"
+DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
+DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
+DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
+
+DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
+DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
+DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
+
+SINGLE_WELL_COMBO_OPTIONS = [
+    RAW_TRACES,
+    NORMALIZED_TRACES,
+    DFF,
+    DFF_NORMALIZED,
+    DEC_DFF,
+    DEC_DFF_WITH_PEAKS,
+    DEC_DFF_NORMALIZED,
+    DEC_DFF_NORMALIZED_WITH_PEAKS,
+    DEC_DFF_AMPLITUDE,
+    DEC_DFF_FREQUENCY,
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+]
+
+MULTI_WELL_COMBO_OPTIONS = [
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL,
+    DEC_DFF_AMPLITUDE_ALL,
+    DEC_DFF_FREQUENCY_ALL,
+]
+# ------------------------------------------------------------------------------------
+
 
 @dataclass
 class BaseClass:

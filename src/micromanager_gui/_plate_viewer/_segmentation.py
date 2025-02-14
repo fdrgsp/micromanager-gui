@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 
 import tifffile
 from cellpose import models
@@ -34,6 +34,8 @@ from ._init_dialog import _BrowseWidget
 from ._util import GREEN, RED, _ElapsedTimer, parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     import numpy as np
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
@@ -366,9 +368,6 @@ class _CellposeSegmentation(QWidget):
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             # yield the current position name to update the progress bar
             yield f"[Well {pos_name} p{p} ({p+1} / {len(positions)})]"
-
-            # TODO: try to add photobleaching correction here. Add checkbox to enable it
-
             # max projection from half to the end of the stack
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
