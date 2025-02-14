@@ -18,19 +18,10 @@ The package is tested on Python 3.10 and 3.11.
 ## Installation
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui@calcium
+pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calcium
 ```
 
-### Installing PyQt
-
-Since `micromanager-gui` relies on the [PyQt](https://riverbankcomputing.com/software/pyqt/) library, you also **need** to install one of these packages. You can use any of the available versions of [PyQt6](https://pypi.org/project/PyQt6/) or [PyQt5](https://pypi.org/project/PyQt5/). For example, to install [PyQt6](https://riverbankcomputing.com/software/pyqt/download), you can use:
-
-```sh
-pip install PyQt6
-```
-
-Note: tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/).
-
+Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI (tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/)).
 ### Installing Micro-Manager
 
 You also need to install the `Micro-Manager` device adapters and C++ core provided by [mmCoreAndDevices](https://github.com/micro-manager/mmCoreAndDevices#mmcoreanddevices). This can be done by following the steps described in the `pymmcore-plus` [documentation page](https://pymmcore-plus.github.io/pymmcore-plus/install/#installing-micro-manager-device-adapters).
