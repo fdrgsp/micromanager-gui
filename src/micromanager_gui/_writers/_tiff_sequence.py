@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
     import useq
+    from pymmcore_plus.metadata import FrameMetaV1
     from typing_extensions import TypeAlias  # py310
 
     ImgWriter: TypeAlias = Callable[[str, npt.NDArray], Any]
@@ -86,7 +87,9 @@ class _TiffSequenceWriter(ImageSequenceWriter):
             imwrite_kwargs=imwrite_kwargs,
         )
 
-    def frameReady(self, frame: np.ndarray, event: useq.MDAEvent, meta: dict) -> None:
+    def frameReady(
+        self, frame: np.ndarray, event: useq.MDAEvent, meta: FrameMetaV1
+    ) -> None:
         """Write a frame to disk."""
         frame_idx = next(self._counter)
         if self._name_template:

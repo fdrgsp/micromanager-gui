@@ -4,7 +4,7 @@ import argparse
 import sys
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
@@ -12,6 +12,7 @@ from qtpy.QtWidgets import QApplication
 from micromanager_gui import CellposeBatchSegmentation, MicroManagerGUI, PlateViewer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from types import TracebackType
 
 WALLE_ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"

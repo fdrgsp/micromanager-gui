@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Generator, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
@@ -57,6 +57,9 @@ from ._util import (
     _ProgressBarWidget,
     show_error_dialog,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 HCS = "hcs"
 UNSELECTABLE_COLOR = "#404040"

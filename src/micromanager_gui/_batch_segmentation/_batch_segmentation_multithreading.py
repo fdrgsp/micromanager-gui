@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
 
 import tifffile
 from cellpose import models
@@ -32,6 +32,8 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     import numpy as np
     from cellpose.models import CellposeModel
     from superqt.utils import GeneratorWorker

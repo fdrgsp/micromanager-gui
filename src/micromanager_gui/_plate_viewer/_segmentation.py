@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 
 import tifffile
 from cellpose import models
@@ -34,6 +34,8 @@ from ._init_dialog import _BrowseWidget
 from ._util import GREEN, RED, _ElapsedTimer, parse_lineedit_text, show_error_dialog
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     import numpy as np
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker

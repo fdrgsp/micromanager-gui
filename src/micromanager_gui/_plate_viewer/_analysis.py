@@ -531,7 +531,7 @@ class _AnalyseCalciumTraces(QWidget):
             # get the average time interval between frames
             mean_elapsed_time_ms = np.mean(elapsed_time)
 
-        roi_trace: np.ndarray | list[float] | None
+        roi_trace: np.ndarray
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
@@ -608,14 +608,14 @@ class _AnalyseCalciumTraces(QWidget):
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
-                raw_trace=roi_trace.tolist(),
-                dff=dff.tolist(),
-                dec_dff=dec_dff.tolist(),
-                peaks_dec_dff=peaks_dec_dff.tolist(),
+                raw_trace=cast(list[float], roi_trace.tolist()),
+                dff=cast(list[float], dff.tolist()),
+                dec_dff=cast(list[float], dec_dff.tolist()),
+                peaks_dec_dff=cast(list[float], peaks_dec_dff.tolist()),
                 peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
                 peaks_prominence_dec_dff=peaks_prominence_dec_dff,
                 dec_dff_frequency=frequency,  # in Hz
-                inferred_spikes=spikes.tolist(),
+                inferred_spikes=cast(list[float], spikes.tolist()),
                 cell_size=roi_size,
                 cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,

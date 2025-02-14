@@ -22,6 +22,7 @@ pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calc
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI (tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/)).
+
 ### Installing Micro-Manager
 
 You also need to install the `Micro-Manager` device adapters and C++ core provided by [mmCoreAndDevices](https://github.com/micro-manager/mmCoreAndDevices#mmcoreanddevices). This can be done by following the steps described in the `pymmcore-plus` [documentation page](https://pymmcore-plus.github.io/pymmcore-plus/install/#installing-micro-manager-device-adapters).
