@@ -1,7 +1,8 @@
+from importlib import metadata
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Iterable, cast
 
 from pyfirmata2 import Arduino, Pin
 from pymmcore_plus import CMMCorePlus
@@ -14,7 +15,7 @@ from pymmcore_plus.mda.handlers import (
 from pymmcore_widgets import MDAWidget
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
-from sympy import im
+from sympy import im, use
 from useq import CustomAction, MDAEvent, MDASequence
 
 from micromanager_gui._writers import (
@@ -22,7 +23,7 @@ from micromanager_gui._writers import (
     _TensorStoreHandler,
     _TiffSequenceWriter,
 )
-
+import useq
 from ._arduino import ArduinoLedWidget
 from ._save_widget import (
     OME_TIFF,
@@ -114,6 +115,67 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
     return directory / f"{stem}_{current_max:0{min_digits}d}{extension}"
 
 
+class CustomMDASequence:
+    """A sequence of events to be executed by the MDAEngine.
+
+    Parameters
+    ----------
+    sequence : useq.MDASequence | None
+        The MDA sequence for the experiment. Can be set (or retrieved) using the
+        setter sequence property.
+    events : list[useq.MDAEvent] | None
+        The actual sequence of events that is executed when iterating ovet this object.
+        Example: 
+        custom = CustomMDASequence()
+        evs = [event1, event2, event3, event4, event5]
+        custom.add_events(evs)
+        list(custom) -> [event1, event2, event3, event4, event5]
+
+    It has a metadata property that when called returns the metadata of the sequence.
+    This necesary because within the code we are using the metadata of the sequence
+    and since to use the stimulationw we create an iterable of events and not a
+    useq.MDASequence, we need to access the metadata of the sequence.
+    """
+
+    def __init__(
+        self,
+        sequence: useq.MDASequence | None = None,
+        events: list[useq.MDAEvent] | None = None,
+    ):
+        self._sequence = sequence
+        self.events = events or []
+
+    @property
+    def sequence(self) -> useq.MDASequence | None:
+        """Return the sequence."""
+        return self._sequence
+
+    @sequence.setter
+    def sequence(self, sequence: useq.MDASequence | None) -> None:
+        """Set the sequence."""
+        self._sequence = sequence
+
+    @property
+    def metadata(self) -> dict:
+        """Return the metadata."""
+        return self.sequence.metadata
+
+    def clear_events(self) -> None:
+        """Clear the events."""
+        self.events.clear()
+
+    def add_events(self, event: useq.MDAEvent | list[useq.MDAEvent]) -> None:
+        """Add an event to the sequence."""
+        if isinstance(event, list):
+            self.events.extend(event)
+        else:
+            self.events.append(event)
+
+    def __iter__(self) -> Iterable[useq.MDAEvent]:
+        """Iterate over the events in the sequence."""
+        return iter(self.events)
+
+
 class MDAWidget_(MDAWidget):
     """Multi-dimensional acquisition widget."""
 
@@ -158,6 +220,8 @@ class MDAWidget_(MDAWidget):
         meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
         meta[STIMULATION] = arduino_settings
 
+        val_with_stim = CustomMDASequence(sequence=val)
+
         pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
         duration = arduino_settings.get("led_pulse_duration", None)
         initial_delay = arduino_settings.get("initial_delay", 0)
@@ -185,7 +249,10 @@ class MDAWidget_(MDAWidget):
                 pos_list.insert(i, stim_event)
 
         # concatenate the list of lists into a single list
-        return [event for pos_list in pos_lists for event in pos_list]
+        val_with_stim.add_events(
+            [event for pos_list in pos_lists for event in pos_list]
+        )
+        return val_with_stim
 
     def setValue(self, sequence: MDASequence) -> None:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
@@ -260,13 +327,11 @@ class MDAWidget_(MDAWidget):
 
         # in case we have the arduino stimulation, the sequence is a list of events
         # and we need to get the sequence from the first event
-        seq = sequence if isinstance(sequence, MDASequence) else sequence[0].sequence
+        seq = sequence.sequence if isinstance(sequence, CustomMDASequence) else sequence
 
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
-            save_path = self._update_save_path_from_metadata(
-                seq, update_metadata=True
-            )
+            save_path = self._update_save_path_from_metadata(seq, update_metadata=True)
             if isinstance(save_path, Path):
                 # get save format from metadata
                 save_meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
