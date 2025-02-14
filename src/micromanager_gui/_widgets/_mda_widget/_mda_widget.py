@@ -1,4 +1,3 @@
-from importlib import metadata
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -15,7 +14,6 @@ from pymmcore_plus.mda.handlers import (
 from pymmcore_widgets import MDAWidget
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
-from sympy import im, use
 from useq import CustomAction, MDAEvent, MDASequence
 
 from micromanager_gui._writers import (
@@ -23,7 +21,7 @@ from micromanager_gui._writers import (
     _TensorStoreHandler,
     _TiffSequenceWriter,
 )
-import useq
+
 from ._arduino import ArduinoLedWidget
 from ._save_widget import (
     OME_TIFF,
@@ -117,14 +115,15 @@ def get_next_available_path(requested_path: Path | str, min_digits: int = 3) -> 
 
 class CustomMDASequence(MDASequence):
     """A subclass of `useq.MDASequence`.
-    
+
     The particularity of this class is that it has an events attribute that is a list
     of `useq.MDAEvent`. If this attribute is empty, the parent __iter__ method is called.
     Otherwise, the events attribute is iterated instead of the MDASequence.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # Bypass Pydantic's frozen model restriction
         object.__setattr__(self, "events", [])
 
@@ -148,7 +147,7 @@ class CustomMDASequence(MDASequence):
         if isinstance(event, list):
             object.__setattr__(self, "events", self.events + event)
         else:
-            object.__setattr__(self, "events", self.events + [event])
+            object.__setattr__(self, "events", [*self.events, event])
 
 
 class MDAWidget_(MDAWidget):
@@ -184,11 +183,11 @@ class MDAWidget_(MDAWidget):
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
         val = super().value()
-        
+
         arduino_settings = self._arduino_led_wdg.value()
         if not arduino_settings:
             return val
-        
+
         meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
         meta[STIMULATION] = arduino_settings
         val_with_stim = CustomMDASequence(**val.model_dump())
@@ -301,7 +300,9 @@ class MDAWidget_(MDAWidget):
 
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
-            save_path = self._update_save_path_from_metadata(sequence, update_metadata=True)
+            save_path = self._update_save_path_from_metadata(
+                sequence, update_metadata=True
+            )
             if isinstance(save_path, Path):
                 # get save format from metadata
                 save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
