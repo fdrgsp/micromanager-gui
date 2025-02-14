@@ -27,7 +27,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "pymmcore-widgets >=0.8.0",
-    "pymmcore-plus ==0.12.0",  # to be fixed for >=0.13.0 compatibility (engine _canSequenceEvents)
+    "pymmcore-plus >=0.13.4",
     "qtpy",
     "vispy",
     "zarr==2.*",

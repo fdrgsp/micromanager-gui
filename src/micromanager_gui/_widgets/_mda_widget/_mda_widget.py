@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -13,7 +14,8 @@ from pymmcore_plus.mda.handlers import (
 from pymmcore_widgets import MDAWidget
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
-from useq import MDASequence
+from sympy import im
+from useq import CustomAction, MDAEvent, MDASequence
 
 from micromanager_gui._writers import (
     _OMETiffWriter,
@@ -145,9 +147,45 @@ class MDAWidget_(MDAWidget):
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
         val = super().value()
+        arduino_settings = self._arduino_led_wdg.value()
+
+        if not arduino_settings:
+            return val
+
+        # TODO: if stimulation is selected and there are multiple positions but the
+        # axis order is not starting with 'p', raise a warning message
+
         meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
-        meta[STIMULATION] = self._arduino_led_wdg.value()
-        return val  # type: ignore
+        meta[STIMULATION] = arduino_settings
+
+        pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
+        duration = arduino_settings.get("led_pulse_duration", None)
+        initial_delay = arduino_settings.get("initial_delay", 0)
+
+        pos_lists = self._group_by_position(list(val))
+        for idx, pos_list in enumerate(pos_lists):
+            # copy the first event of the position list. If we have an initial delay,
+            # copy the event at the index of the delay
+            stim_event = pos_list[initial_delay if idx == 0 else 0].model_copy()
+            # get if the first event is an autofocus event
+            has_af = stim_event.action.type == "hardware_autofocus"
+            for pulse_on, power in pulse_on_frame.items():
+                stim_event = stim_event.replace(
+                    action=CustomAction(
+                        name="arduino_stimulation",
+                        data={"led_power": power, "led_pulse_duration": duration},
+                    ),
+                )
+                # if the first event is an autofocus event, insert the stimulation event
+                # after the autofocus event. we are also considering the initial delay
+                if initial_delay:
+                    i = pulse_on + 2 if has_af else pulse_on + 1
+                else:
+                    i = pulse_on + 1 if has_af else pulse_on
+                pos_list.insert(i, stim_event)
+
+        # concatenate the list of lists into a single list
+        return [event for pos_list in pos_lists for event in pos_list]
 
     def setValue(self, sequence: MDASequence) -> None:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
@@ -220,14 +258,18 @@ class MDAWidget_(MDAWidget):
 
         sequence = self.value()
 
+        # in case we have the arduino stimulation, the sequence is a list of events
+        # and we need to get the sequence from the first event
+        seq = sequence if isinstance(sequence, MDASequence) else sequence[0].sequence
+
         # technically, this is in the metadata as well, but isChecked is more direct
         if self.save_info.isChecked():
             save_path = self._update_save_path_from_metadata(
-                sequence, update_metadata=True
+                seq, update_metadata=True
             )
             if isinstance(save_path, Path):
                 # get save format from metadata
-                save_meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+                save_meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
                 save_format = save_meta.get("format")
                 # set the writer to use for saving the MDA sequence.
                 # NOTE: 'self._writer' is used by the 'MDAViewer' to set its datastore
@@ -255,6 +297,14 @@ class MDAWidget_(MDAWidget):
         self._mmc.run_mda(sequence, output=output)
 
     # ------------------- private Methods ----------------------
+
+    def _group_by_position(self, events: list[MDAEvent]) -> list[list[MDAEvent]]:
+        """Group the MDA events by position."""
+        grouped_events = defaultdict(list)
+        for event in events:
+            pos_index = event.index.get("p")
+            grouped_events[pos_index].append(event)
+        return list(grouped_events.values())
 
     def _set_arduino_props(self, arduino: Arduino | None, led: Pin | None) -> None:
         """Enable the Arduino board and the LED pin in the MDA engine."""
@@ -314,3 +364,14 @@ class MDAWidget_(MDAWidget):
             delete_existing=True,
             spec={"context": {"cache_pool": {"total_bytes_limit": GB_CACHE}}},
         )
+
+    def _update_time_estimate(self) -> None:
+        """Update the time estimate for the MDA experiment."""
+        # this is a hack to avoid the error since MDASEquence does how to include
+        # the stimulation events in the estimate_duration method. Need to fix this
+        val = super().value()
+        try:
+            self._time_estimate = val.estimate_duration()
+        except ValueError as e:  # pragma: no cover
+            self._duration_label.setText(f"Error estimating time:\n{e}")
+            return

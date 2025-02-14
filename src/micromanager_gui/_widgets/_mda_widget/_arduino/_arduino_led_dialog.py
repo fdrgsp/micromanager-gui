@@ -354,10 +354,8 @@ class ArduinoLedControl(QDialog):
             return
 
         # get total timepoints that should be set in the MDA time tab
-        timepoints = (
-            self._initial_delay_spin.value()
-            + ((self._interval_spin.value() or 1) * self._num_pulses_spin.value())
-            + self._interval_spin.value()
+        timepoints = self._initial_delay_spin.value() + (
+            (self._interval_spin.value() or 1) * self._num_pulses_spin.value()
         )
         self._timepoints.setText(f"{timepoints} {TIMEPOINTS_TXT}")
 
