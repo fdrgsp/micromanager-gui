@@ -21,15 +21,7 @@ The package is tested on Python 3.10 and 3.11.
 pip install git+https://github.com/fdrgsp/micromanager-gui@calcium
 ```
 
-### Installing PyQt
-
-Since `micromanager-gui` relies on the [PyQt](https://riverbankcomputing.com/software/pyqt/) library, you also **need** to install one of these packages. You can use any of the available versions of [PyQt6](https://pypi.org/project/PyQt6/) or [PyQt5](https://pypi.org/project/PyQt5/). For example, to install [PyQt6](https://riverbankcomputing.com/software/pyqt/download), you can use:
-
-```sh
-pip install PyQt6
-```
-
-Note: tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/).
+Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI (tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/)).
 
 ### Installing Micro-Manager
 
