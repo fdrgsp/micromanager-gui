@@ -1,8 +1,8 @@
 import re
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pyfirmata2 import Arduino, Pin
 from pymmcore_plus import CMMCorePlus
@@ -118,26 +118,26 @@ class CustomMDASequence(MDASequence):
     """A subclass of `useq.MDASequence`.
 
     The particularity of this class is that it has an events attribute that is a list
-    of `useq.MDAEvent`. If this attribute is empty, the parent __iter__ method is called.
-    Otherwise, the events attribute is iterated instead of the MDASequence.
+    of `useq.MDAEvent`. If this attribute is empty, the parent __iter__ method is
+    called. Otherwise, the events attribute is iterated instead of the MDASequence.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         # Bypass Pydantic's frozen model restriction
         object.__setattr__(self, "events", [])
 
-    def __iter__(self) -> Iterable[MDAEvent]:
+    def __iter__(self) -> Iterator[MDAEvent]:  # type: ignore
         """Iterate over the events in the sequence.
 
         If the events attribute is empty, the parent __iter__ method is called.
         """
-        return iter(self.events) if self.events else super().__iter__()
+        return iter(self.events) if self.events else super().__iter__()  # type: ignore
 
     def events(self) -> list[MDAEvent]:
         """Return the events."""
-        return self.events
+        return cast(list[MDAEvent], object.__getattribute__(self, "events"))
 
     def clear_events(self) -> None:
         """Clear the events."""
@@ -145,10 +145,11 @@ class CustomMDASequence(MDASequence):
 
     def add_events(self, event: MDAEvent | list[MDAEvent]) -> None:
         """Add an event to the sequence."""
+        events = cast(list[MDAEvent], object.__getattribute__(self, "events"))
         if isinstance(event, list):
-            object.__setattr__(self, "events", self.events + event)
+            object.__setattr__(self, "events", events + event)
         else:
-            object.__setattr__(self, "events", [*self.events, event])
+            object.__setattr__(self, "events", [*events, event])
 
 
 class MDAWidget_(MDAWidget):
@@ -183,7 +184,7 @@ class MDAWidget_(MDAWidget):
 
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
-        val = super().value()
+        val = cast(MDASequence, super().value())
 
         arduino_settings = self._arduino_led_wdg.value()
         if not arduino_settings:

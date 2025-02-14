@@ -33,7 +33,7 @@ class StimulationValues(TypedDict):
     led_start_power: int
     led_power_increment: int
     led_pulse_duration: float
-    pulse_on_frame: dict[int | str, int | str]
+    pulse_on_frame: dict[int, int]
 
 
 FIXED = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -277,7 +277,7 @@ class ArduinoLedControl(QDialog):
         self._arduino_connected_icon.setPixmap(pixmap)
         self._arduino_connected_text.setText(text)
 
-    def _get_pulse_on_frame(self) -> dict[int | str, int | str]:
+    def _get_pulse_on_frame(self) -> dict[int, int]:
         """Return the pulse_on_frame dictionary.
 
         The dictionary contains the frame number as key and the respective led power to
@@ -285,7 +285,7 @@ class ArduinoLedControl(QDialog):
         """
         # make sure that the led is not exceeding the max 100% power
         if not self._led_power_used:
-            return {"error": "Max power exceeded!!!"}
+            return {"error": "Max power exceeded!!!"}  # type: ignore
         return dict(zip(self._led_on_frames, self._led_power_used))
 
     def _detect_arduino_board(self) -> None:
