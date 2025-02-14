@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from typing import cast
+
 from pymmcore_plus import CMMCorePlus, DeviceType
 from pymmcore_widgets import ShuttersWidget
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QToolBar, QWidget
+from qtpy.QtWidgets import QToolBar, QWidget, QWidgetAction
 
 
 class _ShuttersToolbar(QToolBar):
@@ -56,5 +58,9 @@ class _ShuttersToolbar(QToolBar):
     def _clear(self) -> None:
         """Delete toolbar action."""
         while self.actions():
-            action = self.actions()[0]
+            action = cast(QWidgetAction, self.actions()[0])
+            # get the shutter widget associated with the action and delete it
+            widget = action.defaultWidget()
+            if widget is not None:
+                widget.deleteLater()
             self.removeAction(action)
