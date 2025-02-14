@@ -25,6 +25,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "oasis-deconv!=0.2.1",
     "pymmcore-widgets >=0.8.0",
     "pymmcore-plus >=0.13.4",
     "qtpy",
@@ -45,7 +46,6 @@ dependencies = [
     "ndv[vispy]==0.0.4",
     "qtconsole",
     "pyfirmata2",
-    "oasis-deconv!=0.2.1",
     "scikit-image",
     "PyQt6",
 ]
