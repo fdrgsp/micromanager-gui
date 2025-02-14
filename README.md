@@ -18,7 +18,7 @@ The package is tested on Python 3.10 and 3.11.
 ## Installation
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui@calcium
+pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calcium
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI (tests are running on [PyQt6](https://pypi.org/project/PyQt6/) and [PyQt5](https://pypi.org/project/PyQt5/)).
