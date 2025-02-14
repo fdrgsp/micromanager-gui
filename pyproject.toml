@@ -25,6 +25,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "numpy <=2.0.0",
     "oasis-deconv!=0.2.1",
     "pymmcore-widgets >=0.8.0",
     "pymmcore-plus >=0.13.4",
