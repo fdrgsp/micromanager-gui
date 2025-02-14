@@ -1,7 +1,8 @@
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, cast
+from typing import TYPE_CHECKING, cast
 
 from pyfirmata2 import Arduino, Pin
 from pymmcore_plus import CMMCorePlus

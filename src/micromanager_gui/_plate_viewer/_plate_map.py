@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, NamedTuple, Tuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, Tuple, cast
 
 import numpy as np
 from fonticon_mdi6 import MDI6
@@ -34,6 +34,8 @@ from superqt.fonticon import icon
 from ._util import GREEN, RED
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import useq
 
 ALIGN_LEFT = "QPushButton { text-align: left;}"

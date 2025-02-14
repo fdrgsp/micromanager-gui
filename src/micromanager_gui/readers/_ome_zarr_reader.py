@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import useq
 import zarr
 from tifffile import imwrite
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 try:  # if zarr < 3.0.0
     from zarr.hierarchy import Group

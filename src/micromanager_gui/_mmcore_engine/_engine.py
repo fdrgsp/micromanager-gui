@@ -4,7 +4,6 @@ import time
 from itertools import product
 from typing import (
     TYPE_CHECKING,
-    Iterable,
     cast,
 )
 
@@ -16,6 +15,8 @@ from pymmcore_plus.mda import MDAEngine
 from useq import AcquireImage, CustomAction, HardwareAutofocus, MDAEvent, MDASequence
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
     from pymmcore_plus.metadata import SummaryMetaV1

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Hashable, Mapping
+from typing import TYPE_CHECKING, Any
 
 import tensorstore as ts
 from ndv import DataWrapper, NDViewer
@@ -13,6 +13,8 @@ from micromanager_gui._widgets._snap_live_buttons import Live, Snap
 from ._preview_save_button import SaveButton
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable, Mapping
+
     import numpy as np
     from qtpy.QtGui import QCloseEvent
     from qtpy.QtWidgets import QWidget
