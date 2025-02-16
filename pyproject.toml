@@ -25,7 +25,6 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "numpy < 2.0.0",  # or test fails because of oasis-deconv incompatility
     "oasis-deconv!=0.2.1",
     "cvxpy",  # to not have the warning in oasis-deconv
     "pymmcore-widgets >=0.8.0",
