@@ -94,7 +94,7 @@ class ROIData(BaseClass):
     condition_2: str | None = None
     cell_size: float | None = None
     cell_size_units: str | None = None
-    average_time_interval: float | None = None
+    total_recording_time_in_sec: float | None = None
     # ... add whatever other data we need
 
 
