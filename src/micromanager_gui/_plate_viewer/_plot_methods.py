@@ -153,7 +153,10 @@ def _plot_single_well_traces(
             if normalize:
                 trace = normalize_trace(trace)
                 ax.plot(np.array(trace) + count, label=f"ROI {key}")
-                ax.set_ylabel("ROI")
+                # hide the y-axis labels
+                ax.set_yticklabels([])
+                # hide the ticks
+                ax.set_yticks([])
             else:
                 ax.plot(trace, label=f"ROI {key}")
                 # set the y-axis label depending on the flags
