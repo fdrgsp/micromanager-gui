@@ -254,14 +254,16 @@ class _AnalyseCalciumTraces(QWidget):
             return None
 
         if self.data is None or self._labels_path is None:
-            LOGGER.error("No data or labels path provided!")
-            show_error_dialog(self, "No data or labels path provided!")
+            msg = "No data or labels path provided!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         sequence = self.data.sequence
         if sequence is None:
-            LOGGER.error("No useq.MDAsequence found!")
-            show_error_dialog(self, "No useq.MDAsequence found!")
+            msg = "No useq.MDAsequence found!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         if self._plate_viewer is not None:
@@ -290,8 +292,9 @@ class _AnalyseCalciumTraces(QWidget):
         if path := self._output_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
-                LOGGER.error("Output Path is not a directory!")
-                show_error_dialog(self, "Output Path is not a directory!")
+                msg = "Output Path is not a directory!"
+                LOGGER.error(msg)
+                show_error_dialog(self, msg)
                 return None
             # create the save path if it does not exist
             if not save_path.exists():
@@ -300,8 +303,9 @@ class _AnalyseCalciumTraces(QWidget):
                 self._bleach_error_path = save_path / "bleach_correction_error"
                 self._bleach_error_path.mkdir(parents=True, exist_ok=True)
         else:
-            LOGGER.error("No Output Path provided!")
-            show_error_dialog(self, "No Output Path provided!")
+            msg = "No Output Path provided!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         # if the input is empty, return all positions that have labels. this can speed
