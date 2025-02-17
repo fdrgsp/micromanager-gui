@@ -62,6 +62,9 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
+ELAPSED_TIME_KEY = "ElapsedTime-ms"
+CAMERA_KEY = "camera_metadata"
+
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
     return np.array(a * np.exp(-b * x) + c)
@@ -439,7 +442,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._handle_plate_map()
 
         cpu_count = os.cpu_count() or 1
-        cpu_count = max(1, cpu_count - 1)  # leave a couple of cores for the system
+        cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
         pos = len(positions)
         chunk_size = max(1, pos // cpu_count)
 
@@ -523,18 +526,30 @@ class _AnalyseCalciumTraces(QWidget):
 
         LOGGER.info("Processing Well %s", well)
 
-        # get average time interval between frames from the "ElapsedTime-ms" metadata
+        seq = cast(useq.MDASequence, self.data.sequence)
+        timepoints = seq.sizes["t"]
+        exp_time = meta[0][event_key].get("exposure")
         elapsed_time: list = []
-        elapsed_time.extend(m.get("ElapsedTime-ms") for m in meta)
-        if None in elapsed_time:
-            mean_elapsed_time_ms = 0
+
+        # get the elapsed time for each timepoint to calculate tot_time_sec
+        if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
+            for m in meta:
+                et = m[cam_key].get(ELAPSED_TIME_KEY)
+                if et is not None:
+                    elapsed_time.append(float(et))
+        else:  # old metadata format
+            for m in meta:
+                et = m.get(ELAPSED_TIME_KEY)
+                if et is not None:
+                    elapsed_time.append(float(et))
+        # if the len of elapsed time is not equal to the number of timepoints,
+        # use exposure time and the number of timepoints to calculate tot_time_sec
+        if len(elapsed_time) != timepoints:
+            tot_time_sec = exp_time * timepoints / 1000
         else:
-            # calculate actuar time interval by subtracting the previous time point
-            # from the current time point
-            elapsed_time = np.array(elapsed_time) - np.roll(np.array(elapsed_time), 1)
-            elapsed_time[0] = 0
-            # get the average time interval between frames
-            mean_elapsed_time_ms = np.mean(elapsed_time)
+            # otherwise, calculate the total time in seconds using the elapsed time.
+            # NOTE: adding the exposure time to consider the first frame
+            tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
 
         roi_trace: np.ndarray
         linear_phase_dict: dict[str, list[float]] | None = {}
@@ -610,11 +625,6 @@ class _AnalyseCalciumTraces(QWidget):
                 if cubic_phase is not None:
                     cubic_phase_dict[str(label_value)] = cubic_phase
 
-                # get the frequency of the peaks in the dec_dff trace
-                seq = cast(useq.MDASequence, self.data.sequence)
-                tot_time_sec = (
-                    seq.sizes["t"] * mean_elapsed_time_ms / 1000
-                )  # in seconds
                 try:
                     frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
                 except ZeroDivisionError:
@@ -650,7 +660,7 @@ class _AnalyseCalciumTraces(QWidget):
                 cell_size_units="µm" if px_size is not None else "pixel",
                 condition_1=condition_1,
                 condition_2=condition_2,
-                average_time_interval=mean_elapsed_time_ms,
+                total_recording_time_in_sec=tot_time_sec,
                 active=active,
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,

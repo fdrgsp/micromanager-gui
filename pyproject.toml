@@ -75,7 +75,7 @@ repository = "https://github.com/fdrgsp/micromanager-gui"
 # same as console_scripts entry point
 [project.scripts]
 mmgui = "micromanager_gui.__main__:main"
-pw = "micromanager_gui.__main__:plate_viewer"
+pv = "micromanager_gui.__main__:plate_viewer"
 bcp = "micromanager_gui.__main__:batch_cellpose"
 
 # Entry points

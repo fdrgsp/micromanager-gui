@@ -98,7 +98,7 @@ class ROIData(BaseClass):
     condition_2: str | None = None
     cell_size: float | None = None
     cell_size_units: str | None = None
-    average_time_interval: float | None = None
+    total_recording_time_in_sec: float | None = None
     active: bool | None = None
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None

@@ -75,7 +75,7 @@ After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and
 ## To run the Plate Viewer GUI
 
 ```bash
-pw
+pv
 ```
 
 <img width="1728" alt="Screenshot 2024-07-17 at 10 21 24 PM" src="https://github.com/user-attachments/assets/b81d0ad3-a6d4-4ada-97b5-b4734c7d8eea">
