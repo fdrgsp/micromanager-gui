@@ -438,7 +438,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._handle_plate_map()
 
         cpu_count = os.cpu_count() or 1
-        cpu_count = max(1, cpu_count - 1)  # leave a couple of cores for the system
+        cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
         pos = len(positions)
         chunk_size = max(1, pos // cpu_count)
 
