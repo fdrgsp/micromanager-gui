@@ -49,6 +49,8 @@ from ._util import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
@@ -223,6 +225,7 @@ class _AnalyseCalciumTraces(QWidget):
             positions=pos,
             _start_thread=True,
             _connect={
+                "yielded": self._show_error_dialog,
                 "finished": self._on_worker_finished,
                 "errored": self._on_worker_finished,
             },
@@ -244,6 +247,10 @@ class _AnalyseCalciumTraces(QWidget):
         self._progress_bar.setValue(0)
         self._progress_pos_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
+
+    def _show_error_dialog(self, error: str) -> None:
+        """Show an error dialog."""
+        show_error_dialog(self, error)
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -308,8 +315,9 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, msg)
             return None
 
-        # if the input is empty, return all positions that have labels. this can speed
-        # up analysis since we will be sure that the labels exist for the positions.
+        # if the uses select to analyse all the positions (_pos_le empty), return all
+        # positions that have labels. his can speed up analysis since we will be sure
+        # that the labels exist for the positions.
         if not self._pos_le.text():
             positions: list[int] = []
             pos = list(sequence.stage_positions)
@@ -434,7 +442,7 @@ class _AnalyseCalciumTraces(QWidget):
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
-    def _extract_traces(self, positions: list[int]) -> None:
+    def _extract_traces(self, positions: list[int]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
         LOGGER.info("Starting traces extraction...")
 
@@ -472,14 +480,14 @@ class _AnalyseCalciumTraces(QWidget):
                         LOGGER.info(f"Chunk {idx + 1} completed.")
                     except Exception as e:
                         LOGGER.error("An error occurred in a chunk: %s", e)
-                        show_error_dialog(self, f"An error occurred in a chunk: {e}")
+                        yield f"An error occurred in a chunk: {e}"
                         break
 
             LOGGER.info("All tasks completed.")
 
         except Exception as e:
             LOGGER.error("An error occurred: %s", e)
-            show_error_dialog(self, f"An error occurred: {e}")
+            yield f"An error occurred: {e}"
 
     def _extract_trace_for_chunk(
         self, positions: list[int], start: int, end: int
