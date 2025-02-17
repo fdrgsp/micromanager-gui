@@ -513,8 +513,8 @@ class _AnalyseCalciumTraces(QWidget):
             return
         labels = tifffile.imread(labels_path)
 
-        # get the range of labels
-        labels_range = range(1, labels.max())
+        # get the range of labels and remove the background (0)
+        labels_range = np.unique(labels[labels != 0])
 
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
