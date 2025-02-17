@@ -501,7 +501,6 @@ class _AnalyseCalciumTraces(QWidget):
         # the "Event" key was used in the old metadata format
         event_key = "mda_event" if "mda_event" in meta[0] else "Event"
         well = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-        frames = data.shape[0]
 
         # create the dict for the well
         if well not in self._analysis_data:
@@ -573,9 +572,9 @@ class _AnalyseCalciumTraces(QWidget):
             # otherwise use the size is in pixels
             roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
 
-            if (
-                px_size and roi_size < 10
-            ):  # might not be necessary if trained cellpose performs better
+            # exclude small rois, might not be necessary if trained cellpose performs
+            # better
+            if px_size and roi_size < 10:
                 continue
 
             # compute the mean for each frame
@@ -612,29 +611,14 @@ class _AnalyseCalciumTraces(QWidget):
             # find the peaks in the dec_dff trace
             peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
 
-            if len(peaks_dec_dff) >= 2:
-                active = True
-                # get the amplitudes of the peaks in the dec_dff trace
-                peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
+            # get the amplitudes of the peaks in the dec_dff trace
+            peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
-                linear_phase = get_linear_phase(frames, peaks_dec_dff)
-                cubic_phase = get_cubic_phase(frames, peaks_dec_dff)
-                if linear_phase is not None:
-                    linear_phase_dict[str(label_value)] = linear_phase
-
-                if cubic_phase is not None:
-                    cubic_phase_dict[str(label_value)] = cubic_phase
-
-                try:
-                    frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
-                except ZeroDivisionError:
-                    frequency = 0  # in Hz
-            else:
-                peaks_amplitudes_dec_dff = None
-                linear_phase = None
-                cubic_phase = None
-                frequency = None
-                active = False
+            # calculate the frequency of the peaks in the dec_dff trace
+            try:
+                frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
+            except ZeroDivisionError:
+                frequency = 0
 
             # get the conditions for the roi if available
             condition_1 = condition_2 = None
@@ -645,6 +629,15 @@ class _AnalyseCalciumTraces(QWidget):
                     condition_2 = self._plate_map_data[well_name].get(COND2)
                 else:
                     condition_1 = condition_2 = None
+
+            # get the linear and cubic phase if there are at least 2 peaks
+            if len(peaks_dec_dff) >= 2:
+                linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
+                cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+                if linear_phase is not None:
+                    linear_phase_dict[str(label_value)] = linear_phase
+                if cubic_phase is not None:
+                    cubic_phase_dict[str(label_value)] = cubic_phase
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -661,9 +654,9 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1=condition_1,
                 condition_2=condition_2,
                 total_recording_time_in_sec=tot_time_sec,
-                active=active,
-                linear_phase=linear_phase,
-                cubic_phase=cubic_phase,
+                active=len(peaks_dec_dff) > 0,
+                linear_phase=linear_phase or None,
+                cubic_phase=cubic_phase or None,
             )
 
         # calculate connectivity
