@@ -44,6 +44,10 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
+    get_connectivity,
+    get_connectivity_matrix,
+    get_cubic_phase,
+    get_linear_phase,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -559,6 +563,8 @@ class _AnalyseCalciumTraces(QWidget):
             tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
 
         roi_trace: np.ndarray
+        linear_phase_dict: dict[str, list[float]] | None = {}
+        cubic_phase_dict: dict[str, list[float]] | None = {}
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
@@ -570,6 +576,18 @@ class _AnalyseCalciumTraces(QWidget):
 
             # calculate the mean trace for the roi
             masked_data = data[:, mask]
+
+            # get the size of the roi in µm or px if µm is not available
+            roi_size_pixel = masked_data.shape[1]  # area
+            px_size = meta[0].get("PixelSizeUm", None)
+            # calculate the size of the roi in µm if px_size is available or not 0,
+            # otherwise use the size is in pixels
+            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+
+            # exclude small rois, might not be necessary if trained cellpose performs
+            # better
+            if px_size and roi_size < 10:
+                continue
 
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
@@ -608,18 +626,11 @@ class _AnalyseCalciumTraces(QWidget):
             # get the amplitudes of the peaks in the dec_dff trace
             peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
-            # get the frequency of the peaks in the dec_dff trace
+            # calculate the frequency of the peaks in the dec_dff trace
             try:
                 frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
             except ZeroDivisionError:
-                frequency = 0  # in Hz
-
-            # get the size of the roi in µm or px if µm is not available
-            roi_size_pixel = masked_data.shape[1]  # area
-            px_size = meta[0].get("PixelSizeUm", None)
-            # calculate the size of the roi in µm if px_size is available or not 0,
-            # otherwise use the size is in pixels
-            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+                frequency = 0
 
             # get the conditions for the roi if available
             condition_1 = condition_2 = None
@@ -630,6 +641,15 @@ class _AnalyseCalciumTraces(QWidget):
                     condition_2 = self._plate_map_data[well_name].get(COND2)
                 else:
                     condition_1 = condition_2 = None
+
+            # get the linear and cubic phase if there are at least 2 peaks
+            if len(peaks_dec_dff) >= 2:
+                linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
+                cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+                if linear_phase is not None:
+                    linear_phase_dict[str(label_value)] = linear_phase
+                if cubic_phase is not None:
+                    cubic_phase_dict[str(label_value)] = cubic_phase
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -646,7 +666,28 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1=condition_1,
                 condition_2=condition_2,
                 total_recording_time_in_sec=tot_time_sec,
+                active=len(peaks_dec_dff) > 0,
+                linear_phase=linear_phase or None,
+                cubic_phase=cubic_phase or None,
             )
+
+        # calculate connectivity
+        cubic_fig_path = Path(self._output_path.value()) / f"{well}_cubic.png"
+        linear_fig_path = Path(self._output_path.value()) / f"{well}_linear.png"
+        cubic_connectivity_matrix = get_connectivity_matrix(
+            cubic_phase_dict, cubic_fig_path
+        )
+        linear_connectivity_matrix = get_connectivity_matrix(
+            linear_phase_dict, linear_fig_path
+        )
+        cubic_mean_global_connectivity = get_connectivity(cubic_connectivity_matrix)
+        linear_mean_global_connectivity = get_connectivity(linear_connectivity_matrix)
+        self._analysis_data[well]["cubic global connectivity"] = (
+            cubic_mean_global_connectivity
+        )
+        self._analysis_data[well]["linear global connectivity"] = (
+            linear_mean_global_connectivity
+        )
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)
