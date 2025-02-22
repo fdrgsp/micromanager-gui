@@ -180,7 +180,7 @@ class CellposeBatchSegmentation(QWidget):
             labels, _, _, _ = model.eval(cyto_frame)
             self._labels[f"{pos_name}_p{p}"] = labels
             # save to disk
-            tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", labels)
+            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
 
     def cancel(self) -> None:
         """Cancel the current run."""
