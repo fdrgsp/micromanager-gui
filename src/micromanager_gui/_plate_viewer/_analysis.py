@@ -44,8 +44,6 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
-    get_connectivity,
-    get_connectivity_matrix,
     get_cubic_phase,
     get_linear_phase,
     parse_lineedit_text,
@@ -551,8 +549,8 @@ class _AnalyseCalciumTraces(QWidget):
             tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
 
         roi_trace: np.ndarray
-        linear_phase_dict: dict[str, list[float]] | None = {}
-        cubic_phase_dict: dict[str, list[float]] | None = {}
+        # linear_phase_dict: dict[str, list[float]] = {}
+        # cubic_phase_dict: dict[str, list[float]] = {}
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
@@ -629,15 +627,17 @@ class _AnalyseCalciumTraces(QWidget):
                     condition_2 = self._plate_map_data[well_name].get(COND2)
                 else:
                     condition_1 = condition_2 = None
-
             # get the linear and cubic phase if there are at least 2 peaks
+            linear_phase: list[float] = []
+            cubic_phase: list[float] = []
+
             if len(peaks_dec_dff) >= 2:
                 linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
                 cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
-                if linear_phase is not None:
-                    linear_phase_dict[str(label_value)] = linear_phase
-                if cubic_phase is not None:
-                    cubic_phase_dict[str(label_value)] = cubic_phase
+                # if len(linear_phase) > 0:
+                #     linear_phase_dict[str(label_value)] = linear_phase
+                # if len(cubic_phase) > 0:
+                #     cubic_phase_dict[str(label_value)] = cubic_phase
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -655,27 +655,20 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_2=condition_2,
                 total_recording_time_in_sec=tot_time_sec,
                 active=len(peaks_dec_dff) > 0,
-                linear_phase=linear_phase or None,
-                cubic_phase=cubic_phase or None,
+                linear_phase=linear_phase,
+                cubic_phase=cubic_phase,
             )
 
-        # calculate connectivity
-        cubic_fig_path = Path(self._output_path.value()) / f"{well}_cubic.png"
-        linear_fig_path = Path(self._output_path.value()) / f"{well}_linear.png"
-        cubic_connectivity_matrix = get_connectivity_matrix(
-            cubic_phase_dict, cubic_fig_path
-        )
-        linear_connectivity_matrix = get_connectivity_matrix(
-            linear_phase_dict, linear_fig_path
-        )
-        cubic_mean_global_connectivity = get_connectivity(cubic_connectivity_matrix)
-        linear_mean_global_connectivity = get_connectivity(linear_connectivity_matrix)
-        self._analysis_data[well]["cubic global connectivity"] = (
-            cubic_mean_global_connectivity
-        )
-        self._analysis_data[well]["linear global connectivity"] = (
-            linear_mean_global_connectivity
-        )
+        # # calculate connectivity
+        # cubic_mean_global_connectivity = get_connectivity(cubic_phase_dict)
+        # linear_mean_global_connectivity = get_connectivity(linear_phase_dict)
+
+        # self._analysis_data[well]["cubic global connectivity"] = (
+        #     cubic_mean_global_connectivity
+        # )
+        # self._analysis_data[well]["linear global connectivity"] = (
+        #     linear_mean_global_connectivity
+        # )
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)
@@ -687,6 +680,5 @@ class _AnalyseCalciumTraces(QWidget):
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
             )
-
         # update the progress bar
         self.progress_bar_updated.emit()
