@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,9 +16,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from scipy.interpolate import CubicSpline
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
@@ -317,25 +314,22 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     return background
 
 
-def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float] | None:
+def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
-    peaks_copy = peaks.copy().tolist()
-
-    if len(peaks) == 0:
-        return None
+    peaks_list = [int(peak) for peak in peaks]
 
     if any(p < 0 or p >= frames for p in peaks):
         raise ValueError("All peaks must be within the range of frames.")
 
-    if peaks_copy[0] != 0:
-        peaks_copy.insert(0, 0)
-    if peaks_copy[-1] != (frames - 1):
-        peaks_copy.append(frames - 1)
+    if peaks_list[0] != 0:
+        peaks_list.insert(0, 0)
+    if peaks_list[-1] != (frames - 1):
+        peaks_list.append(frames - 1)
 
     phase = [0.0] * frames
 
-    for k in range(len(peaks_copy) - 1):
-        start, end = peaks_copy[k], peaks_copy[k + 1]
+    for k in range(len(peaks_list) - 1):
+        start, end = peaks_list[k], peaks_list[k + 1]
 
         if start == end:
             continue
@@ -343,41 +337,42 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float] | None:
         for t in range(start, end):
             phase[t] = (2 * np.pi) * ((t - start) / (end - start)) + (2 * np.pi * k)
 
-    phase[frames - 1] = 2 * np.pi * (len(peaks_copy) - 1)
+    phase[frames - 1] = 2 * np.pi * (len(peaks_list) - 1)
 
     return phase
 
 
-def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float] | None:
+def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the instantaneous phase with smooth interpolation and handle negative values."""  # noqa: E501
-    peaks_copy = peaks.copy().tolist()
+    peaks_list = [int(peak) for peak in peaks]
 
-    if len(peaks_copy) == 0:
-        return None
+    if peaks_list[0] != 0:
+        peaks_list.insert(0, 0)
 
-    if peaks_copy[0] != 0:
-        peaks_copy.insert(0, 0)
+    if peaks_list[-1] != (total_frames - 1):
+        peaks_list.append(total_frames - 1)
 
-    if peaks_copy[-1] != total_frames - 1:
-        peaks_copy.append(total_frames - 1)
-
-    num_cycles = len(peaks_copy) - 1
+    num_cycles = len(peaks_list) - 1
 
     peak_phases = np.arange(num_cycles + 1) * 2 * np.pi
 
-    cubic_spline = CubicSpline(peaks_copy, peak_phases, bc_type="clamped")
+    cubic_spline = CubicSpline(peaks_list, peak_phases, bc_type="clamped")
 
     frames = np.arange(total_frames)
-    phase = cubic_spline(frames)
+    phases = cubic_spline(frames)
 
-    phase = np.clip(phase, 0, None)
-    phase = np.mod(phase, 2 * np.pi)
+    phases = np.clip(phases, 0, None)
+    phases = np.mod(phases, 2 * np.pi)
 
-    return phase.tolist()
+    phase_list = [float(phase) for phase in phases]
+
+    return phase_list
 
 
-def get_connectivity(connection_matrix: np.ndarray):
+def get_connectivity(phase_dict: dict[str, list[float]]) -> float | None:
     """Calculate the connection matrix."""
+    connection_matrix = _get_connectivity_matrix(phase_dict)
+
     if connection_matrix is None or connection_matrix.size == 0:
         return None
 
@@ -388,16 +383,15 @@ def get_connectivity(connection_matrix: np.ndarray):
         return None
 
     # Compute mean connectivity
-    mean_connect = np.median(np.sum(connection_matrix, axis=0) - 1) / (
-        connection_matrix.shape[0] - 1
+    mean_connect = float(
+        np.median(np.sum(connection_matrix, axis=0) - 1)
+        / (connection_matrix.shape[0] - 1)
     )
 
     return mean_connect
 
 
-def get_connectivity_matrix(
-    phase_dict: dict[str, list[float]], path: Path
-) -> np.ndarray | None:
+def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
     """Calculate global connectivity using vectorized operations."""
     active_rois = list(phase_dict.keys())  # ROI names
 
@@ -420,29 +414,6 @@ def get_connectivity_matrix(
     sin_mean = np.mean(np.sin(phase_diff), axis=2)  # Shape: (N, N)
 
     # Compute synchronization index (vectorized)
-    connect_matrix = np.sqrt(cos_mean**2 + sin_mean**2)
-
-    _plot_connection(connect_matrix, path, active_rois)
+    connect_matrix = np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
     return connect_matrix
-
-
-def _plot_connection(
-    connect_matrix: np.ndarray, path: Path, roi_labels: list[str]
-) -> None:
-    """Plot the connection matrix."""
-    fig, ax = plt.subplots()
-    im = ax.imshow(connect_matrix)
-    ax.figure.colorbar(im, ax=ax)
-    # ax.set_xticks(range(connect_matrix.shape[1]), labels="Neuron ID")
-    # ax.set_yticks(range(connect_matrix.shape[0]), labels="Neuron ID")
-    # ax.spines[:].set_visible(False)
-    ax.set_xticks(range(connect_matrix.shape[1]), labels=roi_labels)
-    ax.set_yticks(range(connect_matrix.shape[0]), labels=roi_labels)
-    ax.set_xlabel("Neuron ID")
-    ax.set_ylabel("Neuron ID")
-    # ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
-    # ax.tick_params(which="minor", bottom=False, left=False)
-
-    fig.savefig(path)
-    plt.close(fig)
