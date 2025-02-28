@@ -99,6 +99,7 @@ class ROIData(BaseClass):
     active: bool | None = None
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
+    iei: list[float] | None = None
     # ... add whatever other data we need
 
 
@@ -417,3 +418,19 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     connect_matrix = np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
     return connect_matrix
+
+
+def get_iei(peaks: list[int], exposure_time: float) -> list[float] | None:
+    """Calculate the interevent interval."""
+    # calculate framerate in Hz
+    framerate = 1 / (exposure_time / 1000)
+
+    # if less than 2 peaks or framerate is negative
+    if len(peaks) < 2 or framerate <= 0:
+        return None
+
+    # calculate the difference in time between two consecutive peaks
+    iei_frames = np.diff(np.array(peaks))
+    iei = [float(iei_frame / framerate) for iei_frame in iei_frames]  # s
+
+    return iei

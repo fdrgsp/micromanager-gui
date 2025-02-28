@@ -45,6 +45,7 @@ from ._util import (
     _WaitingProgressBarWidget,
     calculate_dff,
     get_cubic_phase,
+    get_iei,
     get_linear_phase,
     parse_lineedit_text,
     show_error_dialog,
@@ -639,6 +640,8 @@ class _AnalyseCalciumTraces(QWidget):
                 # if len(cubic_phase) > 0:
                 #     cubic_phase_dict[str(label_value)] = cubic_phase
 
+            iei = get_iei(peaks_dec_dff, exp_time)  # s
+
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
                 raw_trace=cast(list[float], roi_trace.tolist()),
@@ -657,6 +660,7 @@ class _AnalyseCalciumTraces(QWidget):
                 active=len(peaks_dec_dff) > 0,
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,
+                iei=iei,
             )
 
         # # calculate connectivity
