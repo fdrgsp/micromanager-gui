@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+import xlsxwriter
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
@@ -22,10 +24,24 @@ T = TypeVar("T", bound="BaseClass")
 
 RED = "#C33"
 GREEN = "#00FF00"
+BLUE = "#3776A1"
 GENOTYPE_MAP = "genotype_plate_map.json"
 TREATMENT_MAP = "treatment_plate_map.json"
 COND1 = "condition_1"
 COND2 = "condition_2"
+
+# ----------------------------Measurement to compile in CSV---------------------------
+# Each metric here will be pulled/calculated from the analysis data and compile into
+# a CSV at the end of the analysis.
+COMPILE_METRICS = [
+    "amplitude",
+    "frequency",
+    "cell_size",
+    "linear_connectivity",
+    "cubic_connectivity",
+    "iei",
+    "percentage_active",
+]
 
 # -----------------------------------GRAPH PLOTTING-----------------------------------
 # Anything added here will appear in the dropdown menu in the graph widget.
@@ -434,3 +450,223 @@ def get_iei(peaks: list[int], exposure_time: float) -> list[float] | None:
     iei = [float(iei_frame / framerate) for iei_frame in iei_frames]  # s
 
     return iei
+
+
+# ----------------------------code to compile data------------------------------------
+def compile_data_to_csv(
+    analysis_data: dict[int, dict],
+    plate_map: dict[str, dict[str, str]],
+    save_path: str,
+    col_per_treatment: int = 12,
+):
+    """Compile the data from analysis data into a CSV."""
+    condition_1_list, condition_2_list = _compile_conditions(plate_map)
+    fov_data_by_metric, cell_size_unit = _compile_per_metric(analysis_data, plate_map)
+    _output_csv(
+        fov_data_by_metric,
+        condition_1_list,
+        condition_2_list,
+        cell_size_unit,
+        save_path,
+    )
+
+
+def _compile_per_metric(
+    analysis_data: dict[int, dict], plate_map: dict[str, dict[str, str]]
+) -> list | str:
+    """Group the FOV data of all the output parameter into a giant list."""
+    data_by_metrics: list[dict[str, dict[str, dict[str, list[float]]]]] = []
+    # mean_amplitude_dict = {}
+    # mean_cell_size_dict = {}
+    # mean_frequency_dict = {}
+    # mean_iei_dict = {}
+    # activity_dict = {}
+    # mean_connectivity_dict = {}
+
+    for output in COMPILE_METRICS:  # noqa: B007
+        data_by_metrics.append({})
+
+    wells_in_plate_map = list(plate_map.keys())
+
+    # TODO: if no plate map:
+
+    for fov_name, fov_dict in analysis_data.items():
+        well = fov_name.split("_")[0]
+
+        # TODO: if well not in the plate map
+        if well not in wells_in_plate_map:
+            continue
+
+        condition_1 = plate_map[well][COND1]
+        condition_2 = plate_map[well][COND2]
+
+        for output_dict in data_by_metrics:
+            if condition_1 not in output_dict:
+                output_dict[condition_1] = {}
+            if condition_2 not in output_dict[condition_1]:
+                output_dict[condition_1][condition_2] = []
+
+        data_per_fov_dict, cell_size_unit = _compile_data_per_fov(fov_dict)
+
+        for i, output in enumerate(COMPILE_METRICS):
+            output_value = data_per_fov_dict[output]
+            data_by_metrics[i][condition_1][condition_2].append(output_value)
+
+    return data_by_metrics, cell_size_unit
+
+
+def _compile_data_per_fov(fov_dict: dict[str, ROIData]) -> dict[str, float] | str:
+    """Compile FOV data from all ROI data."""
+    # compile data for one fov
+    data_per_fov_dict: dict[str, float] = {}
+
+    for measurement in COMPILE_METRICS:
+        if measurement not in data_per_fov_dict:
+            data_per_fov_dict[measurement] = 0
+
+    amplitude_list_fov = []
+    cell_size_list_fov = []
+    frequency_list_fov = []
+    iei_list_fov = []
+    active_cells: int = 0
+    cell_size_unit = None
+    cubic_phases: dict[str, list[float]] = {}
+    linear_phases: dict[str, list[float]] = {}
+
+    for roi_name, roiData in fov_dict.items():
+        if isinstance(roiData, ROIData) and roiData.active:
+            # cell size
+            cell_size_list_fov.append(roiData.cell_size)
+            if cell_size_unit is None:
+                cell_size_unit = roiData.cell_size_units
+
+            # amplitude
+            avg_amp_roi = np.mean(roiData.peaks_amplitudes_dec_dff)
+            amplitude_list_fov.append(float(avg_amp_roi))
+
+            # frequency
+            frequency_list_fov.append(roiData.dec_dff_frequency)
+
+            # iei
+            avg_iei_roi = np.mean(roiData.iei)
+            iei_list_fov.append(float(avg_iei_roi))
+
+            # global connectivity
+            if len(roiData.cubic_phase) > 0:  # may not be necessary
+                cubic_phases[roi_name] = roiData.cubic_phase
+
+            if len(roiData.linear_phase) > 0:  # may not be necessary
+                linear_phases[roi_name] = roiData.linear_phase
+
+            # activity
+            active_cells += 1
+
+    avg_amp_fov = (
+        np.nanmean(amplitude_list_fov, dtype=np.float64)
+        if (len(amplitude_list_fov) > 0)
+        else "N/A"
+    )
+    avg_cell_size_fov = (
+        np.nanmean(cell_size_list_fov, dtype=np.float64)
+        if (len(cell_size_list_fov) > 0)
+        else "N/A"
+    )
+    avg_frequnecy_fov = (
+        np.nanmean(frequency_list_fov, dtype=np.float64)
+        if (len(frequency_list_fov) > 0)
+        else "N/A"
+    )
+    avg_iei_fov = (
+        np.nanmean(iei_list_fov, dtype=np.float64) if (len(iei_list_fov) > 0) else "N/A"
+    )
+
+    cubic_connectivity = get_connectivity(cubic_phases)
+    linear_connectivity = get_connectivity(linear_phases)
+    percentage_active = float(active_cells / len(list(fov_dict.keys())) * 100)
+
+    # NOTE: if adding more output measurements,
+    # make sure to check that the keys are in the COMPILED_METRICS
+    data_per_fov_dict["amplitude"] = avg_amp_fov
+    data_per_fov_dict["frequency"] = avg_frequnecy_fov
+    data_per_fov_dict["cell_size"] = avg_cell_size_fov
+    data_per_fov_dict["iei"] = avg_iei_fov
+    data_per_fov_dict["percentage_active"] = percentage_active
+    data_per_fov_dict["cubic_connectivity"] = cubic_connectivity
+    data_per_fov_dict["linear_connectivity"] = linear_connectivity
+
+    return data_per_fov_dict, cell_size_unit
+
+
+def _compile_conditions(plate_map_data: dict[str, dict[str, str]]) -> list[str]:
+    # TODO: what if one of the condition is missing?
+    condition_1_list = list({value[COND1] for value in plate_map_data.values()})
+    condition_2_list = list({value[COND2] for value in plate_map_data.values()})
+    return condition_1_list, condition_2_list
+
+
+def _output_csv(
+    compiled_data_list: list,
+    condition_1_list: list,
+    condition_2_list: list,
+    cell_size_unit: str,
+    save_path: str,
+    col_per_treatment: int = 12,
+) -> None:
+    """Save csv files of the data."""
+    # logger.info("Saving output files")
+    exp_name = Path(save_path).parent.name
+
+    if compiled_data_list is None:
+        return None
+
+    for readout, readout_data in zip(COMPILE_METRICS, compiled_data_list):
+        file_path = Path(save_path) / f"{exp_name}_{readout}.xlsx"
+        with xlsxwriter.Workbook(file_path, {"nan_inf_to_errors": True}) as wkbk:
+            wkst = wkbk.add_worksheet(readout)
+            num_format = wkbk.add_format({"num_format": "0.00"})
+            wkst.write(0, 0, readout)
+
+            if len(condition_2_list) > 1:
+                # write conditions
+                for i, condition in enumerate(condition_2_list):
+                    for repeat in range(col_per_treatment):
+                        wkst.write(0, i * col_per_treatment + repeat + 1, condition)
+
+            # write genotypes
+            for i, condition_1 in enumerate(condition_1_list):
+                cond1 = condition_1
+                if condition_1.lower() == "crispr":
+                    cond1 = "+/+"
+                elif condition_1.lower() == "patient":
+                    cond1 = "+/-"
+                elif condition_1.lower() == "null":
+                    cond1 = "-/-"
+
+                wkst.write(i + 1, 0, cond1)
+
+            for condition1, cond_data in readout_data.items():
+                for condition2, data_list in cond_data.items():
+                    for i in range(col_per_treatment):
+                        try:
+                            start = condition_2_list.index(condition2)
+                            row = condition_1_list.index(condition1) + 1
+                        except ValueError:
+                            start = 0
+                            row = 5
+
+                        if i < len(data_list):
+                            entry = data_list[i]
+                            if entry == "N/A":
+                                wkst.write(
+                                    row, start * col_per_treatment + i + 1, entry
+                                )
+                            else:
+                                wkst.write_number(
+                                    row,
+                                    start * col_per_treatment + i + 1,
+                                    float(entry),
+                                    num_format,
+                                )
+                        else:
+                            entry = "N/A"
+                            wkst.write(row, start * col_per_treatment + i + 1, entry)
