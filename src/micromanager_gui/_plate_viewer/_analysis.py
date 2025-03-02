@@ -46,6 +46,7 @@ from ._util import (
     _WaitingProgressBarWidget,
     calculate_dff,
     compile_data_to_csv,
+    # _compile_per_metric,
     get_cubic_phase,
     get_iei,
     get_linear_phase,
@@ -243,13 +244,21 @@ class _AnalyseCalciumTraces(QWidget):
         """Save the analysis data into CSV files."""
         save_path = self._output_path.value()
 
-        if len(self._analysis_data.keys()) < 1:
+        # check if analysis was loaded
+        if (
+            self._plate_viewer is None
+            or len(list(self._plate_viewer._analysis_data.keys())) < 1
+        ):
             msg = "No analyzed data!\nLoad or run analysis."
             LOGGER.error(msg)
             show_error_dialog(self, msg)
             return None
 
-        compile_data_to_csv(self._analysis_data, self._plate_map_data, save_path)
+        self._handle_plate_map()
+
+        compile_data_to_csv(
+            self._plate_viewer._analysis_data, self._plate_map_data, save_path
+        )
 
     def cancel(self) -> None:
         """Cancel the current run."""

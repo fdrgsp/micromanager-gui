@@ -454,11 +454,11 @@ def get_iei(peaks: list[int], exposure_time: float) -> list[float] | None:
 
 # ----------------------------code to compile data------------------------------------
 def compile_data_to_csv(
-    analysis_data: dict[int, dict],
+    analysis_data: dict[str, dict],
     plate_map: dict[str, dict[str, str]],
     save_path: str,
     col_per_treatment: int = 12,
-):
+) -> None:
     """Compile the data from analysis data into a CSV."""
     condition_1_list, condition_2_list = _compile_conditions(plate_map)
     fov_data_by_metric, cell_size_unit = _compile_per_metric(analysis_data, plate_map)
@@ -472,16 +472,12 @@ def compile_data_to_csv(
 
 
 def _compile_per_metric(
-    analysis_data: dict[int, dict], plate_map: dict[str, dict[str, str]]
-) -> list | str:
+    analysis_data: dict[str, dict], plate_map: dict[str, dict[str, str]]
+) -> tuple[list[dict[str, dict[str, list[float]]]], str]:
     """Group the FOV data of all the output parameter into a giant list."""
-    data_by_metrics: list[dict[str, dict[str, dict[str, list[float]]]]] = []
-    # mean_amplitude_dict = {}
-    # mean_cell_size_dict = {}
-    # mean_frequency_dict = {}
-    # mean_iei_dict = {}
-    # activity_dict = {}
-    # mean_connectivity_dict = {}
+    # data_by_metrics: list[dict[str, dict[str, dict[str, list[float]]]]] = []
+    data_by_metrics: list[dict[str, dict[str, list[float]]]] = []
+    #               data metrix = []
 
     for output in COMPILE_METRICS:  # noqa: B007
         data_by_metrics.append({})
@@ -515,7 +511,9 @@ def _compile_per_metric(
     return data_by_metrics, cell_size_unit
 
 
-def _compile_data_per_fov(fov_dict: dict[str, ROIData]) -> dict[str, float] | str:
+def _compile_data_per_fov(
+    fov_dict: dict[str, ROIData],
+) -> tuple[dict[str, float], str]:
     """Compile FOV data from all ROI data."""
     # compile data for one fov
     data_per_fov_dict: dict[str, float] = {}
@@ -524,12 +522,12 @@ def _compile_data_per_fov(fov_dict: dict[str, ROIData]) -> dict[str, float] | st
         if measurement not in data_per_fov_dict:
             data_per_fov_dict[measurement] = 0
 
-    amplitude_list_fov = []
-    cell_size_list_fov = []
-    frequency_list_fov = []
-    iei_list_fov = []
+    amplitude_list_fov: list[float | None] = []
+    cell_size_list_fov: list[float | None] = []
+    frequency_list_fov: list[float | None] = []
+    iei_list_fov: list[float | None] = []
     active_cells: int = 0
-    cell_size_unit = None
+    cell_size_unit: str = ""
     cubic_phases: dict[str, list[float]] = {}
     linear_phases: dict[str, list[float]] = {}
 
@@ -537,48 +535,46 @@ def _compile_data_per_fov(fov_dict: dict[str, ROIData]) -> dict[str, float] | st
         if isinstance(roiData, ROIData) and roiData.active:
             # cell size
             cell_size_list_fov.append(roiData.cell_size)
-            if cell_size_unit is None:
-                cell_size_unit = roiData.cell_size_units
+            if len(cell_size_unit) < 1:
+                cell_size_unit = (
+                    roiData.cell_size_units
+                    if isinstance(roiData.cell_size_units, str)
+                    else ""
+                )
 
             # amplitude
-            avg_amp_roi = np.mean(roiData.peaks_amplitudes_dec_dff)
-            amplitude_list_fov.append(float(avg_amp_roi))
+            avg_amp_roi = (
+                np.mean(roiData.peaks_amplitudes_dec_dff, dtype=np.float64)
+                if isinstance(roiData.peaks_amplitudes_dec_dff, list)
+                else np.nan
+            )
+            amplitude_list_fov.append(avg_amp_roi)
 
             # frequency
             frequency_list_fov.append(roiData.dec_dff_frequency)
 
             # iei
-            avg_iei_roi = np.mean(roiData.iei)
-            iei_list_fov.append(float(avg_iei_roi))
+            avg_iei_roi = (
+                np.mean(roiData.iei, dtype=np.float64)
+                if isinstance(roiData.iei, list)
+                else np.nan
+            )
+            iei_list_fov.append(avg_iei_roi)
 
             # global connectivity
-            if len(roiData.cubic_phase) > 0:  # may not be necessary
+            if roiData.cubic_phase and len(roiData.cubic_phase) > 0:
                 cubic_phases[roi_name] = roiData.cubic_phase
 
-            if len(roiData.linear_phase) > 0:  # may not be necessary
+            if roiData.linear_phase and len(roiData.linear_phase) > 0:
                 linear_phases[roi_name] = roiData.linear_phase
 
             # activity
             active_cells += 1
 
-    avg_amp_fov = (
-        np.nanmean(amplitude_list_fov, dtype=np.float64)
-        if (len(amplitude_list_fov) > 0)
-        else "N/A"
-    )
-    avg_cell_size_fov = (
-        np.nanmean(cell_size_list_fov, dtype=np.float64)
-        if (len(cell_size_list_fov) > 0)
-        else "N/A"
-    )
-    avg_frequnecy_fov = (
-        np.nanmean(frequency_list_fov, dtype=np.float64)
-        if (len(frequency_list_fov) > 0)
-        else "N/A"
-    )
-    avg_iei_fov = (
-        np.nanmean(iei_list_fov, dtype=np.float64) if (len(iei_list_fov) > 0) else "N/A"
-    )
+    avg_amp_fov = _safe_mean(amplitude_list_fov)
+    avg_cell_size_fov = _safe_mean(cell_size_list_fov)
+    avg_frequency_fov = _safe_mean(frequency_list_fov)
+    avg_iei_fov = _safe_mean(iei_list_fov)
 
     cubic_connectivity = get_connectivity(cubic_phases)
     linear_connectivity = get_connectivity(linear_phases)
@@ -587,17 +583,23 @@ def _compile_data_per_fov(fov_dict: dict[str, ROIData]) -> dict[str, float] | st
     # NOTE: if adding more output measurements,
     # make sure to check that the keys are in the COMPILED_METRICS
     data_per_fov_dict["amplitude"] = avg_amp_fov
-    data_per_fov_dict["frequency"] = avg_frequnecy_fov
+    data_per_fov_dict["frequency"] = avg_frequency_fov
     data_per_fov_dict["cell_size"] = avg_cell_size_fov
     data_per_fov_dict["iei"] = avg_iei_fov
     data_per_fov_dict["percentage_active"] = percentage_active
-    data_per_fov_dict["cubic_connectivity"] = cubic_connectivity
-    data_per_fov_dict["linear_connectivity"] = linear_connectivity
+    data_per_fov_dict["cubic_connectivity"] = (
+        cubic_connectivity if isinstance(cubic_connectivity, list) else np.nan
+    )
+    data_per_fov_dict["linear_connectivity"] = (
+        linear_connectivity if isinstance(linear_connectivity, list) else np.nan
+    )
 
     return data_per_fov_dict, cell_size_unit
 
 
-def _compile_conditions(plate_map_data: dict[str, dict[str, str]]) -> list[str]:
+def _compile_conditions(
+    plate_map_data: dict[str, dict[str, str]],
+) -> tuple[list[str], list[str]]:
     # TODO: what if one of the condition is missing?
     condition_1_list = list({value[COND1] for value in plate_map_data.values()})
     condition_2_list = list({value[COND2] for value in plate_map_data.values()})
@@ -620,13 +622,16 @@ def _output_csv(
         return None
 
     for readout, readout_data in zip(COMPILE_METRICS, compiled_data_list):
-        file_path = Path(save_path) / f"{exp_name}_{readout}.xlsx"
+        if readout == "cell_size":
+            file_path = Path(save_path) / f"{exp_name}_{readout}_{cell_size_unit}.xlsx"
+        else:
+            file_path = Path(save_path) / f"{exp_name}_{readout}.xlsx"
         with xlsxwriter.Workbook(file_path, {"nan_inf_to_errors": True}) as wkbk:
             wkst = wkbk.add_worksheet(readout)
             num_format = wkbk.add_format({"num_format": "0.00"})
             wkst.write(0, 0, readout)
 
-            if len(condition_2_list) > 1:
+            if len(condition_2_list) > 0:
                 # write conditions
                 for i, condition in enumerate(condition_2_list):
                     for repeat in range(col_per_treatment):
@@ -670,3 +675,18 @@ def _output_csv(
                         else:
                             entry = "N/A"
                             wkst.write(row, start * col_per_treatment + i + 1, entry)
+
+
+def _safe_mean(data_list: list) -> float:
+    if len(data_list) < 1:
+        return np.nan
+
+    try:
+        data_list_cleaned = [float(v) for v in data_list if v is not None]
+        return (
+            np.mean(data_list_cleaned, dtype=np.float64)
+            if data_list_cleaned
+            else np.nan
+        )
+    except (ValueError, TypeError):
+        return np.nan
