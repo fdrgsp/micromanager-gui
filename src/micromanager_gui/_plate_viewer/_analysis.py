@@ -632,7 +632,7 @@ class _AnalyseCalciumTraces(QWidget):
             linear_phase: list[float] = []
             cubic_phase: list[float] = []
 
-            if len(peaks_dec_dff) >= 2:
+            if len(peaks_dec_dff) > 0:
                 linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
                 cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
                 # if len(linear_phase) > 0:
