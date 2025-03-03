@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import tifffile
+import torch
 from cellpose import models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
@@ -300,7 +301,14 @@ class _CellposeSegmentation(QWidget):
             if not custom_model_path:
                 show_error_dialog(self, "Please select a custom model path.")
                 return
-            model = CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
+            if not use_gpu:
+                model = CellposeModel(
+                    pretrained_model=custom_model_path,
+                    gpu=use_gpu,
+                    device=torch.device("cpu"),
+                )
+            else:
+                model = CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
         else:
             model_type = self._models_combo.currentText()
             model = models.Cellpose(gpu=use_gpu, model_type=model_type)
@@ -372,7 +380,7 @@ class _CellposeSegmentation(QWidget):
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
             cyto_frame = data_half_to_end.max(axis=0)
-            masks, _, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
+            masks, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
             # store the masks in the labels dict
             self._labels[f"{pos_name}_p{p}"] = masks
             # yield the current position to update the progress bar
