@@ -99,7 +99,7 @@ class ROIData(BaseClass):
     active: bool | None = None
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
-    iei: list[float] | None = None
+    iei: list[float] | None = None  # interevent interval
     # ... add whatever other data we need
 
 

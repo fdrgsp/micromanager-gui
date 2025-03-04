@@ -539,27 +539,29 @@ class _AnalyseCalciumTraces(QWidget):
         seq = cast(useq.MDASequence, self.data.sequence)
         timepoints = seq.sizes["t"]
         exp_time = meta[0][event_key].get("exposure")
-        elapsed_time: list = []
+        elapsed_time_list: list[float] = []
 
         # get the elapsed time for each timepoint to calculate tot_time_sec
         if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
             for m in meta:
                 et = m[cam_key].get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
         else:  # old metadata format
             for m in meta:
                 et = m.get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
         # if the len of elapsed time is not equal to the number of timepoints,
         # use exposure time and the number of timepoints to calculate tot_time_sec
-        if len(elapsed_time) != timepoints:
+        if len(elapsed_time_list) != timepoints:
             tot_time_sec = exp_time * timepoints / 1000
         else:
             # otherwise, calculate the total time in seconds using the elapsed time.
             # NOTE: adding the exposure time to consider the first frame
-            tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
+            tot_time_sec = (
+                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
+            ) / 1000
 
         roi_trace: np.ndarray
 
