@@ -474,6 +474,11 @@ class PlateViewer(QMainWindow):
                         continue
                     # loop over the rois
                     for roi in data.keys():
+                        if not roi.isdigit():
+                            # this is the case of global data
+                            # (e.g. cubic or linear global connectivity)
+                            self._analysis_data[roi] = data[roi]
+                            continue
                         # get the data for the roi
                         roi_data = cast(dict, data[roi])
                         # remove any key that is not in ROIData
