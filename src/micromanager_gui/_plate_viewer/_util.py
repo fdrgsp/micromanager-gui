@@ -420,17 +420,17 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     return connect_matrix
 
 
-def get_iei(peaks: list[int], exposure_time: float) -> list[float] | None:
+def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:
     """Calculate the interevent interval."""
-    # calculate framerate in Hz
-    framerate = 1 / (exposure_time / 1000)
-
     # if less than 2 peaks or framerate is negative
-    if len(peaks) < 2 or framerate <= 0:
+    if len(peaks) < 2 or len(elapsed_time_list) <= 1:
         return None
 
+    peaks_time_stamps = [elapsed_time_list[i] for i in peaks]
+
     # calculate the difference in time between two consecutive peaks
-    iei_frames = np.diff(np.array(peaks))
-    iei = [float(iei_frame / framerate) for iei_frame in iei_frames]  # s
+    iei_ms = np.diff(np.array(peaks_time_stamps))
+
+    iei = [float(iei_peak / 1000) for iei_peak in iei_ms]  # convert from ms to s
 
     return iei

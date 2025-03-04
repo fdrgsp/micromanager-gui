@@ -640,7 +640,7 @@ class _AnalyseCalciumTraces(QWidget):
                 # if len(cubic_phase) > 0:
                 #     cubic_phase_dict[str(label_value)] = cubic_phase
 
-            iei = get_iei(peaks_dec_dff, exp_time)  # s
+            iei = get_iei(peaks_dec_dff, elapsed_time)  # s
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
