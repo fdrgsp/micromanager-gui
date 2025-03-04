@@ -549,8 +549,6 @@ class _AnalyseCalciumTraces(QWidget):
             tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
 
         roi_trace: np.ndarray
-        # linear_phase_dict: dict[str, list[float]] = {}
-        # cubic_phase_dict: dict[str, list[float]] = {}
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
@@ -634,10 +632,6 @@ class _AnalyseCalciumTraces(QWidget):
             if len(peaks_dec_dff) > 0:
                 linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
                 cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
-                # if len(linear_phase) > 0:
-                #     linear_phase_dict[str(label_value)] = linear_phase
-                # if len(cubic_phase) > 0:
-                #     cubic_phase_dict[str(label_value)] = cubic_phase
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -658,17 +652,6 @@ class _AnalyseCalciumTraces(QWidget):
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,
             )
-
-        # # calculate connectivity
-        # cubic_mean_global_connectivity = get_connectivity(cubic_phase_dict)
-        # linear_mean_global_connectivity = get_connectivity(linear_phase_dict)
-
-        # self._analysis_data[well]["cubic global connectivity"] = (
-        #     cubic_mean_global_connectivity
-        # )
-        # self._analysis_data[well]["linear global connectivity"] = (
-        #     linear_mean_global_connectivity
-        # )
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)
