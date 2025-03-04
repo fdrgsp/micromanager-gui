@@ -378,7 +378,7 @@ class _CellposeSegmentation(QWidget):
             # yield the current position to update the progress bar
             yield p
             # save to disk
-            tifffile.imsave(Path(path) / f"{pos_name}_p{p}.tif", masks)
+            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", masks)
 
     def _on_model_combo_changed(self, text: str) -> None:
         """Show or hide the custom model path widget."""
