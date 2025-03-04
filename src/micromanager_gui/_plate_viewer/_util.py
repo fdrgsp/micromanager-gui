@@ -452,8 +452,8 @@ def compile_data_to_csv(
     col_per_treatment: int = 12,
 ) -> None:
     """Compile the data from analysis data into a CSV."""
-    condition_1_list, condition_2_list = _compile_conditions(plate_map)
-    fov_data_by_metric, cell_size_unit = _compile_per_metric(analysis_data, plate_map)
+    # condition_1_list, condition_2_list = _compile_conditions(plate_map)
+    fov_data_by_metric, cell_size_unit, condition_1_list, condition_2_list = _compile_per_metric(analysis_data, plate_map)
     _output_csv(
         fov_data_by_metric,
         condition_1_list,
@@ -465,16 +465,17 @@ def compile_data_to_csv(
 
 def _compile_per_metric(
     analysis_data: dict[str, dict], plate_map: dict[str, dict[str, str]]
-) -> tuple[list[dict[tuple[str, str], list[float]]], str]:
+) -> tuple[list[dict[str, dict[str, dict[str, list[float]]]]], str,
+           list[str], list[str]]:
     """Group the FOV data based on metrics and platemap."""
-    # data_by_metrics: list[dict[str, dict[str, dict[str, list[float]]]]] = []
-    data_by_metrics: list[dict[tuple[str, str], list[float]]] = []
+    data_by_metrics: list[dict[str, dict[str, list[float]]]] = []
+    condition_1_list: list[str] = []
+    condition_2_list: list[str] = []
 
     for output in COMPILE_METRICS:  # noqa: B007
         data_by_metrics.append({})
 
     wells_in_plate_map = list(plate_map.keys())
-    print(f"well in plate map: {wells_in_plate_map}")
 
     # TODO: if no plate map:
 
@@ -486,43 +487,39 @@ def _compile_per_metric(
         # or the wells were accidentally left out when creating the platemap
         # -- should still compile the data in the final csv
         # and label the row or column with the fov name maybe
-        if well not in wells_in_plate_map:
-            print(f"{well} not in plate map")
-            continue
+        # if well not in wells_in_plate_map:
+        #     print(f"{well} not in plate map")
+        #     continue
 
         if COND1 in plate_map[well]:
-            condition_1 = plate_map[well][COND1]
+            condition_1 = plate_map[well].get(COND1)
         else:
             condition_1 = "unspecified"
 
         if COND2 in plate_map[well]:
-            condition_2 = plate_map[well][COND2]
+            condition_2 = plate_map[well].get(COND2)
         else:
             condition_2 = "unspecified"
 
-        if condition_1 == condition_2:
-            condition_tuple = (fov_name, fov_name)
-        else:
-            condition_tuple = (condition_1, condition_2)
+        if condition_1 not in condition_1_list:
+            condition_1_list.append(condition_1)
 
-        print(f"condition_tuple for {fov_name}: {condition_tuple}")
+        if condition_2 not in condition_2_list:
+            condition_2_list.append(condition_2)
 
-        # for output_dict in data_by_metrics:
-        #     if condition_1 not in output_dict:
-        #         output_dict[condition_1] = {}
-        #     if condition_2 not in output_dict[condition_1]:
-        #         output_dict[condition_1][condition_2] = []
         for output_dict in data_by_metrics:
-            if condition_tuple not in output_dict:
-                output_dict[condition_tuple] = []
+            if condition_1 not in output_dict:
+                output_dict[condition_1] = {}
+            if condition_2 not in output_dict[condition_1]:
+                output_dict[condition_1][condition_2] = []
 
         data_per_fov_dict, cell_size_unit = _compile_data_per_fov(fov_dict)
 
         for i, output in enumerate(COMPILE_METRICS):
             output_value = data_per_fov_dict[output]
-            data_by_metrics[i][condition_tuple].append(output_value)
+            data_by_metrics[i][condition_1][condition_2].append(output_value)
 
-    return data_by_metrics, cell_size_unit
+    return data_by_metrics, cell_size_unit, condition_1_list, condition_2_list
 
 #checked
 def _compile_data_per_fov(
@@ -570,16 +567,20 @@ def _compile_data_per_fov(
             # iei
             avg_iei_roi = (
                 np.mean(roiData.iei, dtype=np.float64)
-                if isinstance(roiData.iei, list)
+                if isinstance(roiData.iei, list) or isinstance(roiData.iei, float)
                 else np.nan
             )
             iei_list_fov.append(avg_iei_roi)
 
             # global connectivity
-            if roiData.cubic_phase and len(roiData.cubic_phase) > 0:
+            if len(roiData.cubic_phase) > 0:
+                if roi_name not in cubic_phases:
+                    cubic_phases[roi_name] = []
                 cubic_phases[roi_name] = roiData.cubic_phase
 
-            if roiData.linear_phase and len(roiData.linear_phase) > 0:
+            if len(roiData.linear_phase) > 0:
+                if roi_name not in linear_phases:
+                    linear_phases[roi_name] = []
                 linear_phases[roi_name] = roiData.linear_phase
 
             # activity
@@ -602,31 +603,13 @@ def _compile_data_per_fov(
     data_per_fov_dict["iei"] = avg_iei_fov
     data_per_fov_dict["percentage_active"] = percentage_active
     data_per_fov_dict["cubic_connectivity"] = (
-        cubic_connectivity if isinstance(cubic_connectivity, list) else np.nan
+        cubic_connectivity if isinstance(cubic_connectivity, float) else np.nan
     )
     data_per_fov_dict["linear_connectivity"] = (
-        linear_connectivity if isinstance(linear_connectivity, list) else np.nan
+        linear_connectivity if isinstance(linear_connectivity, float) else np.nan
     )
 
     return data_per_fov_dict, cell_size_unit
-
-# checked
-def _compile_conditions(
-    plate_map_data: dict[str, dict[str, str]],
-) -> tuple[list[str], list[str]]:
-    condition_1_list: list[str] = []
-    condition_2_list: list[str] = []
-
-    print(plate_map_data)
-    for cond_dict in plate_map_data.values():
-        if COND1 in cond_dict and cond_dict[COND1] not in condition_1_list:
-            condition_1_list.append(cond_dict[COND1])
-        if COND2 in cond_dict and cond_dict[COND2] not in condition_2_list:
-            condition_2_list.append(cond_dict[COND2])
-    print(f"condition 1 list: {condition_1_list}, condition 2 list: {condition_2_list}")
-
-    return condition_1_list, condition_2_list
-
 
 def _output_csv(
     compiled_data_list: list[dict[str, dict[str, list[float]]]],
@@ -648,6 +631,7 @@ def _output_csv(
             file_path = Path(save_path) / f"{exp_name}_{metric}_{cell_size_unit}.xlsx"
         else:
             file_path = Path(save_path) / f"{exp_name}_{metric}.xlsx"
+
         with xlsxwriter.Workbook(file_path, {"nan_inf_to_errors": True}) as wkbk:
             wkst = wkbk.add_worksheet(metric)
             num_format = wkbk.add_format({"num_format": "0.00"})
@@ -707,7 +691,7 @@ def _safe_mean(data_list: list) -> float:
     try:
         data_list_cleaned = [float(v) for v in data_list if v is not None]
         return (
-            np.mean(data_list_cleaned, dtype=np.float64)
+            np.nanmean(data_list_cleaned, dtype=np.float64)
             if data_list_cleaned
             else np.nan
         )
