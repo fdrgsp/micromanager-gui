@@ -473,16 +473,16 @@ def compile_data_to_csv(
 
 def _compile_per_metric(
     analysis_data: dict[str, dict], plate_map: dict[str, dict[str, str]]
-) -> tuple[list[dict[str, dict[str, list[float]]]], str]:
-    """Group the FOV data of all the output parameter into a giant list."""
+) -> tuple[list[dict[tuple[str, str], list[float]]], str]:
+    """Group the FOV data based on metrics and platemap."""
     # data_by_metrics: list[dict[str, dict[str, dict[str, list[float]]]]] = []
-    data_by_metrics: list[dict[str, dict[str, list[float]]]] = []
-    #               data metrix = []
+    data_by_metrics: list[dict[tuple[str, str], list[float]]] = []
 
     for output in COMPILE_METRICS:  # noqa: B007
         data_by_metrics.append({})
 
     wells_in_plate_map = list(plate_map.keys())
+    print(f"well in plate map: {wells_in_plate_map}")
 
     # TODO: if no plate map:
 
@@ -490,27 +490,49 @@ def _compile_per_metric(
         well = fov_name.split("_")[0]
 
         # TODO: if well not in the plate map
+        # either the user didn't create the platemap
+        # or the wells were accidentally left out when creating the platemap
+        # -- should still compile the data in the final csv
+        # and label the row or column with the fov name maybe
         if well not in wells_in_plate_map:
+            print(f"{well} not in plate map")
             continue
 
-        condition_1 = plate_map[well][COND1]
-        condition_2 = plate_map[well][COND2]
+        if COND1 in plate_map[well]:
+            condition_1 = plate_map[well][COND1]
+        else:
+            condition_1 = "unspecified"
 
+        if COND2 in plate_map[well]:
+            condition_2 = plate_map[well][COND2]
+        else:
+            condition_2 = "unspecified"
+
+        if condition_1 == condition_2:
+            condition_tuple = (fov_name, fov_name)
+        else:
+            condition_tuple = (condition_1, condition_2)
+
+        print(f"condition_tuple for {fov_name}: {condition_tuple}")
+
+        # for output_dict in data_by_metrics:
+        #     if condition_1 not in output_dict:
+        #         output_dict[condition_1] = {}
+        #     if condition_2 not in output_dict[condition_1]:
+        #         output_dict[condition_1][condition_2] = []
         for output_dict in data_by_metrics:
-            if condition_1 not in output_dict:
-                output_dict[condition_1] = {}
-            if condition_2 not in output_dict[condition_1]:
-                output_dict[condition_1][condition_2] = []
+            if condition_tuple not in output_dict:
+                output_dict[condition_tuple] = []
 
         data_per_fov_dict, cell_size_unit = _compile_data_per_fov(fov_dict)
 
         for i, output in enumerate(COMPILE_METRICS):
             output_value = data_per_fov_dict[output]
-            data_by_metrics[i][condition_1][condition_2].append(output_value)
+            data_by_metrics[i][condition_tuple].append(output_value)
 
     return data_by_metrics, cell_size_unit
 
-
+#checked
 def _compile_data_per_fov(
     fov_dict: dict[str, ROIData],
 ) -> tuple[dict[str, float], str]:
@@ -596,18 +618,26 @@ def _compile_data_per_fov(
 
     return data_per_fov_dict, cell_size_unit
 
-
+# checked
 def _compile_conditions(
     plate_map_data: dict[str, dict[str, str]],
 ) -> tuple[list[str], list[str]]:
-    # TODO: what if one of the condition is missing?
-    condition_1_list = list({value[COND1] for value in plate_map_data.values()})
-    condition_2_list = list({value[COND2] for value in plate_map_data.values()})
+    condition_1_list: list[str] = []
+    condition_2_list: list[str] = []
+
+    print(plate_map_data)
+    for cond_dict in plate_map_data.values():
+        if COND1 in cond_dict and cond_dict[COND1] not in condition_1_list:
+            condition_1_list.append(cond_dict[COND1])
+        if COND2 in cond_dict and cond_dict[COND2] not in condition_2_list:
+            condition_2_list.append(cond_dict[COND2])
+    print(f"condition 1 list: {condition_1_list}, condition 2 list: {condition_2_list}")
+
     return condition_1_list, condition_2_list
 
 
 def _output_csv(
-    compiled_data_list: list,
+    compiled_data_list: list[dict[str, dict[str, list[float]]]],
     condition_1_list: list,
     condition_2_list: list,
     cell_size_unit: str,
@@ -621,15 +651,15 @@ def _output_csv(
     if compiled_data_list is None:
         return None
 
-    for readout, readout_data in zip(COMPILE_METRICS, compiled_data_list):
-        if readout == "cell_size":
-            file_path = Path(save_path) / f"{exp_name}_{readout}_{cell_size_unit}.xlsx"
+    for metric, readout_data in zip(COMPILE_METRICS, compiled_data_list):
+        if metric == "cell_size":
+            file_path = Path(save_path) / f"{exp_name}_{metric}_{cell_size_unit}.xlsx"
         else:
-            file_path = Path(save_path) / f"{exp_name}_{readout}.xlsx"
+            file_path = Path(save_path) / f"{exp_name}_{metric}.xlsx"
         with xlsxwriter.Workbook(file_path, {"nan_inf_to_errors": True}) as wkbk:
-            wkst = wkbk.add_worksheet(readout)
+            wkst = wkbk.add_worksheet(metric)
             num_format = wkbk.add_format({"num_format": "0.00"})
-            wkst.write(0, 0, readout)
+            wkst.write(0, 0, metric)
 
             if len(condition_2_list) > 0:
                 # write conditions
@@ -638,16 +668,17 @@ def _output_csv(
                         wkst.write(0, i * col_per_treatment + repeat + 1, condition)
 
             # write genotypes
-            for i, condition_1 in enumerate(condition_1_list):
-                cond1 = condition_1
-                if condition_1.lower() == "crispr":
-                    cond1 = "+/+"
-                elif condition_1.lower() == "patient":
-                    cond1 = "+/-"
-                elif condition_1.lower() == "null":
-                    cond1 = "-/-"
+            if len(condition_1_list) > 0:
+                for i, condition_1 in enumerate(condition_1_list):
+                    cond1 = condition_1
+                    if condition_1.lower() == "crispr":
+                        cond1 = "+/+"
+                    elif condition_1.lower() == "patient":
+                        cond1 = "+/-"
+                    elif condition_1.lower() == "null":
+                        cond1 = "-/-"
 
-                wkst.write(i + 1, 0, cond1)
+                    wkst.write(i + 1, 0, cond1)
 
             for condition1, cond_data in readout_data.items():
                 for condition2, data_list in cond_data.items():
@@ -676,7 +707,7 @@ def _output_csv(
                             entry = "N/A"
                             wkst.write(row, start * col_per_treatment + i + 1, entry)
 
-
+# checked
 def _safe_mean(data_list: list) -> float:
     if len(data_list) < 1:
         return np.nan
