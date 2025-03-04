@@ -52,6 +52,8 @@ from ._util import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
@@ -226,6 +228,7 @@ class _AnalyseCalciumTraces(QWidget):
             positions=pos,
             _start_thread=True,
             _connect={
+                "yielded": self._show_error_dialog,
                 "finished": self._on_worker_finished,
                 "errored": self._on_worker_finished,
             },
@@ -248,6 +251,10 @@ class _AnalyseCalciumTraces(QWidget):
         self._progress_pos_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
 
+    def _show_error_dialog(self, error: str) -> None:
+        """Show an error dialog."""
+        show_error_dialog(self, error)
+
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
 
@@ -257,14 +264,16 @@ class _AnalyseCalciumTraces(QWidget):
             return None
 
         if self.data is None or self._labels_path is None:
-            LOGGER.error("No data or labels path provided!")
-            show_error_dialog(self, "No data or labels path provided!")
+            msg = "No data or labels path provided!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         sequence = self.data.sequence
         if sequence is None:
-            LOGGER.error("No useq.MDAsequence found!")
-            show_error_dialog(self, "No useq.MDAsequence found!")
+            msg = "No useq.MDAsequence found!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         if self._plate_viewer is not None:
@@ -293,8 +302,9 @@ class _AnalyseCalciumTraces(QWidget):
         if path := self._output_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
-                LOGGER.error("Output Path is not a directory!")
-                show_error_dialog(self, "Output Path is not a directory!")
+                msg = "Output Path is not a directory!"
+                LOGGER.error(msg)
+                show_error_dialog(self, msg)
                 return None
             # create the save path if it does not exist
             if not save_path.exists():
@@ -303,12 +313,14 @@ class _AnalyseCalciumTraces(QWidget):
                 self._bleach_error_path = save_path / "bleach_correction_error"
                 self._bleach_error_path.mkdir(parents=True, exist_ok=True)
         else:
-            LOGGER.error("No Output Path provided!")
-            show_error_dialog(self, "No Output Path provided!")
+            msg = "No Output Path provided!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
-        # if the input is empty, return all positions that have labels. this can speed
-        # up analysis since we will be sure that the labels exist for the positions.
+        # if the uses select to analyse all the positions (_pos_le empty), return all
+        # positions that have labels. his can speed up analysis since we will be sure
+        # that the labels exist for the positions.
         if not self._pos_le.text():
             positions: list[int] = []
             pos = list(sequence.stage_positions)
@@ -433,7 +445,7 @@ class _AnalyseCalciumTraces(QWidget):
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
-    def _extract_traces(self, positions: list[int]) -> None:
+    def _extract_traces(self, positions: list[int]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
         LOGGER.info("Starting traces extraction...")
 
@@ -471,14 +483,14 @@ class _AnalyseCalciumTraces(QWidget):
                         LOGGER.info(f"Chunk {idx + 1} completed.")
                     except Exception as e:
                         LOGGER.error("An error occurred in a chunk: %s", e)
-                        show_error_dialog(self, f"An error occurred in a chunk: {e}")
+                        yield f"An error occurred in a chunk: {e}"
                         break
 
             LOGGER.info("All tasks completed.")
 
         except Exception as e:
             LOGGER.error("An error occurred: %s", e)
-            show_error_dialog(self, f"An error occurred: {e}")
+            yield f"An error occurred: {e}"
 
     def _extract_trace_for_chunk(
         self, positions: list[int], start: int, end: int
@@ -516,8 +528,8 @@ class _AnalyseCalciumTraces(QWidget):
             return
         labels = tifffile.imread(labels_path)
 
-        # get the range of labels
-        labels_range = range(1, labels.max())
+        # get the range of labels and remove the background (0)
+        labels_range = np.unique(labels[labels != 0])
 
         # create masks for each label
         masks = {label_value: (labels == label_value) for label_value in labels_range}
@@ -527,31 +539,31 @@ class _AnalyseCalciumTraces(QWidget):
         seq = cast(useq.MDASequence, self.data.sequence)
         timepoints = seq.sizes["t"]
         exp_time = meta[0][event_key].get("exposure")
-        elapsed_time: list = []
+        elapsed_time_list: list[float] = []
 
         # get the elapsed time for each timepoint to calculate tot_time_sec
         if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
             for m in meta:
                 et = m[cam_key].get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
         else:  # old metadata format
             for m in meta:
                 et = m.get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
         # if the len of elapsed time is not equal to the number of timepoints,
         # use exposure time and the number of timepoints to calculate tot_time_sec
-        if len(elapsed_time) != timepoints:
+        if len(elapsed_time_list) != timepoints:
             tot_time_sec = exp_time * timepoints / 1000
         else:
             # otherwise, calculate the total time in seconds using the elapsed time.
             # NOTE: adding the exposure time to consider the first frame
-            tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
+            tot_time_sec = (
+                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
+            ) / 1000
 
         roi_trace: np.ndarray
-        # linear_phase_dict: dict[str, list[float]] = {}
-        # cubic_phase_dict: dict[str, list[float]] = {}
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
@@ -635,12 +647,8 @@ class _AnalyseCalciumTraces(QWidget):
             if len(peaks_dec_dff) > 0:
                 linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
                 cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
-                # if len(linear_phase) > 0:
-                #     linear_phase_dict[str(label_value)] = linear_phase
-                # if len(cubic_phase) > 0:
-                #     cubic_phase_dict[str(label_value)] = cubic_phase
 
-            iei = get_iei(peaks_dec_dff, elapsed_time)  # s
+            iei = get_iei(peaks_dec_dff, elapsed_time_list)  # s
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -662,17 +670,6 @@ class _AnalyseCalciumTraces(QWidget):
                 cubic_phase=cubic_phase,
                 iei=iei,
             )
-
-        # # calculate connectivity
-        # cubic_mean_global_connectivity = get_connectivity(cubic_phase_dict)
-        # linear_mean_global_connectivity = get_connectivity(linear_phase_dict)
-
-        # self._analysis_data[well]["cubic global connectivity"] = (
-        #     cubic_mean_global_connectivity
-        # )
-        # self._analysis_data[well]["linear global connectivity"] = (
-        #     linear_mean_global_connectivity
-        # )
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)

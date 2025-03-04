@@ -206,4 +206,4 @@ def _segment(
         cyto_frame = stack_half_to_end.max(axis=0)
         labels, _, _, _ = model.eval(cyto_frame)
         # save to disk
-        tifffile.imsave(path / f"{pos_name}_p{p}.tif", labels)
+        tifffile.imwrite(path / f"{pos_name}_p{p}.tif", labels)
