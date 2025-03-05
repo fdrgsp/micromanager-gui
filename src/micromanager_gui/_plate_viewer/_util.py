@@ -47,6 +47,7 @@ DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencie
 DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
+RASTER_PLOT = "Raster plot"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -60,6 +61,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_AMPLITUDE,
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+    RASTER_PLOT,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [

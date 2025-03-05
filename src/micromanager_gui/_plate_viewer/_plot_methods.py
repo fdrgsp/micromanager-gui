@@ -16,6 +16,7 @@ from ._util import (
     DFF,
     DFF_NORMALIZED,
     NORMALIZED_TRACES,
+    RASTER_PLOT,
     RAW_TRACES,
 )
 
@@ -37,6 +38,7 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
+    RASTER_PLOT: {"raster": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -86,6 +88,7 @@ def _plot_single_well_traces(
     with_peaks: bool = False,
     amp: bool = False,
     freq: bool = False,
+    raster: bool = False,
 ) -> None:
     """Plot various types of traces."""
     # Clear the figure
@@ -103,6 +106,11 @@ def _plot_single_well_traces(
 
     # loop over the ROIData and plot the traces per ROI
     count = 0
+    spikes = []
+    roi_to_draw = []
+    colors_to_add = []
+
+    colors = [f"C{i}" for i in range(len(data))]
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
@@ -148,6 +156,17 @@ def _plot_single_well_traces(
             ax.set_xlabel("ROIs")
             ax.set_ylabel("Frequency")
 
+        elif raster:
+            if roi_data.peaks_dec_dff is None:
+                continue
+
+            peaks_indices = [int(peak_ind) for peak_ind in roi_data.peaks_dec_dff]
+            spikes.append(peaks_indices)
+            roi_to_draw.append(key)
+            colors_to_add.append(colors[int(key) - 1])
+            ax.set_xlabel("Frames")
+            ax.set_ylabel("ROIs")
+
         else:
             # normalize if the flag is set
             if normalize:
@@ -172,17 +191,21 @@ def _plot_single_well_traces(
             if with_peaks:
                 if roi_data.peaks_dec_dff is None:
                     continue
-                peaks_indices = np.array(roi_data.peaks_dec_dff)
+                peaks_indices = [int(peak_ind) for peak_ind in roi_data.peaks_dec_dff]
                 ax.plot(
                     peaks_indices,
-                    np.array(trace)[peaks_indices.astype(int)]
-                    + (count if normalize else 0),
+                    np.array(trace)[peaks_indices] + (count if normalize else 0),
                     "x",
                     label=f"Peaks ROI {key}",
                 )
+
             ax.set_xlabel("Frames")
 
         count += COUNT_INCREMENT
+
+    if raster:
+        ax.eventplot(spikes, colors=colors_to_add)
+        # ax.set_yticklabels(roi_to_draw)
 
     widget.figure.tight_layout()
 
@@ -194,9 +217,15 @@ def _plot_single_well_traces(
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         # emit the graph widget roiSelected signal
         if sel.artist.get_label():
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+            if raster:
+                label_list = [num for num in sel.artist.get_label() if num.isdigit()]
+                index = int("".join(label_list))
+                roi = str(roi_to_draw[index])
+                sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
+            else:
+                roi = cast(str, sel.artist.get_label().split(" ")[1])
+                if roi.isdigit():
+                    widget.roiSelected.emit(roi)
 
     widget.canvas.draw()
 
