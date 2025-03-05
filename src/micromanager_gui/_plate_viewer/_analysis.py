@@ -45,7 +45,7 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
-    compile_data_to_csv,
+    # compile_data_to_csv,
     # _compile_per_metric,
     get_cubic_phase,
     get_iei,
@@ -243,25 +243,25 @@ class _AnalyseCalciumTraces(QWidget):
             },
         )
 
-    def save(self) -> None:
-        """Save the analysis data into CSV files."""
-        save_path = self._output_path.value()
+    # def save(self) -> None:
+    #     """Save the analysis data into CSV files."""
+    #     save_path = self._output_path.value()
 
-        # check if analysis was loaded
-        if (
-            self._plate_viewer is None
-            or len(list(self._plate_viewer._analysis_data.keys())) < 1
-        ):
-            msg = "No analyzed data!\nLoad or run analysis."
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
-            return None
+    #     # check if analysis was loaded
+    #     if (
+    #         self._plate_viewer is None
+    #         or len(list(self._plate_viewer._analysis_data.keys())) < 1
+    #     ):
+    #         msg = "No analyzed data!\nLoad or run analysis."
+    #         LOGGER.error(msg)
+    #         show_error_dialog(self, msg)
+    #         return None
 
-        self._handle_plate_map()
+    #     self._handle_plate_map()
 
-        compile_data_to_csv(
-            self._plate_viewer._analysis_data, self._plate_map_data, save_path
-        )
+    # compile_data_to_csv(
+    #     self._plate_viewer._analysis_data, self._plate_map_data, save_path
+    # )
 
     def cancel(self) -> None:
         """Cancel the current run."""
@@ -409,9 +409,9 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer.analysis_data = self._analysis_data
             self._plate_viewer._analysis_file_path = self._output_path.value()
-            compile_data_to_csv(
-                self._analysis_data, self._plate_map_data, self._output_path.value()
-            )
+            # compile_data_to_csv(
+            #     self._analysis_data, self._plate_map_data, self._output_path.value()
+            # )
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
