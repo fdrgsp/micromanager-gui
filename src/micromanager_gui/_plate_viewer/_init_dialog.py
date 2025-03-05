@@ -28,9 +28,9 @@ class _InitDialog(QDialog):
 
         self._datastrore = _BrowseWidget(
             self,
-            "Datastrore Path",
+            "Datastore Path",
             datastore_path,
-            "The path to the zarr datastrore.",
+            "The path to the zarr datastore.",
         )
         self._labels = _BrowseWidget(
             self,
