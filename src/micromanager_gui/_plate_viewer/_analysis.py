@@ -45,8 +45,7 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
-    # compile_data_to_csv,
-    # _compile_per_metric,
+    compile_data_to_csv,
     get_cubic_phase,
     get_iei,
     get_linear_phase,
@@ -139,11 +138,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
         self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
-        self._save_btn = QPushButton("Save")
+        self._save_btn = QPushButton("Compile Data")
         self._save_btn.setSizePolicy(*FIXED)
         self._save_btn.setIcon(icon(MDI6.file, color=BLUE))
         self._save_btn.setIconSize(QSize(25, 25))
-        self._save_btn.clicked.connect(self.save)
+        self._save_btn.clicked.connect(self.compile_data)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
@@ -243,25 +242,28 @@ class _AnalyseCalciumTraces(QWidget):
             },
         )
 
-    # def save(self) -> None:
-    #     """Save the analysis data into CSV files."""
-    #     save_path = self._output_path.value()
+    def compile_data(self) -> None:
+        """Save the analysis data into CSV files."""
+        save_path = self._output_path.value()
 
-    #     # check if analysis was loaded
-    #     if (
-    #         self._plate_viewer is None
-    #         or len(list(self._plate_viewer._analysis_data.keys())) < 1
-    #     ):
-    #         msg = "No analyzed data!\nLoad or run analysis."
-    #         LOGGER.error(msg)
-    #         show_error_dialog(self, msg)
-    #         return None
+        # check if analysis was loaded
+        if (
+            self._plate_viewer is None
+            or len(list(self._plate_viewer._analysis_data.keys())) < 1
+        ):
+            msg = "No analyzed data!\nLoad or run analysis."
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+            return None
 
-    #     self._handle_plate_map()
+        self._handle_plate_map()
 
-    # compile_data_to_csv(
-    #     self._plate_viewer._analysis_data, self._plate_map_data, save_path
-    # )
+        compile_data_to_csv(
+            self._plate_viewer._analysis_data, self._plate_map_data, save_path
+        )
+
+        msg = f"Data compiled and saved in folder {Path(save_path).parent.name}"
+        LOGGER.info(msg)
 
     def cancel(self) -> None:
         """Cancel the current run."""
@@ -409,9 +411,9 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer.analysis_data = self._analysis_data
             self._plate_viewer._analysis_file_path = self._output_path.value()
-            # compile_data_to_csv(
-            #     self._analysis_data, self._plate_map_data, self._output_path.value()
-            # )
+            compile_data_to_csv(
+                self._analysis_data, self._plate_map_data, self._output_path.value()
+            )
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
