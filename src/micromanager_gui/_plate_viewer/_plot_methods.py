@@ -196,8 +196,6 @@ def _plot_single_well_traces(
                     label=f"Peaks ROI {key}",
                 )
 
-            ax.set_xlabel("Frames")
-
         count += COUNT_INCREMENT
 
     if raster:
@@ -222,6 +220,8 @@ def _plot_single_well_traces(
             ax.set_ylabel("dF/F")
         elif dec:
             ax.set_ylabel("Deconvolved dF/F")
+        elif raster:
+            ax.set_ylabel("ROIs")
         else:
             ax.set_ylabel("Fluorescence Intensity")
 
