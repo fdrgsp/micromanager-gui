@@ -4,6 +4,7 @@ import contextlib
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
@@ -104,6 +105,7 @@ class ROIData(BaseClass):
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
+    stimulated: bool | None = None
     # ... add whatever other data we need
 
 
@@ -432,5 +434,55 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
     return iei
 
 
-# def _create_stimulation_mask(stimulation_file: str) -> np.ndarray:
-#     """Create a mask based on the stimulation file."""
+def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
+    """Create a mask based on the stimulation file."""
+    # Load grayscale image
+    blue_img = cv2.imread(stimulation_file, cv2.IMREAD_GRAYSCALE)
+
+    # Apply Gaussian Blur FIRST to reduce noise
+    blur = cv2.GaussianBlur(blue_img, (5, 5), 0)
+
+    # set the threshold to be the avg of the snapshot
+    img_avg = blue_img.mean()
+
+    # Apply thresholding
+    _, th = cv2.threshold(blur, img_avg, 255, cv2.THRESH_BINARY)
+
+    # Morphological operations
+    kernel_small = np.ones((5, 5), np.uint8)
+    kernel_large = np.ones((10, 10), np.uint8)
+
+    # Closing (removes small holes)
+    closed = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel_small)
+
+    # Erosion (removes noise)
+    eroded = cv2.erode(closed, kernel_small)
+
+    # Final closing with a larger kernel
+    final_mask = cv2.morphologyEx(eroded, cv2.MORPH_CLOSE, kernel_large)
+
+    # Convert to binary (0 and 1)
+    st_area = np.array((final_mask > 0).astype(float))
+
+    return st_area
+
+
+def roi_st_area_overlap(st_area: np.ndarray, roi_mask: np.ndarray) -> float:
+    """Check how much each cell falls within the mask area."""
+    if roi_mask.shape != st_area.shape:
+        raise ValueError("cell_mask and area_mask must have the same dimensions.")
+
+    roi_mask_int = roi_mask.astype(int)
+
+    cell_pixels = np.sum(roi_mask_int)
+
+    if cell_pixels == 0:
+        return 0.0  # Avoid division by zero (empty cell mask)
+
+    # Count overlapping pixels (where both cell and area are 1)
+    overlapping_pixels = np.sum(roi_mask_int * st_area)
+
+    # Compute overlap ratio
+    overlap_ratio = float(overlapping_pixels / cell_pixels)
+
+    return overlap_ratio

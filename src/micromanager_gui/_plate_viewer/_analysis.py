@@ -44,14 +44,15 @@ from ._util import (
     SPONTANEOUS,
     TREATMENT_MAP,
     ROIData,
-    # _create_stimulation_mask,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
+    create_stimulation_mask,
     get_cubic_phase,
     get_iei,
     get_linear_phase,
     parse_lineedit_text,
+    roi_st_area_overlap,
     show_error_dialog,
 )
 
@@ -114,6 +115,8 @@ class _AnalyseCalciumTraces(QWidget):
             is_dir=False,
         )
         self._stimulation_path.hide()
+
+        self._stimulated_area: np.ndarray | None = None
 
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
@@ -232,6 +235,8 @@ class _AnalyseCalciumTraces(QWidget):
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
+        self._check_stimulated()
+
         pos = self._prepare_for_running()
 
         if pos is None:
@@ -250,8 +255,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancelled = False
 
         self._enable(False)
-
-        self._check_stimulated()
 
         self._worker = create_worker(
             self._extract_traces,
@@ -299,9 +302,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         if activity_type == SPONTANEOUS:
             self._stimulated = False
-        else:
+        elif activity_type == EVOKED:
             self._stimulated = True
-            # _create_stimulation_mask(self._stimulation_path.value())
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -365,6 +367,15 @@ class _AnalyseCalciumTraces(QWidget):
             LOGGER.error(msg)
             show_error_dialog(self, msg)
             return None
+
+        if self._stimulated:
+            if st_area_file := self._stimulation_path.value():
+                self._stimulated_area = create_stimulation_mask(st_area_file)
+            else:
+                msg = "No Stimulated Area File Provided!"
+                LOGGER.error(msg)
+                show_error_dialog(self, msg)
+                return None
 
         # if the uses select to analyse all the positions (_pos_le empty), return all
         # positions that have labels. his can speed up analysis since we will be sure
@@ -636,6 +647,10 @@ class _AnalyseCalciumTraces(QWidget):
             if px_size and roi_size < 10:
                 continue
 
+            if self._stimulated and self._stimulated_area:
+                roi_st_overlap_ratio = roi_st_area_overlap(self._stimulated_area, mask)
+                stimulated = True if roi_st_overlap_ratio > 0.8 else False
+
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
 
@@ -717,6 +732,7 @@ class _AnalyseCalciumTraces(QWidget):
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,
                 iei=iei,
+                stimulated=stimulated or None,
             )
 
         # save json file
