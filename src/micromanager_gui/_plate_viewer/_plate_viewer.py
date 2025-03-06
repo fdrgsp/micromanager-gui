@@ -47,6 +47,7 @@ from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
 from ._init_dialog import _InitDialog
+from ._logger import LOGGER
 from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
 from ._segmentation import _CellposeSegmentation
@@ -446,13 +447,14 @@ class PlateViewer(QMainWindow):
         self.setEnabled(True)
 
     # TODO: maybe use ThreadPoolExecutor
-    def _load_data_from_json(self, path: Path) -> Generator[int, None, None]:
+    def _load_data_from_json(self, path: Path) -> Generator[int | str, None, None]:
         """Load the analysis data from the given JSON file."""
         json_files = self._filter_data(list(path.glob("*.json")))
         self._loading_bar.setRange(0, len(json_files))
         try:
             # loop over the files in the directory
             for idx, f in enumerate(tqdm(json_files, desc="Loading Analysis Data")):
+                LOGGER.debug(f"Loading file: {f}")
                 yield idx + 1
                 # get the name of the file without the extensions
                 well = f.name.removesuffix(f.suffix)
@@ -463,7 +465,9 @@ class PlateViewer(QMainWindow):
                     try:
                         data = cast(dict, json.load(file))
                     except json.JSONDecodeError as e:
-                        show_error_dialog(self, f"Error loading the analysis data: {e}")
+                        msg = f"Error reading the analysis data: {e}"
+                        LOGGER.error(msg)
+                        yield msg  # for showing the error dialog
                         self._analysis_data = data
                     # if the data is empty, continue
                     if not data:
@@ -484,7 +488,9 @@ class PlateViewer(QMainWindow):
                         # convert to a ROIData object and add store it in _analysis_data
                         self._analysis_data[well][roi] = ROIData(**roi_data)
         except Exception as e:
-            show_error_dialog(self, f"Error loading the analysis data: {e}")
+            msg = f"Error loading the analysis data: {e}"
+            LOGGER.error(msg)
+            yield msg  # for showing the error dialog
             self._analysis_data.clear()
 
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
@@ -507,9 +513,12 @@ class PlateViewer(QMainWindow):
                 continue
         return path_list
 
-    def _update_progress_bar(self, value: int) -> None:
+    def _update_progress_bar(self, value: int | str) -> None:
         """Update the progress bar value."""
-        self._loading_bar.setValue(value)
+        if isinstance(value, str):
+            show_error_dialog(self, value)
+        else:
+            self._loading_bar.setValue(value)
 
     def _init_widget(
         self, reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader

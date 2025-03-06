@@ -103,6 +103,7 @@ class ROIData(BaseClass):
     active: bool | None = None
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
+    iei: list[float] | None = None  # interevent interval
     # ... add whatever other data we need
 
 
@@ -368,9 +369,7 @@ def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float]:
     phases = np.clip(phases, 0, None)
     phases = np.mod(phases, 2 * np.pi)
 
-    phase_list = [float(phase) for phase in phases]
-
-    return phase_list
+    return [float(phase) for phase in phases]
 
 
 def get_connectivity(phase_dict: dict[str, list[float]]) -> float | None:
@@ -386,13 +385,10 @@ def get_connectivity(phase_dict: dict[str, list[float]]) -> float | None:
     ):
         return None
 
-    # Compute mean connectivity
-    mean_connect = float(
+    return float(
         np.median(np.sum(connection_matrix, axis=0) - 1)
         / (connection_matrix.shape[0] - 1)
     )
-
-    return mean_connect
 
 
 def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
@@ -417,10 +413,23 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     cos_mean = np.mean(np.cos(phase_diff), axis=2)  # Shape: (N, N)
     sin_mean = np.mean(np.sin(phase_diff), axis=2)  # Shape: (N, N)
 
-    # Compute synchronization index (vectorized)
-    connect_matrix = np.array(np.sqrt(cos_mean**2 + sin_mean**2))
+    return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
-    return connect_matrix
+
+def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:
+    """Calculate the interevent interval."""
+    # if less than 2 peaks or framerate is negative
+    if len(peaks) < 2 or len(elapsed_time_list) <= 1:
+        return None
+
+    peaks_time_stamps = [elapsed_time_list[i] for i in peaks]
+
+    # calculate the difference in time between two consecutive peaks
+    iei_ms = np.diff(np.array(peaks_time_stamps))
+
+    iei = [float(iei_peak / 1000) for iei_peak in iei_ms]  # convert from ms to s
+
+    return iei
 
 
 # def _create_stimulation_mask(stimulation_file: str) -> np.ndarray:
