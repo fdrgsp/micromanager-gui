@@ -10,6 +10,7 @@ from ._util import (
     DEC_DFF_AMPLITUDE,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_FREQUENCY,
+    DEC_DFF_IEI,
     DEC_DFF_NORMALIZED,
     DEC_DFF_NORMALIZED_WITH_PEAKS,
     DEC_DFF_WITH_PEAKS,
@@ -37,12 +38,14 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
+    DEC_DFF_IEI: {"dec": True, "iei": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
     DEC_DFF_AMPLITUDE: {"amp": True},
     DEC_DFF_FREQUENCY: {"freq": True},
+    DEC_DFF_IEI: {"iei": True},
 }
 
 
@@ -86,6 +89,7 @@ def _plot_single_well_traces(
     with_peaks: bool = False,
     amp: bool = False,
     freq: bool = False,
+    iei: bool = False,
 ) -> None:
     """Plot various types of traces."""
     # Clear the figure
@@ -139,14 +143,19 @@ def _plot_single_well_traces(
 
         elif freq:
             # plot frequency
-            ax.plot(
-                int(key),
-                roi_data.dec_dff_frequency,
-                "o",
-                label=f"ROI {key}",
-            )
+            ax.plot(int(key), roi_data.dec_dff_frequency, "o", label=f"ROI {key}")
             ax.set_xlabel("ROIs")
             ax.set_ylabel("Frequency")
+
+        elif iei:
+            # plot inter-event intervals
+            if roi_data.iei is None:
+                continue
+            ax.plot(
+                [int(key)] * len(roi_data.iei), roi_data.iei, "o", label=f"ROI {key}"
+            )
+            ax.set_xlabel("ROIs")
+            ax.set_ylabel("Inter-event intervals (sec)")
 
         else:
             # normalize if the flag is set
@@ -251,50 +260,66 @@ def _plot_multi_well_data(
     positions: list[int] | None = None,
     amp: bool = False,
     freq: bool = False,
+    iei: bool = False,
 ) -> None:
     """Plot the multi-well data."""
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
     # loop over the data and plot the data
-    for key, position_data in data.items():
-        if positions is not None and int(key) not in positions:
+    for well_and_pos, roi_data in data.items():
+        if positions is not None and int(well_and_pos) not in positions:
             continue
 
-        for well in position_data:
+        pos = int(well_and_pos.split("_")[1])
+
+        for roi in roi_data:
+            r_data = roi_data[roi]
+
             if amp and freq:
-                well_data = position_data[well]
-                if well_data.peaks_amplitudes_dec_dff is None:
+                if r_data.peaks_amplitudes_dec_dff is None:
                     continue
-                amp_list = well_data.peaks_amplitudes_dec_dff
-                well_freq_list = [well_data.dec_dff_frequency] * len(amp_list)
-                ax.plot(amp_list, well_freq_list, "o", label=f"{key} - pos{well}")
+                amp_list = r_data.peaks_amplitudes_dec_dff
+                well_freq_list = [r_data.dec_dff_frequency] * len(amp_list)
+                ax.plot(
+                    amp_list, well_freq_list, "o", label=f"{well_and_pos} - roi{roi}"
+                )
                 ax.set_xlabel("Amplitude")
                 ax.set_ylabel("Frequency")
 
             elif amp:
-                well_data = position_data[well]
-                if well_data.peaks_amplitudes_dec_dff is None:
+                if r_data.peaks_amplitudes_dec_dff is None:
                     continue
                 ax.plot(
-                    [int(well)] * len(well_data.peaks_amplitudes_dec_dff),
-                    well_data.peaks_amplitudes_dec_dff,
+                    [pos] * len(r_data.peaks_amplitudes_dec_dff),
+                    r_data.peaks_amplitudes_dec_dff,
                     "o",
-                    label=f"{key} - pos{well}",
+                    label=f"{well_and_pos} - roi{roi}",
                 )
-                ax.set_xlabel("Wells")
+                ax.set_xlabel("Positions")
                 ax.set_ylabel("Amplitude")
 
             elif freq:
-                well_data = position_data[well]
                 ax.plot(
-                    int(well),
-                    well_data.dec_dff_frequency,
+                    pos,
+                    r_data.dec_dff_frequency,
                     "o",
-                    label=f"{key} - pos{well}",
+                    label=f"{well_and_pos} - roi{roi}",
                 )
-                ax.set_xlabel("Wells")
+                ax.set_xlabel("Positions")
                 ax.set_ylabel("Frequency")
+
+            elif iei:
+                if r_data.iei is None:
+                    continue
+                ax.plot(
+                    [pos] * len(r_data.iei),
+                    r_data.iei,
+                    "o",
+                    label=f"{well_and_pos} - roi{roi}",
+                )
+                ax.set_xlabel("Positions")
+                ax.set_ylabel("Inter-event intervals (sec)")
 
     widget.figure.tight_layout()
 
