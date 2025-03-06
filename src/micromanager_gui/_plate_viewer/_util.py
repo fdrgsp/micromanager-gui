@@ -69,6 +69,10 @@ MULTI_WELL_COMBO_OPTIONS = [
 ]
 # ------------------------------------------------------------------------------------
 
+# -----------------------------------STIMULATION-----------------------------------
+SPONTANEOUS = "Spontaneous activity"
+EVOKED = "Evoked activity"
+
 
 @dataclass
 class BaseClass:
@@ -417,3 +421,7 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     connect_matrix = np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
     return connect_matrix
+
+
+# def _create_stimulation_mask(stimulation_file: str) -> np.ndarray:
+#     """Create a mask based on the stimulation file."""

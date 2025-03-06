@@ -15,6 +15,7 @@ from oasis.functions import deconvolve
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
+    QComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -36,11 +37,14 @@ from ._logger import LOGGER
 from ._util import (
     COND1,
     COND2,
+    EVOKED,
     GENOTYPE_MAP,
     GREEN,
     RED,
+    SPONTANEOUS,
     TREATMENT_MAP,
     ROIData,
+    # _create_stimulation_mask,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
@@ -98,6 +102,16 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._cancelled: bool = False
 
+        self._stimulated: bool = False
+
+        self._stimulation_path = _BrowseWidget(
+            self,
+            label="Stimulated area file",
+            tooltip="Select the path to the snapshot of blue light stimulated area",
+            is_dir=False,
+        )
+        self._stimulation_path.hide()
+
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
@@ -143,6 +157,18 @@ class _AnalyseCalciumTraces(QWidget):
         self._progress_pos_label = QLabel()
         self._elapsed_time_label = QLabel("00:00:00")
 
+        activity_wdg = QWidget(self)
+        activity_wdg_layout = QHBoxLayout(activity_wdg)
+        activity_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        activity_wdg_layout.setSpacing(5)
+        activity_combo_label = QLabel("Activity type: ")
+        activity_combo_label.setSizePolicy(*FIXED)
+        self._activity_combo = QComboBox()
+        self._activity_combo.addItems([SPONTANEOUS, EVOKED])
+        self._activity_combo.currentTextChanged.connect(self._on_activity_changed)
+        activity_wdg_layout.addWidget(activity_combo_label)
+        activity_wdg_layout.addWidget(self._activity_combo)
+
         progress_wdg_layout.addWidget(self._run_btn)
         progress_wdg_layout.addWidget(self._cancel_btn)
         progress_wdg_layout.addWidget(self._progress_bar)
@@ -158,6 +184,8 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
+        wdg_layout.addWidget(activity_wdg)
+        wdg_layout.addWidget(self._stimulation_path)
         wdg_layout.addWidget(self._output_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -220,6 +248,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._enable(False)
 
+        self._check_stimulated()
+
         self._worker = create_worker(
             self._extract_traces,
             positions=pos,
@@ -246,6 +276,24 @@ class _AnalyseCalciumTraces(QWidget):
         self._progress_bar.setValue(0)
         self._progress_pos_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
+
+    # stimulation
+    def _on_activity_changed(self, text: str) -> None:
+        """Show or hide the stimulated area path widget."""
+        if text == "Evoked activity":
+            self._stimulation_path.show()
+        else:
+            self._stimulation_path.hide()
+
+    def _check_stimulated(self) -> None:
+        """Check if analyzing stimulated activity."""
+        activity_type = self._activity_combo.currentText()
+
+        if activity_type == SPONTANEOUS:
+            self._stimulated = False
+        else:
+            self._stimulated = True
+            # _create_stimulation_mask(self._stimulation_path.value())
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
