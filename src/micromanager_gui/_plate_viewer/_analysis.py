@@ -44,6 +44,9 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
+    get_cubic_phase,
+    get_iei,
+    get_linear_phase,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -535,28 +538,31 @@ class _AnalyseCalciumTraces(QWidget):
 
         seq = cast(useq.MDASequence, self.data.sequence)
         timepoints = seq.sizes["t"]
-        exp_time = meta[0][event_key].get("exposure")
-        elapsed_time: list = []
+        exp_time = meta[0][event_key].get("exposure", 0)
+        elapsed_time_list: list[float] = []
 
         # get the elapsed time for each timepoint to calculate tot_time_sec
         if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
             for m in meta:
                 et = m[cam_key].get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
         else:  # old metadata format
             for m in meta:
                 et = m.get(ELAPSED_TIME_KEY)
                 if et is not None:
-                    elapsed_time.append(float(et))
+                    elapsed_time_list.append(float(et))
+
         # if the len of elapsed time is not equal to the number of timepoints,
         # use exposure time and the number of timepoints to calculate tot_time_sec
-        if len(elapsed_time) != timepoints:
+        if len(elapsed_time_list) != timepoints:
             tot_time_sec = exp_time * timepoints / 1000
         else:
             # otherwise, calculate the total time in seconds using the elapsed time.
             # NOTE: adding the exposure time to consider the first frame
-            tot_time_sec = (elapsed_time[-1] - elapsed_time[0] + exp_time) / 1000
+            tot_time_sec = (
+                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
+            ) / 1000
 
         roi_trace: np.ndarray
 
@@ -570,6 +576,18 @@ class _AnalyseCalciumTraces(QWidget):
 
             # calculate the mean trace for the roi
             masked_data = data[:, mask]
+
+            # get the size of the roi in µm or px if µm is not available
+            roi_size_pixel = masked_data.shape[1]  # area
+            px_size = meta[0].get("PixelSizeUm", None)
+            # calculate the size of the roi in µm if px_size is available or not 0,
+            # otherwise use the size is in pixels
+            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+
+            # exclude small rois, might not be necessary if trained cellpose performs
+            # better
+            if px_size and roi_size < 10:
+                continue
 
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
@@ -608,18 +626,11 @@ class _AnalyseCalciumTraces(QWidget):
             # get the amplitudes of the peaks in the dec_dff trace
             peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
-            # get the frequency of the peaks in the dec_dff trace
+            # calculate the frequency of the peaks in the dec_dff trace
             try:
                 frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
             except ZeroDivisionError:
-                frequency = 0  # in Hz
-
-            # get the size of the roi in µm or px if µm is not available
-            roi_size_pixel = masked_data.shape[1]  # area
-            px_size = meta[0].get("PixelSizeUm", None)
-            # calculate the size of the roi in µm if px_size is available or not 0,
-            # otherwise use the size is in pixels
-            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+                frequency = 0
 
             # get the conditions for the roi if available
             condition_1 = condition_2 = None
@@ -630,6 +641,19 @@ class _AnalyseCalciumTraces(QWidget):
                     condition_2 = self._plate_map_data[well_name].get(COND2)
                 else:
                     condition_1 = condition_2 = None
+            # get the linear and cubic phase if there are at least 2 peaks
+            linear_phase: list[float] = []
+            cubic_phase: list[float] = []
+
+            if len(peaks_dec_dff) > 0:
+                linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
+                cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+
+            # if the elapsed time is not available or for any reason is different from
+            # the number of timepoints, set it as list of timepoints every exp_time
+            if len(elapsed_time_list) != timepoints:
+                elapsed_time_list = [i * exp_time for i in range(timepoints)]
+            iei = get_iei(peaks_dec_dff, elapsed_time_list)  # s
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
@@ -646,6 +670,10 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1=condition_1,
                 condition_2=condition_2,
                 total_recording_time_in_sec=tot_time_sec,
+                active=len(peaks_dec_dff) > 0,
+                linear_phase=linear_phase,
+                cubic_phase=cubic_phase,
+                iei=iei,
             )
 
         # save json file
@@ -658,6 +686,5 @@ class _AnalyseCalciumTraces(QWidget):
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
             )
-
         # update the progress bar
         self.progress_bar_updated.emit()

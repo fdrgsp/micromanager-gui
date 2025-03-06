@@ -474,6 +474,11 @@ class PlateViewer(QMainWindow):
                         continue
                     # loop over the rois
                     for roi in data.keys():
+                        if not roi.isdigit():
+                            # this is the case of global data
+                            # (e.g. cubic or linear global connectivity)
+                            self._analysis_data[roi] = data[roi]
+                            continue
                         # get the data for the roi
                         roi_data = cast(dict, data[roi])
                         # remove any key that is not in ROIData
@@ -521,6 +526,8 @@ class PlateViewer(QMainWindow):
         """Initialize the widget with the given datastore."""
         # clear the image viewer cache
         self._image_viewer._viewer._contour_cache.clear()
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
 
         # load analysis json file if the path is not None
         if self._analysis_file_path:
