@@ -106,7 +106,7 @@ def _plot_single_well_traces(
 
     # loop over the ROIData and plot the traces per ROI
     count = 0
-    
+
     # for raster plot
     spikes: list[list[int]] = []
     roi_to_draw: list[str] = []
@@ -196,9 +196,8 @@ def _plot_single_well_traces(
                     label=f"Peaks ROI {key}",
                 )
 
-
             ax.set_xlabel("Frames")
-            
+
         count += COUNT_INCREMENT
 
     if raster:
