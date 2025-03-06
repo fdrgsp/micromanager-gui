@@ -307,7 +307,6 @@ class PlateMapWidget(QWidget):
 
     def clear_condition(self) -> None:
         """Clear the condition of the selected wells."""
-        print("clear condition")
         wells: tuple[tuple[int, int]] = self._plate_view.selectedIndices()
         for well in wells:
             r, c = well

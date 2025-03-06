@@ -597,7 +597,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         seq = cast(useq.MDASequence, self.data.sequence)
         timepoints = seq.sizes["t"]
-        exp_time = meta[0][event_key].get("exposure")
+        exp_time = meta[0][event_key].get("exposure", 0)
         elapsed_time_list: list[float] = []
 
         # get the elapsed time for each timepoint to calculate tot_time_sec
@@ -611,6 +611,7 @@ class _AnalyseCalciumTraces(QWidget):
                 et = m.get(ELAPSED_TIME_KEY)
                 if et is not None:
                     elapsed_time_list.append(float(et))
+
         # if the len of elapsed time is not equal to the number of timepoints,
         # use exposure time and the number of timepoints to calculate tot_time_sec
         if len(elapsed_time_list) != timepoints:
@@ -711,6 +712,10 @@ class _AnalyseCalciumTraces(QWidget):
                 linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
                 cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
 
+            # if the elapsed time is not available or for any reason is different from
+            # the number of timepoints, set it as list of timepoints every exp_time
+            if len(elapsed_time_list) != timepoints:
+                elapsed_time_list = [i * exp_time for i in range(timepoints)]
             iei = get_iei(peaks_dec_dff, elapsed_time_list)  # s
 
             # store the analysis data
