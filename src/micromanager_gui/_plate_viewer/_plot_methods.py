@@ -107,6 +107,7 @@ def _plot_single_well_traces(
 
     # loop over the ROIData and plot the traces per ROI
     count = 0
+    rois_rec_time: list[float] = []
     for key in data:
         if rois is not None and int(key) not in rois:
             continue
@@ -118,6 +119,9 @@ def _plot_single_well_traces(
         if trace is None:
             continue
 
+        if (ttime := roi_data.total_recording_time_in_sec) is not None:
+            rois_rec_time.append(ttime)
+
         if amp and freq:
             # plot amp vs freq
             if roi_data.peaks_amplitudes_dec_dff is None:
@@ -125,8 +129,6 @@ def _plot_single_well_traces(
             amp_list = roi_data.peaks_amplitudes_dec_dff
             roi_freq_list = [roi_data.dec_dff_frequency] * len(amp_list)
             ax.plot(amp_list, roi_freq_list, "o", label=f"ROI {key}")
-            ax.set_xlabel("Amplitude")
-            ax.set_ylabel("Frequency")
 
         elif amp:
             # plot amplitude
@@ -138,14 +140,10 @@ def _plot_single_well_traces(
                 "o",
                 label=f"ROI {key}",
             )
-            ax.set_xlabel("ROIs")
-            ax.set_ylabel("Amplitude")
 
         elif freq:
             # plot frequency
             ax.plot(int(key), roi_data.dec_dff_frequency, "o", label=f"ROI {key}")
-            ax.set_xlabel("ROIs")
-            ax.set_ylabel("Frequency")
 
         elif iei:
             # plot inter-event intervals
@@ -154,8 +152,6 @@ def _plot_single_well_traces(
             ax.plot(
                 [int(key)] * len(roi_data.iei), roi_data.iei, "o", label=f"ROI {key}"
             )
-            ax.set_xlabel("ROIs")
-            ax.set_ylabel("Inter-event intervals (sec)")
 
         else:
             # normalize if the flag is set
@@ -168,14 +164,6 @@ def _plot_single_well_traces(
                 ax.set_yticks([])
             else:
                 ax.plot(trace, label=f"ROI {key}")
-                # set the y-axis label depending on the flags
-                if dff:
-                    ax.set_ylabel("dF/F")
-                elif dec:
-                    ax.set_ylabel("Deconvolved dF/F")
-                else:
-                    # this in case or raw traces
-                    ax.set_ylabel("Fluorescence Intensity")
 
             # plot the peaks if the flag is set
             if with_peaks:
@@ -189,9 +177,44 @@ def _plot_single_well_traces(
                     "x",
                     label=f"Peaks ROI {key}",
                 )
-            ax.set_xlabel("Frames")
 
         count += COUNT_INCREMENT
+
+    # set the axis labels
+    if amp and freq:
+        ax.set_xlabel("Amplitude")
+        ax.set_ylabel("Frequency")
+    elif amp:
+        ax.set_xlabel("ROIs")
+        ax.set_ylabel("Amplitude")
+    elif freq:
+        ax.set_xlabel("ROIs")
+        ax.set_ylabel("Frequency")
+    elif iei:
+        ax.set_xlabel("ROIs")
+        ax.set_ylabel("Inter-event intervals (sec)")
+    else:
+        if dff:
+            ax.set_ylabel("dF/F")
+        elif dec:
+            ax.set_ylabel("Deconvolved dF/F")
+        else:
+            ax.set_ylabel("Fluorescence Intensity")
+
+        if sum(rois_rec_time) > 0:
+            # get the average total recording time in seconds
+            avg_rec_time = int(np.mean(rois_rec_time))
+            # get total number of frames from last trace (they should all be the same)
+            total_frames = len(trace) if trace is not None else 1
+            # compute tick positions
+            tick_interval = avg_rec_time / total_frames
+            x_ticks = np.linspace(0, total_frames, num=5, dtype=int)
+            x_labels = [str(int(t * tick_interval)) for t in x_ticks]
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels)
+            ax.set_xlabel("Time (s)")
+        else:
+            ax.set_xlabel("Frames")
 
     widget.figure.tight_layout()
 
