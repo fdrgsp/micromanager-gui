@@ -526,6 +526,8 @@ class PlateViewer(QMainWindow):
         """Initialize the widget with the given datastore."""
         # clear the image viewer cache
         self._image_viewer._viewer._contour_cache.clear()
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
 
         # load analysis json file if the path is not None
         if self._analysis_file_path:

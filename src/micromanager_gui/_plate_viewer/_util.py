@@ -43,11 +43,13 @@ DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized [0, 1] with Pe
 DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
+DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
 
 DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
 RASTER_PLOT = "Raster plot"
+DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -62,12 +64,14 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     RASTER_PLOT,
+    DEC_DFF_IEI,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
     DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL,
     DEC_DFF_AMPLITUDE_ALL,
     DEC_DFF_FREQUENCY_ALL,
+    DEC_DFF_IEI_ALL,
 ]
 # ------------------------------------------------------------------------------------
 
