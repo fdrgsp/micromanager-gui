@@ -225,7 +225,7 @@ class _ImageViewer(QGroupBox):
         if not rois:
             show_error_dialog(self, "Invalid ROIs provided!")
             return None
-        if max(rois) >= labels_data.max():
+        if max(rois) >= labels_data.max() + 1:
             show_error_dialog(self, "Input ROIs out of range!")
             return None
 
