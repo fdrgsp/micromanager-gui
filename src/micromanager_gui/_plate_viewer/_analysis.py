@@ -648,7 +648,8 @@ class _AnalyseCalciumTraces(QWidget):
             if px_size and roi_size < 10:
                 continue
 
-            if self._stimulated and self._stimulated_area:
+            stimulated = None
+            if self._stimulated and self._stimulated_area is not None:
                 roi_st_overlap_ratio = roi_st_area_overlap(self._stimulated_area, mask)
                 stimulated = True if roi_st_overlap_ratio > 0.8 else False
 
@@ -737,7 +738,7 @@ class _AnalyseCalciumTraces(QWidget):
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,
                 iei=iei,
-                stimulated=stimulated or None,
+                stimulated=stimulated,
             )
 
         # save json file

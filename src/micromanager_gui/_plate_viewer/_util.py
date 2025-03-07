@@ -50,6 +50,8 @@ DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Freque
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
+STIMULATED_AREA = "Stimulated area"
+STIMULATED_ROIS = "Visualize ROIs (stimulated vs unstimulated)"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -64,6 +66,8 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_IEI,
+    STIMULATED_AREA,
+    STIMULATED_ROIS,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
@@ -464,7 +468,7 @@ def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
     final_mask = cv2.morphologyEx(eroded, cv2.MORPH_CLOSE, kernel_large)
 
     # Convert to binary (0 and 1)
-    st_area = np.array((final_mask > 0).astype(float))
+    st_area = np.where(final_mask > 0, 1, 0).astype(float)
 
     return st_area
 

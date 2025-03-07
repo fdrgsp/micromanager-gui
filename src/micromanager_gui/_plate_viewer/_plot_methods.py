@@ -18,6 +18,8 @@ from ._util import (
     DFF_NORMALIZED,
     NORMALIZED_TRACES,
     RAW_TRACES,
+    STIMULATED_AREA,
+    STIMULATED_ROIS,
 )
 
 if TYPE_CHECKING:
@@ -39,6 +41,8 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
     DEC_DFF_IEI: {"dec": True, "iei": True},
+    STIMULATED_AREA: {"with_rois": False},
+    STIMULATED_ROIS: {"with_rois": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -68,9 +72,10 @@ def plot_single_well_traces(
     if not text or text == "None":
         return
 
-    # TODO: add raster plot
-    # if "raster" in text.lower():
-    # return _plot_raster(...)
+    if "stimulated" in text.lower():
+        return visualize_stimulated_area(
+            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+        )
 
     # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary that
     # maps the text to the options
@@ -249,6 +254,112 @@ def normalize_trace(trace: list[float]) -> list[float]:
     tr = np.array(trace)
     normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
     return cast(list[float], normalized.tolist())
+
+
+def visualize_stimulated_area(
+    widget: _SingleWellGraphWidget,
+    data: dict,
+    rois: list[int] | None = None,
+    with_rois: bool = False,
+) -> None:
+    """Visualize Stimulated area."""
+    fov = widget._plate_viewer._fov_table.value()
+    if fov is None:
+        return
+
+    if (
+        widget._plate_viewer._datastore is None
+        or widget._plate_viewer._datastore.sequence is None
+        or widget._plate_viewer._datastore.sequence.stage_positions is None
+    ):
+        return
+
+    t = int(len(widget._plate_viewer._datastore.sequence.stage_positions) / 3 * 2)
+    fov_snapshot = cast(
+        np.ndarray, widget._plate_viewer._datastore.isel(p=fov.pos_idx, t=t, c=0)
+    )
+    st_area = widget._plate_viewer._analysis_wdg._stimulated_area
+
+    if st_area is None:
+        return
+
+    if fov_snapshot is None:
+        return
+
+    widget.figure.clear()
+    ax = widget.figure.add_subplot(111)
+
+    ax.imshow(fov_snapshot, cmap="gray")
+    ax.imshow(st_area, cmap="Blues", alpha=0.5)
+
+    if with_rois:
+        label = widget._plate_viewer._get_labels(fov)
+        if not isinstance(label, np.ndarray):
+            return
+
+        if rois is not None:
+            st_rois, ust_rois = _group_rois(data, rois)
+
+        st_color = [1, 0, 0]
+        ust_color = [0, 0, 1]
+
+        mask_overlay = np.zeros((label.shape[0], label.shape[1], 3))
+
+        for roi in st_rois:
+            mask_overlay[label == roi] = st_color
+
+        for roi in ust_rois:
+            mask_overlay[label == roi] = ust_color
+
+        ax.imshow(mask_overlay, interpolation="none", alpha=0.5)
+
+        # Add hover functionality using mplcursors
+        cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
+
+        @cursor.connect("add")  # type: ignore [misc]
+        def on_add(sel: mplcursors.Selection) -> None:
+            if label is None:
+                return
+            x, y = int(sel.target[0]), int(sel.target[1])
+            if 0 <= y < label.shape[0] and 0 <= x < label.shape[1]:
+                roi = str(label[y, x]) if label[y, x] > 0 else None
+            else:
+                roi = None
+
+            if not roi:
+                sel.annotation.set_text("")
+                return
+
+            sel.annotation.set(text=roi, fontsize=8, color="black")
+            # emit the graph widget roiSelected signal
+            # if sel.artist.get_label():
+            if roi.isdigit():
+                widget.roiSelected.emit(roi)
+
+    ax.axis("off")
+    widget.canvas.draw()
+
+
+def _group_rois(data: dict, rois: list[int]) -> tuple[list[int], list[int]]:
+    """To group the ROIs based on stimulated state."""
+    st_rois: list[int] = []
+    ust_rois: list[int] = []
+
+    for key in data:
+        if rois is not None and int(key) not in rois:
+            continue
+
+        roi_data = cast("ROIData", data[key])
+
+        if roi_data.stimulated is None:
+            continue
+
+        if roi_data.stimulated:
+            st_rois.append(int(key))
+        else:
+            ust_rois.append(int(key))
+
+    return st_rois, ust_rois
 
 
 # ------------------------------MULTI-WELL PLOTTING-------------------------------------
