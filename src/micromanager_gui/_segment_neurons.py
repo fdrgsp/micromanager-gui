@@ -40,8 +40,12 @@ class SegmentNeurons:
 
         self._max_proj: np.ndarray | None = None
 
+        self._model: CellposeModel
+
         # Create a multiprocessing Queue
-        self._queue: mp.Queue[tuple[np.ndarray, dict, str, bool] | None] = mp.Queue()
+        self._queue: mp.Queue[tuple[np.ndarray, dict, CellposeModel] | None] = (
+            mp.Queue()
+        )
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
@@ -52,7 +56,7 @@ class SegmentNeurons:
     ) -> None:
         """Enable or disable the segmentation."""
         self._enabled = enable
-        self._model = self.set_model(model_type, model_path)
+        self.set_model(model_type, model_path)
 
     def set_model(self, model_type: str, model_path: str) -> None:
         """Set the cellpose model."""
