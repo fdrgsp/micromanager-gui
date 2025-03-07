@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast
 import matplotlib.cm as cm
 import mplcursors
 import numpy as np
-from matplotlib.colors import Normalize
+from matplotlib.colors import ListedColormap, Normalize
 
 from ._util import (
     DEC_DFF,
@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from ._util import ROIData
 
 COUNT_INCREMENT = 1
+ST_COLOR = [1, 0, 0]
+UST_COLOR = [0, 0, 1]
 
 SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
@@ -80,13 +82,14 @@ def plot_single_well_traces(
     if not text or text == "None":
         return
 
+    # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary
+    # that maps the text to the options
+
+    # plot stimulated area/ROIs
     if text in {STIMULATED_AREA, STIMULATED_ROIS}:
         return visualize_stimulated_area(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
-
-    # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary
-    # that maps the text to the options
 
     # plot raster plot
     if text in {RASTER_PLOT, RASTER_PLOT_AMP}:
@@ -439,18 +442,21 @@ def visualize_stimulated_area(
 
         st_rois, ust_rois = _group_rois(data, rois)
 
-        st_color = [1, 0, 0]
-        ust_color = [0, 0, 1]
-
         mask_overlay = np.zeros((label.shape[0], label.shape[1], 3))
 
         for roi in st_rois:
-            mask_overlay[label == roi] = st_color
+            mask_overlay[label == roi] = ST_COLOR
 
         for roi in ust_rois:
-            mask_overlay[label == roi] = ust_color
+            mask_overlay[label == roi] = UST_COLOR
 
-        ax.imshow(mask_overlay, interpolation="none", alpha=0.5)
+        # ax.imshow(mask_overlay, interpolation="none", alpha=0.5)
+        cmap = ListedColormap([UST_COLOR, ST_COLOR])
+        cbar = widget.figure.colorbar(
+            ax.imshow(mask_overlay, cmap=cmap, interpolation="none", alpha=0.5)
+        )
+        cbar.set_ticks([0, 1])
+        cbar.set_ticklabels(["Unstimulated", "Stimulated"])
 
         # Add hover functionality using mplcursors
         cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
