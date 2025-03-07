@@ -11,7 +11,6 @@ from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
@@ -47,6 +46,10 @@ if TYPE_CHECKING:
 
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+
+CUSTOM_MODEL_PATH = (
+    "/Users/fdrgsp/Documents/git/micromanager-gui/cellpose_models/cp_img8_epoch7000_py"
+)
 
 
 class _SelectModelPath(_BrowseWidget):
@@ -91,6 +94,7 @@ class _CellposeSegmentation(QWidget):
         self._worker: GeneratorWorker | None = None
 
         self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
 
         model_wdg = QWidget(self)
@@ -103,12 +107,12 @@ class _CellposeSegmentation(QWidget):
         # self._models_combo.addItems(["nuclei", "cyto", "cyto2", "cyto3", "custom"])
         self._models_combo.addItems(["cyto3", "custom"])
         self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-        self._use_gpu_checkbox = QCheckBox("Use GPU")
-        self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
-        self._use_gpu_checkbox.setChecked(True)
+        # self._use_gpu_checkbox = QCheckBox("Use GPU")
+        # self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
+        # self._use_gpu_checkbox.setChecked(True)
         model_wdg_layout.addWidget(self._models_combo_label)
         model_wdg_layout.addWidget(self._models_combo, 1)
-        model_wdg_layout.addWidget(self._use_gpu_checkbox)
+        # model_wdg_layout.addWidget(self._use_gpu_checkbox)
 
         channel_wdg = QWidget(self)
         channel_layout = QHBoxLayout(channel_wdg)
@@ -294,24 +298,27 @@ class _CellposeSegmentation(QWidget):
             self._plate_viewer.labels_path = path
 
         # set the model type
-        use_gpu = self._use_gpu_checkbox.isChecked()
+        # only cuda since per now cellpose does not work with gpu on mac
+        use_gpu = torch.cuda.is_available()
+        dev = torch.device("cuda" if use_gpu else "cpu")
+        print('----------------------')
+        print("Use GPU: ", use_gpu)
+        print("Device: ", dev)
+        print('----------------------')
+
+        # use_gpu = self._use_gpu_checkbox.isChecked()
         if self._models_combo.currentText() == "custom":
             # get the path to the custom model
             custom_model_path = self._browse_custom_model.value()
             if not custom_model_path:
                 show_error_dialog(self, "Please select a custom model path.")
                 return
-            if not use_gpu:
-                model = CellposeModel(
-                    pretrained_model=custom_model_path,
-                    gpu=use_gpu,
-                    device=torch.device("cpu"),
-                )
-            else:
-                model = CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
+            model = CellposeModel(
+                pretrained_model=custom_model_path, gpu=use_gpu, device=dev
+            )
         else:
             model_type = self._models_combo.currentText()
-            model = models.Cellpose(gpu=use_gpu, model_type=model_type)
+            model = models.Cellpose(gpu=use_gpu, model_type=model_type, device=dev)
 
         # set the channel to segment
         channel = [self._channel_combo.currentIndex(), 0]
@@ -380,13 +387,14 @@ class _CellposeSegmentation(QWidget):
             data_half_to_end = data[data.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
             cyto_frame = data_half_to_end.max(axis=0)
-            masks, _, _ = model.eval(cyto_frame, diameter=diameter, channels=channel)
+            output = model.eval(cyto_frame, diameter=diameter, channels=channel)
+            labels = output[0]
             # store the masks in the labels dict
-            self._labels[f"{pos_name}_p{p}"] = masks
+            self._labels[f"{pos_name}_p{p}"] = labels
             # yield the current position to update the progress bar
             yield p
             # save to disk
-            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", masks)
+            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
 
     def _on_model_combo_changed(self, text: str) -> None:
         """Show or hide the custom model path widget."""

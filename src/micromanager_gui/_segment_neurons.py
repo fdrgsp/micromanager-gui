@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import tifffile
+import torch
 import useq
 from cellpose import models
+from cellpose.models import CellposeModel
 from pymmcore_plus._logger import logger
 from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -17,9 +19,15 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
 
 
-CYTO3 = "cyto3"
 CHANNEL = [0, 0]
 DIAMETER = 0
+
+# ------------------- Cellpose parameters -------------------
+MODEL_TYPE = "cyto3"  # "custom"
+
+# ignored if MODEL_TYPE is not "custom"
+CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
+# -----------------------------------------------------------
 
 
 class SegmentNeurons:
@@ -38,9 +46,6 @@ class SegmentNeurons:
 
         self._max_proj: np.ndarray | None = None
 
-        self._model: str | None = None
-        self._gpu: bool = False
-
         # Create a multiprocessing Queue
         self._queue: mp.Queue[tuple[np.ndarray, dict, str, bool] | None] = mp.Queue()
 
@@ -48,27 +53,21 @@ class SegmentNeurons:
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
-    @property
-    def model(self) -> str | None:
-        return self._model
+        # only cuda since per now cellpose does not work with gpu on mac
+        use_gpu = torch.cuda.is_available()
+        dev = torch.device("cuda" if use_gpu else "cpu")
+        if MODEL_TYPE == "custom":
+            self._model = CellposeModel(
+                pretrained_model=CUSTOM_MODEL_PATH, gpu=use_gpu, device=dev
+            )
+        else:
+            self._model = models.Cellpose(
+                gpu=use_gpu, model_type=MODEL_TYPE, device=dev
+            )
 
-    @model.setter
-    def model(self, model: str) -> None:
-        self._model = model
-
-    @property
-    def gpu(self) -> bool:
-        return self._gpu
-
-    @gpu.setter
-    def gpu(self, gpu: bool) -> None:
-        self._gpu = gpu
-
-    def enable(self, enable: bool, model: str = CYTO3, gpu: bool = False) -> None:
+    def enable(self, enable: bool, model: str = MODEL_TYPE) -> None:
         """Enable or disable the segmentation."""
         self._enabled = enable
-        self._model = model
-        self._gpu = gpu
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
@@ -112,14 +111,7 @@ class SegmentNeurons:
             # when the max_proj is ready, send it to the segmentation process
             if t_index == self._timepoints - 1:
                 # send the max_proj image to the segmentation process
-                self._queue.put(
-                    (
-                        self._max_proj,
-                        event.model_dump(),
-                        self._model or CYTO3,
-                        self._gpu,
-                    )
-                )
+                self._queue.put((self._max_proj, event.model_dump(), self._model))
                 self._max_proj = None
                 pos_idx = event.index.get("p", None)
                 pos = f"(pos{pos_idx})" if pos_idx is not None else ""
@@ -149,7 +141,7 @@ def _segmentation_worker(queue: mp.Queue) -> None:
         _segment_image(*args)
 
 
-def _segment_image(image: np.ndarray, event: dict, model: str, gpu: bool) -> None:
+def _segment_image(image: np.ndarray, event: dict, model: CellposeModel) -> None:
     """Segment the image."""
     useq_event = useq.MDAEvent(**event)
     seq = useq_event.sequence
@@ -182,12 +174,10 @@ def _segment_image(image: np.ndarray, event: dict, model: str, gpu: bool) -> Non
     p_idx = useq_event.index.get("p", 0)
     label_name = f"{useq_event.pos_name}_p{p_idx}.tif"
 
-    # set the cellpose model and parameters
-    cellpose_model = models.Cellpose(gpu=gpu, model_type=model or CYTO3)
-
     # run cellpose
     logger.info(f"SegmentNeurons -> Segmenting image: {label_name}...")
-    labels, _, _, _ = cellpose_model.eval(image, diameter=DIAMETER, channels=CHANNEL)
+    output = model.eval(image, diameter=DIAMETER, channels=CHANNEL)
+    labels = output[0]
 
     # save to disk
     tifffile.imwrite(save_dir / label_name, labels)

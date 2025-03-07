@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from cProfile import label
 import concurrent.futures
 from multiprocessing import Manager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tifffile
+import torch
 from cellpose import models
+from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
@@ -35,14 +38,17 @@ from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 if TYPE_CHECKING:
     from threading import Event
 
-    from cellpose.models import CellposeModel
     from superqt.utils import FunctionWorker
 
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-MODEL = "cyto3"
 EXT = (WRITERS[OME_ZARR][0], WRITERS[ZARR_TESNSORSTORE][0])
 
+
+# ------------------- Cellpose parameters -------------------
+MODEL_TYPE = "cyto3"  # "custom"
+CUSTOM_MODEL_PATH = "path/to/model"
+# -----------------------------------------------------------
 
 class CellposeBatchSegmentation(QWidget):
     def __init__(
@@ -167,7 +173,15 @@ def _segment_data(data_path: str, stop_event: Event, use_gpu: bool) -> None:
 
     positions = list(range(len(sequence.stage_positions)))
 
-    model = models.Cellpose(gpu=use_gpu, model_type=MODEL)
+    # only cuda since per now cellpose does not work with gpu on mac
+    use_gpu = torch.cuda.is_available()
+    dev = torch.device("cuda" if use_gpu else "cpu")
+    if MODEL_TYPE == "custom":
+        model = CellposeModel(
+            pretrained_model=CUSTOM_MODEL_PATH, gpu=use_gpu, device=dev
+        )
+    else:
+        model = models.Cellpose(model_type=MODEL_TYPE, gpu=use_gpu, device=dev)
 
     file_name = data.path.name
     for ext in EXT:
@@ -204,6 +218,7 @@ def _segment(
         stack_half_to_end = stack[stack.shape[0] // 2 :, :, :]
         # perform cellpose on each time point
         cyto_frame = stack_half_to_end.max(axis=0)
-        labels, _, _, _ = model.eval(cyto_frame)
+        output = model.eval(cyto_frame)
+        labels = output[0]
         # save to disk
         tifffile.imwrite(path / f"{pos_name}_p{p}.tif", labels)
