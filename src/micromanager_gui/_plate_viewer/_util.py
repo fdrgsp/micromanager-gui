@@ -48,6 +48,8 @@ DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
+RASTER_PLOT = "Raster plot Colored by ROI"
+RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
 
 SINGLE_WELL_COMBO_OPTIONS = [
@@ -63,6 +65,8 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_IEI,
+    RASTER_PLOT,
+    RASTER_PLOT_AMP,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
