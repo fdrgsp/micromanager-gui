@@ -86,9 +86,10 @@ def plot_single_well_traces(
         )
 
     # plot other types of graphs
-    return _plot_single_well_traces(
-        widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
-    )
+    else:
+        return _plot_single_well_traces(
+            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+        )
 
 
 def _generate_raster_plot(
@@ -98,71 +99,71 @@ def _generate_raster_plot(
     amplitude_colors: bool = False,
 ) -> None:
     """Generate a raster plot."""
-    # Clear the figure
+    # clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
     ax.set_title(
         "Raster Plot Colored by Amplitude" if amplitude_colors else "Raster Plot"
     )
 
+    # initialize required lists and variables
+    event_data: list[list[float]] = []
+    colors: list[list[str]] = []
     rois_rec_time: list[float] = []
     total_frames: int = 0
     trace: list[float] | None = None
 
+    # if amplitude colors are used, determine min/max amplitude range
+    if amplitude_colors:
+        min_amp, max_amp = float("inf"), float("-inf")
+
+    # loop over the ROIData and get the peaks and their colors for each ROI
+    for roi_key, roi_data in data.items():
+        roi_id = int(roi_key)
+        if rois is not None and roi_id not in rois:
+            continue
+
+        roi_data = cast("ROIData", roi_data)
+
+        if not roi_data.peaks_dec_dff or not roi_data.peaks_amplitudes_dec_dff:
+            continue
+
+        # this is to then convert the x-axis frames to seconds
+        if roi_data.total_recording_time_in_sec is not None:
+            rois_rec_time.append(roi_data.total_recording_time_in_sec)
+
+        # assuming all traces have the same number of frames
+        if not total_frames and roi_data.raw_trace is not None:
+            total_frames = len(roi_data.raw_trace)
+
+        # store event data
+        event_data.append(roi_data.peaks_dec_dff)
+
+        if amplitude_colors:
+            # calculate min and max amplitudes for color normalization
+            min_amp = min(min_amp, min(roi_data.peaks_amplitudes_dec_dff))
+            max_amp = max(max_amp, max(roi_data.peaks_amplitudes_dec_dff))
+        else:
+            # assign default color if not using amplitude-based coloring
+            colors.append([f"C{roi_id - 1}"] * len(roi_data.peaks_dec_dff))
+
     # create the color palette for the raster plot
     if amplitude_colors:
-        # calculate the min and max amplitudes color range
-        min_amp: float = 0
-        max_amp: float = 0
-        for roi_key in data:
-            if rois is not None and int(roi_key) not in rois:
-                continue
-            roi_data = cast("ROIData", data[roi_key])
-            if (
-                roi_data.peaks_amplitudes_dec_dff is None
-                or not roi_data.peaks_amplitudes_dec_dff
-            ):
-                continue
-            roi_min_amp = min(roi_data.peaks_amplitudes_dec_dff)
-            roi_max_amp = max(roi_data.peaks_amplitudes_dec_dff)
-            min_amp = min(min_amp, roi_min_amp)
-            max_amp = max(max_amp, roi_max_amp)
-        # adding 0.5 to max_amp to make the color range more visible
+        # multiply 0.5 to max_amp to make the color range more visible
         norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
-        cmap = cm.viridis  # Choose colormap
+        cmap = cm.viridis  # choose colormap
         # scalar mappable for colorbar
         sm = cm.ScalarMappable(cmap=cmap, norm=norm_amp_color)
         sm.set_array([])  # required for colorbar
-    else:
-        colors_list = [f"C{i}" for i in range(len(data))]
 
-    # loop over the ROIData and get the peaks and their colors for each ROI
-    event_data: list[list[float]] = []
-    colors: list[list[str]] = []
-    for roi_key in data:
-        if rois is not None and int(roi_key) not in rois:
-            continue
-
-        roi_data = cast("ROIData", data[roi_key])
-
-        if roi_data.peaks_dec_dff is None or roi_data.peaks_amplitudes_dec_dff is None:
-            continue
-
-        # this is to then convert thx frames on x axis to seconds
-        if (ttime := roi_data.total_recording_time_in_sec) is not None:
-            rois_rec_time.append(ttime)
-        # assuming all traces have the same number of frames
-        if not total_frames and (trace := roi_data.raw_trace) is not None:
-            total_frames = len(trace)
-
-        event_data.append(roi_data.peaks_dec_dff)
-        if amplitude_colors:
-            peak_colors = [
-                cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff
-            ]
-            colors.append(peak_colors)
-        else:
-            colors.append([colors_list[int(roi_key) - 1]] * len(roi_data.peaks_dec_dff))
+        # assign colors based on amplitude
+        colors = [
+            [cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff]
+            for roi_data in (
+                cast("ROIData", data[str(roi)]) for roi in rois or data.keys()
+            )
+            if roi_data.peaks_amplitudes_dec_dff
+        ]
 
     # plot the raster plot
     ax.eventplot(event_data, colors=colors)
@@ -181,7 +182,7 @@ def _generate_raster_plot(
 
     widget.figure.tight_layout()
 
-    # Add hover functionality using mplcursors
+    # add hover functionality using mplcursors
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
@@ -189,7 +190,7 @@ def _generate_raster_plot(
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         # emit the graph widget roiSelected signal
         if sel.artist.get_label():
-            # sel.artist.get_label() rentrns a _child0
+            # sel.artist.get_label() returns a _child0
             child = int(sel.artist.get_label()[6:])
             roi = str(rois[child]) if rois is not None else str(child + 1)
             sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
