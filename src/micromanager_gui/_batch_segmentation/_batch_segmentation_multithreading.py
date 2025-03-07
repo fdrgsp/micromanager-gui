@@ -4,12 +4,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tifffile
+import torch
 from cellpose import models
+from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QCheckBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -35,13 +36,17 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     import numpy as np
-    from cellpose.models import CellposeModel
     from superqt.utils import GeneratorWorker
 
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-MODEL = "cyto3"
 EXT = (WRITERS[OME_ZARR][0], WRITERS[ZARR_TESNSORSTORE][0])
+
+
+# ------------------- Cellpose parameters -------------------
+MODEL_TYPE = "cyto3"  # "custom"
+CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+# -----------------------------------------------------------
 
 
 class CellposeBatchSegmentation(QWidget):
@@ -67,8 +72,8 @@ class CellposeBatchSegmentation(QWidget):
         buttons_layout = QHBoxLayout(buttons_wdg)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(5)
-        self._use_gpu = QCheckBox("Use GPU")
-        self._use_gpu.setChecked(True)
+        # self._use_gpu = QCheckBox("Use GPU")
+        # self._use_gpu.setChecked(True)
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
@@ -79,7 +84,7 @@ class CellposeBatchSegmentation(QWidget):
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
         self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
-        buttons_layout.addWidget(self._use_gpu)
+        # buttons_layout.addWidget(self._use_gpu)
         buttons_layout.addStretch(1)
         buttons_layout.addWidget(self._run_btn)
         buttons_layout.addWidget(self._cancel_btn)
@@ -134,7 +139,15 @@ class CellposeBatchSegmentation(QWidget):
 
             positions = list(range(len(sequence.stage_positions)))
 
-            model = models.Cellpose(gpu=self._use_gpu.isChecked(), model_type=MODEL)
+            # only cuda since per now cellpose does not work with gpu on mac
+            use_gpu = torch.cuda.is_available()
+            dev = torch.device("cuda" if use_gpu else "cpu")
+            if MODEL_TYPE == "custom":
+                model = CellposeModel(
+                    pretrained_model=CUSTOM_MODEL_PATH, gpu=use_gpu, device=dev
+                )
+            else:
+                model = models.Cellpose(gpu=use_gpu, model_type=MODEL_TYPE, device=dev)
 
             file_name = d.path.name
             for ext in EXT:
@@ -177,7 +190,8 @@ class CellposeBatchSegmentation(QWidget):
             stack_half_to_end = stack[stack.shape[0] // 2 :, :, :]
             # perform cellpose on each time point
             cyto_frame = stack_half_to_end.max(axis=0)
-            labels, _, _, _ = model.eval(cyto_frame)
+            output = model.eval(cyto_frame)
+            labels = output[0]
             self._labels[f"{pos_name}_p{p}"] = labels
             # save to disk
             tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
