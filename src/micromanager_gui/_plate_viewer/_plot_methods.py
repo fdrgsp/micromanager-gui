@@ -86,10 +86,9 @@ def plot_single_well_traces(
         )
 
     # plot other types of graphs
-    else:
-        return _plot_single_well_traces(
-            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
-        )
+    return _plot_single_well_traces(
+        widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+    )
 
 
 def _generate_raster_plot(
