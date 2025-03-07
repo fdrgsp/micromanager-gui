@@ -127,6 +127,10 @@ def _generate_raster_plot(
             max_amp = max(max_amp, roi_max_amp)
         # adding 0.5 to max_amp to make the color range more visible
         norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
+        cmap = cm.viridis  # Choose colormap
+        # scalar mappable for colorbar
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm_amp_color)
+        sm.set_array([])  # required for colorbar
     else:
         colors_list = [f"C{i}" for i in range(len(data))]
 
@@ -152,8 +156,7 @@ def _generate_raster_plot(
         event_data.append(roi_data.peaks_dec_dff)
         if amplitude_colors:
             peak_colors = [
-                cm.viridis(norm_amp_color(amp))
-                for amp in roi_data.peaks_amplitudes_dec_dff
+                cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff
             ]
             colors.append(peak_colors)
         else:
@@ -168,6 +171,11 @@ def _generate_raster_plot(
     ax.set_yticklabels([])
     ax.set_yticks([])
     update_time_axis(ax, rois_rec_time, trace)
+
+    # add the colorbar if amplitude colors are used
+    if amplitude_colors:
+        cbar = widget.figure.colorbar(sm, ax=ax)
+        cbar.set_label("Amplitude")
 
     widget.figure.tight_layout()
 
