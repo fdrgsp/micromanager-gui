@@ -297,8 +297,10 @@ def visualize_stimulated_area(
         if not isinstance(label, np.ndarray):
             return
 
-        if rois is not None:
-            st_rois, ust_rois = _group_rois(data, rois)
+        if rois is None:
+            rois = list(data.keys())
+
+        st_rois, ust_rois = _group_rois(data, rois)
 
         st_color = [1, 0, 0]
         ust_color = [0, 0, 1]
@@ -346,7 +348,7 @@ def _group_rois(data: dict, rois: list[int]) -> tuple[list[int], list[int]]:
     ust_rois: list[int] = []
 
     for key in data:
-        if rois is not None and int(key) not in rois:
+        if rois is not None and key not in rois:
             continue
 
         roi_data = cast("ROIData", data[key])
