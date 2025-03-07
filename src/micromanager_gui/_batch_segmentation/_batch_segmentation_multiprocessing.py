@@ -45,7 +45,7 @@ EXT = (WRITERS[OME_ZARR][0], WRITERS[ZARR_TESNSORSTORE][0])
 
 # ------------------- Cellpose parameters -------------------
 MODEL_TYPE = "cyto3"  # "custom"
-CUSTOM_MODEL_PATH = "path/to/model"
+CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
 # -----------------------------------------------------------
 
 
