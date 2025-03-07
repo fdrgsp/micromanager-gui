@@ -119,7 +119,10 @@ def _generate_raster_plot(
             if rois is not None and int(roi_key) not in rois:
                 continue
             roi_data = cast("ROIData", data[roi_key])
-            if roi_data.peaks_amplitudes_dec_dff is None:
+            if (
+                roi_data.peaks_amplitudes_dec_dff is None
+                or not roi_data.peaks_amplitudes_dec_dff
+            ):
                 continue
             roi_min_amp = min(roi_data.peaks_amplitudes_dec_dff)
             roi_max_amp = max(roi_data.peaks_amplitudes_dec_dff)
