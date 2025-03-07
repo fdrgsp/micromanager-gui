@@ -102,6 +102,9 @@ def _generate_raster_plot(
     # Clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
+    ax.set_title(
+        "Raster Plot Colored by Amplitude" if amplitude_colors else "Raster Plot"
+    )
 
     rois_rec_time: list[float] = []
     total_frames: int = 0
