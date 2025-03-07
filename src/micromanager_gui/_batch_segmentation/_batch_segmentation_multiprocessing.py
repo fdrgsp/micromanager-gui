@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from cProfile import label
 import concurrent.futures
 from multiprocessing import Manager
 from pathlib import Path
@@ -14,7 +13,6 @@ from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QCheckBox,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -50,6 +48,7 @@ MODEL_TYPE = "cyto3"  # "custom"
 CUSTOM_MODEL_PATH = "path/to/model"
 # -----------------------------------------------------------
 
+
 class CellposeBatchSegmentation(QWidget):
     def __init__(
         self,
@@ -73,8 +72,8 @@ class CellposeBatchSegmentation(QWidget):
         buttons_layout = QHBoxLayout(buttons_wdg)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(5)
-        self._use_gpu = QCheckBox("Use GPU")
-        self._use_gpu.setChecked(True)
+        # self._use_gpu = QCheckBox("Use GPU")
+        # self._use_gpu.setChecked(True)
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
@@ -85,7 +84,7 @@ class CellposeBatchSegmentation(QWidget):
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
         self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
-        buttons_layout.addWidget(self._use_gpu)
+        # buttons_layout.addWidget(self._use_gpu)
         buttons_layout.addStretch(1)
         buttons_layout.addWidget(self._run_btn)
         buttons_layout.addWidget(self._cancel_btn)
@@ -133,10 +132,7 @@ class CellposeBatchSegmentation(QWidget):
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
             self._futures = [
-                executor.submit(
-                    _segment_data, f, self._stop_event, self._use_gpu.isChecked()
-                )
-                for f in files
+                executor.submit(_segment_data, f, self._stop_event) for f in files
             ]
 
             for future in tqdm(
@@ -150,7 +146,7 @@ class CellposeBatchSegmentation(QWidget):
                     print(f"An error occurred: {e}")
 
 
-def _segment_data(data_path: str, stop_event: Event, use_gpu: bool) -> None:
+def _segment_data(data_path: str, stop_event: Event) -> None:
     """Segment the data with Cellpose."""
     if stop_event.is_set():
         print(f"Segmentation process stopped for {data_path}")
