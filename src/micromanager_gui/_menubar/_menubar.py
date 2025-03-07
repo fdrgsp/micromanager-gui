@@ -15,7 +15,6 @@ from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
