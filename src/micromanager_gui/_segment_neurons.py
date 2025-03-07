@@ -21,13 +21,7 @@ if TYPE_CHECKING:
 
 CHANNEL = [0, 0]
 DIAMETER = 0
-
-# ------------------- Cellpose parameters -------------------
-MODEL_TYPE = "cyto3"  # "custom"
-
-# ignored if MODEL_TYPE is not "custom"
-CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
-# -----------------------------------------------------------
+CYTO = "cyto3"
 
 
 class SegmentNeurons:
@@ -53,21 +47,25 @@ class SegmentNeurons:
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
-        # only cuda since per now cellpose does not work with gpu on mac
+    def enable(
+        self, enable: bool, model_type: str = CYTO, model_path: str = ""
+    ) -> None:
+        """Enable or disable the segmentation."""
+        self._enabled = enable
+        self._model = self.set_model(model_type, model_path)
+
+    def set_model(self, model_type: str, model_path: str) -> None:
+        """Set the cellpose model."""
         use_gpu = torch.cuda.is_available()
         dev = torch.device("cuda" if use_gpu else "cpu")
-        if MODEL_TYPE == "custom":
+        if model_type == "custom":
             self._model = CellposeModel(
-                pretrained_model=CUSTOM_MODEL_PATH, gpu=use_gpu, device=dev
+                pretrained_model=model_path, gpu=use_gpu, device=dev
             )
         else:
             self._model = models.Cellpose(
-                gpu=use_gpu, model_type=MODEL_TYPE, device=dev
+                gpu=use_gpu, model_type=model_type, device=dev
             )
-
-    def enable(self, enable: bool, model: str = MODEL_TYPE) -> None:
-        """Enable or disable the segmentation."""
-        self._enabled = enable
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
