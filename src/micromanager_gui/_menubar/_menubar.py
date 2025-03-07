@@ -67,6 +67,7 @@ PREVIEW = "preview"
 CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
+CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -370,6 +371,7 @@ class _SegmentWidget(QDialog):
         self.setWindowFlags(Qt.WindowType.Sheet)
 
         self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
 
         self._models_combo = QComboBox()

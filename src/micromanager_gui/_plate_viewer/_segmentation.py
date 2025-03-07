@@ -47,9 +47,7 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-CUSTOM_MODEL_PATH = (
-    "/Users/fdrgsp/Documents/git/micromanager-gui/cellpose_models/cp_img8_epoch7000_py"
-)
+CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
 
 
 class _SelectModelPath(_BrowseWidget):
@@ -301,10 +299,10 @@ class _CellposeSegmentation(QWidget):
         # only cuda since per now cellpose does not work with gpu on mac
         use_gpu = torch.cuda.is_available()
         dev = torch.device("cuda" if use_gpu else "cpu")
-        print('----------------------')
+        print("----------------------")
         print("Use GPU: ", use_gpu)
         print("Device: ", dev)
-        print('----------------------')
+        print("----------------------")
 
         # use_gpu = self._use_gpu_checkbox.isChecked()
         if self._models_combo.currentText() == "custom":
