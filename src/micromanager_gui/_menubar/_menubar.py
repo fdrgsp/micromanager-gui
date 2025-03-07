@@ -15,7 +15,6 @@ from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -67,6 +66,7 @@ PREVIEW = "preview"
 CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
+CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -350,8 +350,8 @@ class _MenuBar(QMenuBar):
             return
 
         if self._segment_widget.exec():
-            model, gpu = self._segment_widget.value()
-            self._main_window._segment_neurons.enable(enable, model, gpu)
+            model_type, model_path = self._segment_widget.value()
+            self._main_window._segment_neurons.enable(enable, model_type, model_path)
         else:
             self._act_enable_segmentation.setChecked(False)
             self._main_window._segment_neurons.enable(False)
@@ -370,20 +370,21 @@ class _SegmentWidget(QDialog):
         self.setWindowFlags(Qt.WindowType.Sheet)
 
         self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
 
         self._models_combo = QComboBox()
         self._models_combo.addItems(MODELS)
         self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-        self._use_gpu_checkbox = QCheckBox("Use GPU")
-        self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
-        self._use_gpu_checkbox.setChecked(True)
+        # self._use_gpu_checkbox = QCheckBox("Use GPU")
+        # self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
+        # self._use_gpu_checkbox.setChecked(True)
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(QLabel("Model:"))
         layout.addWidget(self._models_combo, 1)
-        layout.addWidget(self._use_gpu_checkbox)
+        # layout.addWidget(self._use_gpu_checkbox)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(3, 3, 3, 3)
@@ -401,18 +402,17 @@ class _SegmentWidget(QDialog):
         # Add buttons to the main layout
         main_layout.addWidget(self._button_box)
 
-    def value(self) -> tuple[str, bool]:
-        """Return the model and the use_gpu value."""
-        if (model := self._models_combo.currentText()) == CUSTOM and (
+    def value(self) -> tuple[str, str]:
+        """Return the model type and path."""
+        if (model_type := self._models_combo.currentText()) == CUSTOM and (
             path := self._browse_custom_model.value()
         ):
-            model = path
+            model_path = path
         else:
-            model = CYTO3
+            model_type = CYTO3
+            model_path = ""
 
-        print(model, self._use_gpu_checkbox.isChecked())
-
-        return model, self._use_gpu_checkbox.isChecked()
+        return model_type, model_path
 
     def _on_model_combo_changed(self, model: str) -> None:
         """Show the custom model path if the model is 'custom'."""
