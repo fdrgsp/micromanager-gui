@@ -418,7 +418,7 @@ def visualize_stimulated_area(
     fov_snapshot = cast(
         np.ndarray, widget._plate_viewer._datastore.isel(p=fov.pos_idx, t=t, c=0)
     )
-    st_area = widget._plate_viewer._analysis_wdg._stimulated_area
+    st_area = widget._plate_viewer._analysis_wdg._stimulated_area_mask
 
     if st_area is None:
         return
