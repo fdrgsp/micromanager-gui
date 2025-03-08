@@ -70,7 +70,7 @@ ELAPSED_TIME_KEY = "ElapsedTime-ms"
 CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
-STIMULATION_AREA_THRESHOLD = 0.8
+STIMULATION_AREA_THRESHOLD = 0.5  # 50%
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -123,7 +123,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._evoked_path = _BrowseWidget(
             self,
             label="Stimulated Area File",
-            tooltip="Select the path to the image of the stimulated area.",
+            tooltip=(
+                "Select the path to the image of the stimulated area. The file should "
+                "be a '.tiff' or '.tif'. The image should either a binary mask or a "
+                "grayscale image where the stimulated area is brighter than the rest."
+            ),
             is_dir=False,
         )
         self._evoked_path.hide()

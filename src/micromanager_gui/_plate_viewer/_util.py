@@ -444,10 +444,20 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
 def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
     """Create a binary mask from an input image.
 
-    We use this to create a mask of the stimulated area.
+    We use this to create a mask of the stimulated area. If the input image is a
+    mask image already, simply return it.
+
+    Parameters
+    ----------
+    stimulation_file : str
+        Path to the stimulation image.
     """
     # load grayscale image
     blue_img = tifffile.imread(stimulation_file)
+
+    # check if the image is already a binary mask
+    if np.unique(blue_img).size == 2:
+        return blue_img  # type: ignore
 
     # apply Gaussian Blur to reduce noise
     blur = filters.gaussian(blue_img, sigma=2)
