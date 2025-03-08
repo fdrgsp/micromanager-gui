@@ -26,12 +26,15 @@ class _InitDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Select Data Source")
 
+        # datastore_path
         self._datastrore = _BrowseWidget(
             self,
-            "Datastrore Path",
+            "Datastore Path",
             datastore_path,
-            "The path to the zarr datastrore.",
+            "The path to the zarr datastore.",
         )
+
+        # labels_path with labels images
         self._labels = _BrowseWidget(
             self,
             "Segmentation Path",
@@ -41,6 +44,7 @@ class _InitDialog(QDialog):
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
         )
 
+        # analysis_path with json files
         self._analysis = _BrowseWidget(
             self,
             "Analysis Path",
@@ -128,7 +132,10 @@ class _BrowseWidget(QWidget):
                 self._path.setText(path)
         else:
             path, _ = QFileDialog.getOpenFileName(
-                self, f"Select the {self._label_text}.", "", "JSON (*.json)"
+                self,
+                f"Select the {self._label_text}.",
+                "",
+                "JSON (*.json); IMAGES (*.tif *.tiff)",
             )
             if path:
                 self._path.setText(path)

@@ -15,6 +15,7 @@ from oasis.functions import deconvolve
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
+    QComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -44,9 +45,11 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
+    create_stimulation_mask,
     get_cubic_phase,
     get_iei,
     get_linear_phase,
+    get_overlap_roi_with_stimulated_area,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -65,6 +68,9 @@ FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 ELAPSED_TIME_KEY = "ElapsedTime-ms"
 CAMERA_KEY = "camera_metadata"
+SPONTANEOUS = "Spontaneous Activity"
+EVOKED = "Evoked Activity"
+STIMULATION_AREA_THRESHOLD = 0.5  # 50%
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -87,20 +93,55 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._plate_viewer: PlateViewer | None = parent
 
-        self._plate_map_data: dict[str, dict[str, str]] = {}
-
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
+        self._plate_map_data: dict[str, dict[str, str]] = {}
+        self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
-
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         self._bleach_error_path: Path | None = None
 
         self._worker: GeneratorWorker | None = None
-
         self._cancelled: bool = False
 
+        # WIDGET TO SELECT THE EXPERIMENT TYPE ---------------------------------------
+        experiment_type_wdg = QWidget(self)
+        experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
+        experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        experiment_type_wdg_layout.setSpacing(5)
+        activity_combo_label = QLabel("Experiment Type:")
+        activity_combo_label.setSizePolicy(*FIXED)
+        self._experiment_type_combo = QComboBox()
+        self._experiment_type_combo.addItems([SPONTANEOUS, EVOKED])
+        self._experiment_type_combo.currentTextChanged.connect(
+            self._on_activity_changed
+        )
+        experiment_type_wdg_layout.addWidget(activity_combo_label)
+        experiment_type_wdg_layout.addWidget(self._experiment_type_combo)
+
+        self._evoked_path = _BrowseWidget(
+            self,
+            label="Stimulated Area File",
+            tooltip=(
+                "Select the path to the image of the stimulated area. The file should "
+                "be a '.tiff' or '.tif'. The image should either a binary mask or a "
+                "grayscale image where the stimulated area is brighter than the rest."
+            ),
+            is_dir=False,
+        )
+        self._evoked_path.hide()
+
+        # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
+        self._output_path = _BrowseWidget(
+            self,
+            "Analysis Output Path",
+            "",
+            "Select the output path for the Analysis Data.",
+            is_dir=True,
+        )
+
+        # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
@@ -118,19 +159,12 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        self._output_path = _BrowseWidget(
-            self,
-            "Analysis Output Path",
-            "",
-            "Select the output path for the Analysis Data.",
-            is_dir=True,
-        )
-        pos_lbl.setFixedWidth(self._output_path._label.sizeHint().width())
+        # PROGRESS BAR -------------------------------------------
+        self._progress_bar = QProgressBar(self)
+        self._progress_pos_label = QLabel()
+        self._elapsed_time_label = QLabel("00:00:00")
 
-        progress_wdg = QWidget(self)
-        progress_wdg_layout = QHBoxLayout(progress_wdg)
-        progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
-
+        # RUN AND CANCEL BUTTONS ----------------------------------------------------
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
@@ -142,25 +176,32 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
-        self._progress_bar = QProgressBar(self)
-        self._progress_pos_label = QLabel()
-        self._elapsed_time_label = QLabel("00:00:00")
+        # ELAPSED TIME TIMER ---------------------------------------------------------
+        self._elapsed_timer = _ElapsedTimer()
+        self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
+        # STYLING --------------------------------------------------------------------
+        fixed_width = self._output_path._label.sizeHint().width()
+        activity_combo_label.setFixedWidth(fixed_width)
+        self._evoked_path._label.setFixedWidth(fixed_width)
+        pos_lbl.setFixedWidth(fixed_width)
+
+        # LAYOUT ---------------------------------------------------------------------
+        progress_wdg = QWidget(self)
+        progress_wdg_layout = QHBoxLayout(progress_wdg)
+        progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
         progress_wdg_layout.addWidget(self._run_btn)
         progress_wdg_layout.addWidget(self._cancel_btn)
         progress_wdg_layout.addWidget(self._progress_bar)
         progress_wdg_layout.addWidget(self._progress_pos_label)
         progress_wdg_layout.addWidget(self._elapsed_time_label)
 
-        self._elapsed_timer = _ElapsedTimer()
-        self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
-
-        self.progress_bar_updated.connect(self._update_progress_bar)
-
         self.groupbox = QGroupBox("Extract Traces", self)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
+        wdg_layout.addWidget(experiment_type_wdg)
+        wdg_layout.addWidget(self._evoked_path)
         wdg_layout.addWidget(self._output_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -173,6 +214,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_waiting_bar = _WaitingProgressBarWidget(
             text="Stopping all the Tasks..."
         )
+
+        # CONNECTIONS ---------------------------------------------------------------
+        self.progress_bar_updated.connect(self._update_progress_bar)
 
     @property
     def data(
@@ -255,6 +299,15 @@ class _AnalyseCalciumTraces(QWidget):
         """Show an error dialog."""
         show_error_dialog(self, error)
 
+    def _on_activity_changed(self, text: str) -> None:
+        """Show or hide the stimulated area path widget."""
+        self._evoked_path.show() if text == EVOKED else self._evoked_path.hide()
+
+    def _is_stimulated(self) -> bool:
+        """Return True if the activity type is evoked."""
+        activity_type = self._experiment_type_combo.currentText()
+        return activity_type == EVOKED  # type: ignore
+
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
 
@@ -317,6 +370,17 @@ class _AnalyseCalciumTraces(QWidget):
             LOGGER.error(msg)
             show_error_dialog(self, msg)
             return None
+
+        # if the experiment type is evoked activity, create the stimulated area mask
+        if self._is_stimulated():
+            if st_area_file := self._evoked_path.value():
+                self._stimulated_area_mask = create_stimulation_mask(st_area_file)
+            else:
+                self._stimulated_area_mask = None
+                msg = "No Stimulated Area File Provided!"
+                LOGGER.error(msg)
+                show_error_dialog(self, msg)
+                return None
 
         # if the uses select to analyse all the positions (_pos_le empty), return all
         # positions that have labels. his can speed up analysis since we will be sure
@@ -532,7 +596,9 @@ class _AnalyseCalciumTraces(QWidget):
         labels_range = np.unique(labels[labels != 0])
 
         # create masks for each label
-        masks = {label_value: (labels == label_value) for label_value in labels_range}
+        labels_masks = {
+            label_value: (labels == label_value) for label_value in labels_range
+        }
 
         LOGGER.info("Processing Well %s", well)
 
@@ -564,18 +630,21 @@ class _AnalyseCalciumTraces(QWidget):
                 elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
             ) / 1000
 
+        # check if the well is stimulated
+        stimulated = self._is_stimulated()
+
         roi_trace: np.ndarray
 
         # extract roi traces
         LOGGER.info(f"Extracting Traces from Well {well}.")
-        for label_value, mask in tqdm(
-            masks.items(), desc=f"Extracting Traces from Well {well}"
+        for label_value, label_mask in tqdm(
+            labels_masks.items(), desc=f"Extracting Traces from Well {well}"
         ):
             if self._check_for_abort_requested():
                 break
 
             # calculate the mean trace for the roi
-            masked_data = data[:, mask]
+            masked_data = data[:, label_mask]
 
             # get the size of the roi in µm or px if µm is not available
             roi_size_pixel = masked_data.shape[1]  # area
@@ -588,6 +657,13 @@ class _AnalyseCalciumTraces(QWidget):
             # better
             if px_size and roi_size < 10:
                 continue
+
+            # check if the roi is stimulated
+            roi_stimulation_overlap_ratio = 0.0
+            if stimulated and self._stimulated_area_mask is not None:
+                roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
+                    self._stimulated_area_mask, label_mask
+                )
 
             # compute the mean for each frame
             roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
@@ -674,6 +750,7 @@ class _AnalyseCalciumTraces(QWidget):
                 linear_phase=linear_phase,
                 cubic_phase=cubic_phase,
                 iei=iei,
+                stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
             )
 
         # save json file
