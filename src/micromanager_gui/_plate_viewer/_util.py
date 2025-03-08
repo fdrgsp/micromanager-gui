@@ -4,9 +4,9 @@ import contextlib
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import tifffile
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from scipy.interpolate import CubicSpline
+from skimage import filters, morphology
 
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
@@ -82,10 +83,6 @@ MULTI_WELL_COMBO_OPTIONS = [
 ]
 # ------------------------------------------------------------------------------------
 
-# -----------------------------------STIMULATION-----------------------------------
-SPONTANEOUS = "Spontaneous activity"
-EVOKED = "Evoked activity"
-
 
 @dataclass
 class BaseClass:
@@ -117,7 +114,7 @@ class ROIData(BaseClass):
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
-    stimulated: bool | None = None
+    stimulated: bool = False
     # ... add whatever other data we need
 
 
@@ -445,54 +442,50 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
 
 
 def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
-    """Create a mask based on the stimulation file."""
-    # Load grayscale image
-    blue_img = cv2.imread(stimulation_file, cv2.IMREAD_GRAYSCALE)
+    """Create a binary mask from an input image.
 
-    # Apply Gaussian Blur FIRST to reduce noise
-    blur = cv2.GaussianBlur(blue_img, (5, 5), 0)
+    We use this to create a mask of the stimulated area.
+    """
+    # load grayscale image
+    blue_img = tifffile.imread(stimulation_file)
 
-    # set the threshold to be the avg of the snapshot
-    img_avg = blue_img.mean()
+    # apply Gaussian Blur to reduce noise
+    blur = filters.gaussian(blue_img, sigma=2)
 
-    # Apply thresholding
-    _, th = cv2.threshold(blur, img_avg, 255, cv2.THRESH_BINARY)
+    # set the threshold to otsu's threshold and apply thresholding
+    th = blur > filters.threshold_otsu(blur)
 
-    # Morphological operations
-    kernel_small = np.ones((5, 5), np.uint8)
-    kernel_large = np.ones((10, 10), np.uint8)
+    # morphological operations
+    selem_small = morphology.disk(2)
+    selem_large = morphology.disk(5)
 
-    # Closing (removes small holes)
-    closed = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel_small)
+    # closing operation (removes small holes)
+    closed = morphology.closing(th, selem_small)
 
-    # Erosion (removes noise)
-    eroded = cv2.erode(closed, kernel_small)
+    # erosion (removes small noise)
+    eroded = morphology.erosion(closed, selem_small)
 
-    # Final closing with a larger kernel
-    final_mask = cv2.morphologyEx(eroded, cv2.MORPH_CLOSE, kernel_large)
+    # final closing with a larger structuring element
+    final_mask = morphology.closing(eroded, selem_large)
 
-    # Convert to binary (0 and 1)
-    st_area = np.where(final_mask > 0, 1, 0).astype(float)
-
-    return st_area
+    return final_mask.astype(np.uint8)  # type: ignore
 
 
-def roi_st_area_overlap(st_area: np.ndarray, roi_mask: np.ndarray) -> float:
-    """Check how much each cell falls within the mask area."""
-    if roi_mask.shape != st_area.shape:
-        raise ValueError("cell_mask and area_mask must have the same dimensions.")
+def get_overlap_roi_with_stimulated_area(
+    stimulation_mask: np.ndarray, roi_mask: np.ndarray
+) -> float:
+    """Compute the fraction of the ROI that overlaps with the stimulated area."""
+    if roi_mask.shape != stimulation_mask.shape:
+        raise ValueError("roi_mask and st_area must have the same dimensions.")
 
-    roi_mask_int = roi_mask.astype(int)
+    # count nonzero pixels in the ROI mask
+    cell_pixels = np.count_nonzero(roi_mask)
 
-    cell_pixels = np.sum(roi_mask_int)
-
+    # if the ROI mask has no pixels, return 0
     if cell_pixels == 0:
-        return 0.0  # Avoid division by zero (empty cell mask)
+        return 0.0
 
-    # Count overlapping pixels (where both cell and area are 1)
-    overlapping_pixels = np.sum(roi_mask_int * st_area)
+    # count overlapping pixels (logical AND operation)
+    overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
 
-    # Compute overlap ratio
-    overlap_ratio = float(overlapping_pixels / cell_pixels)
-
-    return overlap_ratio
+    return overlapping_pixels / cell_pixels
