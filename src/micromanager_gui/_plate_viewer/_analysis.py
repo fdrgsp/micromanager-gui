@@ -445,6 +445,8 @@ class _AnalyseCalciumTraces(QWidget):
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
         self._pos_le.setEnabled(enable)
+        self._stimulation_path.setEnabled(enable)
+        self._experiment_type_combo.setEnabled(enable)
         self._analysis_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:

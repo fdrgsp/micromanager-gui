@@ -261,101 +261,94 @@ class _CellposeSegmentation(QWidget):
         if self._worker is not None and self._worker.is_running:
             return
 
+        self._initialize_progress_bar()
+
+        if not self._validate_segmentation_setup():
+            return
+
+        positions = self._get_positions()
+        if positions is None:
+            return
+
+        if not self._handle_existing_labels():
+            return
+
+        self._start_segmentation(positions)
+
+    def _initialize_progress_bar(self) -> None:
+        """Reset and initialize progress bar."""
         self._progress_bar.reset()
         self._progress_bar.setValue(0)
         self._progress_label.setText("[0/0]")
 
+    def _validate_segmentation_setup(self) -> bool:
+        """Check if the necessary data is available before segmentation."""
         if self._data is None:
-            return
+            return False
 
         path = self._output_path.value()
         if not path:
             show_error_dialog(self, "Please select a Labels Output Path.")
             LOGGER.error("No Labels Output Path selected.")
-            return
+            return False
 
-        # check if the path is valid
         if not Path(path).is_dir():
-            msg = "The Labels Output Path is not a valid directory!"
-            show_error_dialog(self, msg)
-            LOGGER.error(msg)
-            return
+            show_error_dialog(self, "The Labels Output Path is not a valid directory!")
+            LOGGER.error("Invalid Labels Output Path.")
+            return False
 
         sequence = self._data.sequence
         if sequence is None:
-            msg = "No useq.MDAsequence found!"
-            show_error_dialog(self, msg)
-            LOGGER.error(msg)
-            return
+            show_error_dialog(self, "No useq.MDAsequence found!")
+            LOGGER.error("No sequence found.")
+            return False
 
-        # use all positions if the input is empty
+        return True
+
+    def _get_positions(self) -> list[int] | None:
+        """Retrieve and validate the positions for segmentation."""
+        # this should never happen, it has been checked in _validate_segmentation_setup
+        if self._data is None or (sequence := self._data.sequence) is None:
+            return None
+
         if not self._pos_le.text():
-            positions = list(range(len(sequence.stage_positions)))
-        else:
-            # parse the input positions
-            positions = parse_lineedit_text(self._pos_le.text())
+            return list(range(len(sequence.stage_positions)))
 
-            if not positions:
-                msg = "Invalid Positions provided!"
-                show_error_dialog(self, msg)
-                LOGGER.error(msg)
-                return
+        positions = parse_lineedit_text(self._pos_le.text())
+        if not positions or max(positions) >= len(sequence.stage_positions):
+            show_error_dialog(self, "Invalid or out-of-range Positions provided!")
+            LOGGER.error("Invalid or out-of-range Positions.")
+            return None
 
-            if max(positions) >= len(sequence.stage_positions):
-                msg = "Input Positions out of range!"
-                show_error_dialog(self, msg)
-                LOGGER.error(msg)
-                return
+        return positions
 
-        self._progress_bar.setRange(0, len(positions))
-
-        # ask the user if wants to overwrite the labels if they already exist
+    def _handle_existing_labels(self) -> bool:
+        """Check if label files exist and ask the user for overwrite confirmation."""
+        path = self._output_path.value()
         if list(Path(path).glob("*.tif")):
             response = self._overwrite_msgbox()
             if response == QMessageBox.StandardButton.No:
-                return
-        # set the label path of the PlateViewer
+                return False
+
         self._update_plate_viewer_labels_path(path)
+        return True
 
-        # set the model type
-        # only cuda since per now cellpose does not work with gpu on mac
-        use_gpu = torch.cuda.is_available()
-        dev = torch.device("cuda" if use_gpu else "cpu")
-        LOGGER.info(f"Use GPU: {use_gpu}, Device: {dev}")
-        print("Use GPU: ", use_gpu, "Device: ", dev)
+    def _start_segmentation(self, positions: list[int]) -> None:
+        """Prepare segmentation and start it in a separate thread."""
+        model = self._initialize_model()
+        if model is None:
+            return
 
-        # use_gpu = self._use_gpu_checkbox.isChecked()
-        if self._models_combo.currentText() == "custom":
-            # get the path to the custom model
-            custom_model_path = self._browse_custom_model.value()
-            if not custom_model_path:
-                msg = "Please select a custom model path."
-                show_error_dialog(self, msg)
-                LOGGER.error(msg)
-                return
-            model = CellposeModel(
-                pretrained_model=custom_model_path, gpu=use_gpu, device=dev
-            )
-        else:
-            model_type = self._models_combo.currentText()
-            model = models.Cellpose(gpu=use_gpu, model_type=model_type, device=dev)
-
-        # set the channel to segment
-        channel = [self._channel_combo.currentIndex(), 0]
-
-        # set the diameter
-        diameter = self._diameter_spin.value() or None
-
+        self._progress_bar.setRange(0, len(positions))
         self._enable(False)
-
         self._elapsed_timer.start()
 
         self._worker = create_worker(
             self._segment,
-            path=path,
+            path=self._output_path.value(),
             model=model,
-            channel=channel,
-            diameter=diameter,
+            channel=[self._channel_combo.currentIndex(), 0],
+            diameter=self._diameter_spin.value() or None,
             positions=positions,
             _start_thread=True,
             _connect={
@@ -363,6 +356,27 @@ class _CellposeSegmentation(QWidget):
                 "finished": self._on_worker_finished,
                 "errored": self._on_worker_finished,
             },
+        )
+
+    def _initialize_model(self) -> CellposeModel | None:
+        """Initialize the Cellpose model based on user selection."""
+        use_gpu = torch.cuda.is_available()
+        dev = torch.device("cuda" if use_gpu else "cpu")
+        LOGGER.info(f"Use GPU: {use_gpu}, Device: {dev}")
+        print("Use GPU:", use_gpu, "Device:", dev)
+
+        if self._models_combo.currentText() == "custom":
+            custom_model_path = self._browse_custom_model.value()
+            if not custom_model_path:
+                show_error_dialog(self, "Please select a custom model path.")
+                LOGGER.error("No custom model path selected.")
+                return None
+            return CellposeModel(
+                pretrained_model=custom_model_path, gpu=use_gpu, device=dev
+            )
+
+        return models.Cellpose(
+            gpu=use_gpu, model_type=self._models_combo.currentText(), device=dev
         )
 
     def _update_plate_viewer_labels_path(self, path: str) -> None:
@@ -392,7 +406,7 @@ class _CellposeSegmentation(QWidget):
         channel: list[int],
         diameter: float,
         positions: list[int],
-    ) -> Generator[str, None, None]:
+    ) -> Generator[str | int, None, None]:
         """Perform the segmentation using Cellpose."""
         LOGGER.info("Starting Cellpose segmentation.")
 
@@ -419,7 +433,13 @@ class _CellposeSegmentation(QWidget):
             # store the masks in the labels dict
             self._labels[f"{pos_name}_p{p}"] = labels
             # yield the current position to update the progress bar
-            yield p
+            if len(positions) == 1:
+                yield p
+            elif len(positions) > 1:
+                if p + 1 > len(positions):
+                    yield len(positions)
+                else:
+                    yield p + 1
             # save to disk
             tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
 
@@ -433,9 +453,11 @@ class _CellposeSegmentation(QWidget):
     def _update_progress_bar(self, value: str | int) -> None:
         # update only the progress label if the value is a string
         if isinstance(value, str):
+            print("updating progress label", value)
             self._progress_label.setText(value)
             return
-        # update the progress bar value
+        # update the progress bar value if the value is an integer
+        print("updating progress bar", value)
         self._progress_bar.setValue(value)
 
     def _update_progress_label(self, time_str: str) -> None:
@@ -456,6 +478,7 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model.setEnabled(enable)
         self._channel_combo.setEnabled(enable)
         self._output_path.setEnabled(enable)
+        self._pos_le.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
             return
