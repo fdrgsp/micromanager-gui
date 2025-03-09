@@ -70,6 +70,8 @@ class _DisplaySingleWellTraces(QGroupBox):
         """Enable or disable the random spin box and the update button."""
         if not state:
             self._graph._on_combo_changed(self._graph._combo.currentText())
+        else:
+            self._update()
 
     def _update(self) -> None:
         """Update the graph with random traces."""
@@ -249,9 +251,13 @@ class _DisplayMultiWellPositions(QGroupBox):
 
         self.toggled.connect(self._on_toggle)
 
-    def _on_toggle(self, state: bool) -> None: ...
+    def _on_toggle(self, state: bool) -> None:
+        ...
+        # to be implemented
 
-    def _update(self) -> None: ...
+    def _update(self) -> None:
+        ...
+        # to be implemented
 
 
 class _MultilWellGraphWidget(QWidget):
@@ -275,7 +281,8 @@ class _MultilWellGraphWidget(QWidget):
         top.addWidget(self._combo, 1)
         top.addWidget(self._save_btn, 0)
 
-        self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
+        # hiding this for now, to be implemented
+        # self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -285,7 +292,7 @@ class _MultilWellGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(top)
-        layout.addWidget(self._choose_dysplayed_positions)
+        # layout.addWidget(self._choose_dysplayed_positions)
         layout.addWidget(self.canvas)
 
         self.set_combo_text_red(True)
@@ -321,8 +328,8 @@ class _MultilWellGraphWidget(QWidget):
         plot_multi_well_data(
             self, text, self._plate_viewer._analysis_data, positions=None
         )
-        if self._choose_dysplayed_positions.isChecked():
-            self._choose_dysplayed_positions._update()
+        # if self._choose_dysplayed_positions.isChecked():
+        #     self._choose_dysplayed_positions._update()
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""
