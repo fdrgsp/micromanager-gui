@@ -20,7 +20,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ._plot_methods import plot_multi_well_data, plot_single_well_traces
+from ._plot_methods import plot_multi_well_data, plot_single_well_data
 from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class _DisplaySingleWellTraces(QGroupBox):
             rois = self._get_rois(data)
             if rois is None:
                 return
-            plot_single_well_traces(self._graph, data, text, rois=rois)
+            plot_single_well_data(self._graph, data, text, rois=rois)
 
     def _get_rois(self, data: dict) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
@@ -198,7 +198,7 @@ class _SingleWellGraphWidget(QWidget):
         well_name = table_data.fov.name
         if well_name in self._plate_viewer._analysis_data:
             data = self._plate_viewer._analysis_data[well_name]
-            plot_single_well_traces(self, data, text, rois=None)
+            plot_single_well_data(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()
 

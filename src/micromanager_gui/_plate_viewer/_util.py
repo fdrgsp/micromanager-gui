@@ -136,7 +136,8 @@ def show_error_dialog(parent: QWidget, message: str) -> None:
 
 
 class _BrowseWidget(QWidget):
-    pathSet = Signal()
+    pathSet = Signal(str)
+    filePathSet = Signal(str)
 
     def __init__(
         self,
@@ -183,6 +184,7 @@ class _BrowseWidget(QWidget):
                 self, f"Select the {self._label_text}.", self._current_path
             ):
                 self._path.setText(path)
+                self.pathSet.emit(path)
         else:
             path, _ = QFileDialog.getOpenFileName(
                 self,
@@ -192,7 +194,7 @@ class _BrowseWidget(QWidget):
             )
             if path:
                 self._path.setText(path)
-                self.pathSet.emit()
+                self.filePathSet.emit(path)
 
 
 class _ElapsedTimer(QObject):
