@@ -40,6 +40,7 @@ from ._util import (
     GENOTYPE_MAP,
     GREEN,
     RED,
+    STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
     _ElapsedTimer,
@@ -120,20 +121,21 @@ class _AnalyseCalciumTraces(QWidget):
         experiment_type_wdg_layout.addWidget(activity_combo_label)
         experiment_type_wdg_layout.addWidget(self._experiment_type_combo)
 
-        self._evoked_path = _BrowseWidget(
+        self._stimulation_path = _BrowseWidget(
             self,
             label="Stimulated Area File",
             tooltip=(
-                "Select the path to the image of the stimulated area. The file should "
-                "be a '.tiff' or '.tif'. The image should either a binary mask or a "
-                "grayscale image where the stimulated area is brighter than the rest."
+                "Select the path to the image of the stimulated area.\n"
+                "The image should either be a binary mask or a grayscale image where "
+                "the stimulated area is brighter than the rest.\n"
+                "Accepted formats: .tif, .tiff."
             ),
             is_dir=False,
         )
-        self._evoked_path.hide()
+        self._stimulation_path.hide()
 
         # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
-        self._output_path = _BrowseWidget(
+        self._analysis_path = _BrowseWidget(
             self,
             "Analysis Output Path",
             "",
@@ -181,9 +183,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
         # STYLING --------------------------------------------------------------------
-        fixed_width = self._output_path._label.sizeHint().width()
+        fixed_width = self._analysis_path._label.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
-        self._evoked_path._label.setFixedWidth(fixed_width)
+        self._stimulation_path._label.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
@@ -201,8 +203,8 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(experiment_type_wdg)
-        wdg_layout.addWidget(self._evoked_path)
-        wdg_layout.addWidget(self._output_path)
+        wdg_layout.addWidget(self._stimulation_path)
+        wdg_layout.addWidget(self._analysis_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
 
@@ -301,7 +303,11 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulated area path widget."""
-        self._evoked_path.show() if text == EVOKED else self._evoked_path.hide()
+        (
+            self._stimulation_path.show()
+            if text == EVOKED
+            else self._stimulation_path.hide()
+        )
 
     def _is_stimulated(self) -> bool:
         """Return True if the activity type is evoked."""
@@ -352,7 +358,7 @@ class _AnalyseCalciumTraces(QWidget):
                 if response == QMessageBox.StandardButton.No:
                     return None
 
-        if path := self._output_path.value():
+        if path := self._analysis_path.value():
             save_path = Path(path)
             if not save_path.is_dir():
                 msg = "Output Path is not a directory!"
@@ -373,8 +379,12 @@ class _AnalyseCalciumTraces(QWidget):
 
         # if the experiment type is evoked activity, create the stimulated area mask
         if self._is_stimulated():
-            if st_area_file := self._evoked_path.value():
+            if st_area_file := self._stimulation_path.value():
                 self._stimulated_area_mask = create_stimulation_mask(st_area_file)
+                # sane the stimulated area mask
+                stim_mask_path = Path(path) / STIMULATION_MASK
+                tifffile.imwrite(str(stim_mask_path), self._stimulated_area_mask)
+                LOGGER.info("Stimulated Area Mask saved at: %s", path)
             else:
                 self._stimulated_area_mask = None
                 msg = "No Stimulated Area File Provided!"
@@ -422,7 +432,7 @@ class _AnalyseCalciumTraces(QWidget):
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
         self._pos_le.setEnabled(enable)
-        self._output_path.setEnabled(enable)
+        self._analysis_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
             return
@@ -443,7 +453,7 @@ class _AnalyseCalciumTraces(QWidget):
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
             self._plate_viewer.analysis_data = self._analysis_data
-            self._plate_viewer._analysis_file_path = self._output_path.value()
+            self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
@@ -479,7 +489,7 @@ class _AnalyseCalciumTraces(QWidget):
         # save plate map
         LOGGER.info("Saving Plate Maps.")
         if condition_1_plate_map:
-            path = Path(self._output_path.value()) / GENOTYPE_MAP
+            path = Path(self._analysis_path.value()) / GENOTYPE_MAP
             with path.open("w") as f:
                 json.dump(
                     self._plate_viewer._plate_map_genotype.value(),
@@ -487,7 +497,7 @@ class _AnalyseCalciumTraces(QWidget):
                     indent=2,
                 )
         if conition_2_plate_map:
-            path = Path(self._output_path.value()) / TREATMENT_MAP
+            path = Path(self._analysis_path.value()) / TREATMENT_MAP
             with path.open("w") as f:
                 json.dump(
                     self._plate_viewer._plate_map_treatment.value(),
@@ -498,7 +508,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._plate_map_data.clear()
 
         # update the stored _plate_map_data dict so we have the condition for each well
-        # name as the kek. eg.g:
+        # name as the key. e.g.:
         # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
         for data in condition_1_plate_map:
             self._plate_map_data[data.name] = {COND1: data.condition[0]}
@@ -733,6 +743,7 @@ class _AnalyseCalciumTraces(QWidget):
 
             # store the analysis data
             self._analysis_data[well][str(label_value)] = ROIData(
+                well_fov_position=labels_name,
                 raw_trace=cast(list[float], roi_trace.tolist()),
                 dff=cast(list[float], dff.tolist()),
                 dec_dff=cast(list[float], dec_dff.tolist()),
@@ -755,7 +766,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # save json file
         LOGGER.info("Saving JSON file for Well %s.", well)
-        path = Path(self._output_path.value()) / f"{well}.json"
+        path = Path(self._analysis_path.value()) / f"{well}.json"
         with path.open("w") as f:
             json.dump(
                 self._analysis_data[well],

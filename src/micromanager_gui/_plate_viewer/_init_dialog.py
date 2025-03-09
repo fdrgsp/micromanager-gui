@@ -27,7 +27,7 @@ class _InitDialog(QDialog):
         self.setWindowTitle("Select Data Source")
 
         # datastore_path
-        self._datastrore = _BrowseWidget(
+        self._browse_datastrore = _BrowseWidget(
             self,
             "Datastore Path",
             datastore_path,
@@ -35,7 +35,7 @@ class _InitDialog(QDialog):
         )
 
         # labels_path with labels images
-        self._labels = _BrowseWidget(
+        self._browse_labels = _BrowseWidget(
             self,
             "Segmentation Path",
             labels_path,
@@ -45,7 +45,7 @@ class _InitDialog(QDialog):
         )
 
         # analysis_path with json files
-        self._analysis = _BrowseWidget(
+        self._browse_analysis = _BrowseWidget(
             self,
             "Analysis Path",
             analysis_path,
@@ -53,12 +53,11 @@ class _InitDialog(QDialog):
             "a path to a `json` file.",
             is_dir=True,
         )
-        self._datastrore._label.setFixedWidth(
-            self._labels._label.minimumSizeHint().width()
-        )
-        self._analysis._label.setFixedWidth(
-            self._labels._label.minimumSizeHint().width()
-        )
+
+        # styling
+        fix_width = self._browse_labels._label.minimumSizeHint().width()
+        self._browse_datastrore._label.setFixedWidth(fix_width)
+        self._browse_analysis._label.setFixedWidth(fix_width)
 
         # Create the button box
         self.buttonBox = QDialogButtonBox(
@@ -71,16 +70,16 @@ class _InitDialog(QDialog):
 
         # Add the button box to the layout
         layout = QGridLayout(self)
-        layout.addWidget(self._datastrore, 0, 0)
-        layout.addWidget(self._labels, 1, 0)
-        layout.addWidget(self._analysis, 2, 0)
+        layout.addWidget(self._browse_datastrore, 0, 0)
+        layout.addWidget(self._browse_labels, 1, 0)
+        layout.addWidget(self._browse_analysis, 2, 0)
         layout.addWidget(self.buttonBox, 3, 0, 1, 2)
 
     def value(self) -> tuple[str, str, str]:
         return (
-            self._datastrore.value(),
-            self._labels.value(),
-            self._analysis.value(),
+            self._browse_datastrore.value(),
+            self._browse_labels.value(),
+            self._browse_analysis.value(),
         )
 
 

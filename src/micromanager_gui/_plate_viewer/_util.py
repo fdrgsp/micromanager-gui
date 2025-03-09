@@ -28,6 +28,7 @@ GENOTYPE_MAP = "genotype_plate_map.json"
 TREATMENT_MAP = "treatment_plate_map.json"
 COND1 = "condition_1"
 COND2 = "condition_2"
+STIMULATION_MASK = "stimulation_mask.tif"
 
 # -----------------------------------GRAPH PLOTTING-----------------------------------
 # Anything added here will appear in the dropdown menu in the graph widget.
@@ -53,8 +54,8 @@ DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
-STIMULATED_AREA = "Stimulated area"
-STIMULATED_ROIS = "Visualize ROIs (stimulated vs unstimulated)"
+STIMULATED_AREA = "Stimulated Area"
+STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -97,6 +98,7 @@ class BaseClass:
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
 
+    well_fov_position: str = ""
     raw_trace: list[float] | None = None
     dff: list[float] | None = None
     dec_dff: list[float] | None = None  # deconvolved dff with oasis package

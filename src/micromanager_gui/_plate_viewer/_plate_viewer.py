@@ -76,7 +76,7 @@ class PlateViewer(QMainWindow):
         parent: QWidget | None = None,
         *,
         labels_path: str | None = None,
-        analysis_file_path: str | None = None,
+        analysis_files_path: str | None = None,
     ) -> None:
         super().__init__(parent)
 
@@ -91,7 +91,7 @@ class PlateViewer(QMainWindow):
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
         self._labels_path = labels_path
-        self._analysis_file_path = analysis_file_path
+        self._analysis_files_path = analysis_files_path
 
         # maybe make it as a pandas dataframe. we can save the analysis as a csv file
         # and load it with pandas after the init dialog
@@ -295,12 +295,12 @@ class PlateViewer(QMainWindow):
         return self._segmentation_wdg.labels
 
     @property
-    def analysis_file_path(self) -> str | None:
-        return self._analysis_file_path
+    def analysis_files_path(self) -> str | None:
+        return self._analysis_files_path
 
-    @analysis_file_path.setter
-    def analysis_file_path(self, value: str) -> None:
-        self._analysis_file_path = value
+    @analysis_files_path.setter
+    def analysis_files_path(self, value: str) -> None:
+        self._analysis_files_path = value
         self._load_analysis_data(value)
 
     @property
@@ -380,10 +380,12 @@ class PlateViewer(QMainWindow):
                 str(self._datastore.path) if self._datastore is not None else None
             ),
             labels_path=self._labels_path,
-            analysis_path=self._analysis_file_path,
+            analysis_path=self._analysis_files_path,
         )
         if init_dialog.exec():
-            datastore, self._labels_path, self._analysis_file_path = init_dialog.value()
+            datastore, self._labels_path, self._analysis_files_path = (
+                init_dialog.value()
+            )
             # clear fov table
             self._fov_table.clear()
             # clear scene
@@ -530,8 +532,8 @@ class PlateViewer(QMainWindow):
         self._plate_map_treatment.clear()
 
         # load analysis json file if the path is not None
-        if self._analysis_file_path:
-            self._load_analysis_data(self._analysis_file_path)
+        if self._analysis_files_path:
+            self._load_analysis_data(self._analysis_files_path)
 
         self._datastore = reader
 
@@ -577,7 +579,7 @@ class PlateViewer(QMainWindow):
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
         self._analysis_wdg.labels_path = self._labels_path
-        self._analysis_wdg._output_path._path.setText(self._analysis_file_path)
+        self._analysis_wdg._analysis_path._path.setText(self._analysis_files_path)
 
         self._load_plate_map(plate)
 
@@ -654,11 +656,11 @@ class PlateViewer(QMainWindow):
         self._plate_map_genotype.setPlate(plate)
         self._plate_map_treatment.setPlate(plate)
         # load plate map if exists
-        if self._analysis_file_path is not None:
-            gen_path = Path(self._analysis_file_path) / GENOTYPE_MAP
+        if self._analysis_files_path is not None:
+            gen_path = Path(self._analysis_files_path) / GENOTYPE_MAP
             if gen_path.exists():
                 self._plate_map_genotype.setValue(gen_path)
-            treat_path = Path(self._analysis_file_path) / TREATMENT_MAP
+            treat_path = Path(self._analysis_files_path) / TREATMENT_MAP
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 

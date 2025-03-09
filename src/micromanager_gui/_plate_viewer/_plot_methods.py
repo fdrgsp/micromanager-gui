@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib.cm as cm
 import mplcursors
 import numpy as np
-from matplotlib.colors import ListedColormap, Normalize
+import tifffile
+from matplotlib.colors import BoundaryNorm, ListedColormap, Normalize
+from matplotlib.patches import Patch
 
 from ._util import (
     DEC_DFF,
@@ -24,6 +27,7 @@ from ._util import (
     RAW_TRACES,
     STIMULATED_AREA,
     STIMULATED_ROIS,
+    STIMULATION_MASK,
 )
 
 if TYPE_CHECKING:
@@ -33,8 +37,9 @@ if TYPE_CHECKING:
     from ._util import ROIData
 
 COUNT_INCREMENT = 1
-ST_COLOR = [1, 0, 0]
-UST_COLOR = [0, 0, 1]
+DEFAULT_COLOR = "gray"
+STIMULATED_COLOR = "green"
+NON_STIMULATED_COLOR = "magenta"
 
 SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
@@ -403,108 +408,122 @@ def visualize_stimulated_area(
     with_rois: bool = False,
 ) -> None:
     """Visualize Stimulated area."""
-    fov = widget._plate_viewer._fov_table.value()
-    if fov is None:
-        return
-
-    if (
-        widget._plate_viewer._datastore is None
-        or widget._plate_viewer._datastore.sequence is None
-        or widget._plate_viewer._datastore.sequence.stage_positions is None
-    ):
-        return
-
-    t = int(len(widget._plate_viewer._datastore.sequence.stage_positions) / 3 * 2)
-    fov_snapshot = cast(
-        np.ndarray, widget._plate_viewer._datastore.isel(p=fov.pos_idx, t=t, c=0)
-    )
-    st_area = widget._plate_viewer._analysis_wdg._stimulated_area_mask
-
-    if st_area is None:
-        return
-
-    if fov_snapshot is None:
-        return
-
+    # Clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    ax.imshow(fov_snapshot, cmap="gray")
-    ax.imshow(st_area, cmap="Blues", alpha=0.5)
+    # get analysis path
+    analysis_path = widget._plate_viewer.analysis_files_path
+    if analysis_path is None:
+        return
+
+    # get the stimulation mask
+    stimulation_mask_path = Path(analysis_path) / STIMULATION_MASK
+    if not stimulation_mask_path.exists():
+        return
+    stim_mask = tifffile.imread(stimulation_mask_path)
+
+    color_mapping = {0: "black", 1: "white"}  # 0: background, 1: stimulated area
 
     if with_rois:
-        label = widget._plate_viewer._get_labels(fov)
-        if not isinstance(label, np.ndarray):
+        # get the labels file path
+        labels_image_path = widget._plate_viewer.labels_path
+        if labels_image_path is None:
             return
 
-        if rois is None:
-            rois = list(data.keys())
+        stim, non_stim = _group_rois(data, rois)
 
-        st_rois, ust_rois = _group_rois(data, rois)
+        # open label image
+        r = str(rois[0]) if rois is not None else "1"
+        label_name = cast("ROIData", data[r]).well_fov_position
+        if not label_name:
+            return
+        labels = tifffile.imread(Path(labels_image_path) / label_name)
 
-        mask_overlay = np.zeros((label.shape[0], label.shape[1], 3))
+        # create a color mapping for the labels
+        labels_range = np.unique(labels[labels != 0])
+        for roi in labels_range:
+            if roi in stim:
+                color_mapping[roi] = STIMULATED_COLOR
+            elif roi in non_stim:
+                color_mapping[roi] = NON_STIMULATED_COLOR
+            else:
+                color_mapping[roi] = DEFAULT_COLOR
 
-        for roi in st_rois:
-            mask_overlay[label == roi] = ST_COLOR
-
-        for roi in ust_rois:
-            mask_overlay[label == roi] = UST_COLOR
-
-        # ax.imshow(mask_overlay, interpolation="none", alpha=0.5)
-        cmap = ListedColormap([UST_COLOR, ST_COLOR])
-        cbar = widget.figure.colorbar(
-            ax.imshow(mask_overlay, cmap=cmap, interpolation="none", alpha=0.5)
+        # plot the labels image with the color mapping
+        unique_labels = np.unique(labels)
+        colors = [color_mapping.get(lbl, DEFAULT_COLOR) for lbl in unique_labels]
+        cmap = ListedColormap(colors)
+        norm = BoundaryNorm(
+            boundaries=np.append(unique_labels, unique_labels[-1] + 1),
+            ncolors=len(colors),
         )
-        cbar.set_ticks([0, 1])
-        cbar.set_ticklabels(["Unstimulated", "Stimulated"])
+        ax.imshow(labels, cmap=cmap, norm=norm)
 
+        # create and add legend
+        legend_patches = [
+            Patch(color="green", label="Stimulated ROIs"),
+            Patch(color="magenta", label="Non-Stimulated ROIs"),
+        ]
+        ax.legend(
+            handles=legend_patches,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 1.02),  # moves it above the plot (x, y)
+            ncol=2,  # single row
+            frameon=True,
+            fontsize="small",
+            edgecolor="black",
+        )
+
+    else:
+        ax.imshow(stim_mask, cmap="gray")
+
+    ax.axis("off")
+
+    widget.figure.tight_layout()
+
+    if with_rois:
         # Add hover functionality using mplcursors
         cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
         @cursor.connect("add")  # type: ignore [misc]
         def on_add(sel: mplcursors.Selection) -> None:
-            if label is None:
-                return
-            x, y = int(sel.target[0]), int(sel.target[1])
-            if 0 <= y < label.shape[0] and 0 <= x < label.shape[1]:
-                roi = str(label[y, x]) if label[y, x] > 0 else None
-            else:
-                roi = None
-
-            if not roi:
-                sel.annotation.set_text("")
-                return
-
-            sel.annotation.set(text=roi, fontsize=8, color="black")
+            roi_val = None
             # emit the graph widget roiSelected signal
-            # if sel.artist.get_label():
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+            x, y = int(sel.target[0]), int(sel.target[1])
+            if 0 <= y < stim_mask.shape[0] and 0 <= x < stim_mask.shape[1]:
+                roi_val = str(labels[y, x]) if labels[y, x] > 0 else None
+            if roi_val:
+                sel.annotation.set(text=f"ROI {roi_val}", fontsize=8, color="yellow")
+                sel.annotation.arrow_patch.set_color("yellow")
+                sel.annotation.arrow_patch.set_alpha(1)  # arrow is visible
+            else:
+                sel.annotation.set_visible(False)  # hide annotation
+                sel.annotation.arrow_patch.set_alpha(0)  # hide arrow
+            # emit the graph widget roiSelected signal
+            if roi_val and roi_val.isdigit():
+                widget.roiSelected.emit(roi_val)
 
-    ax.axis("off")
     widget.canvas.draw()
 
 
-def _group_rois(data: dict, rois: list[int]) -> tuple[list[int], list[int]]:
+def _group_rois(data: dict, rois: list[int] | None) -> tuple[list[int], list[int]]:
     """To group the ROIs based on stimulated state."""
-    st_rois: list[int] = []
-    ust_rois: list[int] = []
+    stimulated_rois: list[int] = []
+    non_stimulated_rois: list[int] = []
 
-    for key in data:
-        if rois is not None and key not in rois:
+    for roi_key in data:
+        if rois is not None and int(roi_key) not in rois:
             continue
 
-        roi_data = cast("ROIData", data[key])
-
-        if roi_data.stimulated is None:
-            continue
+        roi_data = cast("ROIData", data[roi_key])
 
         if roi_data.stimulated:
-            st_rois.append(int(key))
+            stimulated_rois.append(int(roi_key))
         else:
-            ust_rois.append(int(key))
+            non_stimulated_rois.append(int(roi_key))
 
-    return st_rois, ust_rois
+    return stimulated_rois, non_stimulated_rois
 
 
 # ------------------------------MULTI-WELL PLOTTING-------------------------------------
