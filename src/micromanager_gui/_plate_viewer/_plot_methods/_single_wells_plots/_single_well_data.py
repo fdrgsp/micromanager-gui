@@ -63,7 +63,7 @@ MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
 
 def _plot_single_well_data(
     widget: _SingleWellGraphWidget,
-    data: dict,
+    data: dict[str, ROIData],
     rois: list[int] | None = None,
     dff: bool = False,
     dec: bool = False,
@@ -79,96 +79,105 @@ def _plot_single_well_data(
     ax = widget.figure.add_subplot(111)
 
     # Collect the title parts --------------------------
-    title_parts = []
-    if normalize:
-        title_parts.append("Normalized Traces [0, 1]")
-    if with_peaks:
-        title_parts.append("Peaks")
-    ax.set_title(" - ".join(title_parts))
+    title_parts = [
+        "Normalized Traces [0, 1]" if normalize else "",
+        "Peaks" if with_peaks else "",
+    ]
+    ax.set_title(" - ".join(filter(None, title_parts)))
     # --------------------------------------------------
 
-    # loop over the ROIData and plot the traces per ROI
+    rois_rec_time: list[float] = []
     count = 0
 
-    rois_rec_time: list[float] = []
-
-    for roi_key in data:
+    for roi_key, roi_data in data.items():
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        roi_data = cast("ROIData", data[roi_key])
-
-        # get the correct trace based on the flags
-        trace = get_trace(roi_data, dff, dec)
+        trace: list[float] | None = _get_trace(roi_data, dff, dec)
         if trace is None:
             continue
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
             rois_rec_time.append(ttime)
 
-        if amp and freq:
-            # plot amp vs freq
-            if roi_data.peaks_amplitudes_dec_dff is None:
-                continue
-            amp_list = roi_data.peaks_amplitudes_dec_dff
-            roi_freq_list = [roi_data.dec_dff_frequency] * len(amp_list)
-            ax.plot(amp_list, roi_freq_list, "o", label=f"ROI {roi_key}")
+        if amp or freq or iei:
+            _plot_metrics(ax, roi_key, roi_data, amp, freq, iei)
+        else:
+            _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count)
+            count += COUNT_INCREMENT
 
-        elif amp:
-            # plot amplitude
-            if roi_data.peaks_amplitudes_dec_dff is None:
-                continue
+    _set_axis_labels(ax, amp, freq, iei, dff, dec)
+    if not (amp or freq or iei):
+        _update_time_axis(ax, rois_rec_time, trace)
+    widget.figure.tight_layout()
+
+    _add_hover_functionality(ax, widget)
+    widget.canvas.draw()
+
+
+def _plot_metrics(
+    ax: Axes, roi_key: str, roi_data: ROIData, amp: bool, freq: bool, iei: bool
+) -> None:
+    """Plot amplitude, frequency, or inter-event intervals."""
+    if amp and freq:
+        if roi_data.peaks_amplitudes_dec_dff:
+            ax.plot(
+                roi_data.peaks_amplitudes_dec_dff,
+                [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
+                "o",
+                label=f"ROI {roi_key}",
+            )
+    elif amp:
+        if roi_data.peaks_amplitudes_dec_dff:
             ax.plot(
                 [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
                 roi_data.peaks_amplitudes_dec_dff,
                 "o",
                 label=f"ROI {roi_key}",
             )
+    elif freq:
+        ax.plot(int(roi_key), roi_data.dec_dff_frequency, "o", label=f"ROI {roi_key}")
+    elif iei and roi_data.iei:
+        ax.plot(
+            [int(roi_key)] * len(roi_data.iei),
+            roi_data.iei,
+            "o",
+            label=f"ROI {roi_key}",
+        )
 
-        elif freq:
-            # plot frequency
-            ax.plot(
-                int(roi_key), roi_data.dec_dff_frequency, "o", label=f"ROI {roi_key}"
-            )
 
-        elif iei:
-            # plot inter-event intervals
-            if roi_data.iei is None:
-                continue
-            ax.plot(
-                [int(roi_key)] * len(roi_data.iei),
-                roi_data.iei,
-                "o",
-                label=f"ROI {roi_key}",
-            )
+def _plot_trace(
+    ax: Axes,
+    roi_key: str,
+    trace: list[float],
+    normalize: bool,
+    with_peaks: bool,
+    roi_data: ROIData,
+    count: int,
+) -> None:
+    """Plot trace data with optional normalization and peaks."""
+    if normalize:
+        trace = _normalize_trace(trace)
+        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}")
+        ax.set_yticklabels([])
+        ax.set_yticks([])
+    else:
+        ax.plot(trace, label=f"ROI {roi_key}")
 
-        else:
-            # normalize if the flag is set
-            if normalize:
-                trace = normalize_trace(trace)
-                ax.plot(np.array(trace) + count, label=f"ROI {roi_key}")
-                # hide the y-axis labels
-                ax.set_yticklabels([])
-                # hide the ticks
-                ax.set_yticks([])
-            else:
-                ax.plot(trace, label=f"ROI {roi_key}")
+    if with_peaks and roi_data.peaks_dec_dff:
+        peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+        ax.plot(
+            peaks_indices,
+            np.array(trace)[peaks_indices] + (count if normalize else 0),
+            "x",
+            label=f"Peaks ROI {roi_key}",
+        )
 
-            # plot the peaks if the flag is set
-            if with_peaks:
-                if roi_data.peaks_dec_dff is None:
-                    continue
-                peaks_indices = [int(peak_ind) for peak_ind in roi_data.peaks_dec_dff]
-                ax.plot(
-                    peaks_indices,
-                    np.array(trace)[peaks_indices] + (count if normalize else 0),
-                    "x",
-                    label=f"Peaks ROI {roi_key}",
-                )
 
-        count += COUNT_INCREMENT
-
-    # set the axis labels
+def _set_axis_labels(
+    ax: Axes, amp: bool, freq: bool, iei: bool, dff: bool, dec: bool
+) -> None:
+    """Set axis labels based on the plotted data."""
     if amp and freq:
         ax.set_xlabel("Amplitude")
         ax.set_ylabel("Frequency")
@@ -182,33 +191,25 @@ def _plot_single_well_data(
         ax.set_xlabel("ROIs")
         ax.set_ylabel("Inter-event intervals (sec)")
     else:
-        if dff:
-            ax.set_ylabel("dF/F")
-        elif dec:
-            ax.set_ylabel("Deconvolved dF/F")
-        else:
-            ax.set_ylabel("Fluorescence Intensity")
-        # update the x-axis to show time in seconds or frames
-        update_time_axis(ax, rois_rec_time, trace)
+        ax.set_ylabel(
+            "dF/F" if dff else "Deconvolved dF/F" if dec else "Fluorescence Intensity"
+        )
 
-    widget.figure.tight_layout()
 
-    # Add hover functionality using mplcursors
+def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
+    """Add hover functionality using mplcursors."""
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        # emit the graph widget roiSelected signal
         if sel.artist.get_label():
             roi = cast(str, sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
 
-    widget.canvas.draw()
 
-
-def get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
+def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     """Get the appropriate trace based on the flags."""
     if dff and dec:
         return None
@@ -219,17 +220,16 @@ def get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     return roi_data.raw_trace
 
 
-def normalize_trace(trace: list[float]) -> list[float]:
+def _normalize_trace(trace: list[float]) -> list[float]:
     """Normalize the trace to the range [0, 1]."""
     tr = np.array(trace)
     normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
     return cast(list[float], normalized.tolist())
 
 
-def update_time_axis(
+def _update_time_axis(
     ax: Axes, rois_rec_time: list[float], trace: list[float] | None
 ) -> None:
-    print("updating time axis", trace is not None, sum(rois_rec_time) > 0)
     if trace is None or sum(rois_rec_time) <= 0:
         ax.set_xlabel("Frames")
         return
