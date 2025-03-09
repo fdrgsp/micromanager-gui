@@ -61,6 +61,9 @@ RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
 STIMULATED_AREA = "Stimulated Area"
 STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
+STIMULATED_ROIS_WITH_STIMULATED_AREA = (
+    "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
+)
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -79,6 +82,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     RASTER_PLOT_AMP,
     STIMULATED_AREA,
     STIMULATED_ROIS,
+    STIMULATED_ROIS_WITH_STIMULATED_AREA,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [

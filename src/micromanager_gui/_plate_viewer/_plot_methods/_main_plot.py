@@ -19,6 +19,7 @@ from micromanager_gui._plate_viewer._util import (
     RAW_TRACES,
     STIMULATED_AREA,
     STIMULATED_ROIS,
+    STIMULATED_ROIS_WITH_STIMULATED_AREA,
 )
 
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
@@ -48,8 +49,9 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RASTER_PLOT: {"amplitude_colors": False},
     RASTER_PLOT_AMP: {"amplitude_colors": True},
     DEC_DFF_IEI: {"dec": True, "iei": True},
-    STIMULATED_AREA: {"with_rois": False},
-    STIMULATED_ROIS: {"with_rois": True},
+    STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
+    STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
+    STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -83,7 +85,7 @@ def plot_single_well_data(
     # that maps the text to the options
 
     # plot stimulated area/ROIs
-    if text in {STIMULATED_AREA, STIMULATED_ROIS}:
+    if text in {STIMULATED_AREA, STIMULATED_ROIS, STIMULATED_ROIS_WITH_STIMULATED_AREA}:
         return _visualize_stimulated_area(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )

@@ -8,10 +8,9 @@ import numpy as np
 import tifffile
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Patch
+from skimage.measure import find_contours
 
-from micromanager_gui._plate_viewer._util import (
-    STIMULATION_MASK,
-)
+from micromanager_gui._plate_viewer._util import STIMULATION_MASK
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -32,6 +31,7 @@ def _visualize_stimulated_area(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     with_rois: bool = False,
+    stimulated_area: bool = False,
 ) -> None:
     """Visualize Stimulated area."""
     # clear the figure
@@ -50,7 +50,7 @@ def _visualize_stimulated_area(
     stim_mask = tifffile.imread(stimulation_mask_path)
 
     if with_rois:
-        _plot_stimulated_rois(ax, widget, data, rois, stim_mask)
+        _plot_stimulated_rois(ax, widget, data, rois, stim_mask, stimulated_area)
     else:
         ax.imshow(stim_mask, cmap="gray")
 
@@ -65,6 +65,7 @@ def _plot_stimulated_rois(
     data: dict[str, ROIData],
     rois: list[int] | None,
     stim_mask: np.ndarray,
+    with_stimulated_area: bool,
 ) -> None:
     """Plot the ROIs with stimulated and non-stimulated areas."""
     # get the labels file path
@@ -92,6 +93,11 @@ def _plot_stimulated_rois(
         boundaries=np.append(unique_labels, unique_labels[-1] + 1),
         ncolors=len(colors),
     )
+
+    if with_stimulated_area:
+        stim_area_contours = find_contours(stim_mask.astype(float), level=0.5)
+        for contour in stim_area_contours:
+            ax.plot(contour[:, 1], contour[:, 0], color="yellow", linewidth=1)
     ax.imshow(labels, cmap=cmap, norm=norm)
 
     _add_legend(ax)

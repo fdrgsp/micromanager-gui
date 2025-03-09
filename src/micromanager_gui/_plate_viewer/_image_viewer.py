@@ -98,7 +98,7 @@ class _ImageViewer(QGroupBox):
         roi_layout.addWidget(self._find_btn)
         roi_layout.addWidget(self._clear_btn)
 
-        # LUT slider
+        # lUT slider
         self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
         self._clims.setStyleSheet(SS)
         self._clims.setHandleLabelPosition(
@@ -232,18 +232,18 @@ class _ImageViewer(QGroupBox):
             show_error_dialog(self, "Input ROIs out of range!")
             return None
 
-        # Clear the previous highlight image if it exists
+        # clear the previous highlight image if it exists
         if self._viewer.highlight_roi is not None:
             self._viewer.highlight_roi.parent = None
             self._viewer.highlight_roi = None
 
-        # Create a mask for the label to highlight it
+        # create a mask for the label to highlight it
         highlight = np.zeros_like(labels_data, dtype=np.uint8)
         for roi in rois:
             mask = labels_data == roi
             highlight[mask] = 255
 
-        # Add the highlight image to the viewer
+        # add the highlight image to the viewer
         self._viewer.highlight_roi = scene.visuals.Image(
             highlight,
             cmap=cmap.Colormap("green").to_vispy(),
@@ -391,7 +391,7 @@ class _ImageCanvas(QWidget):
     def _labels_custom_cmap(self, n_labels: int) -> Colormap:
         """Create a custom colormap for the labels."""
         colors = np.zeros((n_labels + 1, 4))
-        colors[0] = [0, 0, 0, 1]  # Black for background (0)
+        colors[0] = [0, 0, 0, 1]  # black for background (0)
         for i in range(1, n_labels + 1):
             colors[i] = [1, 1, 0, 1]  # yellow for all other labels
         return Colormap(colors)
@@ -404,17 +404,17 @@ class _ImageCanvas(QWidget):
 
         for label in np.unique(labels):
             if label == 0:
-                continue  # Skip background
+                continue  # skip background
 
-            mask = labels == label  # Binary mask for the current label
-            contour_list = find_contours(mask.astype(float), level=0.5)  # Find contours
+            mask = labels == label  # binary mask for the current label
+            contour_list = find_contours(mask.astype(float), level=0.5)  # find contours
 
             for contour in contour_list:
                 contour = np.round(contour).astype(
                     int
-                )  # Convert to integer coordinates
+                )  # convert to integer coordinates
 
-                # Expand the contour by setting a small square around each point
+                # expand the contour by adding pixels around the border
                 for x, y in contour:
                     x_min, x_max = (
                         max(0, x - thickness),
@@ -424,7 +424,7 @@ class _ImageCanvas(QWidget):
                         max(0, y - thickness),
                         min(labels.shape[1], y + thickness + 1),
                     )
-                    contours[x_min:x_max, y_min:y_max] = label  # Assign label value
+                    contours[x_min:x_max, y_min:y_max] = label  # assign label value
 
         return contours
 

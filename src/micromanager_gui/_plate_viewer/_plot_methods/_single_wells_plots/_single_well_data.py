@@ -5,25 +5,6 @@ from typing import TYPE_CHECKING, cast
 import mplcursors
 import numpy as np
 
-from micromanager_gui._plate_viewer._util import (
-    DEC_DFF,
-    DEC_DFF_AMPLITUDE,
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
-    DEC_DFF_FREQUENCY,
-    DEC_DFF_IEI,
-    DEC_DFF_NORMALIZED,
-    DEC_DFF_NORMALIZED_WITH_PEAKS,
-    DEC_DFF_WITH_PEAKS,
-    DFF,
-    DFF_NORMALIZED,
-    NORMALIZED_TRACES,
-    RASTER_PLOT,
-    RASTER_PLOT_AMP,
-    RAW_TRACES,
-    STIMULATED_AREA,
-    STIMULATED_ROIS,
-)
-
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
@@ -34,32 +15,6 @@ if TYPE_CHECKING:
 
 
 COUNT_INCREMENT = 1
-
-SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
-    RAW_TRACES: {},
-    NORMALIZED_TRACES: {"normalize": True},
-    DFF: {"dff": True},
-    DFF_NORMALIZED: {"dff": True, "normalize": True},
-    DEC_DFF: {"dec": True},
-    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True},
-    DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
-    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
-    DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
-    DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
-    RASTER_PLOT: {"amplitude_colors": False},
-    RASTER_PLOT_AMP: {"amplitude_colors": True},
-    DEC_DFF_IEI: {"dec": True, "iei": True},
-    STIMULATED_AREA: {"with_rois": False},
-    STIMULATED_ROIS: {"with_rois": True},
-}
-
-MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
-    DEC_DFF_AMPLITUDE: {"amp": True},
-    DEC_DFF_FREQUENCY: {"freq": True},
-    DEC_DFF_IEI: {"iei": True},
-}
 
 
 def _plot_single_well_data(
