@@ -52,7 +52,6 @@ def _generate_raster_plot(
 
         # this is to then convert the x-axis frames to seconds
         if roi_data.total_recording_time_in_sec is not None:
-            print(roi_key, "appending rec time")
             rois_rec_time.append(roi_data.total_recording_time_in_sec)
 
         # assuming all traces have the same number of frames
@@ -129,7 +128,6 @@ def _generate_raster_plot(
 def update_time_axis(
     ax: Axes, rois_rec_time: list[float], trace: list[float] | None
 ) -> None:
-    print("updating time axis", trace is not None, sum(rois_rec_time) > 0)
     if trace is None or sum(rois_rec_time) <= 0:
         ax.set_xlabel("Frames")
         return

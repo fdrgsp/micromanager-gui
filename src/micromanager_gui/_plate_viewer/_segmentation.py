@@ -30,6 +30,7 @@ from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
+from ._logger import LOGGER
 from ._util import (
     GREEN,
     RED,
@@ -253,6 +254,7 @@ class _CellposeSegmentation(QWidget):
         self._progress_bar.reset()
         self._progress_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
+        LOGGER.info("Cellpose segmentation canceled.")
 
     def run(self) -> None:
         """Perform the Cellpose segmentation in a separate thread."""
@@ -269,16 +271,21 @@ class _CellposeSegmentation(QWidget):
         path = self._output_path.value()
         if not path:
             show_error_dialog(self, "Please select a Labels Output Path.")
+            LOGGER.error("No Labels Output Path selected.")
             return
 
         # check if the path is valid
         if not Path(path).is_dir():
-            show_error_dialog(self, "Invalid Labels Output Path!")
+            msg = "The Labels Output Path is not a valid directory!"
+            show_error_dialog(self, msg)
+            LOGGER.error(msg)
             return
 
         sequence = self._data.sequence
         if sequence is None:
-            show_error_dialog(self, "No useq.MDAsequence found!")
+            msg = "No useq.MDAsequence found!"
+            show_error_dialog(self, msg)
+            LOGGER.error(msg)
             return
 
         # use all positions if the input is empty
@@ -289,11 +296,15 @@ class _CellposeSegmentation(QWidget):
             positions = parse_lineedit_text(self._pos_le.text())
 
             if not positions:
-                show_error_dialog(self, "Invalid Positions provided!")
+                msg = "Invalid Positions provided!"
+                show_error_dialog(self, msg)
+                LOGGER.error(msg)
                 return
 
             if max(positions) >= len(sequence.stage_positions):
-                show_error_dialog(self, "Input Positions out of range!")
+                msg = "Input Positions out of range!"
+                show_error_dialog(self, msg)
+                LOGGER.error(msg)
                 return
 
         self._progress_bar.setRange(0, len(positions))
@@ -310,6 +321,7 @@ class _CellposeSegmentation(QWidget):
         # only cuda since per now cellpose does not work with gpu on mac
         use_gpu = torch.cuda.is_available()
         dev = torch.device("cuda" if use_gpu else "cpu")
+        LOGGER.info(f"Use GPU: {use_gpu}, Device: {dev}")
         print("Use GPU: ", use_gpu, "Device: ", dev)
 
         # use_gpu = self._use_gpu_checkbox.isChecked()
@@ -317,7 +329,9 @@ class _CellposeSegmentation(QWidget):
             # get the path to the custom model
             custom_model_path = self._browse_custom_model.value()
             if not custom_model_path:
-                show_error_dialog(self, "Please select a custom model path.")
+                msg = "Please select a custom model path."
+                show_error_dialog(self, msg)
+                LOGGER.error(msg)
                 return
             model = CellposeModel(
                 pretrained_model=custom_model_path, gpu=use_gpu, device=dev
@@ -380,6 +394,8 @@ class _CellposeSegmentation(QWidget):
         positions: list[int],
     ) -> Generator[str, None, None]:
         """Perform the segmentation using Cellpose."""
+        LOGGER.info("Starting Cellpose segmentation.")
+
         if self._data is None:
             return
 
@@ -428,6 +444,7 @@ class _CellposeSegmentation(QWidget):
 
     def _on_worker_finished(self) -> None:
         """Enable the widgets when the segmentation is finished."""
+        LOGGER.info("Cellpose segmentation finished.")
         self._enable(True)
         self._elapsed_timer.stop()
         self._progress_bar.setValue(self._progress_bar.maximum())
