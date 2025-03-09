@@ -10,9 +10,14 @@ import tifffile
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
+    QFileDialog,
+    QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QProgressBar,
+    QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -128,6 +133,66 @@ def show_error_dialog(parent: QWidget, message: str) -> None:
     dialog.setIcon(QMessageBox.Icon.Critical)
     dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
     dialog.exec()
+
+
+class _BrowseWidget(QWidget):
+    pathSet = Signal()
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        label: str = "",
+        path: str | None = None,
+        tooltip: str = "",
+        *,
+        is_dir: bool = True,
+    ) -> None:
+        super().__init__(parent)
+
+        self._is_dir = is_dir
+
+        self._current_path = path or ""
+
+        self._label_text = label
+
+        self._label = QLabel(f"{self._label_text}:")
+        self._label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._label.setToolTip(tooltip)
+
+        self._path = QLineEdit()
+        self._path.setText(self._current_path)
+        self._browse_btn = QPushButton("Browse")
+        self._browse_btn.clicked.connect(self._on_browse)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        layout.addWidget(self._label)
+        layout.addWidget(self._path)
+        layout.addWidget(self._browse_btn)
+
+    def value(self) -> str:
+        return self._path.text()  # type: ignore
+
+    def setValue(self, path: str) -> None:
+        self._path.setText(path)
+
+    def _on_browse(self) -> None:
+        if self._is_dir:
+            if path := QFileDialog.getExistingDirectory(
+                self, f"Select the {self._label_text}.", self._current_path
+            ):
+                self._path.setText(path)
+        else:
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                f"Select the {self._label_text}.",
+                "",
+                "JSON (*.json); IMAGES (*.tif *.tiff)",
+            )
+            if path:
+                self._path.setText(path)
+                self.pathSet.emit()
 
 
 class _ElapsedTimer(QObject):

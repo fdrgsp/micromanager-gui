@@ -32,7 +32,6 @@ from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
-from ._init_dialog import _BrowseWidget
 from ._logger import LOGGER
 from ._util import (
     COND1,
@@ -43,6 +42,7 @@ from ._util import (
     STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
+    _BrowseWidget,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
@@ -147,6 +147,7 @@ class _AnalyseCalciumTraces(QWidget):
             "Select the output path for the Analysis Data.",
             is_dir=True,
         )
+        self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
@@ -303,6 +304,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._progress_bar.setValue(0)
         self._progress_pos_label.setText("[0/0]")
         self._elapsed_time_label.setText("00:00:00")
+
+    def _update_plate_viewer_analysis_path(self, path: str) -> None:
+        """Update the analysis path of the plate viewer."""
+        if self._plate_viewer is not None:
+            self._plate_viewer._analysis_files_path = path
 
     def _show_error_dialog(self, error: str) -> None:
         """Show an error dialog."""

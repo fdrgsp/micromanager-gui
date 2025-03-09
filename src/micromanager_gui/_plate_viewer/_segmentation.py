@@ -30,8 +30,14 @@ from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
-from ._init_dialog import _BrowseWidget
-from ._util import GREEN, RED, _ElapsedTimer, parse_lineedit_text, show_error_dialog
+from ._util import (
+    GREEN,
+    RED,
+    _BrowseWidget,
+    _ElapsedTimer,
+    parse_lineedit_text,
+    show_error_dialog,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -91,10 +97,6 @@ class _CellposeSegmentation(QWidget):
 
         self._worker: GeneratorWorker | None = None
 
-        self._browse_custom_model = _SelectModelPath(self)
-        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
-        self._browse_custom_model.hide()
-
         model_wdg = QWidget(self)
         model_wdg_layout = QHBoxLayout(model_wdg)
         model_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -111,6 +113,10 @@ class _CellposeSegmentation(QWidget):
         model_wdg_layout.addWidget(self._models_combo_label)
         model_wdg_layout.addWidget(self._models_combo, 1)
         # model_wdg_layout.addWidget(self._use_gpu_checkbox)
+
+        self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
+        self._browse_custom_model.hide()
 
         channel_wdg = QWidget(self)
         channel_layout = QHBoxLayout(channel_wdg)
@@ -147,6 +153,7 @@ class _CellposeSegmentation(QWidget):
             "Choose the path to save the labels.",
             is_dir=True,
         )
+        self._output_path.pathSet.connect(self._update_plate_viewer_labels_path)
 
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
@@ -297,8 +304,7 @@ class _CellposeSegmentation(QWidget):
             if response == QMessageBox.StandardButton.No:
                 return
         # set the label path of the PlateViewer
-        if self._plate_viewer is not None:
-            self._plate_viewer.labels_path = path
+        self._update_plate_viewer_labels_path(path)
 
         # set the model type
         # only cuda since per now cellpose does not work with gpu on mac
@@ -344,6 +350,11 @@ class _CellposeSegmentation(QWidget):
                 "errored": self._on_worker_finished,
             },
         )
+
+    def _update_plate_viewer_labels_path(self, path: str) -> None:
+        """Update the labels path of the PlateViewer."""
+        if self._plate_viewer is not None:
+            self._plate_viewer.labels_path = path
 
     def _overwrite_msgbox(self) -> Any:
         """Show a message box to ask the user if wants to overwrite the labels."""

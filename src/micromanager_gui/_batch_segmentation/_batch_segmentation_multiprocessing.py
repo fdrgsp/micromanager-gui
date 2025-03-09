@@ -24,8 +24,7 @@ from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
 
-from micromanager_gui._plate_viewer._init_dialog import _BrowseWidget
-from micromanager_gui._plate_viewer._util import GREEN, RED
+from micromanager_gui._plate_viewer._util import GREEN, RED, _BrowseWidget
 from micromanager_gui._widgets._mda_widget._save_widget import (
     OME_ZARR,
     WRITERS,
