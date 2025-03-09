@@ -264,6 +264,11 @@ class _CellposeSegmentation(QWidget):
             show_error_dialog(self, "Please select a Labels Output Path.")
             return
 
+        # check if the path is valid
+        if not Path(path).is_dir():
+            show_error_dialog(self, "Invalid Labels Output Path!")
+            return
+
         sequence = self._data.sequence
         if sequence is None:
             show_error_dialog(self, "No useq.MDAsequence found!")
@@ -299,10 +304,7 @@ class _CellposeSegmentation(QWidget):
         # only cuda since per now cellpose does not work with gpu on mac
         use_gpu = torch.cuda.is_available()
         dev = torch.device("cuda" if use_gpu else "cpu")
-        print("----------------------")
-        print("Use GPU: ", use_gpu)
-        print("Device: ", dev)
-        print("----------------------")
+        print("Use GPU: ", use_gpu, "Device: ", dev)
 
         # use_gpu = self._use_gpu_checkbox.isChecked()
         if self._models_combo.currentText() == "custom":

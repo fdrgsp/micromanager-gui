@@ -93,8 +93,6 @@ class PlateViewer(QMainWindow):
         self._labels_path = labels_path
         self._analysis_files_path = analysis_files_path
 
-        # maybe make it as a pandas dataframe. we can save the analysis as a csv file
-        # and load it with pandas after the init dialog
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         # add menu bar
@@ -263,7 +261,7 @@ class PlateViewer(QMainWindow):
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
         # self._labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
-        # self._analysis_file_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
+        # self._analysis_files_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # reader = TensorstoreZarrReader(data)
         # self._init_widget(reader)
         # ____________________________________________________________________________
@@ -288,6 +286,7 @@ class PlateViewer(QMainWindow):
     @labels_path.setter
     def labels_path(self, value: str | None) -> None:
         self._labels_path = value
+        self._analysis_wdg.labels_path = value
         self._on_fov_table_selection_changed()
 
     @property
@@ -712,8 +711,7 @@ class PlateViewer(QMainWindow):
         # get a single frame for the selected FOV (at 2/3 of the time points)
         t = int(len(self._datastore.sequence.stage_positions) / 3 * 2)
         data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=t, c=0))
-
-        # get one random segmentation between 0 and 2
+        # get labels if they exist
         labels = self._get_labels(value)
         analysis = self._analysis_data.get(str(value.fov.name), None)
         # flip data and labels vertically or will look different from the StackViewer
@@ -736,6 +734,14 @@ class PlateViewer(QMainWindow):
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
         if self._labels_path is None:
+            return None
+
+        if not Path(self._labels_path).is_dir():
+            show_error_dialog(
+                self,
+                f"Error while loading the labels. Path {self._labels_path} is not a "
+                "directory!",
+            )
             return None
         # the labels tif file should have the same name as the position
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)

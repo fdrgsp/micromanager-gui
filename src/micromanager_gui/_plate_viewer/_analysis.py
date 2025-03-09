@@ -106,6 +106,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
 
+        # list to store the failed labels if they will not be found during the
+        # analysis. used to show at the end of the analysis to the user which labels
+        # are failed to be found.
+        self._failed_labels: list[str] = []
+
         # WIDGET TO SELECT THE EXPERIMENT TYPE ---------------------------------------
         experiment_type_wdg = QWidget(self)
         experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
@@ -250,6 +255,8 @@ class _AnalyseCalciumTraces(QWidget):
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
+        self._failed_labels.clear()
+
         pos = self._prepare_for_running()
 
         if pos is None:
@@ -455,6 +462,15 @@ class _AnalyseCalciumTraces(QWidget):
             self._plate_viewer.analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
+        # show a message box if there are failed labels
+        if self._failed_labels:
+            msg = (
+                "The following labels were not found during the analysis:\n\n"
+                + "\n".join(self._failed_labels)
+            )
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
         self._elapsed_time_label.setText(time_str)
@@ -597,6 +613,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the labels file
         labels_path = self._get_labels_file(labels_name)
         if labels_path is None:
+            self._failed_labels.append(labels_name)
             LOGGER.error("No labels found for %s!", labels_name)
             print(f"No labels found for {labels_name}!")
             return
@@ -682,7 +699,7 @@ class _AnalyseCalciumTraces(QWidget):
             dff = calculate_dff(roi_trace, window=10, plot=False)
 
             # DECONVOLVE DFF --------------------------------------------------------
-            dec_dff, spikes, _, k, _ = deconvolve(dff, penalty=1)
+            dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
             # FIND PEAKS ------------------------------------------------------------
             # Get the prominence:
