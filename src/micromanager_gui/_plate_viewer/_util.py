@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tifffile
 from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
@@ -16,6 +17,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from scipy.interpolate import CubicSpline
+from skimage import filters, morphology
 
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
@@ -26,6 +28,7 @@ GENOTYPE_MAP = "genotype_plate_map.json"
 TREATMENT_MAP = "treatment_plate_map.json"
 COND1 = "condition_1"
 COND2 = "condition_2"
+STIMULATION_MASK = "stimulation_mask.tif"
 
 # -----------------------------------GRAPH PLOTTING-----------------------------------
 # Anything added here will appear in the dropdown menu in the graph widget.
@@ -51,6 +54,8 @@ DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
+STIMULATED_AREA = "Stimulated Area"
+STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -67,6 +72,8 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_IEI,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
+    STIMULATED_AREA,
+    STIMULATED_ROIS,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
@@ -91,6 +98,7 @@ class BaseClass:
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
 
+    well_fov_position: str = ""
     raw_trace: list[float] | None = None
     dff: list[float] | None = None
     dec_dff: list[float] | None = None  # deconvolved dff with oasis package
@@ -108,6 +116,7 @@ class ROIData(BaseClass):
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
+    stimulated: bool = False
     # ... add whatever other data we need
 
 
@@ -432,3 +441,63 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
     iei_ms = np.diff(np.array(peaks_time_stamps))  # ms
 
     return [float(iei_peak / 1000) for iei_peak in iei_ms]
+
+
+def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
+    """Create a binary mask from an input image.
+
+    We use this to create a mask of the stimulated area. If the input image is a
+    mask image already, simply return it.
+
+    Parameters
+    ----------
+    stimulation_file : str
+        Path to the stimulation image.
+    """
+    # load grayscale image
+    blue_img = tifffile.imread(stimulation_file)
+
+    # check if the image is already a binary mask
+    if np.unique(blue_img).size == 2:
+        return blue_img  # type: ignore
+
+    # apply Gaussian Blur to reduce noise
+    blur = filters.gaussian(blue_img, sigma=2)
+
+    # set the threshold to otsu's threshold and apply thresholding
+    th = blur > filters.threshold_otsu(blur)
+
+    # morphological operations
+    selem_small = morphology.disk(2)
+    selem_large = morphology.disk(5)
+
+    # closing operation (removes small holes)
+    closed = morphology.closing(th, selem_small)
+
+    # erosion (removes small noise)
+    eroded = morphology.erosion(closed, selem_small)
+
+    # final closing with a larger structuring element
+    final_mask = morphology.closing(eroded, selem_large)
+
+    return final_mask.astype(np.uint8)  # type: ignore
+
+
+def get_overlap_roi_with_stimulated_area(
+    stimulation_mask: np.ndarray, roi_mask: np.ndarray
+) -> float:
+    """Compute the fraction of the ROI that overlaps with the stimulated area."""
+    if roi_mask.shape != stimulation_mask.shape:
+        raise ValueError("roi_mask and st_area must have the same dimensions.")
+
+    # count nonzero pixels in the ROI mask
+    cell_pixels = np.count_nonzero(roi_mask)
+
+    # if the ROI mask has no pixels, return 0
+    if cell_pixels == 0:
+        return 0.0
+
+    # count overlapping pixels (logical AND operation)
+    overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
+
+    return overlapping_pixels / cell_pixels

@@ -26,13 +26,16 @@ class _InitDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Select Data Source")
 
-        self._datastrore = _BrowseWidget(
+        # datastore_path
+        self._browse_datastrore = _BrowseWidget(
             self,
-            "Datastrore Path",
+            "Datastore Path",
             datastore_path,
-            "The path to the zarr datastrore.",
+            "The path to the zarr datastore.",
         )
-        self._labels = _BrowseWidget(
+
+        # labels_path with labels images
+        self._browse_labels = _BrowseWidget(
             self,
             "Segmentation Path",
             labels_path,
@@ -41,7 +44,8 @@ class _InitDialog(QDialog):
             "(e.g. C3_0000_p0.tif, C3_0001_p1.tif).",
         )
 
-        self._analysis = _BrowseWidget(
+        # analysis_path with json files
+        self._browse_analysis = _BrowseWidget(
             self,
             "Analysis Path",
             analysis_path,
@@ -49,12 +53,11 @@ class _InitDialog(QDialog):
             "a path to a `json` file.",
             is_dir=True,
         )
-        self._datastrore._label.setFixedWidth(
-            self._labels._label.minimumSizeHint().width()
-        )
-        self._analysis._label.setFixedWidth(
-            self._labels._label.minimumSizeHint().width()
-        )
+
+        # styling
+        fix_width = self._browse_labels._label.minimumSizeHint().width()
+        self._browse_datastrore._label.setFixedWidth(fix_width)
+        self._browse_analysis._label.setFixedWidth(fix_width)
 
         # Create the button box
         self.buttonBox = QDialogButtonBox(
@@ -67,16 +70,16 @@ class _InitDialog(QDialog):
 
         # Add the button box to the layout
         layout = QGridLayout(self)
-        layout.addWidget(self._datastrore, 0, 0)
-        layout.addWidget(self._labels, 1, 0)
-        layout.addWidget(self._analysis, 2, 0)
+        layout.addWidget(self._browse_datastrore, 0, 0)
+        layout.addWidget(self._browse_labels, 1, 0)
+        layout.addWidget(self._browse_analysis, 2, 0)
         layout.addWidget(self.buttonBox, 3, 0, 1, 2)
 
     def value(self) -> tuple[str, str, str]:
         return (
-            self._datastrore.value(),
-            self._labels.value(),
-            self._analysis.value(),
+            self._browse_datastrore.value(),
+            self._browse_labels.value(),
+            self._browse_analysis.value(),
         )
 
 
@@ -128,7 +131,10 @@ class _BrowseWidget(QWidget):
                 self._path.setText(path)
         else:
             path, _ = QFileDialog.getOpenFileName(
-                self, f"Select the {self._label_text}.", "", "JSON (*.json)"
+                self,
+                f"Select the {self._label_text}.",
+                "",
+                "JSON (*.json); IMAGES (*.tif *.tiff)",
             )
             if path:
                 self._path.setText(path)

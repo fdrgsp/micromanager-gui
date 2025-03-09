@@ -79,6 +79,8 @@ class _ImageViewer(QGroupBox):
         find_roi_lbl = QLabel("ROI:")
         find_roi_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._roi_number_le = QLineEdit()
+        # when pressing enter in the line edit, update the graph
+        self._roi_number_le.returnPressed.connect(self._highlight_rois)
         self._find_btn = QPushButton("Find")
         self._find_btn.clicked.connect(self._highlight_rois)
         self._clear_btn = QPushButton("Clear")
