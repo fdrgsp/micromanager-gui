@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
 import mplcursors
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 def _generate_raster_plot(
     widget: _SingleWellGraphWidget,
-    data: dict,
+    data: dict[str, ROIData],
     rois: list[int] | None = None,
     amplitude_colors: bool = False,
 ) -> None:
@@ -24,6 +24,7 @@ def _generate_raster_plot(
     # clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
+
     ax.set_title(
         "Raster Plot Colored by Amplitude" if amplitude_colors else "Raster Plot"
     )
@@ -36,8 +37,7 @@ def _generate_raster_plot(
     trace: list[float] | None = None
 
     # if amplitude colors are used, determine min/max amplitude range
-    if amplitude_colors:
-        min_amp, max_amp = float("inf"), float("-inf")
+    min_amp, max_amp = (float("inf"), float("-inf")) if amplitude_colors else (0, 0)
 
     # loop over the ROIData and get the peaks and their colors for each ROI
     for roi_key, roi_data in data.items():
@@ -45,12 +45,10 @@ def _generate_raster_plot(
         if rois is not None and roi_id not in rois:
             continue
 
-        roi_data = cast("ROIData", roi_data)
-
         if not roi_data.peaks_dec_dff or not roi_data.peaks_amplitudes_dec_dff:
             continue
 
-        # this is to then convert the x-axis frames to seconds
+        # convert the x-axis frames to seconds
         if roi_data.total_recording_time_in_sec is not None:
             rois_rec_time.append(roi_data.total_recording_time_in_sec)
 
@@ -71,61 +69,71 @@ def _generate_raster_plot(
 
     # create the color palette for the raster plot
     if amplitude_colors:
-        # multiply 0.5 to max_amp to make the color range more visible
-        norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
-        cmap = cm.viridis  # choose colormap
-        # scalar mappable for colorbar
-        sm = cm.ScalarMappable(cmap=cmap, norm=norm_amp_color)
-        sm.set_array([])  # required for colorbar
-
-        # assign colors based on amplitude
-        colors = [
-            [cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff]
-            for roi_data in (
-                cast("ROIData", data[str(roi)]) for roi in rois or data.keys()
-            )
-            if roi_data.peaks_amplitudes_dec_dff
-        ]
+        _generate_amplitude_colors(data, rois, min_amp, max_amp, colors)
 
     # plot the raster plot
     ax.eventplot(event_data, colors=colors)
 
     # set the axis labels
     ax.set_ylabel("ROIs")
-    # hide the y-axis labels and ticks
     ax.set_yticklabels([])
     ax.set_yticks([])
 
     # use the last trace to get total number of frames (they should all be the same)
     trace = roi_data.raw_trace
-    update_time_axis(ax, rois_rec_time, trace)
+    _update_time_axis(ax, rois_rec_time, trace)
 
     # add the colorbar if amplitude colors are used
     if amplitude_colors:
-        cbar = widget.figure.colorbar(sm, ax=ax)
+        cbar = widget.figure.colorbar(
+            cm.ScalarMappable(
+                norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap=cm.viridis
+            ),
+            ax=ax,
+        )
         cbar.set_label("Amplitude")
 
     widget.figure.tight_layout()
+    _add_hover_functionality(ax, widget, rois)
+    widget.canvas.draw()
 
-    # add hover functionality using mplcursors
+
+def _generate_amplitude_colors(
+    data: dict[str, ROIData],
+    rois: list[int] | None,
+    min_amp: float,
+    max_amp: float,
+    colors: list[list[str]],
+) -> None:
+    """Assign colors based on amplitude for raster plot."""
+    norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
+    cmap = cm.viridis
+    for roi in rois or data.keys():
+        roi_data = data[str(roi)]
+        if roi_data.peaks_amplitudes_dec_dff:
+            colors.append(
+                [cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff]
+            )
+
+
+def _add_hover_functionality(
+    ax: Axes, widget: _SingleWellGraphWidget, rois: list[int] | None
+) -> None:
+    """Add hover functionality using mplcursors."""
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        # emit the graph widget roiSelected signal
         if sel.artist.get_label():
-            # sel.artist.get_label() returns a _child0
             child = int(sel.artist.get_label()[6:])
             roi = str(rois[child]) if rois is not None else str(child + 1)
             sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
 
-    widget.canvas.draw()
 
-
-def update_time_axis(
+def _update_time_axis(
     ax: Axes, rois_rec_time: list[float], trace: list[float] | None
 ) -> None:
     if trace is None or sum(rois_rec_time) <= 0:

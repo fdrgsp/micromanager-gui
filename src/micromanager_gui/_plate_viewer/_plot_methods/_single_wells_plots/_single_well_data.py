@@ -74,17 +74,15 @@ def _plot_single_well_data(
     iei: bool = False,
 ) -> None:
     """Plot various types of traces."""
-    # Clear the figure
+    # clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    # Collect the title parts --------------------------
-    title_parts = [
+    title = [
         "Normalized Traces [0, 1]" if normalize else "",
         "Peaks" if with_peaks else "",
     ]
-    ax.set_title(" - ".join(filter(None, title_parts)))
-    # --------------------------------------------------
+    ax.set_title(" - ".join(filter(None, title)))
 
     rois_rec_time: list[float] = []
     count = 0
