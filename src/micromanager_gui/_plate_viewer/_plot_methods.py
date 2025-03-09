@@ -267,7 +267,7 @@ def _generate_raster_plot(
 
         roi_data = cast("ROIData", roi_data)
 
-        if roi_data.peaks_dec_dff is None or roi_data.peaks_amplitudes_dec_dff is None:
+        if not roi_data.peaks_dec_dff or not roi_data.peaks_amplitudes_dec_dff:
             continue
 
         # this is to then convert the x-axis frames to seconds
