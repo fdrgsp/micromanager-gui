@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import _MultilWellGraphWidget
     from micromanager_gui._plate_viewer._util import ROIData
 
+
 COUNT_INCREMENT = 1
 DEFAULT_COLOR = "gray"
 STIMULATED_COLOR = "green"

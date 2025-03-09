@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     )
     from micromanager_gui._plate_viewer._util import ROIData
 
+
 COUNT_INCREMENT = 1
 
 SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
