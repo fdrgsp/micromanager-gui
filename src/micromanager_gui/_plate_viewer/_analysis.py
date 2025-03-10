@@ -63,6 +63,7 @@ if TYPE_CHECKING:
 
     from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
+    from ._plate_map import PlateMapData
     from ._plate_viewer import PlateViewer
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
@@ -71,6 +72,7 @@ ELAPSED_TIME_KEY = "ElapsedTime-ms"
 CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
+EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.5  # 50%
 
 
@@ -506,6 +508,11 @@ class _AnalyseCalciumTraces(QWidget):
     def _check_for_abort_requested(self) -> bool:
         return bool(self._worker is not None and self._worker.abort_requested)
 
+    def _save_plate_map(self, path: Path, data: list[PlateMapData]) -> None:
+        """Save the plate map data to a JSON file."""
+        with path.open("w") as f:
+            json.dump(data, f, indent=2)
+
     def _handle_plate_map(self) -> None:
         if self._plate_viewer is None:
             return
@@ -517,26 +524,15 @@ class _AnalyseCalciumTraces(QWidget):
         LOGGER.info("Saving Plate Maps.")
         if condition_1_plate_map:
             path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-            with path.open("w") as f:
-                json.dump(
-                    self._plate_viewer._plate_map_genotype.value(),
-                    f,
-                    indent=2,
-                )
+            self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
         if conition_2_plate_map:
             path = Path(self._analysis_path.value()) / TREATMENT_MAP
-            with path.open("w") as f:
-                json.dump(
-                    self._plate_viewer._plate_map_treatment.value(),
-                    f,
-                    indent=2,
-                )
-
-        self._plate_map_data.clear()
+            self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
 
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the key. e.g.:
         # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
+        self._plate_map_data.clear()
         for data in condition_1_plate_map:
             self._plate_map_data[data.name] = {COND1: data.condition[0]}
 
@@ -605,44 +601,114 @@ class _AnalyseCalciumTraces(QWidget):
         if self._data is None or self._check_for_abort_requested():
             return
 
+        # get the data and metadata for the position
         data, meta = self._data.isel(p=p, metadata=True)
 
-        # get position name from metadata
         # the "Event" key was used in the old metadata format
         event_key = "mda_event" if "mda_event" in meta[0] else "Event"
-        well = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
 
-        # create the dict for the well
-        if well not in self._analysis_data:
-            self._analysis_data[well] = {}
+        # get the well name from metadata
+        pos_name = self._get_pos_name(event_key, meta, p)
 
-        # matching label name
+        # create the dict for the well if it does not exist
+        if pos_name not in self._analysis_data:
+            self._analysis_data[pos_name] = {}
+
+        # get the labels file for the position
+        labels_path = self._get_labels_file_for_position(pos_name, p)
+        if labels_path is None:
+            return
+
+        # open the labels file and create masks for each label
+        labels = tifffile.imread(labels_path)
+        labels_masks = self._create_label_masks(labels)
+        sequence = cast(useq.MDASequence, self._data.sequence)
+
+        # get the elapsed time from the metadata to calculate the total time in seconds
+        elapsed_time_list = self.get_elapsed_time_list(meta)
+
+        # get the exposure time from the metadata
+        exp_time = meta[0][event_key].get("exposure", 0.0)
+
+        # get the total time in seconds for the recording
+        timepoints, tot_time_sec = self._calculate_total_time(
+            elapsed_time_list, exp_time, sequence
+        )
+
+        # check if it is an evoked activity experiment
+        stimulated = self._is_stimulated()
+
+        LOGGER.info(f"Extracting Traces from Well {pos_name}.")
+        for label_value, label_mask in tqdm(
+            labels_masks.items(), desc=f"Extracting Traces from Well {pos_name}"
+        ):
+            if self._check_for_abort_requested():
+                break
+
+            # extract the data
+            self._process_roi_trace(
+                p,
+                data,
+                meta,
+                pos_name,
+                label_value,
+                label_mask,
+                timepoints,
+                exp_time,
+                tot_time_sec,
+                stimulated,
+                elapsed_time_list,
+            )
+
+        # save the analysis data for the well
+        self._save_analysis_data(pos_name)
+
+        # update the progress bar
+        self.progress_bar_updated.emit()
+
+    def _get_pos_name(self, event_key: str, meta: list[dict], p: int) -> str:
+        """Retrieve the well name from metadata."""
+        # the "Event" key was used in the old metadata format
+        return meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")  # type: ignore
+
+    def _get_labels_file_for_position(self, well: str, p: int) -> str | None:
+        """Retrieve the labels file for the given position."""
         labels_name = f"{well}_p{p}.tif"
-
-        # get the labels file
         labels_path = self._get_labels_file(labels_name)
         if labels_path is None:
             self._failed_labels.append(labels_name)
             LOGGER.error("No labels found for %s!", labels_name)
             print(f"No labels found for {labels_name}!")
-            return
-        labels = tifffile.imread(labels_path)
+        return labels_path
 
+    def _create_label_masks(self, labels: np.ndarray) -> dict:
+        """Create masks for each label in the labels image."""
         # get the range of labels and remove the background (0)
         labels_range = np.unique(labels[labels != 0])
+        return {label_value: (labels == label_value) for label_value in labels_range}
 
-        # create masks for each label
-        labels_masks = {
-            label_value: (labels == label_value) for label_value in labels_range
-        }
-
-        LOGGER.info("Processing Well %s", well)
-
-        seq = cast(useq.MDASequence, self._data.sequence)
+    def _calculate_total_time(
+        self,
+        elapsed_time_list: list[float],
+        exp_time: float,
+        seq: useq.MDASequence,
+    ) -> tuple[int, float]:
+        """Calculate total time in seconds for the recording."""
         timepoints = seq.sizes["t"]
-        exp_time = meta[0][event_key].get("exposure", 0)
-        elapsed_time_list: list[float] = []
+        # if the len of elapsed time is not equal to the number of timepoints,
+        # use exposure time and the number of timepoints to calculate tot_time_sec
+        if len(elapsed_time_list) != timepoints:
+            tot_time_sec = exp_time * timepoints / 1000
+        # otherwise, calculate the total time in seconds using the elapsed time.
+        # NOTE: adding the exposure time to consider the first frame
+        else:
+            tot_time_sec = (
+                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
+            ) / 1000
+        return timepoints, tot_time_sec
 
+    def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
+        elapsed_time_list: list[float] = []
         # get the elapsed time for each timepoint to calculate tot_time_sec
         if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
             for m in meta:
@@ -654,143 +720,136 @@ class _AnalyseCalciumTraces(QWidget):
                 et = m.get(ELAPSED_TIME_KEY)
                 if et is not None:
                     elapsed_time_list.append(float(et))
+        return elapsed_time_list
 
-        # if the len of elapsed time is not equal to the number of timepoints,
-        # use exposure time and the number of timepoints to calculate tot_time_sec
+    def _process_roi_trace(
+        self,
+        p: int,
+        data: np.ndarray,
+        meta: list[dict],
+        pos_name: str,
+        label_value: int,
+        label_mask: np.ndarray,
+        timepoints: int,
+        exp_time: float,
+        tot_time_sec: float,
+        stimulated: bool,
+        elapsed_time_list: list[float],
+    ) -> None:
+        """Process individual ROI traces."""
+        # calculate the mean trace for the roi
+        masked_data = data[:, label_mask]
+
+        # get the size of the roi in µm or px if µm is not available
+        roi_size_pixel = masked_data.shape[1]  # area
+        px_size = meta[0].get("PixelSizeUm", None)
+        # calculate the size of the roi in µm if px_size is available or not 0,
+        # otherwise use the size is in pixels
+        roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+
+        # exclude small rois, might not be necessary if trained cellpose performs
+        # better
+        if px_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
+            return
+
+        # check if the roi is stimulated
+        roi_stimulation_overlap_ratio = 0.0
+        if stimulated and self._stimulated_area_mask is not None:
+            roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
+                self._stimulated_area_mask, label_mask
+            )
+
+        # compute the mean for each frame
+        roi_trace: np.ndarray = masked_data.mean(axis=1)
+
+        # calculate the dff of the roi trace
+        dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
+
+        # deconvolve the dff trace
+        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+
+        # Get the prominence to find peaks in the deconvolved trace
+        # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
+        # median is the “middle” value of the dataset when sorted, which is robust
+        # to outliers (unlike the mean).
+        # -	Step 2: np.abs(dff - np.median(dff)) -> The absolute deviation of each
+        # value in dff from the median is calculated. This measures how far each
+        # value is from the central point (the median).
+        # -	Step 3: np.median(...) -> The median of the absolute deviations is
+        # computed. This gives the Median Absolute Deviation (MAD), which is a
+        # robust measure of the spread of the data. Unlike standard deviation, the
+        # MAD is not influenced by extreme outliers.
+        # -	Step 4: Division by 0.6745 -> The constant 0.6745 rescales the MAD to
+        # make it comparable to the standard deviation if the data follows a normal
+        # (Gaussian) distribution. Specifically: for a normal distribution,
+        # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
+        # into an estimate of the standard deviation.
+        noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+        peaks_prominence_dec_dff = noise_level_dec_dff * 2
+
+        # find peaks in the deconvolved trace
+        peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
+
+        # get the amplitudes of the peaks in the dec_dff trace
+        peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
+
+        # calculate the frequency of the peaks in the dec_dff trace
+        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else 0.0
+
+        # get the conditions for the well
+        condition_1, condition_2 = self._get_conditions(pos_name)
+
+        # get the linear and cubic phase of the peaks in the dec_dff trace
+        linear_phase, cubic_phase = [], []
+        if len(peaks_dec_dff) > 0:
+            linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
+            cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+
+        # if the elapsed time is not available or for any reason is different from
+        # the number of timepoints, set it as list of timepoints every exp_time
         if len(elapsed_time_list) != timepoints:
-            tot_time_sec = exp_time * timepoints / 1000
-        else:
-            # otherwise, calculate the total time in seconds using the elapsed time.
-            # NOTE: adding the exposure time to consider the first frame
-            tot_time_sec = (
-                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
-            ) / 1000
+            elapsed_time_list = [i * exp_time for i in range(timepoints)]
 
-        # check if the well is stimulated
-        stimulated = self._is_stimulated()
+        # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
+        iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
-        roi_trace: np.ndarray
+        # store the data to the analysis dict as ROIData
+        self._analysis_data[pos_name][str(label_value)] = ROIData(
+            well_fov_position=f"{pos_name}_p{p}.tif",
+            raw_trace=roi_trace.tolist(),  # type: ignore
+            dff=dff.tolist(),  # type: ignore
+            dec_dff=dec_dff.tolist(),
+            peaks_dec_dff=peaks_dec_dff.tolist(),
+            peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
+            peaks_prominence_dec_dff=peaks_prominence_dec_dff,
+            dec_dff_frequency=frequency,
+            inferred_spikes=spikes.tolist(),
+            cell_size=roi_size,
+            cell_size_units="µm" if px_size is not None else "pixel",
+            condition_1=condition_1,
+            condition_2=condition_2,
+            total_recording_time_in_sec=tot_time_sec,
+            active=len(peaks_dec_dff) > 0,
+            linear_phase=linear_phase,
+            cubic_phase=cubic_phase,
+            iei=iei,
+            stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
+        )
 
-        # extract roi traces
-        LOGGER.info(f"Extracting Traces from Well {well}.")
-        for label_value, label_mask in tqdm(
-            labels_masks.items(), desc=f"Extracting Traces from Well {well}"
-        ):
-            if self._check_for_abort_requested():
-                break
+    def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
+        """Get the conditions for the well if any."""
+        condition_1 = condition_2 = None
+        if self._plate_map_data:
+            well_name = pos_name.split("_")[0]
+            if well_name in self._plate_map_data:
+                condition_1 = self._plate_map_data[well_name].get(COND1)
+                condition_2 = self._plate_map_data[well_name].get(COND2)
+            else:
+                condition_1 = condition_2 = None
+        return condition_1, condition_2
 
-            # calculate the mean trace for the roi
-            masked_data = data[:, label_mask]
-
-            # get the size of the roi in µm or px if µm is not available
-            roi_size_pixel = masked_data.shape[1]  # area
-            px_size = meta[0].get("PixelSizeUm", None)
-            # calculate the size of the roi in µm if px_size is available or not 0,
-            # otherwise use the size is in pixels
-            roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
-
-            # exclude small rois, might not be necessary if trained cellpose performs
-            # better
-            if px_size and roi_size < 10:
-                continue
-
-            # check if the roi is stimulated
-            roi_stimulation_overlap_ratio = 0.0
-            if stimulated and self._stimulated_area_mask is not None:
-                roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
-                    self._stimulated_area_mask, label_mask
-                )
-
-            # compute the mean for each frame
-            roi_trace = cast(np.ndarray, masked_data.mean(axis=1))
-
-            # CALCULATE DELATA F OVER F ----------------------------------------------
-            dff = calculate_dff(roi_trace, window=10, plot=False)
-
-            # DECONVOLVE DFF --------------------------------------------------------
-            dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
-
-            # FIND PEAKS ------------------------------------------------------------
-            # Get the prominence:
-            # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
-            # median is the “middle” value of the dataset when sorted, which is robust
-            # to outliers (unlike the mean).
-            # -	Step 2: np.abs(dff - np.median(dff)) -> The absolute deviation of each
-            # value in dff from the median is calculated. This measures how far each
-            # value is from the central point (the median).
-            # -	Step 3: np.median(...) -> The median of the absolute deviations is
-            # computed. This gives the Median Absolute Deviation (MAD), which is a
-            # robust measure of the spread of the data. Unlike standard deviation, the
-            # MAD is not influenced by extreme outliers.
-            # -	Step 4: Division by 0.6745 -> The constant 0.6745 rescales the MAD to
-            # make it comparable to the standard deviation if the data follows a normal
-            # (Gaussian) distribution. Specifically: for a normal distribution,
-            # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
-            # into an estimate of the standard deviation.
-            noise_level_dec_dff = (
-                np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-            )
-            peaks_prominence_dec_dff = noise_level_dec_dff * 2
-
-            # find the peaks in the dec_dff trace
-            peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
-
-            # get the amplitudes of the peaks in the dec_dff trace
-            peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
-
-            # calculate the frequency of the peaks in the dec_dff trace
-            try:
-                frequency = len(peaks_dec_dff) / tot_time_sec  # in Hz
-            except ZeroDivisionError:
-                frequency = 0
-
-            # get the conditions for the roi if available
-            condition_1 = condition_2 = None
-            if self._plate_map_data:
-                well_name = well.split("_")[0]
-                if well_name in self._plate_map_data:
-                    condition_1 = self._plate_map_data[well_name].get(COND1)
-                    condition_2 = self._plate_map_data[well_name].get(COND2)
-                else:
-                    condition_1 = condition_2 = None
-            # get the linear and cubic phase if there are at least 2 peaks
-            linear_phase: list[float] = []
-            cubic_phase: list[float] = []
-
-            if len(peaks_dec_dff) > 0:
-                linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
-                cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
-
-            # if the elapsed time is not available or for any reason is different from
-            # the number of timepoints, set it as list of timepoints every exp_time
-            if len(elapsed_time_list) != timepoints:
-                elapsed_time_list = [i * exp_time for i in range(timepoints)]
-            iei = get_iei(peaks_dec_dff, elapsed_time_list)  # s
-
-            # store the analysis data
-            self._analysis_data[well][str(label_value)] = ROIData(
-                well_fov_position=labels_name,
-                raw_trace=cast(list[float], roi_trace.tolist()),
-                dff=cast(list[float], dff.tolist()),
-                dec_dff=cast(list[float], dec_dff.tolist()),
-                peaks_dec_dff=cast(list[float], peaks_dec_dff.tolist()),
-                peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
-                peaks_prominence_dec_dff=peaks_prominence_dec_dff,
-                dec_dff_frequency=frequency,  # in Hz
-                inferred_spikes=cast(list[float], spikes.tolist()),
-                cell_size=roi_size,
-                cell_size_units="µm" if px_size is not None else "pixel",
-                condition_1=condition_1,
-                condition_2=condition_2,
-                total_recording_time_in_sec=tot_time_sec,
-                active=len(peaks_dec_dff) > 0,
-                linear_phase=linear_phase,
-                cubic_phase=cubic_phase,
-                iei=iei,
-                stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
-            )
-
-        # save json file
+    def _save_analysis_data(self, well: str) -> None:
+        """Save analysis data to a JSON file."""
         LOGGER.info("Saving JSON file for Well %s.", well)
         path = Path(self._analysis_path.value()) / f"{well}.json"
         with path.open("w") as f:
@@ -800,5 +859,3 @@ class _AnalyseCalciumTraces(QWidget):
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
             )
-        # update the progress bar
-        self.progress_bar_updated.emit()
