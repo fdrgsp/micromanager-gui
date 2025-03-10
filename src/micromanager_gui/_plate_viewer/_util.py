@@ -65,6 +65,8 @@ STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
+GLOBAL_CONNECTIVITY_CUBIC = "Global connectivity-Cubic"
+GLOBAL_CONNECTIVITY_LINEAR = "Global connectivity-Linear"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -85,6 +87,8 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    GLOBAL_CONNECTIVITY_CUBIC,
+    GLOBAL_CONNECTIVITY_LINEAR,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
@@ -463,50 +467,6 @@ def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float]:
     phases = np.mod(phases, 2 * np.pi)
 
     return [float(phase) for phase in phases]
-
-
-def get_connectivity(phase_dict: dict[str, list[float]]) -> float | None:
-    """Calculate the connection matrix."""
-    connection_matrix = _get_connectivity_matrix(phase_dict)
-
-    if connection_matrix is None or connection_matrix.size == 0:
-        return None
-
-    # Ensure the matrix is at least 2x2 and square
-    if connection_matrix.shape[0] < 2 or (
-        connection_matrix.shape[0] != connection_matrix.shape[1]
-    ):
-        return None
-
-    return float(
-        np.median(np.sum(connection_matrix, axis=0) - 1)
-        / (connection_matrix.shape[0] - 1)
-    )
-
-
-def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
-    """Calculate global connectivity using vectorized operations."""
-    active_rois = list(phase_dict.keys())  # ROI names
-
-    if len(active_rois) < 2:
-        return None
-
-    # Convert phase_dict values into a NumPy array of shape (N, T)
-    phase_array = np.array([phase_dict[roi] for roi in active_rois])  # Shape (N, T)
-
-    # Compute pairwise phase difference using broadcasting (Shape: (N, N, T))
-    phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
-        phase_array, axis=0
-    )
-
-    # Ensure phase difference is within valid range [0, 2π]
-    phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-
-    # Compute cosine and sine of the phase differences
-    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # Shape: (N, N)
-    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # Shape: (N, N)
-
-    return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
 
 def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:
