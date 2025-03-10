@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING
 
 import cmap
 import numpy as np
+import tifffile
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import (
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -123,6 +125,12 @@ class _ImageViewer(QGroupBox):
         self._reset_view.setToolTip("Reset View")
         self._reset_view.setIcon(icon(MDI6.fullscreen))
         self._reset_view.clicked.connect(self._reset)
+        # save image button
+        self._save_image_btn = QPushButton()
+        self._save_image_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._save_image_btn.setToolTip("Save Image")
+        self._save_image_btn.setIcon(icon(MDI6.content_save_outline))
+        self._save_image_btn.clicked.connect(self._save_image)
         # bottom widget
         bottom_wdg = QWidget()
         bottom_wdg_layout = QHBoxLayout(bottom_wdg)
@@ -131,6 +139,7 @@ class _ImageViewer(QGroupBox):
         bottom_wdg_layout.addWidget(self._auto_clim)
         bottom_wdg_layout.addWidget(self._labels)
         bottom_wdg_layout.addWidget(self._reset_view)
+        bottom_wdg_layout.addWidget(self._save_image_btn)
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(roi_wdg)
@@ -280,6 +289,17 @@ class _ImageViewer(QGroupBox):
             return
         self._highlight_rois(roi)
         self.valueChanged.emit(roi)
+
+    def _save_image(self) -> None:
+        """Save the image and labels to a file."""
+        image = self._viewer._canvas.render()
+        if image is None:
+            return
+        (filename, _) = QFileDialog.getSaveFileName(
+            self, "Save Image", "", "PNG Files (*.png)"
+        )
+        if filename:
+            tifffile.imwrite(filename, image)
 
 
 class _ImageCanvas(QWidget):
