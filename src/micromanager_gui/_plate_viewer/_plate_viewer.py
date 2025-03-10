@@ -16,7 +16,7 @@ from pymmcore_widgets.useq_widgets._well_plate_widget import (
     WellPlateView,
 )
 from qtpy.QtCore import QSize, Qt
-from qtpy.QtGui import QIcon
+from qtpy.QtGui import QAction, QIcon
 from qtpy.QtWidgets import (
     QAbstractGraphicsShapeItem,
     QDialog,
@@ -50,6 +50,7 @@ from ._init_dialog import _InitDialog
 from ._logger import LOGGER
 from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
+from ._save_as_tiff_widget import _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._util import (
     GENOTYPE_MAP,
@@ -98,8 +99,12 @@ class PlateViewer(QMainWindow):
         # add menu bar
         self.menu_bar = QMenuBar(self)
         self.file_menu = self.menu_bar.addMenu("File")
-        self.file_menu.addAction("Open Zarr Datastore...")
-        self.file_menu.triggered.connect(self._show_init_dialog)
+        open_action = QAction("Open Zarr Datastore...", self)
+        open_action.triggered.connect(self._show_init_dialog)
+        save_action = QAction("Save Data as Tiff...", self)
+        save_action.triggered.connect(self._show_save_as_tiff_dialog)
+        self.file_menu.addAction(open_action)
+        self.file_menu.addAction(save_action)
         self.setMenuBar(self.menu_bar)
 
         # scene and view for the plate map
@@ -252,7 +257,7 @@ class PlateViewer(QMainWindow):
 
         self._plate_view.selectionChanged.connect(self._on_scene_well_changed)
 
-        self._loading_bar = _ProgressBarWidget(self, text="Loading Analysis Data...")
+        self._loading_bar = _ProgressBarWidget(self)
 
         self.showMaximized()
 
@@ -406,6 +411,68 @@ class PlateViewer(QMainWindow):
 
             self._init_widget(reader)
 
+    def _show_save_as_tiff_dialog(self) -> None:
+        """Show the save as tiff dialog."""
+        if self._datastore is None or (sequence := self._datastore.sequence) is None:
+            show_error_dialog(
+                self,
+                "No data to save or useq.MDASequence not found! Cannot save the data.",
+            )
+            return
+
+        dialog = _SaveAsTiff(self)
+
+        if dialog.exec():
+            path, positions = dialog.value()
+
+            if not Path(path).is_dir():
+                show_error_dialog(
+                    self, f"The path {path} is not a directory! Cannot save the data."
+                )
+                return
+
+            # start the waiting progress bar
+            self._loading_bar.setEnabled(True)
+            self._loading_bar.setText("Saving as tiff...")
+            self._loading_bar.setValue(0)
+            self._loading_bar.showPercentage(True)
+            self._loading_bar.show()
+            self._loading_bar.setRange(0, len(positions))
+
+            create_worker(
+                self._save_as_tiff,
+                path=path,
+                positions=positions,
+                sequence=sequence,
+                _start_thread=True,
+                _connect={
+                    "yielded": self._update_progress,
+                    "finished": self._on_loading_finished,
+                },
+            )
+
+    def _save_as_tiff(
+        self, path: str, positions: list[int], sequence: useq.MDASequence
+    ) -> Generator[int, None, None]:
+        """Save the selected positions as tiff files."""
+        # TODO: multithreading or multiprocessing
+        # TODO: also save metadata
+        if not self._datastore:
+            return
+        if not positions:
+            positions = list(range(len(sequence.stage_positions) - 1))
+        for pos in tqdm(positions, desc="Saving as tiff"):
+            data, meta = self._datastore.isel(p=pos, metadata=True)
+            # the "Event" key was used in the old metadata format
+            event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+            # get the well name from metadata
+            pos_name = (
+                meta[0].get(event_key, {}).get("pos_name", f"pos_{str(pos).zfill(4)}")
+            )
+            # save the data as tiff
+            tifffile.imsave(Path(path) / f"{pos_name}.tiff", data)
+            yield pos + 1
+
     def _load_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
         if isinstance(path, str):
@@ -422,12 +489,11 @@ class PlateViewer(QMainWindow):
             )
             return
 
-        # temporarily disable the whole widget
-        self.setEnabled(False)
-
         # start the waiting progress bar
+        self._loading_bar.setText("Loading Analysis Data...")
         self._loading_bar.setEnabled(True)
         self._loading_bar.setValue(0)
+        self._loading_bar.showPercentage(True)
         self._loading_bar.show()
 
         create_worker(
@@ -435,7 +501,7 @@ class PlateViewer(QMainWindow):
             path=path,
             _start_thread=True,
             _connect={
-                "yielded": self._update_progress_bar,
+                "yielded": self._update_progress,
                 "finished": self._on_loading_finished,
                 "errored": self._on_loading_finished,
             },
@@ -444,8 +510,6 @@ class PlateViewer(QMainWindow):
     def _on_loading_finished(self) -> None:
         """Called when the loading of the analysis data is finished."""
         self._loading_bar.hide()
-        # re-enable the whole widget
-        self.setEnabled(True)
 
     # TODO: maybe use ThreadPoolExecutor
     def _load_data_from_json(self, path: Path) -> Generator[int | str, None, None]:
@@ -514,7 +578,7 @@ class PlateViewer(QMainWindow):
                 continue
         return path_list
 
-    def _update_progress_bar(self, value: int | str) -> None:
+    def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""
         if isinstance(value, str):
             show_error_dialog(self, value)

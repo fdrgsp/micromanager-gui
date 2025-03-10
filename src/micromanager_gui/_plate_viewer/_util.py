@@ -240,11 +240,10 @@ class _ProgressBarWidget(QDialog):
 
     def __init__(self, parent: QWidget | None = None, *, text: str = "") -> None:
         super().__init__(parent)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(Qt.WindowType.Sheet)
 
-        self._label = text
-        label = QLabel(self._label)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._label = QLabel(text)
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._progress_bar = QProgressBar()
         self._progress_bar.setMinimumWidth(200)
@@ -253,8 +252,12 @@ class _ProgressBarWidget(QDialog):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.addWidget(label)
+        layout.addWidget(self._label)
         layout.addWidget(self._progress_bar)
+
+    def setText(self, text: str) -> None:
+        """Set the text of the progress bar."""
+        self._label.setText(text)
 
     def setValue(self, value: int) -> None:
         """Set the progress bar value."""
@@ -263,6 +266,10 @@ class _ProgressBarWidget(QDialog):
     def setRange(self, min: int, max: int) -> None:
         """Set the progress bar range."""
         self._progress_bar.setRange(min, max)
+
+    def showPercentage(self, visible: bool) -> None:
+        """Show or hide the percentage display on the progress bar."""
+        self._progress_bar.setTextVisible(visible)
 
 
 class _WaitingProgressBarWidget(QDialog):
