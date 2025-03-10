@@ -16,6 +16,7 @@ from micromanager_gui._plate_viewer._util import (
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
+    RASTER_PLOT_AMP_WITH_COLORBAR,
     RAW_TRACES,
     STIMULATED_AREA,
     STIMULATED_ROIS,
@@ -47,7 +48,8 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
     RASTER_PLOT: {"amplitude_colors": False},
-    RASTER_PLOT_AMP: {"amplitude_colors": True},
+    RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
+    RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
     DEC_DFF_IEI: {"dec": True, "iei": True},
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
@@ -91,7 +93,7 @@ def plot_single_well_data(
         )
 
     # plot raster plot
-    if text in {RASTER_PLOT, RASTER_PLOT_AMP}:
+    if text in {RASTER_PLOT, RASTER_PLOT_AMP, RASTER_PLOT_AMP_WITH_COLORBAR}:
         return _generate_raster_plot(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )

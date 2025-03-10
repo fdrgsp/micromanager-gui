@@ -58,6 +58,7 @@ DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
+RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
 DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
 STIMULATED_AREA = "Stimulated Area"
 STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
@@ -80,6 +81,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_IEI,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
+    RASTER_PLOT_AMP_WITH_COLORBAR,
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,

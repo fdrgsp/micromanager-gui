@@ -19,6 +19,7 @@ def _generate_raster_plot(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     amplitude_colors: bool = False,
+    colorbar: bool = False,
 ) -> None:
     """Generate a raster plot."""
     # clear the figure
@@ -84,7 +85,7 @@ def _generate_raster_plot(
     _update_time_axis(ax, rois_rec_time, trace)
 
     # add the colorbar if amplitude colors are used
-    if amplitude_colors:
+    if amplitude_colors and colorbar:
         cbar = widget.figure.colorbar(
             cm.ScalarMappable(
                 norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap=cm.viridis
