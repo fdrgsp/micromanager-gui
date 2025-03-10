@@ -91,13 +91,15 @@ class _CellposeSegmentation(QWidget):
         super().__init__(parent)
 
         self._plate_viewer: PlateViewer | None = parent
-
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
-
         self._labels: dict[str, np.ndarray] = {}
-
         self._worker: GeneratorWorker | None = None
 
+        # ELAPSED TIMER ---------------------------------------------------------
+        self._elapsed_timer = _ElapsedTimer()
+        self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
+
+        # MODEL WIDGET ----------------------------------------------------------
         model_wdg = QWidget(self)
         model_wdg_layout = QHBoxLayout(model_wdg)
         model_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -119,6 +121,7 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
 
+        # CHANNEL AND DIAMETER WIDGETS ------------------------------------------
         channel_wdg = QWidget(self)
         channel_layout = QHBoxLayout(channel_wdg)
         channel_layout.setContentsMargins(0, 0, 0, 0)
@@ -147,6 +150,7 @@ class _CellposeSegmentation(QWidget):
         diameter_layout.addWidget(self._diameter_label)
         diameter_layout.addWidget(self._diameter_spin)
 
+        # OUTPUT PATH WIDGET ----------------------------------------------------
         self._output_path = _BrowseWidget(
             self,
             "Labels Output Path",
@@ -156,6 +160,7 @@ class _CellposeSegmentation(QWidget):
         )
         self._output_path.pathSet.connect(self._update_plate_viewer_labels_path)
 
+        # POSITIONS WIDGET ------------------------------------------------------
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
             "Select the Positions to segment. Leave blank to segment all Positions. "
@@ -173,17 +178,7 @@ class _CellposeSegmentation(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # set the minimum width of the labels
-        fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
-        self._models_combo_label.setMinimumWidth(fixed_lbl_width)
-        self._channel_combo_label.setMinimumWidth(fixed_lbl_width)
-        self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
-        self._diameter_label.setMinimumWidth(fixed_lbl_width)
-        pos_lbl.setMinimumWidth(fixed_lbl_width)
-
-        self._elapsed_timer = _ElapsedTimer()
-        self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
-
+        # PROGRESS BAR WIDGET ---------------------------------------------------
         progress_wdg = QWidget(self)
         progress_layout = QHBoxLayout(progress_wdg)
         progress_layout.setContentsMargins(0, 0, 0, 0)
@@ -204,6 +199,15 @@ class _CellposeSegmentation(QWidget):
         self._progress_bar = QProgressBar(self)
         self._elapsed_time_label = QLabel("00:00:00")
 
+        # STYLING ---------------------------------------------------------------
+        fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
+        self._models_combo_label.setMinimumWidth(fixed_lbl_width)
+        self._channel_combo_label.setMinimumWidth(fixed_lbl_width)
+        self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
+        self._diameter_label.setMinimumWidth(fixed_lbl_width)
+        pos_lbl.setMinimumWidth(fixed_lbl_width)
+
+        # LAYOUT ----------------------------------------------------------------
         progress_layout.addWidget(self._run_btn)
         progress_layout.addWidget(self._cancel_btn)
         progress_layout.addWidget(self._progress_bar)
@@ -251,9 +255,8 @@ class _CellposeSegmentation(QWidget):
         if self._worker is not None:
             self._worker.quit()
         self._elapsed_timer.stop()
-        self._progress_bar.reset()
-        self._progress_label.setText("[0/0]")
-        self._elapsed_time_label.setText("00:00:00")
+        self._reset_progress_bar()
+        self._enable(True)
         LOGGER.info("Cellpose segmentation canceled.")
 
     def run(self) -> None:
@@ -261,7 +264,7 @@ class _CellposeSegmentation(QWidget):
         if self._worker is not None and self._worker.is_running:
             return
 
-        self._initialize_progress_bar()
+        self._reset_progress_bar()
 
         if not self._validate_segmentation_setup():
             return
@@ -275,11 +278,12 @@ class _CellposeSegmentation(QWidget):
 
         self._start_segmentation(positions)
 
-    def _initialize_progress_bar(self) -> None:
+    def _reset_progress_bar(self) -> None:
         """Reset and initialize progress bar."""
         self._progress_bar.reset()
         self._progress_bar.setValue(0)
         self._progress_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
 
     def _validate_segmentation_setup(self) -> bool:
         """Check if the necessary data is available before segmentation."""
