@@ -21,6 +21,7 @@ def _plot_connectivity(
     rois: list[int] | None = None,
     cubic: bool = False,
     linear: bool = False,
+    inactive: bool = False,
 ) -> None:
     """Plot connectivity."""
     widget.figure.clear()
@@ -31,10 +32,15 @@ def _plot_connectivity(
     elif not cubic and linear:
         method = "linear"
 
+    if inactive:
+        rois_included = "all ROIs"
+    else:
+        rois_included = "active ROIs only"
+
     if rois is None:
         rois = [int(roi) for roi in data.keys() if roi.isdigit()]
 
-    phase_dict = _get_phase_dict_from_rois(data, method, rois)
+    phase_dict = _get_phase_dict_from_rois(data, method, rois, inactive)
     if phase_dict is None:
         return None
 
@@ -46,6 +52,10 @@ def _plot_connectivity(
 
     connectivity = _get_connectivity(connectivity_matrix)
 
+    print(f"include inactive cells: {inactive}")
+    print(f"size of connectivity_matrix {connectivity_matrix.shape[0]}")
+    print(f"length of rois { len(rois)}")
+
     ax.imshow(connectivity_matrix, cmap="viridis", aspect="auto")
     cbar = widget.figure.colorbar(
         cm.ScalarMappable(cmap=cm.viridis),
@@ -53,7 +63,7 @@ def _plot_connectivity(
     )
     cbar.set_label("Connectivity")
 
-    ax.set_title(f"Global Connectivity ({method}): {connectivity:0.4f}")
+    ax.set_title(f"Global Connectivity-{rois_included} ({method}): {connectivity:0.4f}")
 
     ax.set_ylabel("ROIs")
     ax.set_yticklabels([])
@@ -113,7 +123,7 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
 
 
 def _get_phase_dict_from_rois(
-    roi_data_dict: dict[str, ROIData], method: str, rois: list[int]
+    roi_data_dict: dict[str, ROIData], method: str, rois: list[int], inactive: bool
 ) -> dict[str, list[float]] | None:
     """Organize the phase list from the rois wanted."""
     phase_dict: dict[str, list[float]] = {}
@@ -131,7 +141,11 @@ def _get_phase_dict_from_rois(
             roi_data.linear_phase if "linear" in method else roi_data.cubic_phase
         )
 
-        if not phase_list:
+        if phase_list is None:
+            continue
+
+        # if only plot active cells and the phase list is empty
+        if not inactive and all(float(value) == 0.0 for value in phase_list):
             continue
 
         phase_dict[roi] = phase_list

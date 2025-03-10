@@ -801,9 +801,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the linear and cubic phase of the peaks in the dec_dff trace
         linear_phase, cubic_phase = [], []
-        if len(peaks_dec_dff) > 0:
-            linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
-            cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+        linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
+        cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
 
         # if the elapsed time is not available or for any reason is different from
         # the number of timepoints, set it as list of timepoints every exp_time

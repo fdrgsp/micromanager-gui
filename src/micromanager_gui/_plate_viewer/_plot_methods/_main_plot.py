@@ -13,8 +13,10 @@ from micromanager_gui._plate_viewer._util import (
     DEC_DFF_WITH_PEAKS,
     DFF,
     DFF_NORMALIZED,
-    GLOBAL_CONNECTIVITY_CUBIC,
-    GLOBAL_CONNECTIVITY_LINEAR,
+    GLOBAL_CONNECTIVITY_CUBIC_ACTIVE,
+    GLOBAL_CONNECTIVITY_CUBIC_ALL,
+    GLOBAL_CONNECTIVITY_LINEAR_ACTIVE,
+    GLOBAL_CONNECTIVITY_LINEAR_ALL,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
@@ -57,8 +59,18 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
-    GLOBAL_CONNECTIVITY_LINEAR: {"cubic": False, "linear": True},
-    GLOBAL_CONNECTIVITY_CUBIC: {"cubic": True, "linear": False},
+    GLOBAL_CONNECTIVITY_LINEAR_ACTIVE: {
+        "cubic": False,
+        "linear": True,
+        "inactive": False,
+    },
+    GLOBAL_CONNECTIVITY_CUBIC_ACTIVE: {
+        "cubic": True,
+        "linear": False,
+        "inactive": False,
+    },
+    GLOBAL_CONNECTIVITY_LINEAR_ALL: {"cubic": False, "linear": True, "inactive": True},
+    GLOBAL_CONNECTIVITY_CUBIC_ALL: {"cubic": True, "linear": False, "inactive": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -103,7 +115,12 @@ def plot_single_well_data(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
-    if text in {GLOBAL_CONNECTIVITY_CUBIC, GLOBAL_CONNECTIVITY_LINEAR}:
+    if text in {
+        GLOBAL_CONNECTIVITY_CUBIC_ACTIVE,
+        GLOBAL_CONNECTIVITY_LINEAR_ACTIVE,
+        GLOBAL_CONNECTIVITY_CUBIC_ALL,
+        GLOBAL_CONNECTIVITY_LINEAR_ALL,
+    }:
         return _plot_connectivity(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
