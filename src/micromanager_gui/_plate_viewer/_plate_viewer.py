@@ -432,11 +432,7 @@ class PlateViewer(QMainWindow):
                 return
 
             # start the waiting progress bar
-            self._loading_bar.setEnabled(True)
-            self._loading_bar.setText("Saving as tiff...")
-            self._loading_bar.setValue(0)
-            self._loading_bar.showPercentage(True)
-            self._loading_bar.show()
+            self._init_loading_bar("Saving as tiff...")
             self._loading_bar.setRange(0, len(positions))
 
             create_worker(
@@ -450,6 +446,14 @@ class PlateViewer(QMainWindow):
                     "finished": self._on_loading_finished,
                 },
             )
+
+    def _init_loading_bar(self, text: str) -> None:
+        """Reset the loading bar."""
+        self._loading_bar.setEnabled(True)
+        self._loading_bar.setText(text)
+        self._loading_bar.setValue(0)
+        self._loading_bar.showPercentage(True)
+        self._loading_bar.show()
 
     def _save_as_tiff(
         self, path: str, positions: list[int], sequence: useq.MDASequence
@@ -490,11 +494,7 @@ class PlateViewer(QMainWindow):
             return
 
         # start the waiting progress bar
-        self._loading_bar.setText("Loading Analysis Data...")
-        self._loading_bar.setEnabled(True)
-        self._loading_bar.setValue(0)
-        self._loading_bar.showPercentage(True)
-        self._loading_bar.show()
+        self._init_loading_bar("Loading Analysis Data...")
 
         create_worker(
             self._load_data_from_json,
