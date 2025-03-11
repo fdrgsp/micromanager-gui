@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 CHANNEL = [0, 0]
 DIAMETER = 0
 CUSTOM = "custom"
-CYTO = "cyto3c"
+CYTO = "cyto3"
 
 
 class SegmentAndAnalyse:
