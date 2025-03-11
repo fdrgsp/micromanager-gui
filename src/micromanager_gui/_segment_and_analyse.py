@@ -210,7 +210,7 @@ def _segment_and_analyse(
     labels = output[0]
 
     # save to disk
-    tifffile.imwrite(save_dir / label_name, labels)
+    tifffile.imwrite(save_dir / f"{label_name}.tif", labels)
     logger.info(f"SegmentAndAnalyse -> Saving labels: {save_dir}/{label_name}.tif")
 
     # ANALYSIS -----------------------------------------------------------------------
