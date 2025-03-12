@@ -67,6 +67,7 @@ STIMULATED_ROIS_WITH_STIMULATED_AREA = (
 )
 GLOBAL_CONNECTIVITY_CUBIC = "Global connectivity-Cubic"
 GLOBAL_CONNECTIVITY_LINEAR = "Global connectivity-Linear"
+GLOBAL_CONNECTIVITY_INSTANTANEOUS = "Global connectivity"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -89,6 +90,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
     GLOBAL_CONNECTIVITY_CUBIC,
     GLOBAL_CONNECTIVITY_LINEAR,
+    GLOBAL_CONNECTIVITY_INSTANTANEOUS,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
@@ -130,6 +132,7 @@ class ROIData(BaseClass):
     active: bool | None = None
     linear_phase: list[float] | None = None
     cubic_phase: list[float] | None = None
+    instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
     # ... add whatever other data we need
@@ -416,8 +419,13 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     return background
 
 
+# NOTE: to delete
 def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
+    if not peaks.any():
+        phase = [0.0 for _ in range(frames)]
+        return phase
+
     peaks_list = [int(peak) for peak in peaks]
 
     if any(p < 0 or p >= frames for p in peaks):
@@ -444,8 +452,13 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     return phase
 
 
+# NOTE: to delete
 def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the instantaneous phase with smooth interpolation and handle negative values."""  # noqa: E501
+    if not peaks.any():
+        phase = [0.0 for _ in range(total_frames)]
+        return phase
+
     peaks_list = [int(peak) for peak in peaks]
 
     if peaks_list[0] != 0:

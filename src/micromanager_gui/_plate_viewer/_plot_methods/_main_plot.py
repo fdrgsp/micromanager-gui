@@ -14,6 +14,7 @@ from micromanager_gui._plate_viewer._util import (
     DFF,
     DFF_NORMALIZED,
     GLOBAL_CONNECTIVITY_CUBIC,
+    GLOBAL_CONNECTIVITY_INSTANTANEOUS,
     GLOBAL_CONNECTIVITY_LINEAR,
     NORMALIZED_TRACES,
     RASTER_PLOT,
@@ -59,6 +60,7 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
     GLOBAL_CONNECTIVITY_LINEAR: {"cubic": False, "linear": True},
     GLOBAL_CONNECTIVITY_CUBIC: {"cubic": True, "linear": False},
+    GLOBAL_CONNECTIVITY_INSTANTANEOUS: {"cubic": False, "linear": False},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -103,7 +105,11 @@ def plot_single_well_data(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
-    if text in {GLOBAL_CONNECTIVITY_CUBIC, GLOBAL_CONNECTIVITY_LINEAR}:
+    if text in {
+        GLOBAL_CONNECTIVITY_CUBIC,
+        GLOBAL_CONNECTIVITY_LINEAR,
+        GLOBAL_CONNECTIVITY_INSTANTANEOUS,
+    }:
         return _plot_connectivity(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )

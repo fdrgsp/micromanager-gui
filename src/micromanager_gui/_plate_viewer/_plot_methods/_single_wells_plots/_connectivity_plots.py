@@ -26,10 +26,14 @@ def _plot_connectivity(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
+    # NOTE: to delete
     if cubic and not linear:
         method = "cubic"
     elif not cubic and linear:
         method = "linear"
+    # -------------------------
+    elif not cubic and not linear:
+        method = "instantaneous"
 
     if rois is None:
         rois = [int(roi) for roi in data.keys() if roi.isdigit()]
@@ -40,7 +44,7 @@ def _plot_connectivity(
 
     active_rois = list(phase_dict.keys())
 
-    connectivity_matrix = _get_connectivity_matrix(phase_dict)
+    connectivity_matrix = _fluorosnnap_connectivity_matrix(phase_dict)
     if connectivity_matrix is None:
         return None
 
@@ -87,6 +91,7 @@ def _get_connectivity(connection_matrix: np.ndarray | None) -> float | None:
     )
 
 
+# NOTE: to delete
 def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
     """Calculate global connectivity using vectorized operations."""
     active_rois = list(phase_dict.keys())  # ROI names
@@ -112,6 +117,23 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
 
+def _fluorosnnap_connectivity_matrix(phase_dict: dict) -> np.ndarray:
+    """Calculate the connectivity (adapted from FluoroSNNAP)."""
+    num_neurons = len(list(phase_dict.keys()))
+    plv_matrix = np.zeros((num_neurons, num_neurons))
+
+    phase_array = np.array([phase_dict[roi] for roi in phase_dict.keys()])
+
+    for i in range(num_neurons):
+        for j in range(i, num_neurons):
+            phase_diff = phase_array[i, :] - phase_array[j, :]
+            plv = np.abs(np.mean(np.exp(1j * phase_diff)))
+            plv_matrix[i, j] = plv
+            plv_matrix[j, i] = plv
+
+    return plv_matrix
+
+
 def _get_phase_dict_from_rois(
     roi_data_dict: dict[str, ROIData], method: str, rois: list[int]
 ) -> dict[str, list[float]] | None:
@@ -127,9 +149,13 @@ def _get_phase_dict_from_rois(
         if roi_int not in rois:
             continue
 
-        phase_list = (
-            roi_data.linear_phase if "linear" in method else roi_data.cubic_phase
-        )
+        # NOTE: to delete
+        if method == "linear":
+            phase_list = roi_data.linear_phase
+        elif method == "cubic":
+            phase_list = roi_data.cubic_phase
+        elif method == "instantaneous":
+            phase_list = roi_data.instantaneous_phase
 
         if not phase_list:
             continue
