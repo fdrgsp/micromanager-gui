@@ -52,10 +52,6 @@ def _plot_connectivity(
 
     connectivity = _get_connectivity(connectivity_matrix)
 
-    print(f"include inactive cells: {inactive}")
-    print(f"size of connectivity_matrix {connectivity_matrix.shape[0]}")
-    print(f"length of rois { len(rois)}")
-
     ax.imshow(connectivity_matrix, cmap="viridis", aspect="auto")
     cbar = widget.figure.colorbar(
         cm.ScalarMappable(cmap=cm.viridis),
@@ -99,13 +95,13 @@ def _get_connectivity(connection_matrix: np.ndarray | None) -> float | None:
 
 def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
     """Calculate global connectivity using vectorized operations."""
-    active_rois = list(phase_dict.keys())  # ROI names
+    rois = list(phase_dict.keys())  # ROI names
 
-    if len(active_rois) < 2:
-        return None
+    # if len(rois) < 2:
+    #     return None
 
     # Convert phase_dict values into a NumPy array of shape (N, T)
-    phase_array = np.array([phase_dict[roi] for roi in active_rois])  # Shape (N, T)
+    phase_array = np.array([phase_dict[roi] for roi in rois])  # Shape (N, T)
 
     # Compute pairwise phase difference using broadcasting (Shape: (N, N, T))
     phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
