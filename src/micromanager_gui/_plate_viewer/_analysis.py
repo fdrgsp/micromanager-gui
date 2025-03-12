@@ -306,6 +306,12 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer._analysis_files_path = path
 
+    # def _update_plate_viewer_analysis_path(self, path: str) -> None:
+    #     """Update the analysis path of the plate viewer."""
+    #     if (analysis_path := Path(path)).is_dir() and self._plate_viewer is not None:
+    #         self._plate_viewer._analysis_files_path = analysis_path
+    #         self._plate_viewer._load_data_from_json(analysis_path)
+
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulated area path widget."""
         (

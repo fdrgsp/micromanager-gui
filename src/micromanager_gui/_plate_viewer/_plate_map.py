@@ -298,9 +298,9 @@ class PlateMapWidget(QWidget):
         wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
             self._plate_view._well_items
         )
-        for well in wells.values():
+        for (r, c), well in wells.items():
             if well.data(DATA_COLOR):
-                self._plate_view.setWellColor(well[0], well[1], None)
+                self._plate_view.setWellColor(r, c, None)
                 well.setData(DATA_COLOR, None)
                 well.setData(DATA_CONDITION, None)
                 well.setData(DATA_SELECTED, False)

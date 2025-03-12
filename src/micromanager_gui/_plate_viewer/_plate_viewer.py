@@ -474,7 +474,7 @@ class PlateViewer(QMainWindow):
                 meta[0].get(event_key, {}).get("pos_name", f"pos_{str(pos).zfill(4)}")
             )
             # save the data as tiff
-            tifffile.imsave(Path(path) / f"{pos_name}.tiff", data)
+            tifffile.imwrite(Path(path) / f"{pos_name}.tiff", data)
             yield pos + 1
 
     def _load_analysis_data(self, path: str | Path) -> None:

@@ -8,13 +8,13 @@ import torch
 from cellpose import models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
-from qtpy.QtCore import QSize
-from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QGridLayout,
-    QGroupBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
     QHBoxLayout,
-    QPushButton,
+    QLabel,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -42,21 +42,40 @@ FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 EXT = (WRITERS[OME_ZARR][0], WRITERS[ZARR_TESNSORSTORE][0])
 
 
-# ------------------- Cellpose parameters -------------------
-MODEL_TYPE = "cyto3"  # "custom"
+CUSTOM = "custom"
+CYTO3 = "cyto3"
 CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
-# -----------------------------------------------------------
 
 
-class CellposeBatchSegmentation(QWidget):
+class _SelectModelPath(_BrowseWidget):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        label: str = "Custom Model",
+        tooltip: str = "Choose the path to the custom Cellpose model.",
+    ) -> None:
+        super().__init__(parent, label, "", tooltip, is_dir=False)
+
+    def _on_browse(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            f"Select the {self._label_text}.",
+            "",
+            "",  # TODO: add model extension
+        )
+        if path:
+            self._path.setText(path)
+
+
+class CellposeBatchSegmentation(QDialog):
     def __init__(
         self,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setWindowTitle("Batch Cellpose Segmentation")
 
         self._labels: dict[str, np.ndarray] = {}
-
         self._worker: GeneratorWorker | None = None
 
         self._input_path = _BrowseWidget(
@@ -67,37 +86,48 @@ class CellposeBatchSegmentation(QWidget):
             is_dir=True,
         )
 
-        buttons_wdg = QWidget(self)
-        buttons_layout = QHBoxLayout(buttons_wdg)
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.setSpacing(5)
-        # self._use_gpu = QCheckBox("Use GPU")
-        # self._use_gpu.setChecked(True)
-        self._run_btn = QPushButton("Run")
-        self._run_btn.setSizePolicy(*FIXED)
-        self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
-        self._run_btn.setIconSize(QSize(25, 25))
-        self._run_btn.clicked.connect(self.run)
-        self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.setSizePolicy(*FIXED)
-        self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
-        self._cancel_btn.setIconSize(QSize(25, 25))
-        self._cancel_btn.clicked.connect(self.cancel)
-        # buttons_layout.addWidget(self._use_gpu)
-        buttons_layout.addStretch(1)
-        buttons_layout.addWidget(self._run_btn)
-        buttons_layout.addWidget(self._cancel_btn)
+        model_wdg = QWidget(self)
+        model_wdg_layout = QHBoxLayout(model_wdg)
+        model_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        model_wdg_layout.setSpacing(5)
+        self._models_combo_label = QLabel("Model Type:")
+        self._models_combo_label.setSizePolicy(*FIXED)
+        self._models_combo = QComboBox()
+        # self._models_combo.addItems(["nuclei", "cyto", "cyto2", "cyto3", "custom"])
+        self._models_combo.addItems(["cyto3", "custom"])
+        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
+        model_wdg_layout.addWidget(self._models_combo_label)
+        model_wdg_layout.addWidget(self._models_combo, 1)
 
-        self.groupbox = QGroupBox("Batch Cellpose Segmentation", self)
-        settings_groupbox_layout = QGridLayout(self.groupbox)
+        self._browse_custom_model = _SelectModelPath(self)
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
+        self._browse_custom_model.hide()
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        # add icons to the buttons
+        button_box.button(QDialogButtonBox.StandardButton.Ok).setIcon(
+            icon(MDI6.play, color=GREEN)
+        )
+        button_box.button(QDialogButtonBox.StandardButton.Cancel).setIcon(
+            icon(MDI6.stop, color=RED)
+        )
+        button_box.accepted.connect(self.run)
+        button_box.rejected.connect(self.cancel)
+
+        wdg = QWidget()
+        settings_groupbox_layout = QVBoxLayout(wdg)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
-        settings_groupbox_layout.addWidget(self._input_path, 0, 0, 1, 2)
-        settings_groupbox_layout.addWidget(buttons_wdg, 1, 0, 2, 1)
+        settings_groupbox_layout.addWidget(model_wdg)
+        settings_groupbox_layout.addWidget(self._browse_custom_model)
+        settings_groupbox_layout.addWidget(self._input_path)
+        settings_groupbox_layout.addWidget(button_box)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(self.groupbox)
+        main_layout.addWidget(wdg)
         main_layout.addStretch(1)
 
     def run(self) -> None:
@@ -130,6 +160,8 @@ class CellposeBatchSegmentation(QWidget):
                 print(f"Unsupported file format: {f.name}, skipping...")
                 continue
 
+        model_type, model_path = self._get_moedel_type_and_path()
+
         for d in tqdm(data, total=len(data), desc="Processing files"):
             sequence = d.sequence
             if sequence is None:
@@ -141,12 +173,12 @@ class CellposeBatchSegmentation(QWidget):
             # only cuda since per now cellpose does not work with gpu on mac
             use_gpu = torch.cuda.is_available()
             dev = torch.device("cuda" if use_gpu else "cpu")
-            if MODEL_TYPE == "custom":
+            if model_type == CUSTOM:
                 model = CellposeModel(
-                    pretrained_model=CUSTOM_MODEL_PATH, gpu=use_gpu, device=dev
+                    pretrained_model=model_path, gpu=use_gpu, device=dev
                 )
-            else:
-                model = models.Cellpose(gpu=use_gpu, model_type=MODEL_TYPE, device=dev)
+            else:  # model_type == CYTO3
+                model = models.Cellpose(gpu=use_gpu, model_type=model_type, device=dev)
 
             file_name = d.path.name
             for ext in EXT:
@@ -166,6 +198,18 @@ class CellposeBatchSegmentation(QWidget):
                 positions=positions,
                 _start_thread=True,
             )
+
+    def _on_model_combo_changed(self, text: str) -> None:
+        """Show or hide the custom model path widget."""
+        if text == "custom":
+            self._browse_custom_model.show()
+        else:
+            self._browse_custom_model.hide()
+
+    def _get_moedel_type_and_path(self) -> tuple[str, str]:
+        model_type = self._models_combo.currentText()
+        model_path = self._browse_custom_model.value()
+        return model_type, model_path
 
     def _segment(
         self,
