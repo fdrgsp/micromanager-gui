@@ -274,7 +274,7 @@ def _segment_and_analyse(
     # get data and metadata from the datastore for the position index
     data, meta = datastore.isel(p=p_idx, metadata=True)
 
-    # sEGMENTATION - CELLPOSE --------------------------------------------------------
+    # SEGMENTATION - CELLPOSE --------------------------------------------------------
     # max projection from half to the end of the stack
     data_half_to_end = data[data.shape[0] // 2 :, :, :]
     max_proj = data_half_to_end.max(axis=0)
@@ -290,7 +290,7 @@ def _segment_and_analyse(
     )
     tifffile.imwrite(save_dir_labels / f"{label_name}.tif", labels)
 
-    # aNALYSIS -----------------------------------------------------------------------
+    # ANALYSIS -----------------------------------------------------------------------
     # create the save directory path and make the save directory if it does not exist
     save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
     save_dir_analysis.mkdir(parents=True, exist_ok=True)
