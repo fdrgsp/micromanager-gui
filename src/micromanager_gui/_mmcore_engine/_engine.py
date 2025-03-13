@@ -4,6 +4,7 @@ import time
 from itertools import product
 from typing import (
     TYPE_CHECKING,
+    Any,
     cast,
 )
 
@@ -202,6 +203,16 @@ class ArduinoEngine(MDAEngine):
                 expected_images,
                 count,
             )
+
+    def _next_seqimg_payload(
+        self, event: MDAEvent, *args: Any, **kwargs: Any
+    ) -> PImagePayload:
+        """Grab next image from the circular buffer and return it as an ImagePayload."""
+        # TEMPORARY SOLUTION to cancel the sequence acquisition
+        if self._mmc.mda._wait_until_event(event):  # SLF001
+            self._mmc.mda.cancel()
+            self._mmc.stopSequenceAcquisition()
+        return super()._next_seqimg_payload(event, *args, **kwargs)
 
     def teardown_sequence(self, sequence: MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
