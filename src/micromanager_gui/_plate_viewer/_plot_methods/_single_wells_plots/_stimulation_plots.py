@@ -77,7 +77,7 @@ def _plot_stimulated_rois(
 
     # open label image
     r = str(rois[0]) if rois is not None else "1"
-    label_name = data[r].well_fov_position
+    label_name = f"{data[r].well_fov_position}.tif"
     if not label_name:
         return
     labels = tifffile.imread(Path(labels_image_path) / label_name)

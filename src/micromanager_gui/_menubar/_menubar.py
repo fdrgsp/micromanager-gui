@@ -24,12 +24,14 @@ from qtpy.QtWidgets import (
     QLabel,
     QMenuBar,
     QScrollArea,
+    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
+from micromanager_gui._plate_viewer._util import _BrowseWidget
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
@@ -67,6 +69,9 @@ CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
 CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+SPONTANEOUS = "Spontaneous Activity"
+EVOKED = "Evoked Activity"
+FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -343,14 +348,13 @@ class _MenuBar(QMenuBar):
 
     def _enable_segmentation(self, enable: bool) -> None:
         """Enable or disable the segmentation and pass the parameters."""
-        print("Enable segmentation", enable)
         self._segment_widget.show() if enable else self._segment_widget.hide()
 
         if not enable:
             return
 
         if self._segment_widget.exec():
-            model_type, model_path = self._segment_widget.value()
+            model_type, model_path, _, _ = self._segment_widget.value()
             self._main_window._segment_neurons.enable(enable, model_type, model_path)
         else:
             self._act_enable_segmentation.setChecked(False)
@@ -367,8 +371,35 @@ class _SegmentWidget(QDialog):
         self.setWindowTitle("Segmentation Parameters")
         self.setMinimumWidth(300)
 
-        self.setWindowFlags(Qt.WindowType.Sheet)
+        # Experiment type ----------------------------------------------------------
+        experiment_type_wdg = QWidget(self)
+        experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
+        experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        experiment_type_wdg_layout.setSpacing(5)
+        activity_combo_label = QLabel("Experiment Type:")
+        activity_combo_label.setSizePolicy(*FIXED)
+        self._experiment_type_combo = QComboBox()
+        self._experiment_type_combo.addItems([SPONTANEOUS, EVOKED])
+        self._experiment_type_combo.currentTextChanged.connect(
+            self._on_activity_changed
+        )
+        experiment_type_wdg_layout.addWidget(activity_combo_label)
+        experiment_type_wdg_layout.addWidget(self._experiment_type_combo)
 
+        self._stimulation_area_path = _BrowseWidget(
+            self,
+            label="Stimulated Area File",
+            tooltip=(
+                "Select the path to the image of the stimulated area.\n"
+                "The image should either be a binary mask or a grayscale image where "
+                "the stimulated area is brighter than the rest.\n"
+                "Accepted formats: .tif, .tiff."
+            ),
+            is_dir=False,
+        )
+        self._stimulation_area_path.hide()
+
+        # Cellpose -----------------------------------------------------------------
         self._browse_custom_model = _SelectModelPath(self)
         self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
@@ -376,33 +407,37 @@ class _SegmentWidget(QDialog):
         self._models_combo = QComboBox()
         self._models_combo.addItems(MODELS)
         self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-        # self._use_gpu_checkbox = QCheckBox("Use GPU")
-        # self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
-        # self._use_gpu_checkbox.setChecked(True)
 
+        model_lbl = QLabel("Model:")
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("Model:"))
+        layout.addWidget(model_lbl)
         layout.addWidget(self._models_combo, 1)
-        # layout.addWidget(self._use_gpu_checkbox)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(3, 3, 3, 3)
-        main_layout.setSpacing(3)
-        main_layout.addLayout(layout)
-        main_layout.addWidget(self._browse_custom_model)
-
-        # Add Ok and Cancel buttons
+        # ok and cancel buttons ----------------------------------------------------
         self._button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         self._button_box.accepted.connect(self.accept)
         self._button_box.rejected.connect(self.reject)
 
-        # Add buttons to the main layout
+        # Styling ------------------------------------------------------------------
+        fixed_width = self._stimulation_area_path._label.sizeHint().width()
+        activity_combo_label.setFixedWidth(fixed_width)
+        self._browse_custom_model._label.setFixedWidth(fixed_width)
+        model_lbl.setFixedWidth(fixed_width)
+
+        # Layout -------------------------------------------------------------------
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(7, 7, 7, 7)
+        main_layout.setSpacing(5)
+        main_layout.addWidget(experiment_type_wdg)
+        main_layout.addWidget(self._stimulation_area_path)
+        main_layout.addLayout(layout)
+        main_layout.addWidget(self._browse_custom_model)
         main_layout.addWidget(self._button_box)
 
-    def value(self) -> tuple[str, str]:
+    def value(self) -> tuple[str, str, str, str]:
         """Return the model type and path."""
         if (model_type := self._models_combo.currentText()) == CUSTOM and (
             path := self._browse_custom_model.value()
@@ -412,7 +447,23 @@ class _SegmentWidget(QDialog):
             model_type = CYTO3
             model_path = ""
 
-        return model_type, model_path
+        if (
+            experiment_type := self._experiment_type_combo.currentText()
+        ) == EVOKED and (seg_path := self._stimulation_area_path.value()):
+            stimulation_mask_path = seg_path
+        else:
+            experiment_type = SPONTANEOUS
+            stimulation_mask_path = ""
+
+        return model_type, model_path, experiment_type, stimulation_mask_path
+
+    def _on_activity_changed(self, text: str) -> None:
+        """Show or hide the stimulated area path widget."""
+        (
+            self._stimulation_area_path.show()
+            if text == EVOKED
+            else self._stimulation_area_path.hide()
+        )
 
     def _on_model_combo_changed(self, model: str) -> None:
         """Show the custom model path if the model is 'custom'."""
