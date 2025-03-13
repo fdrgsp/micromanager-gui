@@ -271,7 +271,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._enable(False)
 
         self._worker = create_worker(
-            self._extract_traces,
+            self._extract_traces_data,
             positions=pos,
             _start_thread=True,
             _connect={
@@ -548,7 +548,7 @@ class _AnalyseCalciumTraces(QWidget):
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
-    def _extract_traces(self, positions: list[int]) -> Generator[str, None, None]:
+    def _extract_traces_data(self, positions: list[int]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
         LOGGER.info("Starting traces extraction...")
 
@@ -567,7 +567,7 @@ class _AnalyseCalciumTraces(QWidget):
             with ThreadPoolExecutor(max_workers=cpu_count) as executor:
                 futures = [
                     executor.submit(
-                        self._extract_trace_for_chunk,
+                        self._extract_trace_data_for_chunk,
                         positions,
                         start,
                         min(start + chunk_size, pos),
@@ -593,16 +593,16 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             yield f"An error occurred: {e}"
 
-    def _extract_trace_for_chunk(
+    def _extract_trace_data_for_chunk(
         self, positions: list[int], start: int, end: int
     ) -> None:
         """Extract the roi traces for the given chunk."""
         for p in range(start, end):
             if self._check_for_abort_requested():
                 break
-            self._extract_trace_per_position(positions[p])
+            self._extract_trace_data_per_position(positions[p])
 
-    def _extract_trace_per_position(self, p: int) -> None:
+    def _extract_trace_data_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
         if self._data is None or self._check_for_abort_requested():
             return

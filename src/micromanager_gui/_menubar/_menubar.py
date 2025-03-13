@@ -173,12 +173,12 @@ class _MenuBar(QMenuBar):
         self._mda = cast(MDAWidget, mda.main_widget)
 
         # segmentation widget
-        self._segment_widget = _SegmentWidget(self)
-        self._segment_widget.hide()
+        self._segment_analyse_widget = _SegmentAndAnalyseWidget(self)
+        self._segment_analyse_widget.hide()
 
         # settings menu
-        self._settings_menu = self.addMenu("Segmentation")
-        self._act_enable_segmentation = QAction("Enable Segmentation", self)
+        self._settings_menu = self.addMenu("Segmentation and Analysis")
+        self._act_enable_segmentation = QAction("Enable Segmentation & Analysis", self)
         self._act_enable_segmentation.setCheckable(True)
         self._act_enable_segmentation.setChecked(False)
         self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
@@ -348,20 +348,24 @@ class _MenuBar(QMenuBar):
 
     def _enable_segmentation(self, enable: bool) -> None:
         """Enable or disable the segmentation and pass the parameters."""
-        self._segment_widget.show() if enable else self._segment_widget.hide()
+        (
+            self._segment_analyse_widget.show()
+            if enable
+            else self._segment_analyse_widget.hide()
+        )
 
         if not enable:
             return
 
-        if self._segment_widget.exec():
-            model_type, model_path, _, _ = self._segment_widget.value()
+        if self._segment_analyse_widget.exec():
+            model_type, model_path, _, _ = self._segment_analyse_widget.value()
             self._main_window._segment_neurons.enable(enable, model_type, model_path)
         else:
             self._act_enable_segmentation.setChecked(False)
             self._main_window._segment_neurons.enable(False)
 
 
-class _SegmentWidget(QDialog):
+class _SegmentAndAnalyseWidget(QDialog):
     """A Widget to set the segmentation parameters."""
 
     # TODO: update with more parameters if necessary
