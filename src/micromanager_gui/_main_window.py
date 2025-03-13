@@ -22,8 +22,6 @@ from micromanager_gui.readers import TensorstoreZarrReader
 from ._core_link import CoreViewersLink
 from ._menubar._menubar import _MenuBar
 from ._mmcore_engine._engine import ArduinoEngine
-
-# from ._segment_neurons import SegmentNeurons
 from ._segment_and_analyse import SegmentAndAnalyse
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
@@ -81,7 +79,6 @@ class MicroManagerGUI(QMainWindow):
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
 
-        # self._segment_neurons = SegmentNeurons(self._mmc)
         self._segment_neurons = SegmentAndAnalyse(self._mmc)
 
         # extend size to fill the screen
