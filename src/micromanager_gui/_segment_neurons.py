@@ -12,8 +12,9 @@ import useq
 from cellpose import models
 from cellpose.models import CellposeModel
 from pymmcore_plus._logger import logger
-from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
+
+from micromanager_gui._widgets._mda_widget._save_widget import ALL_EXTENSIONS
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
