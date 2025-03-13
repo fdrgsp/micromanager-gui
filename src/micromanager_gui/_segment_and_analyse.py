@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import tifffile
 import torch
-import useq
 from cellpose import models
 from cellpose.models import CellposeModel
 from oasis.functions import deconvolve
@@ -39,6 +38,7 @@ from ._widgets._mda_widget._save_widget import (
 )
 
 if TYPE_CHECKING:
+    import useq
     from pymmcore_plus import CMMCorePlus
 
 
@@ -48,8 +48,6 @@ CUSTOM = "custom"
 CYTO = "cyto3"
 ELAPSED_TIME_KEY = "ElapsedTime-ms"
 CAMERA_KEY = "camera_metadata"
-# SPONTANEOUS = "Spontaneous Activity"
-# EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_MASK = "stimulation_mask.tif"
 STIMULATION_AREA_THRESHOLD = 0.5  # 50%
@@ -62,22 +60,23 @@ class SegmentAndAnalyse:
         self._mmc = mmcore
 
         self._enabled: bool = False
-
         self._is_running: bool = False
-
         self._segment_and_analise_process: Process | None = None
-
         self._timepoints: int | None = None
-
         self._model: CellposeModel
-
         self._stimulation_params: tuple[str, str] | None = None
-
         self._save_path_and_name: tuple[str, str] | None = None
 
         # Create a multiprocessing Queue
         self._queue: mp.Queue[
-            tuple[str, tuple[str, str], CellposeModel, tuple[str, str] | None] | None
+            tuple[
+                str,  # label_name
+                int,  # timepoints
+                tuple[str, str],  # save_path_and_name
+                CellposeModel,  # model
+                tuple[str, str] | None,  # stimulation params
+            ]
+            | None
         ] = mp.Queue()
 
         self._mmc.mda.events.sequenceStarted.connect(self._on_sequence_started)
@@ -168,6 +167,7 @@ class SegmentAndAnalyse:
             self._queue.put(
                 (
                     label_name,
+                    self._timepoints,
                     self._save_path_and_name,
                     self._model,
                     self._stimulation_params,
@@ -205,6 +205,7 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
 
 def _segment_and_analyse(
     label_name: str,
+    timepoints: int,
     save_path_and_name: tuple[str, str],
     model: CellposeModel,
     stimulation_params: tuple[str, str],
@@ -271,19 +272,18 @@ def _segment_and_analyse(
         logger.info(f"SegmentAndAnalyse -> Creating stimulation mask for {label_name}")
         stimulated_area_mask = create_stimulation_mask(stimulation_mask_path)
         stim_mask_path = save_dir_labels / STIMULATION_MASK
-        logger.info(f"SegmentAndAnalyse -> Saving stimulation mask for {label_name}")
         tifffile.imwrite(str(stim_mask_path), stimulated_area_mask)
+        logger.info(f"SegmentAndAnalyse -> Stimulation mask saved for {label_name}")
 
     # extract traces data
-    logger.info(f"SegmentAndAnalyse -> Extracting traces data for {label_name}")
+    logger.info(f"SegmentAndAnalyse -> Extracting traces data for {label_name}...")
     analysis_data = _extract_traces_data(
-        label_name, data, meta, labels, stimulated_area_mask
+        label_name, timepoints, data, meta, labels, stimulated_area_mask
     )
     if analysis_data is None:
         return
 
     # save the analysis data to disk
-    logger.info(f"SegmentAndAnalyse -> Saving analysis data for {label_name}")
     analysis_data_path = save_dir_analysis / f"{label_name}.json"
     with analysis_data_path.open("w") as f:
         json.dump(
@@ -292,10 +292,12 @@ def _segment_and_analyse(
             default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
             indent=2,
         )
+    logger.info(f"SegmentAndAnalyse -> Analysis data saved for {label_name}")
 
 
 def _extract_traces_data(
     label_name: str,
+    timepoints: int,
     data: np.ndarray,
     meta: list[dict],
     labels: np.ndarray,
@@ -305,22 +307,17 @@ def _extract_traces_data(
     # the "Event" key was used in the old metadata format
     event_key = "mda_event" if "mda_event" in meta[0] else "Event"
 
-    # get the MDAsequence from metadata
-    sequence = useq.MDASequence(**meta[0][event_key])
-
     # get the elapsed time from the metadata to calculate the total time in seconds
     elapsed_time_list = _get_elapsed_time_list(meta)
 
     # get the exposure time from the metadata
     exp_time = meta[0][event_key].get("exposure", 0.0)
 
-    # get timepoints
-    timepoints = sequence.sizes["t"]
-
     # get the total time in seconds for the recording
     tot_time_sec = _calculate_total_time(elapsed_time_list, exp_time, timepoints)
 
-    labels_masks = _create_label_masks(labels)
+    # create a dict with the labels as keys and the masks as values
+    labels_masks = _create_label_masks_dict(labels)
 
     analysis_data: dict = {}
 
@@ -405,7 +402,7 @@ def _extract_traces_data(
 
         # store the data to the analysis dict as ROIData
         analysis_data[str(label_value)] = ROIData(
-            well_fov_position=f"{label_name}.tif",
+            well_fov_position=label_name,
             raw_trace=roi_trace.tolist(),  # type: ignore
             dff=dff.tolist(),  # type: ignore
             dec_dff=dec_dff.tolist(),
@@ -462,7 +459,7 @@ def _calculate_total_time(
     return tot_time_sec
 
 
-def _create_label_masks(labels: np.ndarray) -> dict:
+def _create_label_masks_dict(labels: np.ndarray) -> dict:
     """Create masks for each label in the labels image."""
     # get the range of labels and remove the background (0)
     labels_range = np.unique(labels[labels != 0])

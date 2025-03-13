@@ -414,11 +414,10 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
 
 def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
-    peaks_list = [int(peak) for peak in peaks]
-
     if any(p < 0 or p >= frames for p in peaks):
         raise ValueError("All peaks must be within the range of frames.")
 
+    peaks_list = [int(peak) for peak in peaks]
     if peaks_list[0] != 0:
         peaks_list.insert(0, 0)
     if peaks_list[-1] != (frames - 1):

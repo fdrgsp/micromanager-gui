@@ -627,7 +627,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # open the labels file and create masks for each label
         labels = tifffile.imread(labels_path)
-        labels_masks = self._create_label_masks(labels)
+        labels_masks = self._create_label_masks_dict(labels)
         sequence = cast(useq.MDASequence, self._data.sequence)
 
         # get the elapsed time from the metadata to calculate the total time in seconds
@@ -692,7 +692,7 @@ class _AnalyseCalciumTraces(QWidget):
             print(f"No labels found for {labels_name}!")
         return labels_path
 
-    def _create_label_masks(self, labels: np.ndarray) -> dict:
+    def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
         """Create masks for each label in the labels image."""
         # get the range of labels and remove the background (0)
         labels_range = np.unique(labels[labels != 0])
