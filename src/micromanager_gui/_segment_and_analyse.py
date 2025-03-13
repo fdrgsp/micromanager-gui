@@ -67,7 +67,7 @@ class SegmentAndAnalyse:
         self._stimulation_params: tuple[str, str] | None = None
         self._save_path_and_name: tuple[str, str] | None = None
 
-        # Create a multiprocessing Queue
+        # create a multiprocessing Queue
         self._queue: mp.Queue[
             tuple[
                 str,  # label_name
@@ -195,58 +195,86 @@ class SegmentAndAnalyse:
 # this must not be part of the SegmentAndAnalyse class
 def _segment_and_analyse_process(queue: mp.Queue) -> None:
     """Segmentation worker running in a separate process."""
+    # to store the datastore opened in the process so we don't have to reopen it
+    datastore_cache: dict[Path, TensorstoreZarrReader | OMEZarrReader] = {}
     while True:
-        args = queue.get()
         # exit if the arg in the queue is None
-        if args is None:
+        if (args := queue.get()) is None:
             break
-        _segment_and_analyse(*args)
+
+        # extract save path and name to determine datastore
+        label_name, timepoints, save_path_and_name, model, stimulation_params = args
+        save_path, save_name = save_path_and_name
+
+        # get the datastore path
+        datastore_path = Path(save_path) / save_name
+
+        # if datastore is already opened, reuse it
+        if datastore_path in datastore_cache:
+            datastore = datastore_cache[datastore_path]
+        else:
+            # determine the correct datastore type
+            writer = ""
+            for ext in ALL_EXTENSIONS:
+                if save_name.endswith(ext):
+                    save_name = save_name[: -len(ext)]
+                    writer = EXT_TO_WRITER[ext]
+                    break
+
+            # open the datastore and store it in cache
+            if writer == ZARR_TESNSORSTORE:
+                datastore = TensorstoreZarrReader(datastore_path)
+            elif writer == OME_ZARR:
+                datastore = OMEZarrReader(datastore_path)
+            else:
+                return  # unsupported file format
+
+            datastore_cache[datastore_path] = datastore  # cache the datastore
+
+        # call the segmentation function with the cached datastore
+        _segment_and_analyse(
+            label_name, timepoints, datastore, model, stimulation_params
+        )
+    # clear the cache
+    datastore_cache.clear()
 
 
 def _segment_and_analyse(
     label_name: str,
     timepoints: int,
-    save_path_and_name: tuple[str, str],
+    datastore: TensorstoreZarrReader | OMEZarrReader,
     model: CellposeModel,
     stimulation_params: tuple[str, str],
 ) -> None:
     """Segment the image."""
     logger.info(f"SegmentAndAnalyse -> received: {label_name}")
 
-    save_path, save_name = save_path_and_name
     experiment_type, stimulation_mask_path = stimulation_params
 
-    # build datastore path
-    datastore_path = Path(save_path) / f"{save_name}"  # has extension
-    # get the writer and remove the extension to create the labels directory
-    writer: str = ""
+    # extract save path from datastore path
+    save_path = datastore.path.parent  # assuming datastore.path exists
+    save_name = datastore.path.stem  # assuming datastore.path exists
 
-    for ext in ALL_EXTENSIONS:
-        if save_name.endswith(ext):
-            save_name = save_name[: -len(ext)]
-            writer = EXT_TO_WRITER[ext]
-            break
-
-    # load the data
-    datastore: TensorstoreZarrReader | OMEZarrReader
-    if writer == ZARR_TESNSORSTORE:
-        datastore = TensorstoreZarrReader(datastore_path)
-    elif writer == OME_ZARR:
-        datastore = OMEZarrReader(datastore_path)
-    else:
-        return
-
-    # create the save directory path and make the save directory if it does not exist
+    # create save directories
     save_dir_labels = Path(save_path) / f"{save_name}_labels"
     save_dir_labels.mkdir(parents=True, exist_ok=True)
 
-    # get the position index from label_name
-    p_idx = int(label_name.split("_")[-1][1:])  # A1_0020_p23 -> p23-> 23
+    save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
+    save_dir_analysis.mkdir(parents=True, exist_ok=True)
+
+    # get position index
+    p_idx = int(label_name.split("_")[-1][1:])  # extract 'p23' -> 23
 
     # get data and metadata from the datastore for the position index
     data, meta = datastore.isel(p=p_idx, metadata=True)
 
-    # SEGMENTATION - CELLPOSE --------------------------------------------------------
+    # get the position index from label_name
+    p_idx = int(label_name.split("_")[-1][1:])  # a1_0020_p23 -> p23-> 23
+
+    # get data and metadata from the datastore for the position index
+    data, meta = datastore.isel(p=p_idx, metadata=True)
+
+    # sEGMENTATION - CELLPOSE --------------------------------------------------------
     # max projection from half to the end of the stack
     data_half_to_end = data[data.shape[0] // 2 :, :, :]
     max_proj = data_half_to_end.max(axis=0)
@@ -262,7 +290,7 @@ def _segment_and_analyse(
     )
     tifffile.imwrite(save_dir_labels / f"{label_name}.tif", labels)
 
-    # ANALYSIS -----------------------------------------------------------------------
+    # aNALYSIS -----------------------------------------------------------------------
     # create the save directory path and make the save directory if it does not exist
     save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
     save_dir_analysis.mkdir(parents=True, exist_ok=True)
@@ -355,7 +383,7 @@ def _extract_traces_data(
         # deconvolve the dff trace
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
-        # Get the prominence to find peaks in the deconvolved trace
+        # get the prominence to find peaks in the deconvolved trace
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
         # to outliers (unlike the mean).
@@ -453,7 +481,7 @@ def _calculate_total_time(
     if len(elapsed_time_list) != timepoints:
         tot_time_sec = exp_time * timepoints / 1000
     # otherwise, calculate the total time in seconds using the elapsed time.
-    # NOTE: adding the exposure time to consider the first frame
+    # nOTE: adding the exposure time to consider the first frame
     else:
         tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0] + exp_time) / 1000
     return tot_time_sec
