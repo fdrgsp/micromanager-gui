@@ -262,6 +262,14 @@ class MDAWidget_(MDAWidget):
         # in case the user does not press enter after editing the save name.
         self.save_info.save_name.editingFinished.emit()
 
+        # if the 1.5x magnification lens is in place, show a warning asking the user if
+        # they want to continue
+        if (
+            self._mmc.getMagnificationFactor() != 1
+            and not self._confirm_mag_factor_intentions()
+        ):
+            return False
+
         # if autofocus has been requested, but the autofocus device is not engaged,
         # and position-specific offsets haven't been set, show a warning
         pos = self.stage_positions
@@ -413,3 +421,14 @@ class MDAWidget_(MDAWidget):
         except ValueError as e:  # pragma: no cover
             self._duration_label.setText(f"Error estimating time:\n{e}")
             return
+
+    def _confirm_mag_factor_intentions(self) -> bool:
+        msg = "The Magnification Knob is not set to 1.5x.\n" "Do you want to continue?"
+        response = QMessageBox.warning(
+            self,
+            "Confirm Magnification Factor",
+            msg,
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        return bool(response == QMessageBox.StandardButton.Ok)
