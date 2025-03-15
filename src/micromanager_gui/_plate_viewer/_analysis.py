@@ -479,7 +479,9 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer.analysis_data = self._analysis_data
+            # add/overwrite the analysis data of the plate viewer with the new data
+            for key in self._analysis_data:
+                self._plate_viewer._analysis_data[key] = self._analysis_data[key]
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
         # show a message box if there are failed labels
@@ -619,7 +621,6 @@ class _AnalyseCalciumTraces(QWidget):
         # create the dict for the fov if it does not exist
         if fov_name not in self._analysis_data:
             self._analysis_data[fov_name] = {}
-
         # get the labels file for the position
         labels_path = self._get_labels_file_for_position(fov_name, p)
         if labels_path is None:
