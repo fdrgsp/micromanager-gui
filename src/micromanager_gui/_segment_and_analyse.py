@@ -106,6 +106,8 @@ class SegmentAndAnalyse:
 
     def set_model(self, model_type: str, model_path: str) -> None:
         """Set the cellpose model."""
+        if not model_type:
+            return
         use_gpu = torch.cuda.is_available()
         dev = torch.device("cuda" if use_gpu else "cpu")
         if model_type == CUSTOM:

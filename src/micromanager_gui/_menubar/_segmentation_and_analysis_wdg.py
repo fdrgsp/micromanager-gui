@@ -68,7 +68,7 @@ class _PlateMap(QGroupBox):
         bottom_layout.addWidget(self._plate_map_treatment)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(5)
         main_layout.addWidget(top)
         main_layout.addWidget(bottom)
@@ -127,7 +127,7 @@ class _SegmentationAndAnalysisWidget(QDialog):
         experiment_type_wdg = QGroupBox(self, title="Experiment")
         experiment_type_wdg.setCheckable(False)
         experiment_type_wdg_layout = QGridLayout(experiment_type_wdg)
-        experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        experiment_type_wdg_layout.setContentsMargins(10, 10, 10, 10)
         experiment_type_wdg_layout.setSpacing(5)
         experiment_type_wdg_layout.addWidget(experiment_type_label, 0, 0)
         experiment_type_wdg_layout.addWidget(self._experiment_type_combo, 0, 1)
@@ -147,7 +147,7 @@ class _SegmentationAndAnalysisWidget(QDialog):
         cellpose_wdg = QGroupBox(self, title="Cellpose")
         cellpose_wdg.setCheckable(False)
         cellpose_wdg_layout = QGridLayout(cellpose_wdg)
-        cellpose_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        cellpose_wdg_layout.setContentsMargins(10, 10, 10, 10)
         cellpose_wdg_layout.setSpacing(5)
         cellpose_wdg_layout.addWidget(model_lbl, 0, 0)
         cellpose_wdg_layout.addWidget(self._models_combo, 0, 1)
@@ -172,7 +172,7 @@ class _SegmentationAndAnalysisWidget(QDialog):
 
         # Layout -------------------------------------------------------------------
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(7, 7, 7, 7)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(20)
         main_layout.addWidget(experiment_type_wdg)
         main_layout.addWidget(cellpose_wdg)
