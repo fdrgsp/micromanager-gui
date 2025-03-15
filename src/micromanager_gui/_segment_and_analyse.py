@@ -18,8 +18,10 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from scipy.signal import find_peaks
 from tqdm import tqdm
 
-from micromanager_gui._menubar._menubar import EVOKED, SPONTANEOUS
+from micromanager_gui._menubar._menubar import EVOKED
 from micromanager_gui._plate_viewer._util import (
+    COND1,
+    COND2,
     ROIData,
     calculate_dff,
     create_stimulation_mask,
@@ -41,6 +43,8 @@ if TYPE_CHECKING:
     import useq
     from pymmcore_plus import CMMCorePlus
 
+    from micromanager_gui._plate_viewer._plate_map import PlateMapData
+
 
 CHANNEL = [0, 0]
 DIAMETER = 0
@@ -60,12 +64,12 @@ class SegmentAndAnalyse:
         self._mmc = mmcore
 
         self._enabled: bool = False
-        self._is_running: bool = False
         self._segment_and_analise_process: Process | None = None
         self._timepoints: int | None = None
         self._model: CellposeModel
         self._stimulation_params: tuple[str, str] | None = None
         self._save_path_and_name: tuple[str, str] | None = None
+        self._plate_map_data: dict[str, dict[str, str]] = {}
 
         # create a multiprocessing Queue
         self._queue: mp.Queue[
@@ -75,6 +79,7 @@ class SegmentAndAnalyse:
                 tuple[str, str],  # save_path_and_name
                 CellposeModel,  # model
                 tuple[str, str] | None,  # stimulation params
+                dict[str, dict[str, str]],  # plate_map_data
             ]
             | None
         ] = mp.Queue()
@@ -86,15 +91,18 @@ class SegmentAndAnalyse:
     def enable(
         self,
         enable: bool,
-        model_type: str = CYTO,
-        model_path: str = "",
-        experiment_type: str = SPONTANEOUS,
-        stimulation_mask_path: str = "",
+        model_type: str,
+        model_path: str,
+        experiment_type: str,
+        stimulation_mask_path: str,
+        genotypes: list[PlateMapData],
+        treatments: list[PlateMapData],
     ) -> None:
         """Enable or disable the segmentation."""
         self._enabled = enable
         self.set_model(model_type, model_path)
         self.set_stimulation_parameters(experiment_type, stimulation_mask_path)
+        self._set_plate_map_data(genotypes, treatments)
 
     def set_model(self, model_type: str, model_path: str) -> None:
         """Set the cellpose model."""
@@ -114,9 +122,23 @@ class SegmentAndAnalyse:
     ) -> None:
         self._stimulation_params = (experiment_type, stimulation_mask_path)
 
-    def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
-        self._is_running = True
+    def _set_plate_map_data(
+        self, genotypes: list[PlateMapData], treatments: list[PlateMapData]
+    ) -> None:
+        """Set the plate map data."""
+        # update the stored _plate_map_data dict so we have the condition for each well
+        # name as the key. e.g.:
+        # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
+        self._plate_map_data.clear()
+        for data in genotypes:
+            self._plate_map_data[data.name] = {COND1: data.condition[0]}
+        for data in treatments:
+            if data.name in self._plate_map_data:
+                self._plate_map_data[data.name][COND2] = data.condition[0]
+            else:
+                self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
+    def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         if not self._enabled:
             return
 
@@ -171,6 +193,7 @@ class SegmentAndAnalyse:
                     self._save_path_and_name,
                     self._model,
                     self._stimulation_params,
+                    self._plate_map_data,
                 )
             )
 
@@ -179,13 +202,12 @@ class SegmentAndAnalyse:
             )
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
-        self._is_running = False
-
         if not self._enabled:
             return
 
-        # stop the segmentation process
+        # add the None to the queue to exit the process
         self._queue.put(None)
+        # wait for the process to finish before exiting
         if self._segment_and_analise_process is not None:
             self._segment_and_analise_process.join()
         self._segment_and_analise_process = None
@@ -197,30 +219,33 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
     """Segmentation worker running in a separate process."""
     # to store the datastore opened in the process so we don't have to reopen it
     datastore_cache: dict[Path, TensorstoreZarrReader | OMEZarrReader] = {}
-    while True:
-        # exit if the arg in the queue is None
-        if (args := queue.get()) is None:
-            break
-
-        # extract save path and name to determine datastore
-        label_name, timepoints, save_path_and_name, model, stimulation_params = args
+    # exit the process if the queue is empty (None)
+    while (args := queue.get()) is not None:
+        (
+            label_name,
+            timepoints,
+            save_path_and_name,
+            model,
+            stimulation_params,
+            plate_map_data,
+        ) = args
         save_path, save_name = save_path_and_name
 
         # get the datastore path
         datastore_path = Path(save_path) / save_name
 
+        # remove the extension from the save_name and get the writer
+        writer = ""
+        for ext in ALL_EXTENSIONS:
+            if save_name.endswith(ext):
+                save_name = save_name[: -len(ext)]
+                writer = EXT_TO_WRITER[ext]
+                break
+
         # if datastore is already opened, reuse it
         if datastore_path in datastore_cache:
             datastore = datastore_cache[datastore_path]
         else:
-            # determine the correct datastore type
-            writer = ""
-            for ext in ALL_EXTENSIONS:
-                if save_name.endswith(ext):
-                    save_name = save_name[: -len(ext)]
-                    writer = EXT_TO_WRITER[ext]
-                    break
-
             # open the datastore and store it in cache
             if writer == ZARR_TESNSORSTORE:
                 datastore = TensorstoreZarrReader(datastore_path)
@@ -228,37 +253,42 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
                 datastore = OMEZarrReader(datastore_path)
             else:
                 return  # unsupported file format
-
             datastore_cache[datastore_path] = datastore  # cache the datastore
 
         # call the segmentation function with the cached datastore
         _segment_and_analyse(
-            label_name, timepoints, datastore, model, stimulation_params
+            save_path,
+            save_name,
+            label_name,
+            timepoints,
+            datastore,
+            model,
+            stimulation_params,
+            plate_map_data,
         )
     # clear the cache
     datastore_cache.clear()
 
 
 def _segment_and_analyse(
+    save_path: str,
+    save_name: str,
     label_name: str,
     timepoints: int,
     datastore: TensorstoreZarrReader | OMEZarrReader,
     model: CellposeModel,
     stimulation_params: tuple[str, str],
+    plate_map_data: dict[str, dict[str, str]],
 ) -> None:
     """Segment the image."""
-    logger.info(f"SegmentAndAnalyse -> received: {label_name}")
+    logger.info(f"SegmentAndAnalyse -> --------{label_name}--------")
 
+    # get the experiment type and stimulation mask path if any
     experiment_type, stimulation_mask_path = stimulation_params
 
-    # extract save path from datastore path
-    save_path = datastore.path.parent  # assuming datastore.path exists
-    save_name = datastore.path.stem  # assuming datastore.path exists
-
-    # create save directories
+    # create save directories if they don't exist
     save_dir_labels = Path(save_path) / f"{save_name}_labels"
     save_dir_labels.mkdir(parents=True, exist_ok=True)
-
     save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
     save_dir_analysis.mkdir(parents=True, exist_ok=True)
 
@@ -275,12 +305,12 @@ def _segment_and_analyse(
     data, meta = datastore.isel(p=p_idx, metadata=True)
 
     # SEGMENTATION - CELLPOSE --------------------------------------------------------
+    logger.info(f"SegmentAndAnalyse -> Segmenting image: {label_name}...")
     # max projection from half to the end of the stack
     data_half_to_end = data[data.shape[0] // 2 :, :, :]
     max_proj = data_half_to_end.max(axis=0)
 
     # run cellpose
-    logger.info(f"SegmentAndAnalyse -> Segmenting image: {label_name}...")
     output = model.eval(max_proj, diameter=DIAMETER, channels=CHANNEL)
     labels = output[0]
 
@@ -291,10 +321,6 @@ def _segment_and_analyse(
     tifffile.imwrite(save_dir_labels / f"{label_name}.tif", labels)
 
     # ANALYSIS -----------------------------------------------------------------------
-    # create the save directory path and make the save directory if it does not exist
-    save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
-    save_dir_analysis.mkdir(parents=True, exist_ok=True)
-
     stimulated_area_mask: np.ndarray | None = None
     if experiment_type == EVOKED and stimulation_mask_path:
         logger.info(f"SegmentAndAnalyse -> Creating stimulation mask for {label_name}")
@@ -306,7 +332,7 @@ def _segment_and_analyse(
     # extract traces data
     logger.info(f"SegmentAndAnalyse -> Extracting traces data for {label_name}...")
     analysis_data = _extract_traces_data(
-        label_name, timepoints, data, meta, labels, stimulated_area_mask
+        label_name, timepoints, data, meta, labels, stimulated_area_mask, plate_map_data
     )
     if analysis_data is None:
         return
@@ -330,6 +356,7 @@ def _extract_traces_data(
     meta: list[dict],
     labels: np.ndarray,
     stimulated_area_mask: np.ndarray | None,
+    plate_map_data: dict[str, dict[str, str]],
 ) -> dict[str, ROIData] | None:
     """Extract traces data."""
     # the "Event" key was used in the old metadata format
@@ -412,7 +439,7 @@ def _extract_traces_data(
         frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else 0.0
 
         # get the conditions for the well
-        # condition_1, condition_2 = self._get_conditions(pos_name)
+        condition_1, condition_2 = _get_conditions(label_name, plate_map_data)
 
         # get the linear and cubic phase of the peaks in the dec_dff trace
         linear_phase, cubic_phase = [], []
@@ -441,8 +468,8 @@ def _extract_traces_data(
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
-            # condition_1=condition_1,
-            # condition_2=condition_2,
+            condition_1=condition_1,
+            condition_2=condition_2,
             total_recording_time_in_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
             linear_phase=linear_phase,
@@ -492,3 +519,18 @@ def _create_label_masks_dict(labels: np.ndarray) -> dict:
     # get the range of labels and remove the background (0)
     labels_range = np.unique(labels[labels != 0])
     return {label_value: (labels == label_value) for label_value in labels_range}
+
+
+def _get_conditions(
+    label_name: str, plate_map_data: dict[str, dict[str, str]]
+) -> tuple[str | None, str | None]:
+    """Get the conditions for the well if any."""
+    condition_1 = condition_2 = None
+    if plate_map_data:
+        well_name = label_name.split("_")[0]
+        if well_name in plate_map_data:
+            condition_1 = plate_map_data[well_name].get(COND1)
+            condition_2 = plate_map_data[well_name].get(COND2)
+        else:
+            condition_1 = condition_2 = None
+    return condition_1, condition_2

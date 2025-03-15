@@ -15,27 +15,21 @@ from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QDockWidget,
     QFileDialog,
-    QHBoxLayout,
-    QLabel,
     QMenuBar,
     QScrollArea,
     QSizePolicy,
     QTabWidget,
-    QVBoxLayout,
     QWidget,
 )
 
-from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
-from micromanager_gui._plate_viewer._util import _BrowseWidget
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
 from micromanager_gui._widgets._stage_control import StagesControlWidget
+
+from ._segmentation_and_analysis_wdg import _SegmentationAndAnalysisWidget
 
 if TYPE_CHECKING:
     from micromanager_gui._main_window import MicroManagerGUI
@@ -173,7 +167,7 @@ class _MenuBar(QMenuBar):
         self._mda = cast(MDAWidget, mda.main_widget)
 
         # segmentation widget
-        self._segment_analyse_widget = _SegmentAndAnalyseWidget(self)
+        self._segment_analyse_widget = _SegmentationAndAnalysisWidget(self)
         self._segment_analyse_widget.hide()
 
         # settings menu
@@ -262,9 +256,7 @@ class _MenuBar(QMenuBar):
 
         # already created
         if action_name in self._widgets:
-            wdg = self._widgets[action_name]
-            wdg.show()
-            wdg.raise_()
+            self._show_and_raise_wdg(action_name)
             return
 
         # create dock widget
@@ -325,14 +317,18 @@ class _MenuBar(QMenuBar):
     def _show_property_browser(self) -> None:
         """Show the property browser."""
         if PROP_BROWSER in self._widgets:
-            pb = self._widgets[PROP_BROWSER]
-            pb.show()
-            pb.raise_()
+            self._show_and_raise_wdg(PROP_BROWSER)
         else:
             pb = PropertyBrowser(parent=self, mmcore=self._mmc)
             pb.setWindowFlags(FLAGS)
             self._widgets[PROP_BROWSER] = pb
             pb.show()
+
+    def _show_and_raise_wdg(self, test: str) -> None:
+        """Show and raise a widget."""
+        wdg = self._widgets[test]
+        wdg.show()
+        wdg.raise_()
 
     def _get_current_mda_viewers(self) -> dict[str, QWidget]:
         """Update the viewers variable in the MMConsole."""
@@ -357,122 +353,18 @@ class _MenuBar(QMenuBar):
         if not enable:
             return
 
+        sa = self._main_window._segmentation_and_analysis_neurons
         if self._segment_analyse_widget.exec():
-            model_type, model_path, _, _ = self._segment_analyse_widget.value()
-            self._main_window._segment_neurons.enable(enable, model_type, model_path)
+            value = self._segment_analyse_widget.value()
+            sa.enable(
+                enable,
+                value.model_type,
+                value.model_path,
+                value.experiment_type,
+                value.stimulation_mask_path,
+                value.genotype_map,
+                value.treatment_map,
+            )
         else:
             self._act_enable_segmentation.setChecked(False)
-            self._main_window._segment_neurons.enable(False)
-
-
-class _SegmentAndAnalyseWidget(QDialog):
-    """A Widget to set the segmentation parameters."""
-
-    # TODO: update with more parameters if necessary
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Segmentation Parameters")
-        self.setMinimumWidth(300)
-
-        # Experiment type ----------------------------------------------------------
-        experiment_type_wdg = QWidget(self)
-        experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
-        experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
-        experiment_type_wdg_layout.setSpacing(5)
-        activity_combo_label = QLabel("Experiment Type:")
-        activity_combo_label.setSizePolicy(*FIXED)
-        self._experiment_type_combo = QComboBox()
-        self._experiment_type_combo.addItems([SPONTANEOUS, EVOKED])
-        self._experiment_type_combo.currentTextChanged.connect(
-            self._on_activity_changed
-        )
-        experiment_type_wdg_layout.addWidget(activity_combo_label)
-        experiment_type_wdg_layout.addWidget(self._experiment_type_combo)
-
-        self._stimulation_area_path = _BrowseWidget(
-            self,
-            label="Stimulated Area File",
-            tooltip=(
-                "Select the path to the image of the stimulated area.\n"
-                "The image should either be a binary mask or a grayscale image where "
-                "the stimulated area is brighter than the rest.\n"
-                "Accepted formats: .tif, .tiff."
-            ),
-            is_dir=False,
-        )
-        self._stimulation_area_path.hide()
-
-        # Cellpose -----------------------------------------------------------------
-        self._browse_custom_model = _SelectModelPath(self)
-        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
-        self._browse_custom_model.hide()
-
-        self._models_combo = QComboBox()
-        self._models_combo.addItems(MODELS)
-        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-
-        model_lbl = QLabel("Model:")
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(model_lbl)
-        layout.addWidget(self._models_combo, 1)
-
-        # ok and cancel buttons ----------------------------------------------------
-        self._button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        self._button_box.accepted.connect(self.accept)
-        self._button_box.rejected.connect(self.reject)
-
-        # Styling ------------------------------------------------------------------
-        fixed_width = self._stimulation_area_path._label.sizeHint().width()
-        activity_combo_label.setFixedWidth(fixed_width)
-        self._browse_custom_model._label.setFixedWidth(fixed_width)
-        model_lbl.setFixedWidth(fixed_width)
-
-        # Layout -------------------------------------------------------------------
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(7, 7, 7, 7)
-        main_layout.setSpacing(5)
-        main_layout.addWidget(experiment_type_wdg)
-        main_layout.addWidget(self._stimulation_area_path)
-        main_layout.addLayout(layout)
-        main_layout.addWidget(self._browse_custom_model)
-        main_layout.addWidget(self._button_box)
-
-    def value(self) -> tuple[str, str, str, str]:
-        """Return the model type and path."""
-        if (model_type := self._models_combo.currentText()) == CUSTOM and (
-            path := self._browse_custom_model.value()
-        ):
-            model_path = path
-        else:
-            model_type = CYTO3
-            model_path = ""
-
-        if (
-            experiment_type := self._experiment_type_combo.currentText()
-        ) == EVOKED and (seg_path := self._stimulation_area_path.value()):
-            stimulation_mask_path = seg_path
-        else:
-            experiment_type = SPONTANEOUS
-            stimulation_mask_path = ""
-
-        return model_type, model_path, experiment_type, stimulation_mask_path
-
-    def _on_activity_changed(self, text: str) -> None:
-        """Show or hide the stimulated area path widget."""
-        (
-            self._stimulation_area_path.show()
-            if text == EVOKED
-            else self._stimulation_area_path.hide()
-        )
-
-    def _on_model_combo_changed(self, model: str) -> None:
-        """Show the custom model path if the model is 'custom'."""
-        (
-            self._browse_custom_model.show()
-            if model == "custom"
-            else self._browse_custom_model.hide()
-        )
+            sa.enable(False, "", "", "", "", [], [])
