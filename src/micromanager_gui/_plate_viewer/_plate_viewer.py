@@ -657,6 +657,7 @@ class PlateViewer(QMainWindow):
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
         self._analysis_wdg.labels_path = self._labels_path
+        self._analysis_wdg._analysis_data = self._analysis_data
         self._analysis_wdg._analysis_path._path.setText(self._analysis_files_path)
 
         self._load_plate_map(plate)
