@@ -558,37 +558,40 @@ class PlateViewer(QMainWindow):
             self._analysis_data.clear()
 
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
+        filtered_paths: list[Path] = []
+
         # the json file names should be in the form A1_0000.json
-        for f in reversed(path_list):
+        for f in path_list:
             if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
-                path_list.remove(f)
                 continue
+            # skip hidden files
+            if f.name.startswith("."):
+                continue
+
             name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000 or A1_0000_p0
-            split_name = name_no_suffix.split(
-                "_"
-            )  # ["A1","0000"] or ["A1","0000","p0"]
-            # remove files that do not have the correct format
-            if split_name[0] == ".":
-                path_list.remove(f)
-                continue
-            len_split_name = len(split_name)
-            if len_split_name == 2:
+            split_name = name_no_suffix.split("_")  # ["A1","0000"]or["A1","0000","p0"]
+
+            if len(split_name) == 2:
                 well, fov = split_name
-            elif len_split_name == 3:
+            elif len(split_name) == 3:
                 well, fov, pos = split_name
             else:
-                path_list.remove(f)
                 continue
-            if not re.match(r"^[a-zA-Z0-9]+$", well):  # only letters and numbers
-                path_list.remove(f)
+
+            # validate well format, only letters and numbers
+            if not re.match(r"^[a-zA-Z0-9]+$", well):
                 continue
-            if len_split_name == 3 and not fov.isdigit():
-                path_list.remove(f)
-                continue
-            elif len_split_name == 3 and not pos[1:].isdigit():
-                path_list.remove(f)
-                continue
-        return path_list
+
+            # validate fov format, only numbers
+            if len(split_name) == 3:
+                if not fov.isdigit():
+                    continue
+                if not pos[1:].isdigit():
+                    continue
+
+            filtered_paths.append(f)
+
+        return filtered_paths
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""
