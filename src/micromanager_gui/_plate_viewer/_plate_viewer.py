@@ -352,10 +352,9 @@ class PlateViewer(QMainWindow):
             value = self._fov_table.value() if self._fov_table.selectedItems() else None
             if value is None:
                 return
-            # get the analysis data for the current fov if it exists
-            analysis = self._analysis_data.get(str(value.fov.name), None)
+            fov_data = self._get_fov_data(value)
             # update the graphs combo boxes
-            self._update_single_wells_graphs_combo(combo_red=(analysis is None))
+            self._update_single_wells_graphs_combo(combo_red=(fov_data is None))
 
         # if multi wells tab is selected
         elif idx == 2:
@@ -545,13 +544,13 @@ class PlateViewer(QMainWindow):
                             self._analysis_data[roi] = data[roi]
                             continue
                         # get the data for the roi
-                        roi_data = cast(dict, data[roi])
+                        fov_data = cast(dict, data[roi])
                         # remove any key that is not in ROIData
-                        for key in list(roi_data.keys()):
+                        for key in list(fov_data.keys()):
                             if key not in ROIData.__annotations__:
-                                roi_data.pop(key)
+                                fov_data.pop(key)
                         # convert to a ROIData object and add store it in _analysis_data
-                        self._analysis_data[well][roi] = ROIData(**roi_data)
+                        self._analysis_data[well][roi] = ROIData(**fov_data)
         except Exception as e:
             msg = f"Error loading the analysis data: {e}"
             LOGGER.error(msg)
@@ -564,16 +563,29 @@ class PlateViewer(QMainWindow):
             if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
                 path_list.remove(f)
                 continue
-            name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000
-            split_name = name_no_suffix.split("_")  # ["A1", "0000"]
-            if len(split_name) != 2:
+            name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000 or A1_0000_p0
+            split_name = name_no_suffix.split(
+                "_"
+            )  # ["A1","0000"] or ["A1","0000","p0"]
+            # remove files that do not have the correct format
+            if split_name[0] == ".":
                 path_list.remove(f)
                 continue
-            well, pos = split_name
+            len_split_name = len(split_name)
+            if len_split_name == 2:
+                well, fov = split_name
+            elif len_split_name == 3:
+                well, fov, pos = split_name
+            else:
+                path_list.remove(f)
+                continue
             if not re.match(r"^[a-zA-Z0-9]+$", well):  # only letters and numbers
                 path_list.remove(f)
                 continue
-            if not pos.isdigit():  # only digits
+            if len_split_name == 3 and not fov.isdigit():
+                path_list.remove(f)
+                continue
+            elif len_split_name == 3 and not pos[1:].isdigit():
                 path_list.remove(f)
                 continue
         return path_list
@@ -777,7 +789,8 @@ class PlateViewer(QMainWindow):
         data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=t, c=0))
         # get labels if they exist
         labels = self._get_labels(value)
-        analysis = self._analysis_data.get(str(value.fov.name), None)
+        # get the analysis data for the current fov if it exists
+        fov_data = self._get_fov_data(value)
         # flip data and labels vertically or will look different from the StackViewer
         data = np.flip(data, axis=0)
         labels = np.flip(labels, axis=0) if labels is not None else None
@@ -785,8 +798,17 @@ class PlateViewer(QMainWindow):
         self._set_graphs_fov(value)
 
         self._update_single_wells_graphs_combo(
-            combo_red=(analysis is None), clear=(analysis is None)
+            combo_red=(fov_data is None), clear=(fov_data is None)
         )
+
+    def _get_fov_data(self, value: WellInfo) -> dict[str, ROIData] | None:
+        """Get the analysis data for the given FOV."""
+        fov_name = f"{value.fov.name}_p{value.pos_idx}"
+        fov_data = self._analysis_data.get(str(value.fov.name), None)
+        # use the old name we used to save the data (without position index. e.g. "_p0")
+        if fov_data is None:
+            fov_data = self._analysis_data.get(fov_name, None)
+        return fov_data
 
     def _set_graphs_fov(self, value: WellInfo | None) -> None:
         """Set the FOV title for the graphs."""
