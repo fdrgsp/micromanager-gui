@@ -24,6 +24,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from micromanager_gui._plate_viewer._plate_viewer import PlateViewer
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
 FLAGS = Qt.WindowType.Dialog
 CONSOLE = "Console"
 PROP_BROWSER = "Property Browser"
+PLATE_VIEWER = "pv"
 WIDGETS = {
     "Pixel Configuration": PixelConfigurationWidget,
     "Install Devices": _InstallWidget,
@@ -303,6 +305,7 @@ class _MenuBar(QMenuBar):
             MDA: self._mda,  # quick access to the MDA widget
             VIEWERS: self._get_current_mda_viewers(),  # dictionary of all the viewers
             PREVIEW: self._main_window._core_link._preview,  # access to preview widget
+            PLATE_VIEWER: self._show_plate_viewer,  # show the plate viewer
         }
 
         self._mm_console = MMConsole(user_vars)
@@ -323,6 +326,16 @@ class _MenuBar(QMenuBar):
             pb.setWindowFlags(FLAGS)
             self._widgets[PROP_BROWSER] = pb
             pb.show()
+
+    def _show_plate_viewer(self) -> None:
+        """Show the plate viewer."""
+        if PLATE_VIEWER in self._widgets:
+            self._show_and_raise_wdg(PLATE_VIEWER)
+        else:
+            pv = PlateViewer(self)
+            pv.setWindowFlags(FLAGS)
+            self._widgets[PLATE_VIEWER] = pv
+            pv.show()
 
     def _show_and_raise_wdg(self, test: str) -> None:
         """Show and raise a widget."""
