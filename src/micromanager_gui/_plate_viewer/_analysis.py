@@ -770,17 +770,11 @@ class _AnalyseCalciumTraces(QWidget):
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
 
-        # deconvolve the dff trace
-        dec_dff, spikes, _, _, _ = deconvolve(roi_trace, penalty=1)
-
         # calculate the dff of the roi trace
         dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
 
-        # # calculate the dff of the roi trace
-        # dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
-
-        # # deconvolve the dff trace
-        # dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+        # deconvolve the dff trace
+        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
         # Get the prominence to find peaks in the deconvolved trace
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
