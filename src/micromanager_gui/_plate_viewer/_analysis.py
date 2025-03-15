@@ -248,6 +248,10 @@ class _AnalyseCalciumTraces(QWidget):
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
         return self._analysis_data
 
+    @analysis_data.setter
+    def analysis_data(self, data: dict[str, dict[str, ROIData]]) -> None:
+        self._analysis_data = data
+
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
         self._failed_labels.clear()
@@ -479,9 +483,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            # add/overwrite the analysis data of the plate viewer with the new data
-            for key in self._analysis_data:
-                self._plate_viewer._analysis_data[key] = self._analysis_data[key]
+            self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
         # show a message box if there are failed labels
