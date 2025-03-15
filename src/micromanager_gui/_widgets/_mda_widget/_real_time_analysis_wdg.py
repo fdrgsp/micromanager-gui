@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import TypedDict, cast
 
 import useq
 from qtpy.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -11,6 +12,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -33,6 +35,56 @@ def _sort_plate(item: str) -> tuple[int, int | str]:
     """Sort well plate keys by number first, then by string."""
     parts = item.split("-")
     return (0, int(parts[0])) if parts[0].isdigit() else (1, item)  # type: ignore
+
+
+class RealTimeAnalysisParameters(TypedDict):
+    """A class to store the values of _SegmentAndAnalyseWidget."""
+
+    experiment_type: str  # SPONTANEOUS or EVOKED
+    stimulation_mask_path: str  # path to the stimulated area mask
+    model_type: str  # CYTO3 or CUSTOM
+    model_path: str  # path to the custom model
+    genotype_map: list[PlateMapData]
+    treatment_map: list[PlateMapData]
+
+
+class RealTimeAnalysisWidget(QGroupBox):
+    """Widget to enable Segmentation and Analysis while recording."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent=parent)
+
+        self._analysis_dialog = RealTimeAnalysisDialog(self)
+        self._settings_btn = QPushButton("Segmentation and Analysis Settings...")
+        self._settings_btn.setSizePolicy(*FIXED)
+        self._settings_btn.clicked.connect(self._show_settings)
+
+        self._enable = QCheckBox("Enable Segmentation and Analysis")
+        self._enable.setSizePolicy(*FIXED)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
+        layout.addWidget(self._enable)
+        layout.addWidget(self._settings_btn)
+        layout.addStretch(1)
+
+    def isChecked(self) -> bool:
+        """Return True if the checkbox is checked."""
+        return cast(bool, self._enable.isChecked())
+
+    def value(self) -> RealTimeAnalysisParameters | None:
+        """Return the current value of the widget."""
+        if self._enable.isChecked():
+            return self._analysis_dialog.value()
+        return None
+
+    def _show_settings(self) -> None:
+        """Show the settings dialog."""
+        if self._analysis_dialog.isVisible():
+            self._analysis_dialog.raise_()
+        else:
+            self._analysis_dialog.show()
 
 
 class _PlateMap(QGroupBox):
@@ -82,20 +134,7 @@ class _PlateMap(QGroupBox):
         self._plate_map_treatment.setPlate(plate)
 
 
-class SegmentAndAnalyseParameters(NamedTuple):
-    """A class to store the values of _SegmentAndAnalyseWidget."""
-
-    experiment_type: str  # SPONTANEOUS or EVOKED
-    stimulation_mask_path: str  # path to the stimulated area mask
-
-    model_type: str  # CYTO3 or CUSTOM
-    model_path: str  # path to the custom model
-
-    genotype_map: list[PlateMapData]
-    treatment_map: list[PlateMapData]
-
-
-class _SegmentationAndAnalysisWidget(QDialog):
+class RealTimeAnalysisDialog(QDialog):
     """A Widget to set the segmentation and analysis parameters."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -179,32 +218,26 @@ class _SegmentationAndAnalysisWidget(QDialog):
         main_layout.addWidget(self._plate_map)
         main_layout.addWidget(self._button_box)
 
-        self.setMinimumHeight(1000)
+        # self.setMinimumHeight(1000)
 
-    def value(self) -> SegmentAndAnalyseParameters:
+    def value(self) -> RealTimeAnalysisParameters:
         """Return the model type and path."""
-        # Get model type and path
-        model_type = self._models_combo.currentText()
-        model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
-
         # Get experiment type and stimulation mask path
         experiment_type = self._experiment_type_combo.currentText()
         stimulation_mask_path = (
             self._stimulation_area_path.value() if experiment_type == EVOKED else ""
         )
-
-        # Get plate map details
-        genotype_map = self._plate_map._plate_map_genotype.value()
-        treatment_map = self._plate_map._plate_map_treatment.value()
-
-        return SegmentAndAnalyseParameters(
-            experiment_type=experiment_type,
-            stimulation_mask_path=stimulation_mask_path,
-            model_type=model_type,
-            model_path=model_path,
-            genotype_map=genotype_map,
-            treatment_map=treatment_map,
-        )
+        # Get model type and path
+        model_type = self._models_combo.currentText()
+        model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
+        return {
+            "experiment_type": experiment_type,
+            "stimulation_mask_path": stimulation_mask_path,
+            "model_type": model_type,
+            "model_path": model_path,
+            "genotype_map": self._plate_map._plate_map_genotype.value(),
+            "treatment_map": self._plate_map._plate_map_treatment.value(),
+        }
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulated area path widget."""

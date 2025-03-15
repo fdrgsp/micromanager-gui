@@ -6,7 +6,6 @@ from qtpy.QtWidgets import (
     QCheckBox,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QSizePolicy,
     QWidget,
@@ -34,11 +33,6 @@ class ArduinoLedWidget(QGroupBox):
 
         self._enable_led = QCheckBox("Enable Arduino LED stimulation")
         self._enable_led.setSizePolicy(FIXED)
-
-        self._arduino_connected_icon = QLabel()
-        self._arduino_connected_icon.setSizePolicy(FIXED)
-        self._arduino_connected_text = QLabel()
-        self._arduino_connected_text.setSizePolicy(FIXED)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)

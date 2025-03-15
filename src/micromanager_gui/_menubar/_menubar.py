@@ -30,8 +30,6 @@ from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
 from micromanager_gui._widgets._stage_control import StagesControlWidget
 
-from ._segmentation_and_analysis_wdg import _SegmentationAndAnalysisWidget
-
 if TYPE_CHECKING:
     from micromanager_gui._main_window import MicroManagerGUI
 
@@ -168,24 +166,11 @@ class _MenuBar(QMenuBar):
         mda = self._create_dock_widget("MDA Widget")
         self._mda = cast(MDAWidget, mda.main_widget)
 
-        # segmentation widget
-        self._segment_analyse_widget = _SegmentationAndAnalysisWidget(self)
-        self._segment_analyse_widget.hide()
-
-        # settings menu
-        self._settings_menu = self.addMenu("Segmentation and Analysis")
-        self._act_enable_segmentation = QAction("Enable Segmentation & Analysis", self)
-        self._act_enable_segmentation.setCheckable(True)
-        self._act_enable_segmentation.setChecked(False)
-        self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
-        self._settings_menu.addAction(self._act_enable_segmentation)
-
     def _enable(self, enable: bool) -> None:
         """Enable or disable the actions."""
         self._configurations_menu.setEnabled(enable)
         self._widgets_menu.setEnabled(enable)
         self._viewer_menu.setEnabled(enable)
-        self._settings_menu.setEnabled(enable)
 
     def _save_cfg(self) -> None:
         (filename, _) = QFileDialog.getSaveFileName(
@@ -354,30 +339,3 @@ class _MenuBar(QMenuBar):
             wdg = tab.widget(viewers)
             viewers_dict[tab_name] = wdg
         return viewers_dict
-
-    def _enable_segmentation(self, enable: bool) -> None:
-        """Enable or disable the segmentation and pass the parameters."""
-        (
-            self._segment_analyse_widget.show()
-            if enable
-            else self._segment_analyse_widget.hide()
-        )
-
-        if not enable:
-            return
-
-        sa = self._main_window._segmentation_and_analysis_neurons
-        if self._segment_analyse_widget.exec():
-            value = self._segment_analyse_widget.value()
-            sa.enable(
-                enable,
-                value.model_type,
-                value.model_path,
-                value.experiment_type,
-                value.stimulation_mask_path,
-                value.genotype_map,
-                value.treatment_map,
-            )
-        else:
-            self._act_enable_segmentation.setChecked(False)
-            sa.enable(False, "", "", "", "", [], [])

@@ -17,6 +17,9 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
 from useq import CustomAction, MDAEvent, MDASequence
 
+from micromanager_gui._widgets._mda_widget._arduino._arduino_led_dialog import (
+    StimulationValues,
+)
 from micromanager_gui._writers import (
     _OMETiffWriter,
     _TensorStoreHandler,
@@ -24,6 +27,7 @@ from micromanager_gui._writers import (
 )
 
 from ._arduino import ArduinoLedWidget
+from ._real_time_analysis_wdg import RealTimeAnalysisWidget
 from ._save_widget import (
     OME_TIFF,
     OME_ZARR,
@@ -39,6 +43,7 @@ NUM_SPLIT = re.compile(r"(.*?)(?:_(\d{3,}))?$")
 OME_TIFFS = tuple(WRITERS[OME_TIFF])
 GB_CACHE = 2_000_000_000  # 2 GB for tensorstore cache
 STIMULATION = "stimulation"
+ANALYSIS = "analysis"
 CRITICAL_MSG = (
     "'Arduino LED Stimulation' is selected but an error occurred while trying "
     "to communicate with the Arduino. \nPlease, verify that the device is "
@@ -182,26 +187,48 @@ class MDAWidget_(MDAWidget):
         main_layout.insertWidget(4, self._arduino_led_wdg)
         # ----------------------------------------------------
 
+        # ------------ Segmentation & Analysis ----------------
+        self._seg_and_analysis_wdg = RealTimeAnalysisWidget(self)
+        main_layout.insertWidget(5, self._seg_and_analysis_wdg)
+        # ----------------------------------------------------
+
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
-        val = cast(MDASequence, super().value())
+        value = cast(MDASequence, super().value())
 
         arduino_settings = self._arduino_led_wdg.value()
-        if not arduino_settings:
-            return val
+        segment_and_analyse = self._seg_and_analysis_wdg.value()
 
-        meta = val.metadata.get(PYMMCW_METADATA_KEY, {})
+        if not arduino_settings and segment_and_analyse is None:
+            return value
+
+        # update metadata with the analysis settings
+        if segment_and_analyse is not None and segment_and_analyse:
+            meta = value.metadata.get(PYMMCW_METADATA_KEY, {})
+            meta[ANALYSIS] = segment_and_analyse
+
+        # update metadata with the Arduino LED stimulation settings
+        if arduino_settings:
+            value = self._update_value_with_arduino(value, arduino_settings)
+
+        return value
+
+    def _update_value_with_arduino(
+        self, value: MDASequence, arduino_settings: StimulationValues | dict
+    ) -> MDASequence:
+        """Update the MDA sequence with the Arduino LED stimulation settings."""
+        meta = value.metadata.get(PYMMCW_METADATA_KEY, {})
         meta[STIMULATION] = arduino_settings
-        val_with_stim = CustomMDASequence(**val.model_dump())
+        val_with_stim = CustomMDASequence(**value.model_dump())
 
         # TODO: if stimulation is selected and there are multiple positions but the
         # axis order is not starting with 'p', raise a warning message
 
         pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
-        duration = arduino_settings.get("led_pulse_duration", None)
+        duration = arduino_settings.get("led_pulse_duration")
         initial_delay = arduino_settings.get("initial_delay", 0)
 
-        pos_lists = self._group_by_position(list(val))
+        pos_lists = self._group_by_position(list(value))
         for idx, pos_list in enumerate(pos_lists):
             # copy the first event of the position list. If we have an initial delay,
             # copy the event at the index of the delay

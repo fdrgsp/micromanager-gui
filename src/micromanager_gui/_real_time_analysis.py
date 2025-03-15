@@ -5,7 +5,7 @@ import multiprocessing as mp
 from dataclasses import asdict
 from multiprocessing import Process
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
@@ -30,6 +30,10 @@ from micromanager_gui._plate_viewer._util import (
     get_linear_phase,
     get_overlap_roi_with_stimulated_area,
 )
+from micromanager_gui._widgets._mda_widget._real_time_analysis_wdg import (
+    SPONTANEOUS,
+    RealTimeAnalysisParameters,
+)
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 from ._widgets._mda_widget._save_widget import (
@@ -42,6 +46,7 @@ from ._widgets._mda_widget._save_widget import (
 if TYPE_CHECKING:
     import useq
     from pymmcore_plus import CMMCorePlus
+    from pymmcore_plus.metadata import FrameMetaV1
 
     from micromanager_gui._plate_viewer._plate_map import PlateMapData
 
@@ -52,13 +57,14 @@ CUSTOM = "custom"
 CYTO = "cyto3"
 ELAPSED_TIME_KEY = "ElapsedTime-ms"
 CAMERA_KEY = "camera_metadata"
+EVENT_KEY = "mda_event"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_MASK = "stimulation_mask.tif"
 STIMULATION_AREA_THRESHOLD = 0.5  # 50%
 
 
-class SegmentAndAnalyse:
-    """Segment neurons."""
+class RealTimeAnalysis:
+    """Run segmentation and analysis in real-time."""
 
     def __init__(self, mmcore: CMMCorePlus):
         self._mmc = mmcore
@@ -70,11 +76,15 @@ class SegmentAndAnalyse:
         self._stimulation_params: tuple[str, str] | None = None
         self._save_path_and_name: tuple[str, str] | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
+        self._meta: list[FrameMetaV1] = []
 
         # create a multiprocessing Queue
         self._queue: mp.Queue[
             tuple[
                 str,  # label_name
+                float,  # exposure
+                list[float],  # elapsed_time_list
+                float,  # pixel_size
                 int,  # timepoints
                 tuple[str, str],  # save_path_and_name
                 CellposeModel,  # model
@@ -88,21 +98,11 @@ class SegmentAndAnalyse:
         self._mmc.mda.events.frameReady.connect(self._on_frame_ready)
         self._mmc.mda.events.sequenceFinished.connect(self._on_sequence_finished)
 
-    def enable(
-        self,
-        enable: bool,
-        model_type: str,
-        model_path: str,
-        experiment_type: str,
-        stimulation_mask_path: str,
-        genotypes: list[PlateMapData],
-        treatments: list[PlateMapData],
+    def set_experiment_type_parameters(
+        self, experiment_type: str, stimulation_mask_path: str
     ) -> None:
-        """Enable or disable the segmentation."""
-        self._enabled = enable
-        self.set_model(model_type, model_path)
-        self.set_stimulation_parameters(experiment_type, stimulation_mask_path)
-        self._set_plate_map_data(genotypes, treatments)
+        """Set the stimulation parameters."""
+        self._stimulation_params = (experiment_type, stimulation_mask_path)
 
     def set_model(self, model_type: str, model_path: str) -> None:
         """Set the cellpose model."""
@@ -118,11 +118,6 @@ class SegmentAndAnalyse:
             self._model = models.Cellpose(
                 gpu=use_gpu, model_type=model_type, device=dev
             )
-
-    def set_stimulation_parameters(
-        self, experiment_type: str, stimulation_mask_path: str
-    ) -> None:
-        self._stimulation_params = (experiment_type, stimulation_mask_path)
 
     def _set_plate_map_data(
         self, genotypes: list[PlateMapData], treatments: list[PlateMapData]
@@ -141,13 +136,33 @@ class SegmentAndAnalyse:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
-        if not self._enabled:
-            return
-
         # get metadata from the sequence
         meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-        save_name: str = meta.get("save_name")
-        self._save_path_and_name = (meta.get("save_dir"), save_name)
+
+        # disable if save_name or save_path is not available
+        save_name: str = meta.get("save_name", "")
+        save_path: str = meta.get("save_dir", "")
+        if not save_name or not save_path:
+            self._enabled = False
+            logger.error(
+                "SegmentAndAnalyse -> Save path or name not available. "
+                "Disabling real-time analysis."
+            )
+            return
+        self._save_path_and_name = (save_path, save_name)
+
+        # disable if analysis is not enabled
+        analysis = cast(RealTimeAnalysisParameters, meta.get("analysis", {}))
+        if analysis is None or not analysis:
+            self._enabled = False
+            logger.error(
+                "SegmentAndAnalyse -> Analysis parameters not found in metadata. "
+                "Disabling real-time analysis."
+            )
+            return
+        else:
+            self._enabled = True
+            self._set_parameters(analysis)
 
         # continue only if the ZARR_TESNSORSTORE or OME_ZARR
         for ext in ALL_EXTENSIONS:
@@ -168,40 +183,63 @@ class SegmentAndAnalyse:
         # start the segmentation process
         self._segment_and_analise_process.start()
 
-    def _on_frame_ready(self, image: np.ndarray, event: useq.MDAEvent) -> None:
+    def _set_parameters(self, analysis: RealTimeAnalysisParameters) -> None:
+        """Set the parameters for the analysis."""
+        self.set_experiment_type_parameters(
+            analysis.get("experiment_type", SPONTANEOUS),
+            analysis.get("stimulation_mask_path", ""),
+        )
+        self.set_model(analysis.get("model_type", CYTO), analysis.get("model_path", ""))
+        self._set_plate_map_data(
+            analysis.get("genotypes", []),  # type: ignore
+            analysis.get("treatments", []),  # type: ignore
+        )
+
+    def _on_frame_ready(
+        self, image: np.ndarray, event: useq.MDAEvent, meta: FrameMetaV1
+    ) -> None:
         if not self._enabled or self._save_path_and_name is None:
             return
 
         if (t_index := event.index.get("t")) is None or self._timepoints is None:
             return
 
+        self._meta.append(meta)
+
         # send it to the segmentation and analysis process
         if t_index == self._timepoints - 1:
-            # create the labels file name
-            p_idx = event.index.get("p", 0)
+            self._update_queue(event)
+            self._meta.clear()
 
-            pos_name = (
-                event.pos_name
-                if event.pos_name is not None
-                else f"pos_{str(p_idx).zfill(4)}"
-            )
-            label_name = f"{pos_name}_p{p_idx}"
+    def _update_queue(self, event: useq.MDAEvent) -> None:
+        # create the labels file name
+        p_idx = event.index.get("p", 0)
 
-            # send the max_proj image to the segmentation process
-            self._queue.put(
-                (
-                    label_name,
-                    self._timepoints,
-                    self._save_path_and_name,
-                    self._model,
-                    self._stimulation_params,
-                    self._plate_map_data,
-                )
-            )
+        pos_name = (
+            event.pos_name
+            if event.pos_name is not None
+            else f"pos_{str(p_idx).zfill(4)}"
+        )
+        label_name = f"{pos_name}_p{p_idx}"
 
-            logger.info(
-                f"SegmentAndAnalyse -> Sending info to segment and analyse {pos_name}."
+        # send the max_proj image to the segmentation process
+        self._queue.put(
+            (
+                label_name,
+                event.exposure or self._mmc.getExposure(),
+                _get_elapsed_time_list(self._meta),
+                self._mmc.getPixelSizeUm(),
+                cast(int, self._timepoints),
+                cast(tuple[str, str], self._save_path_and_name),
+                self._model,
+                self._stimulation_params,
+                self._plate_map_data,
             )
+        )
+
+        logger.info(
+            f"SegmentAndAnalyse -> Sending info to segment and analyse {pos_name}."
+        )
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         if not self._enabled:
@@ -225,6 +263,9 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
     while (args := queue.get()) is not None:
         (
             label_name,
+            exp,
+            elapsed_time_list,
+            pixel_size,
             timepoints,
             save_path_and_name,
             model,
@@ -267,6 +308,9 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
             model,
             stimulation_params,
             plate_map_data,
+            exp,
+            elapsed_time_list,
+            pixel_size,
         )
     # clear the cache
     datastore_cache.clear()
@@ -281,10 +325,11 @@ def _segment_and_analyse(
     model: CellposeModel,
     stimulation_params: tuple[str, str],
     plate_map_data: dict[str, dict[str, str]],
+    exp: float,
+    elapsed_time_list: list[float],
+    pixel_size: float,
 ) -> None:
     """Segment the image."""
-    logger.info(f"SegmentAndAnalyse -> --------{label_name}--------")
-
     # get the experiment type and stimulation mask path if any
     experiment_type, stimulation_mask_path = stimulation_params
 
@@ -294,23 +339,17 @@ def _segment_and_analyse(
     save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
     save_dir_analysis.mkdir(parents=True, exist_ok=True)
 
-    # get position index
-    p_idx = int(label_name.split("_")[-1][1:])  # extract 'p23' -> 23
-
-    # get data and metadata from the datastore for the position index
-    data, meta = datastore.isel(p=p_idx, metadata=True)
-
     # get the position index from label_name
     p_idx = int(label_name.split("_")[-1][1:])  # a1_0020_p23 -> p23-> 23
 
     # get data and metadata from the datastore for the position index
-    data, meta = datastore.isel(p=p_idx, metadata=True)
+    data = datastore.isel(p=p_idx)
 
     # SEGMENTATION - CELLPOSE --------------------------------------------------------
     logger.info(f"SegmentAndAnalyse -> Segmenting image: {label_name}...")
     # max projection from half to the end of the stack
-    data_half_to_end = data[data.shape[0] // 2 :, :, :]
-    max_proj = data_half_to_end.max(axis=0)
+    data_half_to_end = data[data.shape[0] // 2 :, :, :]  # type: ignore # TODO: fix
+    max_proj = data_half_to_end.max(axis=0)  # type: ignore  # TODO: fix as above
 
     # run cellpose
     output = model.eval(max_proj, diameter=DIAMETER, channels=CHANNEL)
@@ -334,7 +373,15 @@ def _segment_and_analyse(
     # extract traces data
     logger.info(f"SegmentAndAnalyse -> Extracting traces data for {label_name}...")
     analysis_data = _extract_traces_data(
-        label_name, timepoints, data, meta, labels, stimulated_area_mask, plate_map_data
+        label_name,
+        timepoints,
+        cast(np.ndarray, data),
+        labels,
+        stimulated_area_mask,
+        plate_map_data,
+        exp,
+        elapsed_time_list,
+        pixel_size,
     )
     if analysis_data is None:
         return
@@ -355,21 +402,14 @@ def _extract_traces_data(
     label_name: str,
     timepoints: int,
     data: np.ndarray,
-    meta: list[dict],
     labels: np.ndarray,
     stimulated_area_mask: np.ndarray | None,
     plate_map_data: dict[str, dict[str, str]],
+    exp_time: float,
+    elapsed_time_list: list[float],
+    pixel_size: float,
 ) -> dict[str, ROIData] | None:
     """Extract traces data."""
-    # the "Event" key was used in the old metadata format
-    event_key = "mda_event" if "mda_event" in meta[0] else "Event"
-
-    # get the elapsed time from the metadata to calculate the total time in seconds
-    elapsed_time_list = _get_elapsed_time_list(meta)
-
-    # get the exposure time from the metadata
-    exp_time = meta[0][event_key].get("exposure", 0.0)
-
     # get the total time in seconds for the recording
     tot_time_sec = _calculate_total_time(elapsed_time_list, exp_time, timepoints)
 
@@ -386,14 +426,13 @@ def _extract_traces_data(
 
         # get the size of the roi in µm or px if µm is not available
         roi_size_pixel = masked_data.shape[1]  # area
-        px_size = meta[0].get("PixelSizeUm", None)
         # calculate the size of the roi in µm if px_size is available or not 0,
         # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * px_size if px_size else roi_size_pixel
+        roi_size = roi_size_pixel * pixel_size if pixel_size else roi_size_pixel
 
         # exclude small rois, might not be necessary if trained cellpose performs
         # better
-        if px_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
+        if pixel_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
             return None
 
         # check if the roi is stimulated
@@ -469,7 +508,7 @@ def _extract_traces_data(
             dec_dff_frequency=frequency,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
-            cell_size_units="µm" if px_size is not None else "pixel",
+            cell_size_units="µm" if pixel_size is not None else "pixel",
             condition_1=condition_1,
             condition_2=condition_2,
             total_recording_time_in_sec=tot_time_sec,
@@ -483,17 +522,12 @@ def _extract_traces_data(
     return analysis_data
 
 
-def _get_elapsed_time_list(meta: list[dict]) -> list[float]:
+def _get_elapsed_time_list(meta: list[FrameMetaV1]) -> list[float]:
     elapsed_time_list: list[float] = []
     # get the elapsed time for each timepoint to calculate tot_time_sec
-    if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
+    if CAMERA_KEY in meta[0]:
         for m in meta:
-            et = m[cam_key].get(ELAPSED_TIME_KEY)
-            if et is not None:
-                elapsed_time_list.append(float(et))
-    else:  # old metadata format
-        for m in meta:
-            et = m.get(ELAPSED_TIME_KEY)
+            et = m[CAMERA_KEY].get(ELAPSED_TIME_KEY)  # type: ignore
             if et is not None:
                 elapsed_time_list.append(float(et))
     return elapsed_time_list
