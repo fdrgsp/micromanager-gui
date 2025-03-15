@@ -423,7 +423,7 @@ class MDAWidget_(MDAWidget):
             return
 
     def _confirm_mag_factor_intentions(self) -> bool:
-        msg = "The Magnification Knob is not set to 1.5x.\n" "Do you want to continue?"
+        msg = "The Magnification Knob is set to 1.5x.\n" "Do you want to continue?"
         response = QMessageBox.warning(
             self,
             "Confirm Magnification Factor",
