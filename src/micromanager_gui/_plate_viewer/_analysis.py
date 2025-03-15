@@ -656,7 +656,6 @@ class _AnalyseCalciumTraces(QWidget):
 
             # extract the data
             self._process_roi_trace(
-                p,
                 data,
                 meta,
                 fov_name,
@@ -684,7 +683,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _get_labels_file_for_position(self, fov: str, p: int) -> str | None:
         """Retrieve the labels file for the given position."""
         # if the fov name does not end with "_p{p}", add it
-        labels_name = f"{fov}_p{p}.tif" if not fov.endswith(f"_p{p}") else f"{fov}.tif"
+        labels_name = f"{fov}.tif" if fov.endswith(f"_p{p}") else f"{fov}_p{p}.tif"
         labels_path = self._get_labels_file(labels_name)
         if labels_path is None:
             self._failed_labels.append(labels_name)
@@ -734,7 +733,6 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _process_roi_trace(
         self,
-        p: int,
         data: np.ndarray,
         meta: list[dict],
         fov_name: str,
@@ -772,11 +770,17 @@ class _AnalyseCalciumTraces(QWidget):
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
 
+        # deconvolve the dff trace
+        dec_dff, spikes, _, _, _ = deconvolve(roi_trace, penalty=1)
+
         # calculate the dff of the roi trace
         dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
 
-        # deconvolve the dff trace
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+        # # calculate the dff of the roi trace
+        # dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
+
+        # # deconvolve the dff trace
+        # dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
         # Get the prominence to find peaks in the deconvolved trace
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
