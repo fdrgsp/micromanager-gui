@@ -16,6 +16,7 @@ from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -102,6 +103,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
+        self._min_peaks_height: float = 0.0
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
@@ -153,6 +155,23 @@ class _AnalyseCalciumTraces(QWidget):
         )
         self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
 
+        # PEAKS SETTINGS -------------------------------------------------------------
+        min_peaks_lbl_wdg = QWidget(self)
+        min_peaks_lbl_wdg.setToolTip(
+            "Set the min height for the peaks (used by the scipy find_peaks method)."
+        )
+        min_peaks_lbl = QLabel("Min Peaks Height:")
+        min_peaks_lbl.setSizePolicy(*FIXED)
+        self._min_peaks_height_spin = QDoubleSpinBox(self)
+        self._min_peaks_height_spin.setRange(0.0, 100000.0)
+        self._min_peaks_height_spin.setSingleStep(0.01)
+        self._min_peaks_height_spin.setValue(0.01)
+        min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
+        min_peaks_layout.setContentsMargins(0, 0, 0, 0)
+        min_peaks_layout.setSpacing(5)
+        min_peaks_layout.addWidget(min_peaks_lbl)
+        min_peaks_layout.addWidget(self._min_peaks_height_spin)
+
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
@@ -193,6 +212,7 @@ class _AnalyseCalciumTraces(QWidget):
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
+        min_peaks_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -204,12 +224,13 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout.addWidget(self._progress_pos_label)
         progress_wdg_layout.addWidget(self._elapsed_time_label)
 
-        self.groupbox = QGroupBox("Extract Traces", self)
+        self.groupbox = QGroupBox("Run Analysis", self)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(experiment_type_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
+        wdg_layout.addWidget(min_peaks_lbl_wdg)
         wdg_layout.addWidget(self._analysis_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -363,6 +384,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         if self._is_stimulated() and not self._prepare_stimulation_mask(analysis_path):
             return None
+
+        self._min_peaks_height = self._min_peaks_height_spin.value()
 
         return self._get_positions_to_analyze()
 
@@ -796,10 +819,12 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff * 2
+        peaks_prominence_dec_dff = noise_level_dec_dff  # * 2
 
         # find peaks in the deconvolved trace
-        peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
+        peaks_dec_dff, _ = find_peaks(
+            dec_dff, prominence=peaks_prominence_dec_dff, height=self._min_peaks_height
+        )
 
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
