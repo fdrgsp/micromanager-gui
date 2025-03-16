@@ -74,22 +74,23 @@ class RealTimeAnalysis:
         self._timepoints: int | None = None
         self._model: CellposeModel
         self._stimulation_params: tuple[str, str] | None = None
-        self._save_path_and_name: tuple[str, str] | None = None
+        self._save_info: tuple[str, str] | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._meta: list[FrameMetaV1] = []
+        self._min_peaks_height: float = 0.0
 
         # create a multiprocessing Queue
         self._queue: mp.Queue[
             tuple[
                 str,  # label_name
-                float,  # exposure
-                list[float],  # elapsed_time_list
-                float,  # pixel_size
-                int,  # timepoints
-                tuple[str, str],  # save_path_and_name
-                CellposeModel,  # model
-                tuple[str, str] | None,  # stimulation params
-                dict[str, dict[str, str]],  # plate_map_data
+                tuple[str, str],  # save_info
+                tuple[float, list[float], float, int],  # meta_info
+                tuple[
+                    CellposeModel,  # model (analysis_info)
+                    float,  # min_peaks_height (analysis_info)
+                    tuple[str, str],  # stimulation_params (analysis_info)
+                    dict[str, dict[str, str]],  # plate_map_data (analysis_info)
+                ],
             ]
             | None
         ] = mp.Queue()
@@ -144,12 +145,14 @@ class RealTimeAnalysis:
         save_path: str = meta.get("save_dir", "")
         if not save_name or not save_path:
             self._enabled = False
+            self._save_info = None
             logger.error(
                 "SegmentAndAnalyse -> Save path or name not available. "
                 "Disabling real-time analysis."
             )
             return
-        self._save_path_and_name = (save_path, save_name)
+
+        self._save_info = (save_path, save_name)
 
         # disable if analysis is not enabled
         analysis = cast(RealTimeAnalysisParameters, meta.get("analysis", {}))
@@ -194,11 +197,12 @@ class RealTimeAnalysis:
             analysis.get("genotypes", []),  # type: ignore
             analysis.get("treatments", []),  # type: ignore
         )
+        self._min_peaks_height = analysis.get("min_peaks_height", 0.0)
 
     def _on_frame_ready(
         self, image: np.ndarray, event: useq.MDAEvent, meta: FrameMetaV1
     ) -> None:
-        if not self._enabled or self._save_path_and_name is None:
+        if not self._enabled or self._save_info is None:
             return
 
         if (t_index := event.index.get("t")) is None or self._timepoints is None:
@@ -222,19 +226,23 @@ class RealTimeAnalysis:
         )
         label_name = f"{pos_name}_p{p_idx}"
 
+        meta_info = (
+            event.exposure or self._mmc.getExposure(),
+            _get_elapsed_time_list(self._meta),
+            self._mmc.getPixelSizeUm(),
+            cast(int, self._timepoints),
+        )
+
+        analysis_info = (
+            self._model,
+            self._min_peaks_height,
+            cast(tuple[str, str], self._stimulation_params),
+            self._plate_map_data,
+        )
+
         # send the max_proj image to the segmentation process
         self._queue.put(
-            (
-                label_name,
-                event.exposure or self._mmc.getExposure(),
-                _get_elapsed_time_list(self._meta),
-                self._mmc.getPixelSizeUm(),
-                cast(int, self._timepoints),
-                cast(tuple[str, str], self._save_path_and_name),
-                self._model,
-                self._stimulation_params,
-                self._plate_map_data,
-            )
+            (label_name, cast(tuple, self._save_info), meta_info, analysis_info)
         )
 
         logger.info(
@@ -261,18 +269,9 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
     datastore_cache: dict[Path, TensorstoreZarrReader | OMEZarrReader] = {}
     # exit the process if the queue is empty (None)
     while (args := queue.get()) is not None:
-        (
-            label_name,
-            exp,
-            elapsed_time_list,
-            pixel_size,
-            timepoints,
-            save_path_and_name,
-            model,
-            stimulation_params,
-            plate_map_data,
-        ) = args
-        save_path, save_name = save_path_and_name
+        # get the arguments
+        label_name, save_info, meta_info, analysis_info = args
+        save_path, save_name = save_info
 
         # get the datastore path
         datastore_path = Path(save_path) / save_name
@@ -299,41 +298,23 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
             datastore_cache[datastore_path] = datastore  # cache the datastore
 
         # call the segmentation function with the cached datastore
-        _segment_and_analyse(
-            save_path,
-            save_name,
-            label_name,
-            timepoints,
-            datastore,
-            model,
-            stimulation_params,
-            plate_map_data,
-            exp,
-            elapsed_time_list,
-            pixel_size,
-        )
+        _segment_and_analyse(label_name, datastore, save_info, analysis_info, meta_info)
     # clear the cache
     datastore_cache.clear()
 
 
 def _segment_and_analyse(
-    save_path: str,
-    save_name: str,
     label_name: str,
-    timepoints: int,
     datastore: TensorstoreZarrReader | OMEZarrReader,
-    model: CellposeModel,
-    stimulation_params: tuple[str, str],
-    plate_map_data: dict[str, dict[str, str]],
-    exp: float,
-    elapsed_time_list: list[float],
-    pixel_size: float,
+    save_info: tuple[str, str],
+    analysis_info: tuple[
+        CellposeModel, float, tuple[str, str], dict[str, dict[str, str]]
+    ],
+    meta_info: tuple[float, list[float], float, int],
 ) -> None:
     """Segment the image."""
-    # get the experiment type and stimulation mask path if any
-    experiment_type, stimulation_mask_path = stimulation_params
-
     # create save directories if they don't exist
+    save_path, save_name = save_info
     save_dir_labels = Path(save_path) / f"{save_name}_labels"
     save_dir_labels.mkdir(parents=True, exist_ok=True)
     save_dir_analysis = Path(save_path) / f"{save_name}_analysis"
@@ -351,6 +332,8 @@ def _segment_and_analyse(
     data_half_to_end = data[data.shape[0] // 2 :, :, :]  # type: ignore # TODO: fix
     max_proj = data_half_to_end.max(axis=0)  # type: ignore  # TODO: fix as above
 
+    model, min_peaks_height, stimulation_params, plate_map_data = analysis_info
+
     # run cellpose
     output = model.eval(max_proj, diameter=DIAMETER, channels=CHANNEL)
     labels = output[0]
@@ -362,6 +345,8 @@ def _segment_and_analyse(
     tifffile.imwrite(save_dir_labels / f"{label_name}.tif", labels)
 
     # ANALYSIS -----------------------------------------------------------------------
+    # get the experiment type and stimulation mask path if any
+    experiment_type, stimulation_mask_path = stimulation_params
     stimulated_area_mask: np.ndarray | None = None
     if experiment_type == EVOKED and stimulation_mask_path:
         logger.info(f"SegmentAndAnalyse -> Creating stimulation mask for {label_name}")
@@ -374,14 +359,12 @@ def _segment_and_analyse(
     logger.info(f"SegmentAndAnalyse -> Extracting traces data for {label_name}...")
     analysis_data = _extract_traces_data(
         label_name,
-        timepoints,
         cast(np.ndarray, data),
         labels,
+        min_peaks_height,
         stimulated_area_mask,
         plate_map_data,
-        exp,
-        elapsed_time_list,
-        pixel_size,
+        meta_info,
     )
     if analysis_data is None:
         return
@@ -400,16 +383,15 @@ def _segment_and_analyse(
 
 def _extract_traces_data(
     label_name: str,
-    timepoints: int,
     data: np.ndarray,
     labels: np.ndarray,
+    min_peaks_height: float,
     stimulated_area_mask: np.ndarray | None,
     plate_map_data: dict[str, dict[str, str]],
-    exp_time: float,
-    elapsed_time_list: list[float],
-    pixel_size: float,
+    meta_info: tuple[float, list[float], float, int],
 ) -> dict[str, ROIData] | None:
     """Extract traces data."""
+    exp_time, elapsed_time_list, pixel_size, timepoints = meta_info
     # get the total time in seconds for the recording
     tot_time_sec = _calculate_total_time(elapsed_time_list, exp_time, timepoints)
 
@@ -468,10 +450,12 @@ def _extract_traces_data(
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff * 2
+        peaks_prominence_dec_dff = noise_level_dec_dff  # * 2
 
         # find peaks in the deconvolved trace
-        peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
+        peaks_dec_dff, _ = find_peaks(
+            dec_dff, prominence=peaks_prominence_dec_dff, height=min_peaks_height
+        )
 
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]

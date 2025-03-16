@@ -8,6 +8,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -40,6 +41,7 @@ def _sort_plate(item: str) -> tuple[int, int | str]:
 class RealTimeAnalysisParameters(TypedDict):
     """A class to store the values of _SegmentAndAnalyseWidget."""
 
+    min_peaks_height: float  # min height for the peaks detection
     experiment_type: str  # SPONTANEOUS or EVOKED
     stimulation_mask_path: str  # path to the stimulated area mask
     model_type: str  # CYTO3 or CUSTOM
@@ -75,9 +77,7 @@ class RealTimeAnalysisWidget(QGroupBox):
 
     def value(self) -> RealTimeAnalysisParameters | None:
         """Return the current value of the widget."""
-        if self._enable.isChecked():
-            return self._analysis_dialog.value()
-        return None
+        return self._analysis_dialog.value() if self._enable.isChecked() else None
 
     def _show_settings(self) -> None:
         """Show the settings dialog."""
@@ -172,6 +172,23 @@ class RealTimeAnalysisDialog(QDialog):
         experiment_type_wdg_layout.addWidget(self._experiment_type_combo, 0, 1)
         experiment_type_wdg_layout.addWidget(self._stimulation_area_path, 1, 0, 1, 2)
 
+        # peaks settings -------------------------------------------------------------
+        min_peaks_lbl_wdg = QGroupBox(self, title="Find Peaks Settings")
+        min_peaks_lbl_wdg.setToolTip(
+            "Set the min height for the peaks (used by the scipy find_peaks method)."
+        )
+        min_peaks_lbl = QLabel("Min Peaks Height:")
+        min_peaks_lbl.setSizePolicy(*FIXED)
+        self._min_peaks_height_spin = QDoubleSpinBox(self)
+        self._min_peaks_height_spin.setRange(0.0, 100000.0)
+        self._min_peaks_height_spin.setSingleStep(0.01)
+        self._min_peaks_height_spin.setValue(0.01)
+        min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
+        min_peaks_layout.setContentsMargins(10, 10, 10, 10)
+        min_peaks_layout.setSpacing(5)
+        min_peaks_layout.addWidget(min_peaks_lbl)
+        min_peaks_layout.addWidget(self._min_peaks_height_spin)
+
         # Cellpose -----------------------------------------------------------------
         self._browse_custom_model = _SelectModelPath(self)
         self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
@@ -208,12 +225,14 @@ class RealTimeAnalysisDialog(QDialog):
         self._browse_custom_model._label.setFixedWidth(fixed_width)
         self._plate_map._well_plate_lbl.setFixedWidth(fixed_width)
         model_lbl.setFixedWidth(fixed_width)
+        min_peaks_lbl.setFixedWidth(fixed_width)
 
         # Layout -------------------------------------------------------------------
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(20)
         main_layout.addWidget(experiment_type_wdg)
+        main_layout.addWidget(min_peaks_lbl_wdg)
         main_layout.addWidget(cellpose_wdg)
         main_layout.addWidget(self._plate_map)
         main_layout.addWidget(self._button_box)
@@ -231,6 +250,7 @@ class RealTimeAnalysisDialog(QDialog):
         model_type = self._models_combo.currentText()
         model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
         return {
+            "min_peaks_height": self._min_peaks_height_spin.value(),
             "experiment_type": experiment_type,
             "stimulation_mask_path": stimulation_mask_path,
             "model_type": model_type,
