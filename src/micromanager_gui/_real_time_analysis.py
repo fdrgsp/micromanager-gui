@@ -140,38 +140,40 @@ class RealTimeAnalysis:
         # get metadata from the sequence
         meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
 
+        # do not run the real-time analysis if the analysis is not set in the metadata
+        analysis = cast(RealTimeAnalysisParameters, meta.get("analysis", {}))
+        if analysis is None or not analysis:
+            self._enabled = False
+            return
+
+        self._enabled = True
+
         # disable if save_name or save_path is not available
         save_name: str = meta.get("save_name", "")
         save_path: str = meta.get("save_dir", "")
         if not save_name or not save_path:
-            self._enabled = False
             self._save_info = None
-            logger.error(
-                "SegmentAndAnalyse -> Save path or name not available. "
-                "Disabling real-time analysis."
-            )
-            return
-
-        self._save_info = (save_path, save_name)
-
-        # disable if analysis is not enabled
-        analysis = cast(RealTimeAnalysisParameters, meta.get("analysis", {}))
-        if analysis is None or not analysis:
             self._enabled = False
             logger.error(
-                "SegmentAndAnalyse -> Analysis parameters not found in metadata. "
-                "Disabling real-time analysis."
+                "SegmentAndAnalyse -> Save path or name not available! "
+                "Disabling real-time analysis since the save path and name are "
+                "required to run the real-time analysis."
             )
-            return
-        else:
-            self._enabled = True
-            self._set_parameters(analysis)
 
         # continue only if the ZARR_TESNSORSTORE or OME_ZARR
         for ext in ALL_EXTENSIONS:
             if save_name.endswith(ext) and ext in {ZARR_TESNSORSTORE, OME_ZARR}:
                 self._enabled = False
+                logger.error(
+                    f"SegmentAndAnalyse -> Unsupported file format: {ext}. "
+                    "Disabling real-time analysis since only ZARR_TESNSORSTORE "
+                    "and OME_ZARR are supported."
+                )
                 return
+
+        # set the parameters for the analysis
+        self._set_parameters(analysis)
+        self._save_info = (save_path, save_name)
 
         self._timepoints = None
         if sequence.time_plan is not None:
@@ -281,6 +283,7 @@ def _segment_and_analyse_process(queue: mp.Queue) -> None:
         for ext in ALL_EXTENSIONS:
             if save_name.endswith(ext):
                 save_name = save_name[: -len(ext)]
+                save_info = (save_path, save_name)
                 writer = EXT_TO_WRITER[ext]
                 break
 
@@ -461,7 +464,7 @@ def _extract_traces_data(
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
         # calculate the frequency of the peaks in the dec_dff trace
-        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else 0.0
+        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else None
 
         # get the conditions for the well
         condition_1, condition_2 = _get_conditions(label_name, plate_map_data)
@@ -489,7 +492,7 @@ def _extract_traces_data(
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
-            dec_dff_frequency=frequency,
+            dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
             cell_size_units="µm" if pixel_size is not None else "pixel",

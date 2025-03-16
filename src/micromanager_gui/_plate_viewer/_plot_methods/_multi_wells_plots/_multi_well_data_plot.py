@@ -44,7 +44,10 @@ def _plot_multi_well_data(
             r_data = roi_data[roi]
 
             if amp and freq:
-                if r_data.peaks_amplitudes_dec_dff is None:
+                if (
+                    r_data.peaks_amplitudes_dec_dff is None
+                    or r_data.dec_dff_frequency is None
+                ):
                     continue
                 amp_list = r_data.peaks_amplitudes_dec_dff
                 well_freq_list = [r_data.dec_dff_frequency] * len(amp_list)
@@ -67,6 +70,8 @@ def _plot_multi_well_data(
                 ax.set_ylabel("Amplitude")
 
             elif freq:
+                if r_data.dec_dff_frequency is None:
+                    continue
                 ax.plot(
                     well_count,
                     r_data.dec_dff_frequency,

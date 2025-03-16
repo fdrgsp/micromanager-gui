@@ -163,9 +163,10 @@ class _AnalyseCalciumTraces(QWidget):
         min_peaks_lbl = QLabel("Min Peaks Height:")
         min_peaks_lbl.setSizePolicy(*FIXED)
         self._min_peaks_height_spin = QDoubleSpinBox(self)
+        self._min_peaks_height_spin.setDecimals(4)
         self._min_peaks_height_spin.setRange(0.0, 100000.0)
         self._min_peaks_height_spin.setSingleStep(0.01)
-        self._min_peaks_height_spin.setValue(0.01)
+        self._min_peaks_height_spin.setValue(0.0075)
         min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
         min_peaks_layout.setContentsMargins(0, 0, 0, 0)
         min_peaks_layout.setSpacing(5)
@@ -830,7 +831,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
         # calculate the frequency of the peaks in the dec_dff trace
-        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else 0.0
+        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else None
 
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
@@ -858,7 +859,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
-            dec_dff_frequency=frequency,
+            dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",

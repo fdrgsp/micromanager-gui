@@ -74,22 +74,29 @@ def _plot_metrics(
 ) -> None:
     """Plot amplitude, frequency, or inter-event intervals."""
     if amp and freq:
-        if roi_data.peaks_amplitudes_dec_dff:
-            ax.plot(
-                roi_data.peaks_amplitudes_dec_dff,
-                [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
-                "o",
-                label=f"ROI {roi_key}",
-            )
+        if (
+            roi_data.peaks_amplitudes_dec_dff is None
+            or roi_data.dec_dff_frequency is None
+        ):
+            return
+        ax.plot(
+            roi_data.peaks_amplitudes_dec_dff,
+            [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
+            "o",
+            label=f"ROI {roi_key}",
+        )
     elif amp:
-        if roi_data.peaks_amplitudes_dec_dff:
-            ax.plot(
-                [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
-                roi_data.peaks_amplitudes_dec_dff,
-                "o",
-                label=f"ROI {roi_key}",
-            )
+        if roi_data.peaks_amplitudes_dec_dff is None:
+            return
+        ax.plot(
+            [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
+            roi_data.peaks_amplitudes_dec_dff,
+            "o",
+            label=f"ROI {roi_key}",
+        )
     elif freq:
+        if roi_data.dec_dff_frequency is None:
+            return
         ax.plot(int(roi_key), roi_data.dec_dff_frequency, "o", label=f"ROI {roi_key}")
     elif iei and roi_data.iei:
         ax.plot(
