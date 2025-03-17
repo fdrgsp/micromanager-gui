@@ -14,7 +14,9 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QWidget
 from useq import MDASequence
 
+from micromanager_gui._writers._ome_tiff import _OMETiffWriter
 from micromanager_gui._writers._tensorstore_zarr import _TensorStoreHandler
+from micromanager_gui._writers._tiff_sequence import _TiffSequenceWriter
 
 from ._save_widget import (
     OME_TIFF,
@@ -173,7 +175,7 @@ class MDAWidget_(MDAWidget):
                     # Since any other type of writer will be handled by the 'MDAViewer',
                     # we need to pass a writer to the engine only if it is a
                     # 'ImageSequenceWriter'.
-                    return ImageSequenceWriter(save_path)
+                    return _TiffSequenceWriter(save_path)
         return None
 
     def run_mda(self) -> None:
@@ -205,7 +207,7 @@ class MDAWidget_(MDAWidget):
             # we need to add the ".ome.tif" to correctly use the OMETiffWriter
             if not save_path.name.endswith(OME_TIFFS):
                 save_path = save_path.with_suffix(OME_TIFF)
-            return OMETiffWriter(save_path)
+            return _OMETiffWriter(save_path)
         elif OME_ZARR in save_format:
             return OMEZarrWriter(save_path)
         elif ZARR_TESNSORSTORE in save_format:
