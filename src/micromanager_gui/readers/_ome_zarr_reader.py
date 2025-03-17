@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import useq
@@ -10,10 +10,14 @@ import zarr
 from tifffile import imwrite
 from tqdm import tqdm
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 try:  # if zarr < 3.0.0
     from zarr.hierarchy import Group
 except ImportError:  # if zarr >= 3.0.0
     from zarr import Group
+
 
 EVENT = "Event"
 FRAME_META = "frame_meta"
@@ -232,7 +236,11 @@ class OMEZarrReader:
         """Return the metadata for the given indexers."""
         metadata = []
         for meta in self.store[pos_key].attrs.get(FRAME_META, []):
-            event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+            try:
+                event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+            # this is for an older version of the metadata
+            except KeyError:
+                event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
             if indexers.items() <= event_index.items():
                 metadata.append(meta)
         return metadata
