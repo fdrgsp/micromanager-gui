@@ -110,8 +110,7 @@ class TensorstoreZarrReader:
 
         # this is for an older version of the metadata ---------------------------------
         seq = self._metadata.get("useq_MDASequence")
-        if seq is not None:
-            return useq.MDASequence(**json.loads(seq))
+        return useq.MDASequence(**json.loads(seq)) if seq is not None else None
         # ------------------------------------------------------------------------------
 
     # ___________________________Public Methods___________________________
