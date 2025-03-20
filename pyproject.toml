@@ -37,6 +37,7 @@ dependencies = [
     "pyconify",
     "ndv[vispy] ==0.0.4",
     "qtconsole",
+    "tensorstore!=0.1.72",
 ]
 
 # extras
