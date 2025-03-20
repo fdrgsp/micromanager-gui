@@ -49,6 +49,7 @@ dependencies = [
     "pyfirmata2",
     "scikit-image",
     "PyQt6",
+    "tensorstore!=0.1.72",
 ]
 
 # extras
