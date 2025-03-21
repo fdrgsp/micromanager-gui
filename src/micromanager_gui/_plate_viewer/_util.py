@@ -21,7 +21,6 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from scipy.interpolate import CubicSpline
 from skimage import filters, morphology
 
 # Define a type variable for the BaseClass
@@ -65,9 +64,7 @@ STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
-GLOBAL_CONNECTIVITY_CUBIC = "Global connectivity-Cubic"
-GLOBAL_CONNECTIVITY_LINEAR = "Global connectivity-Linear"
-GLOBAL_CONNECTIVITY_INSTANTANEOUS = "Global connectivity"
+GLOBAL_SYNCHRONY = "Global Synchrony"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -88,9 +85,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
-    GLOBAL_CONNECTIVITY_CUBIC,
-    GLOBAL_CONNECTIVITY_LINEAR,
-    GLOBAL_CONNECTIVITY_INSTANTANEOUS,
+    GLOBAL_SYNCHRONY,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
@@ -130,8 +125,6 @@ class ROIData(BaseClass):
     cell_size_units: str | None = None
     total_recording_time_in_sec: float | None = None
     active: bool | None = None
-    linear_phase: list[float] | None = None
-    cubic_phase: list[float] | None = None
     instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
@@ -419,7 +412,6 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     return background
 
 
-# NOTE: to delete
 def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
     if not peaks.any():
@@ -450,36 +442,6 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     phase[frames - 1] = 2 * np.pi * (len(peaks_list) - 1)
 
     return phase
-
-
-# NOTE: to delete
-def get_cubic_phase(total_frames: int, peaks: np.ndarray) -> list[float]:
-    """Calculate the instantaneous phase with smooth interpolation and handle negative values."""  # noqa: E501
-    if not peaks.any():
-        phase = [0.0 for _ in range(total_frames)]
-        return phase
-
-    peaks_list = [int(peak) for peak in peaks]
-
-    if peaks_list[0] != 0:
-        peaks_list.insert(0, 0)
-
-    if peaks_list[-1] != (total_frames - 1):
-        peaks_list.append(total_frames - 1)
-
-    num_cycles = len(peaks_list) - 1
-
-    peak_phases = np.arange(num_cycles + 1) * 2 * np.pi
-
-    cubic_spline = CubicSpline(peaks_list, peak_phases, bc_type="clamped")
-
-    frames = np.arange(total_frames)
-    phases = cubic_spline(frames)
-
-    phases = np.clip(phases, 0, None)
-    phases = np.mod(phases, 2 * np.pi)
-
-    return [float(phase) for phase in phases]
 
 
 def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:

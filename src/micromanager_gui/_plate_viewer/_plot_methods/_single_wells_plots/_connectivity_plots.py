@@ -15,49 +15,39 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._util import ROIData
 
 
-def _plot_connectivity(
+def _plot_synchrony(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    cubic: bool = False,
-    linear: bool = False,
 ) -> None:
-    """Plot connectivity."""
+    """Plot global synchrony."""
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
-
-    # NOTE: to delete
-    if cubic and not linear:
-        method = "cubic"
-    elif not cubic and linear:
-        method = "linear"
-    # -------------------------
-    elif not cubic and not linear:
-        method = "instantaneous"
 
     if rois is None:
         rois = [int(roi) for roi in data.keys() if roi.isdigit()]
 
-    phase_dict = _get_phase_dict_from_rois(data, method, rois)
+    phase_dict = _get_phase_dict_from_rois(data, rois)
     if phase_dict is None:
         return None
 
     active_rois = list(phase_dict.keys())
 
-    connectivity_matrix = _fluorosnnap_connectivity_matrix(phase_dict)
-    if connectivity_matrix is None:
+    synchrony_matrix = _get_synchrony_matrix(phase_dict)
+
+    if synchrony_matrix is None:
         return None
 
-    connectivity = _get_connectivity(connectivity_matrix)
+    synchrony = _get_synchrony(synchrony_matrix)
 
-    ax.imshow(connectivity_matrix, cmap="viridis", aspect="auto")
+    ax.imshow(synchrony_matrix, cmap="viridis", aspect="auto")
     cbar = widget.figure.colorbar(
         cm.ScalarMappable(cmap=cm.viridis),
         ax=ax,
     )
-    cbar.set_label("Connectivity")
+    cbar.set_label("Synchrony index")
 
-    ax.set_title(f"Global Connectivity ({method}): {connectivity:0.4f}")
+    ax.set_title(f"Global Synchrony: {synchrony:0.4f}")
 
     ax.set_ylabel("ROIs")
     ax.set_yticklabels([])
@@ -69,31 +59,30 @@ def _plot_connectivity(
 
     ax.set_box_aspect(1)
 
-    _add_hover_functionality(ax, widget, active_rois, connectivity_matrix)
+    _add_hover_functionality(ax, widget, active_rois, synchrony_matrix)
     widget.figure.tight_layout()
     widget.canvas.draw()
 
 
-def _get_connectivity(connection_matrix: np.ndarray | None) -> float | None:
+def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
     """Calculate the connection matrix."""
-    if connection_matrix is None or connection_matrix.size == 0:
+    if synchrony_matrix is None or synchrony_matrix.size == 0:
         return None
 
     # Ensure the matrix is at least 2x2 and square
-    if connection_matrix.shape[0] < 2 or (
-        connection_matrix.shape[0] != connection_matrix.shape[1]
+    if synchrony_matrix.shape[0] < 2 or (
+        synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
     ):
         return None
 
     return float(
-        np.median(np.sum(connection_matrix, axis=0) - 1)
-        / (connection_matrix.shape[0] - 1)
+        np.median(np.sum(synchrony_matrix, axis=0) - 1)
+        / (synchrony_matrix.shape[0] - 1)
     )
 
 
-# NOTE: to delete
-def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
-    """Calculate global connectivity using vectorized operations."""
+def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
+    """Calculate global synchrony (FluoroSNNAP)."""
     active_rois = list(phase_dict.keys())  # ROI names
 
     if len(active_rois) < 2:
@@ -117,30 +106,13 @@ def _get_connectivity_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray |
     return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
 
-def _fluorosnnap_connectivity_matrix(phase_dict: dict) -> np.ndarray:
-    """Calculate the connectivity (adapted from FluoroSNNAP)."""
-    num_neurons = len(list(phase_dict.keys()))
-    plv_matrix = np.zeros((num_neurons, num_neurons))
-
-    phase_array = np.array([phase_dict[roi] for roi in phase_dict.keys()])
-
-    for i in range(num_neurons):
-        for j in range(i, num_neurons):
-            phase_diff = phase_array[i, :] - phase_array[j, :]
-            plv = np.abs(np.mean(np.exp(1j * phase_diff)))
-            plv_matrix[i, j] = plv
-            plv_matrix[j, i] = plv
-
-    return plv_matrix
-
-
 def _get_phase_dict_from_rois(
-    roi_data_dict: dict[str, ROIData], method: str, rois: list[int]
+    roi_data_dict: dict[str, ROIData], rois: list[int]
 ) -> dict[str, list[float]] | None:
     """Organize the phase list from the rois wanted."""
     phase_dict: dict[str, list[float]] = {}
 
-    # if less than two rois input, can't calculate connectivity
+    # if less than two rois input, can't calculate synchrony
     if len(rois) < 2:
         return None
 
@@ -149,13 +121,7 @@ def _get_phase_dict_from_rois(
         if roi_int not in rois:
             continue
 
-        # NOTE: to delete
-        if method == "linear":
-            phase_list = roi_data.linear_phase
-        elif method == "cubic":
-            phase_list = roi_data.cubic_phase
-        elif method == "instantaneous":
-            phase_list = roi_data.instantaneous_phase
+        phase_list = roi_data.instantaneous_phase
 
         if not phase_list:
             continue
@@ -169,7 +135,7 @@ def _add_hover_functionality(
     ax: Axes,
     widget: _SingleWellGraphWidget,
     rois: list[str],
-    connectivity_matrix: np.ndarray,
+    synchrony_matrix: np.ndarray,
 ) -> None:
     """Add hover functionality using mplcursors."""
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
@@ -180,7 +146,7 @@ def _add_hover_functionality(
         roi_x, roi_y = rois[x], rois[y]
 
         sel.annotation.set(
-            text=f"ROI {roi_x} ↔ ROI {roi_y}\nvalue: {connectivity_matrix[y, x]:0.2f}",
+            text=f"ROI {roi_x} ↔ ROI {roi_y}\nvalue: {synchrony_matrix[y, x]:0.2f}",
             fontsize=8,
             color="black",
         )

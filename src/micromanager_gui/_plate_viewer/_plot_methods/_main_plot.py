@@ -13,9 +13,7 @@ from micromanager_gui._plate_viewer._util import (
     DEC_DFF_WITH_PEAKS,
     DFF,
     DFF_NORMALIZED,
-    GLOBAL_CONNECTIVITY_CUBIC,
-    GLOBAL_CONNECTIVITY_INSTANTANEOUS,
-    GLOBAL_CONNECTIVITY_LINEAR,
+    GLOBAL_SYNCHRONY,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
@@ -27,7 +25,7 @@ from micromanager_gui._plate_viewer._util import (
 )
 
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
-from ._single_wells_plots._connectivity_plots import _plot_connectivity
+from ._single_wells_plots._connectivity_plots import _plot_synchrony
 from ._single_wells_plots._raster_plots import _generate_raster_plot
 from ._single_wells_plots._single_well_data import _plot_single_well_data
 from ._single_wells_plots._stimulation_plots import _visualize_stimulated_area
@@ -58,9 +56,7 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
-    GLOBAL_CONNECTIVITY_LINEAR: {"cubic": False, "linear": True},
-    GLOBAL_CONNECTIVITY_CUBIC: {"cubic": True, "linear": False},
-    GLOBAL_CONNECTIVITY_INSTANTANEOUS: {"cubic": False, "linear": False},
+    GLOBAL_SYNCHRONY: {},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -105,14 +101,8 @@ def plot_single_well_data(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
-    if text in {
-        GLOBAL_CONNECTIVITY_CUBIC,
-        GLOBAL_CONNECTIVITY_LINEAR,
-        GLOBAL_CONNECTIVITY_INSTANTANEOUS,
-    }:
-        return _plot_connectivity(
-            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
-        )
+    if text in {GLOBAL_SYNCHRONY}:
+        return _plot_synchrony(widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text])
 
     # plot other types of graphs
     else:
