@@ -103,13 +103,14 @@ class TensorstoreZarrReader:
     def sequence(self) -> useq.MDASequence | None:
         # getting the sequence from first frame metadata within the "mda_event" key
         if isinstance(self._metadata, list):
+            if len(self._metadata) == 0:
+                return None
             seq = self._metadata[0].get("mda_event", {}).get("sequence")
             return useq.MDASequence(**seq) if seq is not None else None
 
         # this is for an older version of the metadata ---------------------------------
         seq = self._metadata.get("useq_MDASequence")
-        if seq is not None:
-            return useq.MDASequence(**json.loads(seq))
+        return useq.MDASequence(**json.loads(seq)) if seq is not None else None
         # ------------------------------------------------------------------------------
 
     # ___________________________Public Methods___________________________

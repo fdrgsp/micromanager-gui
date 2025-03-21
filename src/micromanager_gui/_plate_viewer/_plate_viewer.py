@@ -352,10 +352,9 @@ class PlateViewer(QMainWindow):
             value = self._fov_table.value() if self._fov_table.selectedItems() else None
             if value is None:
                 return
-            # get the analysis data for the current fov if it exists
-            analysis = self._analysis_data.get(str(value.fov.name), None)
+            fov_data = self._get_fov_data(value)
             # update the graphs combo boxes
-            self._update_single_wells_graphs_combo(combo_red=(analysis is None))
+            self._update_single_wells_graphs_combo(combo_red=(fov_data is None))
 
         # if multi wells tab is selected
         elif idx == 2:
@@ -545,13 +544,13 @@ class PlateViewer(QMainWindow):
                             self._analysis_data[roi] = data[roi]
                             continue
                         # get the data for the roi
-                        roi_data = cast(dict, data[roi])
+                        fov_data = cast(dict, data[roi])
                         # remove any key that is not in ROIData
-                        for key in list(roi_data.keys()):
+                        for key in list(fov_data.keys()):
                             if key not in ROIData.__annotations__:
-                                roi_data.pop(key)
+                                fov_data.pop(key)
                         # convert to a ROIData object and add store it in _analysis_data
-                        self._analysis_data[well][roi] = ROIData(**roi_data)
+                        self._analysis_data[well][roi] = ROIData(**fov_data)
         except Exception as e:
             msg = f"Error loading the analysis data: {e}"
             LOGGER.error(msg)
@@ -559,24 +558,40 @@ class PlateViewer(QMainWindow):
             self._analysis_data.clear()
 
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
+        filtered_paths: list[Path] = []
+
         # the json file names should be in the form A1_0000.json
-        for f in reversed(path_list):
+        for f in path_list:
             if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
-                path_list.remove(f)
                 continue
-            name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000
-            split_name = name_no_suffix.split("_")  # ["A1", "0000"]
-            if len(split_name) != 2:
-                path_list.remove(f)
+            # skip hidden files
+            if f.name.startswith("."):
                 continue
-            well, pos = split_name
-            if not re.match(r"^[a-zA-Z0-9]+$", well):  # only letters and numbers
-                path_list.remove(f)
+
+            name_no_suffix = f.name.removesuffix(f.suffix)  # A1_0000 or A1_0000_p0
+            split_name = name_no_suffix.split("_")  # ["A1","0000"]or["A1","0000","p0"]
+
+            if len(split_name) == 2:
+                well, fov = split_name
+            elif len(split_name) == 3:
+                well, fov, pos = split_name
+            else:
                 continue
-            if not pos.isdigit():  # only digits
-                path_list.remove(f)
+
+            # validate well format, only letters and numbers
+            if not re.match(r"^[a-zA-Z0-9]+$", well):
                 continue
-        return path_list
+
+            # validate fov format, only numbers
+            if len(split_name) == 3:
+                if not fov.isdigit():
+                    continue
+                if not pos[1:].isdigit():
+                    continue
+
+            filtered_paths.append(f)
+
+        return filtered_paths
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""
@@ -642,6 +657,7 @@ class PlateViewer(QMainWindow):
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
         self._analysis_wdg.labels_path = self._labels_path
+        self._analysis_wdg._analysis_data = self._analysis_data
         self._analysis_wdg._analysis_path._path.setText(self._analysis_files_path)
 
         self._load_plate_map(plate)
@@ -777,7 +793,8 @@ class PlateViewer(QMainWindow):
         data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=t, c=0))
         # get labels if they exist
         labels = self._get_labels(value)
-        analysis = self._analysis_data.get(str(value.fov.name), None)
+        # get the analysis data for the current fov if it exists
+        fov_data = self._get_fov_data(value)
         # flip data and labels vertically or will look different from the StackViewer
         data = np.flip(data, axis=0)
         labels = np.flip(labels, axis=0) if labels is not None else None
@@ -785,8 +802,17 @@ class PlateViewer(QMainWindow):
         self._set_graphs_fov(value)
 
         self._update_single_wells_graphs_combo(
-            combo_red=(analysis is None), clear=(analysis is None)
+            combo_red=(fov_data is None), clear=(fov_data is None)
         )
+
+    def _get_fov_data(self, value: WellInfo) -> dict[str, ROIData] | None:
+        """Get the analysis data for the given FOV."""
+        fov_name = f"{value.fov.name}_p{value.pos_idx}"
+        fov_data = self._analysis_data.get(str(value.fov.name), None)
+        # use the old name we used to save the data (without position index. e.g. "_p0")
+        if fov_data is None:
+            fov_data = self._analysis_data.get(fov_name, None)
+        return fov_data
 
     def _set_graphs_fov(self, value: WellInfo | None) -> None:
         """Set the FOV title for the graphs."""

@@ -40,7 +40,7 @@ class _FOVTable(QTableWidget):
     def add_position(self, position: WellInfo) -> None:
         """Add a position to the table.
 
-        The each WellInfo object (it contains the position index and the position
+        Each WellInfo object (it contains the position index and the position
         object) is stored in the item's data.
         """
         row = self.rowCount()

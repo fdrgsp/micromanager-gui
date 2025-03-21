@@ -15,21 +15,16 @@ from pymmcore_widgets.hcwizard.intro_page import SRC_CONFIG
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QDockWidget,
     QFileDialog,
-    QHBoxLayout,
-    QLabel,
     QMenuBar,
     QScrollArea,
+    QSizePolicy,
     QTabWidget,
-    QVBoxLayout,
     QWidget,
 )
 
-from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
+from micromanager_gui._plate_viewer._plate_viewer import PlateViewer
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
@@ -41,6 +36,7 @@ if TYPE_CHECKING:
 FLAGS = Qt.WindowType.Dialog
 CONSOLE = "Console"
 PROP_BROWSER = "Property Browser"
+PLATE_VIEWER = "pv"
 WIDGETS = {
     "Pixel Configuration": PixelConfigurationWidget,
     "Install Devices": _InstallWidget,
@@ -67,6 +63,9 @@ CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
 CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+SPONTANEOUS = "Spontaneous Activity"
+EVOKED = "Evoked Activity"
+FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
 class ScrollableDockWidget(QDockWidget):
@@ -167,24 +166,11 @@ class _MenuBar(QMenuBar):
         mda = self._create_dock_widget("MDA Widget")
         self._mda = cast(MDAWidget, mda.main_widget)
 
-        # segmentation widget
-        self._segment_widget = _SegmentWidget(self)
-        self._segment_widget.hide()
-
-        # settings menu
-        self._settings_menu = self.addMenu("Segmentation")
-        self._act_enable_segmentation = QAction("Enable Segmentation", self)
-        self._act_enable_segmentation.setCheckable(True)
-        self._act_enable_segmentation.setChecked(False)
-        self._act_enable_segmentation.triggered.connect(self._enable_segmentation)
-        self._settings_menu.addAction(self._act_enable_segmentation)
-
     def _enable(self, enable: bool) -> None:
         """Enable or disable the actions."""
         self._configurations_menu.setEnabled(enable)
         self._widgets_menu.setEnabled(enable)
         self._viewer_menu.setEnabled(enable)
-        self._settings_menu.setEnabled(enable)
 
     def _save_cfg(self) -> None:
         (filename, _) = QFileDialog.getSaveFileName(
@@ -257,9 +243,7 @@ class _MenuBar(QMenuBar):
 
         # already created
         if action_name in self._widgets:
-            wdg = self._widgets[action_name]
-            wdg.show()
-            wdg.raise_()
+            self._show_and_raise_wdg(action_name)
             return
 
         # create dock widget
@@ -306,6 +290,7 @@ class _MenuBar(QMenuBar):
             MDA: self._mda,  # quick access to the MDA widget
             VIEWERS: self._get_current_mda_viewers(),  # dictionary of all the viewers
             PREVIEW: self._main_window._core_link._preview,  # access to preview widget
+            PLATE_VIEWER: self._show_plate_viewer,  # show the plate viewer
         }
 
         self._mm_console = MMConsole(user_vars)
@@ -320,14 +305,28 @@ class _MenuBar(QMenuBar):
     def _show_property_browser(self) -> None:
         """Show the property browser."""
         if PROP_BROWSER in self._widgets:
-            pb = self._widgets[PROP_BROWSER]
-            pb.show()
-            pb.raise_()
+            self._show_and_raise_wdg(PROP_BROWSER)
         else:
             pb = PropertyBrowser(parent=self, mmcore=self._mmc)
             pb.setWindowFlags(FLAGS)
             self._widgets[PROP_BROWSER] = pb
             pb.show()
+
+    def _show_plate_viewer(self) -> None:
+        """Show the plate viewer."""
+        if PLATE_VIEWER in self._widgets:
+            self._show_and_raise_wdg(PLATE_VIEWER)
+        else:
+            pv = PlateViewer(self)
+            pv.setWindowFlags(FLAGS)
+            self._widgets[PLATE_VIEWER] = pv
+            pv.show()
+
+    def _show_and_raise_wdg(self, test: str) -> None:
+        """Show and raise a widget."""
+        wdg = self._widgets[test]
+        wdg.show()
+        wdg.raise_()
 
     def _get_current_mda_viewers(self) -> dict[str, QWidget]:
         """Update the viewers variable in the MMConsole."""
@@ -340,84 +339,3 @@ class _MenuBar(QMenuBar):
             wdg = tab.widget(viewers)
             viewers_dict[tab_name] = wdg
         return viewers_dict
-
-    def _enable_segmentation(self, enable: bool) -> None:
-        """Enable or disable the segmentation and pass the parameters."""
-        print("Enable segmentation", enable)
-        self._segment_widget.show() if enable else self._segment_widget.hide()
-
-        if not enable:
-            return
-
-        if self._segment_widget.exec():
-            model_type, model_path = self._segment_widget.value()
-            self._main_window._segment_neurons.enable(enable, model_type, model_path)
-        else:
-            self._act_enable_segmentation.setChecked(False)
-            self._main_window._segment_neurons.enable(False)
-
-
-class _SegmentWidget(QDialog):
-    """A Widget to set the segmentation parameters."""
-
-    # TODO: update with more parameters if necessary
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Segmentation Parameters")
-        self.setMinimumWidth(300)
-
-        self.setWindowFlags(Qt.WindowType.Sheet)
-
-        self._browse_custom_model = _SelectModelPath(self)
-        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
-        self._browse_custom_model.hide()
-
-        self._models_combo = QComboBox()
-        self._models_combo.addItems(MODELS)
-        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-        # self._use_gpu_checkbox = QCheckBox("Use GPU")
-        # self._use_gpu_checkbox.setToolTip("Run Cellpose on the GPU.")
-        # self._use_gpu_checkbox.setChecked(True)
-
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("Model:"))
-        layout.addWidget(self._models_combo, 1)
-        # layout.addWidget(self._use_gpu_checkbox)
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(3, 3, 3, 3)
-        main_layout.setSpacing(3)
-        main_layout.addLayout(layout)
-        main_layout.addWidget(self._browse_custom_model)
-
-        # Add Ok and Cancel buttons
-        self._button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        self._button_box.accepted.connect(self.accept)
-        self._button_box.rejected.connect(self.reject)
-
-        # Add buttons to the main layout
-        main_layout.addWidget(self._button_box)
-
-    def value(self) -> tuple[str, str]:
-        """Return the model type and path."""
-        if (model_type := self._models_combo.currentText()) == CUSTOM and (
-            path := self._browse_custom_model.value()
-        ):
-            model_path = path
-        else:
-            model_type = CYTO3
-            model_path = ""
-
-        return model_type, model_path
-
-    def _on_model_combo_changed(self, model: str) -> None:
-        """Show the custom model path if the model is 'custom'."""
-        (
-            self._browse_custom_model.show()
-            if model == "custom"
-            else self._browse_custom_model.hide()
-        )

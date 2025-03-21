@@ -16,6 +16,7 @@ from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -101,6 +102,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
+        self._min_peaks_height: float = 0.0
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
@@ -129,7 +131,7 @@ class _AnalyseCalciumTraces(QWidget):
         experiment_type_wdg_layout.addWidget(activity_combo_label)
         experiment_type_wdg_layout.addWidget(self._experiment_type_combo)
 
-        self._stimulation_path = _BrowseWidget(
+        self._stimulation_area_path = _BrowseWidget(
             self,
             label="Stimulated Area File",
             tooltip=(
@@ -140,7 +142,7 @@ class _AnalyseCalciumTraces(QWidget):
             ),
             is_dir=False,
         )
-        self._stimulation_path.hide()
+        self._stimulation_area_path.hide()
 
         # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
         self._analysis_path = _BrowseWidget(
@@ -151,6 +153,24 @@ class _AnalyseCalciumTraces(QWidget):
             is_dir=True,
         )
         self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
+
+        # PEAKS SETTINGS -------------------------------------------------------------
+        min_peaks_lbl_wdg = QWidget(self)
+        min_peaks_lbl_wdg.setToolTip(
+            "Set the min height for the peaks (used by the scipy find_peaks method)."
+        )
+        min_peaks_lbl = QLabel("Min Peaks Height:")
+        min_peaks_lbl.setSizePolicy(*FIXED)
+        self._min_peaks_height_spin = QDoubleSpinBox(self)
+        self._min_peaks_height_spin.setDecimals(4)
+        self._min_peaks_height_spin.setRange(0.0, 100000.0)
+        self._min_peaks_height_spin.setSingleStep(0.01)
+        self._min_peaks_height_spin.setValue(0.0075)
+        min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
+        min_peaks_layout.setContentsMargins(0, 0, 0, 0)
+        min_peaks_layout.setSpacing(5)
+        min_peaks_layout.addWidget(min_peaks_lbl)
+        min_peaks_layout.addWidget(self._min_peaks_height_spin)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
@@ -190,8 +210,9 @@ class _AnalyseCalciumTraces(QWidget):
         # STYLING --------------------------------------------------------------------
         fixed_width = self._analysis_path._label.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
-        self._stimulation_path._label.setFixedWidth(fixed_width)
+        self._stimulation_area_path._label.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
+        min_peaks_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -203,12 +224,13 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout.addWidget(self._progress_pos_label)
         progress_wdg_layout.addWidget(self._elapsed_time_label)
 
-        self.groupbox = QGroupBox("Extract Traces", self)
+        self.groupbox = QGroupBox("Run Analysis", self)
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(experiment_type_wdg)
-        wdg_layout.addWidget(self._stimulation_path)
+        wdg_layout.addWidget(self._stimulation_area_path)
+        wdg_layout.addWidget(min_peaks_lbl_wdg)
         wdg_layout.addWidget(self._analysis_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -247,6 +269,10 @@ class _AnalyseCalciumTraces(QWidget):
     def analysis_data(self) -> dict[str, dict[str, ROIData]]:
         return self._analysis_data
 
+    @analysis_data.setter
+    def analysis_data(self, data: dict[str, dict[str, ROIData]]) -> None:
+        self._analysis_data = data
+
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
         self._failed_labels.clear()
@@ -270,7 +296,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._enable(False)
 
         self._worker = create_worker(
-            self._extract_traces,
+            self._extract_traces_data,
             positions=pos,
             _start_thread=True,
             _connect={
@@ -314,9 +340,9 @@ class _AnalyseCalciumTraces(QWidget):
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulated area path widget."""
         (
-            self._stimulation_path.show()
+            self._stimulation_area_path.show()
             if text == EVOKED
-            else self._stimulation_path.hide()
+            else self._stimulation_area_path.hide()
         )
 
     def _reset_progress_bar(self) -> None:
@@ -330,7 +356,7 @@ class _AnalyseCalciumTraces(QWidget):
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
         self._pos_le.setEnabled(enable)
-        self._stimulation_path.setEnabled(enable)
+        self._stimulation_area_path.setEnabled(enable)
         self._experiment_type_combo.setEnabled(enable)
         self._analysis_path.setEnabled(enable)
         self._run_btn.setEnabled(enable)
@@ -358,6 +384,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         if self._is_stimulated() and not self._prepare_stimulation_mask(analysis_path):
             return None
+
+        self._min_peaks_height = self._min_peaks_height_spin.value()
 
         return self._get_positions_to_analyze()
 
@@ -414,7 +442,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _prepare_stimulation_mask(self, analysis_path: Path) -> bool:
         """Generate the stimulation mask if the experiment involves evoked activity."""
-        if stim_area_file := self._stimulation_path.value():
+        if stim_area_file := self._stimulation_area_path.value():
             self._stimulated_area_mask = create_stimulation_mask(stim_area_file)
             stim_mask_path = analysis_path / STIMULATION_MASK
             tifffile.imwrite(str(stim_mask_path), self._stimulated_area_mask)
@@ -478,7 +506,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer.analysis_data = self._analysis_data
+            self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
         # show a message box if there are failed labels
@@ -547,7 +575,7 @@ class _AnalyseCalciumTraces(QWidget):
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
-    def _extract_traces(self, positions: list[int]) -> Generator[str, None, None]:
+    def _extract_traces_data(self, positions: list[int]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
         LOGGER.info("Starting traces extraction...")
 
@@ -566,7 +594,7 @@ class _AnalyseCalciumTraces(QWidget):
             with ThreadPoolExecutor(max_workers=cpu_count) as executor:
                 futures = [
                     executor.submit(
-                        self._extract_trace_for_chunk,
+                        self._extract_trace_data_for_chunk,
                         positions,
                         start,
                         min(start + chunk_size, pos),
@@ -592,16 +620,16 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             yield f"An error occurred: {e}"
 
-    def _extract_trace_for_chunk(
+    def _extract_trace_data_for_chunk(
         self, positions: list[int], start: int, end: int
     ) -> None:
         """Extract the roi traces for the given chunk."""
         for p in range(start, end):
             if self._check_for_abort_requested():
                 break
-            self._extract_trace_per_position(positions[p])
+            self._extract_trace_data_per_position(positions[p])
 
-    def _extract_trace_per_position(self, p: int) -> None:
+    def _extract_trace_data_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
         if self._data is None or self._check_for_abort_requested():
             return
@@ -612,21 +640,20 @@ class _AnalyseCalciumTraces(QWidget):
         # the "Event" key was used in the old metadata format
         event_key = "mda_event" if "mda_event" in meta[0] else "Event"
 
-        # get the well name from metadata
-        pos_name = self._get_pos_name(event_key, meta, p)
+        # get the fov_name name from metadata
+        fov_name = self._get_fov_name(event_key, meta, p)
 
-        # create the dict for the well if it does not exist
-        if pos_name not in self._analysis_data:
-            self._analysis_data[pos_name] = {}
-
+        # create the dict for the fov if it does not exist
+        if fov_name not in self._analysis_data:
+            self._analysis_data[fov_name] = {}
         # get the labels file for the position
-        labels_path = self._get_labels_file_for_position(pos_name, p)
+        labels_path = self._get_labels_file_for_position(fov_name, p)
         if labels_path is None:
             return
 
         # open the labels file and create masks for each label
         labels = tifffile.imread(labels_path)
-        labels_masks = self._create_label_masks(labels)
+        labels_masks = self._create_label_masks_dict(labels)
         sequence = cast(useq.MDASequence, self._data.sequence)
 
         # get the elapsed time from the metadata to calculate the total time in seconds
@@ -635,27 +662,29 @@ class _AnalyseCalciumTraces(QWidget):
         # get the exposure time from the metadata
         exp_time = meta[0][event_key].get("exposure", 0.0)
 
+        # get timepoints
+        timepoints = sequence.sizes["t"]
+
         # get the total time in seconds for the recording
-        timepoints, tot_time_sec = self._calculate_total_time(
-            elapsed_time_list, exp_time, sequence
+        tot_time_sec = self._calculate_total_time(
+            elapsed_time_list, exp_time, timepoints
         )
 
         # check if it is an evoked activity experiment
         stimulated = self._is_stimulated()
 
-        LOGGER.info(f"Extracting Traces from Well {pos_name}.")
+        LOGGER.info(f"Extracting Traces from Well {fov_name}.")
         for label_value, label_mask in tqdm(
-            labels_masks.items(), desc=f"Extracting Traces from Well {pos_name}"
+            labels_masks.items(), desc=f"Extracting Traces from Well {fov_name}"
         ):
             if self._check_for_abort_requested():
                 break
 
             # extract the data
             self._process_roi_trace(
-                p,
                 data,
                 meta,
-                pos_name,
+                fov_name,
                 label_value,
                 label_mask,
                 timepoints,
@@ -666,19 +695,21 @@ class _AnalyseCalciumTraces(QWidget):
             )
 
         # save the analysis data for the well
-        self._save_analysis_data(pos_name)
+        self._save_analysis_data(fov_name)
 
         # update the progress bar
         self.progress_bar_updated.emit()
 
-    def _get_pos_name(self, event_key: str, meta: list[dict], p: int) -> str:
-        """Retrieve the well name from metadata."""
+    def _get_fov_name(self, event_key: str, meta: list[dict], p: int) -> str:
+        """Retrieve the fov name from metadata."""
         # the "Event" key was used in the old metadata format
-        return meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")  # type: ignore
+        pos_name = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+        return f"{pos_name}_p{p}"
 
-    def _get_labels_file_for_position(self, well: str, p: int) -> str | None:
+    def _get_labels_file_for_position(self, fov: str, p: int) -> str | None:
         """Retrieve the labels file for the given position."""
-        labels_name = f"{well}_p{p}.tif"
+        # if the fov name does not end with "_p{p}", add it
+        labels_name = f"{fov}.tif" if fov.endswith(f"_p{p}") else f"{fov}_p{p}.tif"
         labels_path = self._get_labels_file(labels_name)
         if labels_path is None:
             self._failed_labels.append(labels_name)
@@ -686,7 +717,7 @@ class _AnalyseCalciumTraces(QWidget):
             print(f"No labels found for {labels_name}!")
         return labels_path
 
-    def _create_label_masks(self, labels: np.ndarray) -> dict:
+    def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
         """Create masks for each label in the labels image."""
         # get the range of labels and remove the background (0)
         labels_range = np.unique(labels[labels != 0])
@@ -696,10 +727,9 @@ class _AnalyseCalciumTraces(QWidget):
         self,
         elapsed_time_list: list[float],
         exp_time: float,
-        seq: useq.MDASequence,
-    ) -> tuple[int, float]:
+        timepoints: int,
+    ) -> float:
         """Calculate total time in seconds for the recording."""
-        timepoints = seq.sizes["t"]
         # if the len of elapsed time is not equal to the number of timepoints,
         # use exposure time and the number of timepoints to calculate tot_time_sec
         if len(elapsed_time_list) != timepoints:
@@ -710,7 +740,7 @@ class _AnalyseCalciumTraces(QWidget):
             tot_time_sec = (
                 elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
             ) / 1000
-        return timepoints, tot_time_sec
+        return tot_time_sec
 
     def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
         elapsed_time_list: list[float] = []
@@ -729,10 +759,9 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _process_roi_trace(
         self,
-        p: int,
         data: np.ndarray,
         meta: list[dict],
-        pos_name: str,
+        fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
         timepoints: int,
@@ -790,19 +819,21 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff * 2
+        peaks_prominence_dec_dff = noise_level_dec_dff  # * 2
 
         # find peaks in the deconvolved trace
-        peaks_dec_dff, _ = find_peaks(dec_dff, prominence=peaks_prominence_dec_dff)
+        peaks_dec_dff, _ = find_peaks(
+            dec_dff, prominence=peaks_prominence_dec_dff, height=self._min_peaks_height
+        )
 
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
         # calculate the frequency of the peaks in the dec_dff trace
-        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else 0.0
+        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else None
 
         # get the conditions for the well
-        condition_1, condition_2 = self._get_conditions(pos_name)
+        condition_1, condition_2 = self._get_conditions(fov_name)
 
         instantaneous_phase = get_linear_phase(timepoints, peaks_dec_dff)
 
@@ -815,15 +846,15 @@ class _AnalyseCalciumTraces(QWidget):
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
         # store the data to the analysis dict as ROIData
-        self._analysis_data[pos_name][str(label_value)] = ROIData(
-            well_fov_position=f"{pos_name}_p{p}.tif",
+        self._analysis_data[fov_name][str(label_value)] = ROIData(
+            well_fov_position=fov_name,
             raw_trace=roi_trace.tolist(),  # type: ignore
             dff=dff.tolist(),  # type: ignore
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
-            dec_dff_frequency=frequency,
+            dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
@@ -848,13 +879,13 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1 = condition_2 = None
         return condition_1, condition_2
 
-    def _save_analysis_data(self, well: str) -> None:
+    def _save_analysis_data(self, pos_name: str) -> None:
         """Save analysis data to a JSON file."""
-        LOGGER.info("Saving JSON file for Well %s.", well)
-        path = Path(self._analysis_path.value()) / f"{well}.json"
+        LOGGER.info("Saving JSON file for Well %s.", pos_name)
+        path = Path(self._analysis_path.value()) / f"{pos_name}.json"
         with path.open("w") as f:
             json.dump(
-                self._analysis_data[well],
+                self._analysis_data[pos_name],
                 f,
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
