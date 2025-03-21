@@ -14,6 +14,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -21,13 +22,20 @@ from qtpy.QtWidgets import (
 )
 
 from ._plot_methods import plot_multi_well_data, plot_single_well_data
-from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS, ROIData
+from ._util import (
+    COND1,
+    COND2,
+    MULTI_WELL_COMBO_OPTIONS,
+    SINGLE_WELL_COMBO_OPTIONS,
+    ROIData,
+)
 
 if TYPE_CHECKING:
     from ._fov_table import WellInfo
     from ._plate_viewer import PlateViewer
 
 RED = "#C33"
+HEIGHT = 20
 
 
 def _get_fov_data(
@@ -242,6 +250,8 @@ class _DisplayMultiWellPositions(QGroupBox):
         )
 
         self._graph: _MultilWellGraphWidget = parent
+        self._cond_list: dict = self._graph._plate_map_data
+        self._plate_map_color: dict = self._graph._plate_map_color
 
         self._pos_le = QLineEdit()
         self._pos_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
@@ -249,8 +259,8 @@ class _DisplayMultiWellPositions(QGroupBox):
         self._pos_le.returnPressed.connect(self._update)
         self._update_btn = QPushButton("Update", self)
 
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout = QVBoxLayout(self)
+        # main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.addWidget(QLabel("Positions:"))
         main_layout.addWidget(self._pos_le)
         main_layout.addWidget(self._update_btn)
@@ -258,13 +268,105 @@ class _DisplayMultiWellPositions(QGroupBox):
 
         self.toggled.connect(self._on_toggle)
 
-    def _on_toggle(self, state: bool) -> None:
-        ...
-        # to be implemented
+    def _update_condition_list(self) -> None:
+        """Update the conditions to display."""
+        if not bool(self._cond_list) or not bool(self._plate_map_color):
+            self._graph._update_plate_map()
+            self._cond_list: dict = self._graph._plate_map_data
+            self._plate_map_color: dict = self._graph._plate_map_color
 
     def _update(self) -> None:
-        ...
-        # to be implemented
+        """Update graphs."""
+        print("should update graphs")
+
+    def _on_toggle(self, state: bool) -> None:
+        """On toggle."""
+        self._update_condition_list()
+        if not state:
+            self._graph._on_combo_changed(self._graph._combo.currentText())
+        else:
+            self._update()
+
+
+class _MultiConditionSelection(QGroupBox):
+    def __init__(self, parent: _MultilWellGraphWidget) -> None:
+        super().__init__(parent)
+        self.setTitle("Choose which well(s)/condition(s) to display.")
+        self.setCheckable(True)
+        self.setChecked(False)
+
+        self.setToolTip(
+            "By default, the widget will display data grouped by the conditions in the "
+            "first platemap. Here you can enter the wells you want to visualize or "
+            "select conditions to display from the dropdown menu, which is populated by"
+            " the platemaps generated or loaded in the analysis folder"
+        )
+
+        self.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        )
+
+        self._graph: _MultilWellGraphWidget = parent
+        self._cond_list: dict = self._graph._plate_map_data
+        self._plate_map_color: dict = self._graph._plate_map_color
+
+        cond_sel_layout = QHBoxLayout()
+        self._cond_sel = QLineEdit()
+        cond_sel_layout.addWidget(QLabel("Wells/Conditions:"))
+        cond_sel_layout.addWidget(self._cond_sel)
+
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.MultiSelection)
+        self.list_widget.setMaximumHeight(HEIGHT)
+        self.list_widget.itemSelectionChanged.connect(self._update_text)
+
+        self._update_btn = QPushButton("Update", self)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.addLayout(cond_sel_layout)
+        main_layout.addWidget(self.list_widget)
+        main_layout.addWidget(self._update_btn)
+        self._update_btn.clicked.connect(self._update)
+
+        self.toggled.connect(self._on_toggle)
+
+    def _update_condition_list(self):
+        """Update the conditions to display."""
+        if not bool(self._cond_list) or not bool(
+            self._plate_map_color
+        ):  # if the condition list is empty
+            self._graph._update_plate_map()
+            self._cond_list: dict = self._graph._plate_map_data
+            self._plate_map_color: dict = self._graph._plate_map_color
+
+        plate_map_keys = list(self._plate_map_color.keys())
+        cond_list = []
+        cond_list = [key for key in plate_map_keys if key not in cond_list]
+        self.list_widget.setMaximumHeight(len(cond_list) * HEIGHT)
+        self.list_widget.addItems(cond_list)
+
+    def _update_text(self) -> None:
+        """Update text displayed to show selected conditions."""
+        selected_items = [item.text() for item in self.list_widget.selectedItems()]
+        if selected_items:
+            self._cond_sel.setText(", ".join(selected_items))
+        else:
+            self._cond_sel.setText("")
+
+    def _update(self) -> None:
+        """Update graphs."""
+        self._graph.clear_plot()
+        text = self._graph._combo.currentText()
+        print(text)
+
+    def _on_toggle(self, state: bool) -> None:
+        """On toggle."""
+        self._update_condition_list()
+        if not state:
+            self._graph._on_combo_changed(self._graph._combo.currentText())
+        else:
+            self._update()
 
 
 class _MultilWellGraphWidget(QWidget):
@@ -274,6 +376,9 @@ class _MultilWellGraphWidget(QWidget):
         self._plate_viewer: PlateViewer = parent
 
         self._fov: str = ""
+
+        self._plate_map_data: dict[str, dict[str, str]] = {}
+        self._plate_map_color: dict[str, str] = {}
 
         self._combo = QComboBox(self)
         self._combo.addItems(["None", *MULTI_WELL_COMBO_OPTIONS])
@@ -289,7 +394,14 @@ class _MultilWellGraphWidget(QWidget):
         top.addWidget(self._save_btn, 0)
 
         # hiding this for now, to be implemented
-        # self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
+        # self._choose_displayed_positions = _DisplayMultiWellPositions(self)
+        self._choose_displayed_conditions = _MultiConditionSelection(self)
+
+        selection_layout = QHBoxLayout()
+        selection_layout.setContentsMargins(0, 0, 0, 0)
+        selection_layout.setSpacing(5)
+        # selection_layout.addWidget(self._choose_displayed_positions, 1)
+        selection_layout.addWidget(self._choose_displayed_conditions, 1)
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -299,7 +411,7 @@ class _MultilWellGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(top)
-        # layout.addWidget(self._choose_dysplayed_positions)
+        layout.addLayout(selection_layout)
         layout.addWidget(self.canvas)
 
         self.set_combo_text_red(True)
@@ -329,14 +441,18 @@ class _MultilWellGraphWidget(QWidget):
         """Update the graph when the combo box is changed."""
         # clear the plot
         self.clear_plot()
+        # self._checked_selections()
+
         if text == "None":
             return
 
         plot_multi_well_data(
             self, text, self._plate_viewer._analysis_data, positions=None
         )
-        # if self._choose_dysplayed_positions.isChecked():
-        #     self._choose_dysplayed_positions._update()
+        # if self._choose_displayed_positions.isChecked():
+        #     self._choose_displayed_positions._update()
+        if self._choose_displayed_conditions.isChecked():
+            self._choose_displayed_conditions._update()
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""
@@ -348,3 +464,32 @@ class _MultilWellGraphWidget(QWidget):
         if not filename:
             return
         self.figure.savefig(filename, dpi=300)
+
+    # def _checked_selections(self) -> None:
+    #     """Ensure that the use only choose display either by positions or by conditions."""
+    #     if self._choose_displayed_positions.isChecked():
+    #         self._choose_displayed_conditions._on_toggle(False)
+
+    #     elif self._choose_displayed_conditions.isChecked():
+    #         self._choose_displayed_positions._on_toggle(False)
+
+    def _update_plate_map(self):
+        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
+        condition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+
+        if condition_1_plate_map is None and condition_2_plate_map is None:
+            return None
+
+        for data in condition_1_plate_map:
+            self._plate_map_data[data.name] = {COND1: data.condition[0]}
+            if data.condition[0]:
+                self._plate_map_color[data.condition[0]] = data.condition[1]
+
+        for data in condition_2_plate_map:
+            if data.name in self._plate_map_data:
+                self._plate_map_data[data.name][COND2] = data.condition[0]
+            else:
+                self._plate_map_data[data.name] = {COND2: data.condition[0]}
+
+            if data.condition[0]:
+                self._plate_map_color[data.condition[0]] = data.condition[1]
