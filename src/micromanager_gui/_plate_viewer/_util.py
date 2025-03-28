@@ -53,6 +53,7 @@ DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
 
+CELL_SIZE_ALL = "Cell sizes"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
@@ -65,6 +66,7 @@ STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
+SYNCHRONY_ALL = "Global Synchrony"
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,
@@ -88,10 +90,12 @@ SINGLE_WELL_COMBO_OPTIONS = [
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
+    CELL_SIZE_ALL,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL,
     DEC_DFF_AMPLITUDE_ALL,
     DEC_DFF_FREQUENCY_ALL,
     DEC_DFF_IEI_ALL,
+    SYNCHRONY_ALL,
 ]
 # ------------------------------------------------------------------------------------
 

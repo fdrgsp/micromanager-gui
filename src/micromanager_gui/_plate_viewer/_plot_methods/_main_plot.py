@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from micromanager_gui._plate_viewer._util import (
+    CELL_SIZE_ALL,
     DEC_DFF,
     DEC_DFF_AMPLITUDE,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
@@ -21,9 +22,13 @@ from micromanager_gui._plate_viewer._util import (
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    SYNCHRONY_ALL,
 )
 
-from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
+from ._multi_wells_plots._multi_well_data_plot import (
+    _plot_multi_cond_data,
+    _plot_multi_well_data,
+)
 from ._single_wells_plots._raster_plots import _generate_raster_plot
 from ._single_wells_plots._single_well_data import _plot_single_well_data
 from ._single_wells_plots._stimulation_plots import _visualize_stimulated_area
@@ -61,6 +66,8 @@ MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_AMPLITUDE: {"amp": True},
     DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_IEI: {"iei": True},
+    CELL_SIZE_ALL: {"cell_size": True},
+    SYNCHRONY_ALL: {"sync": True},
 }
 
 
@@ -118,7 +125,7 @@ def plot_multi_well_data(
     widget: _MultilWellGraphWidget,
     text: str,
     data: dict[str, dict[str, ROIData]],
-    positions: list[int] | None = None,
+    # positions: list[int] | None = None,
 ) -> None:
     """Plot the multi-well data."""
     if not text or text == "None" or not data:
@@ -126,6 +133,22 @@ def plot_multi_well_data(
 
     # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
     # maps the text to the options
-    return _plot_multi_well_data(
-        widget, data, positions, **MULTI_WELL_GRAPHS_OPTIONS[text]
+    return _plot_multi_well_data(widget, data, **MULTI_WELL_GRAPHS_OPTIONS[text])
+
+
+def plot_multi_cond_data(
+    widget: _MultilWellGraphWidget,
+    text: str,
+    data: dict[str, list[ROIData]],
+    cond_order: list[str],
+    plate_map_color: dict[str, str],
+) -> None:
+    """Plot the multi-well data."""
+    if not text or text == "None" or not data:
+        return
+
+    # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
+    # maps the text to the options
+    return _plot_multi_cond_data(
+        widget, data, cond_order, plate_map_color, **MULTI_WELL_GRAPHS_OPTIONS[text]
     )
