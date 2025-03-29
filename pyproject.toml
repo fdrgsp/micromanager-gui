@@ -40,6 +40,7 @@ dependencies = [
     "ndv[vispy]",
     "qtconsole",
     "tensorstore!=0.1.72",
+    "pydantic<2.11.0",
 ]
 
 # extras
