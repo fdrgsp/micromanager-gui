@@ -5,7 +5,6 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
 import tensorstore as ts
 import useq
 from pymmcore_plus.metadata.serialize import json_loads
@@ -14,6 +13,8 @@ from tqdm import tqdm
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    import numpy as np
 
 
 class TensorstoreZarrReader:
@@ -149,7 +150,7 @@ class TensorstoreZarrReader:
                 )
 
         index = self._get_axis_index(indexers)
-        data = cast(np.ndarray, self.store[index].read().result().squeeze())
+        data = cast("np.ndarray", self.store[index].read().result().squeeze())
         if metadata:
             meta = self._get_metadata_from_index(indexers)
             return data, meta

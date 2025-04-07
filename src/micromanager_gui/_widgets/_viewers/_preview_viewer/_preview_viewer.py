@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Hashable, Mapping, cast
 
 import tensorstore as ts
 from ndv import DataWrapper, NDViewer
-from ndv.viewer._backends._vispy import VispyViewerCanvas
 from pymmcore_plus import CMMCorePlus, Metadata
 from qtpy import QtCore
 from superqt.utils import ensure_main_thread
@@ -15,6 +14,7 @@ from ._preview_save_button import SaveButton
 
 if TYPE_CHECKING:
     import numpy as np
+    from ndv.viewer._backends._vispy import VispyViewerCanvas
     from qtpy.QtGui import QCloseEvent
     from qtpy.QtWidgets import QWidget
 
@@ -109,7 +109,7 @@ class Preview(NDViewer):
 
             # this is a hack to update the canvas with the new image shape or the
             # set_range method will not work properly
-            self._canvas = cast(VispyViewerCanvas, self._canvas)  # type: ignore
+            self._canvas = cast("VispyViewerCanvas", self._canvas)  # type: ignore
             if self._canvas._current_shape:
                 self._canvas._current_shape = self.ts_shape
 

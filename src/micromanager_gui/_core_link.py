@@ -107,7 +107,7 @@ class CoreViewersLink(QObject):
         self._current_viewer = MDAViewer(parent=self._main_window, data=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
-        pmmcw_meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        pmmcw_meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         viewer_name = self._get_viewer_name(pmmcw_meta.get("save_name"))
         self._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._viewer_tab.setCurrentWidget(self._current_viewer)

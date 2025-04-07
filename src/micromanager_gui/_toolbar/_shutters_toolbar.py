@@ -58,7 +58,7 @@ class _ShuttersToolbar(QToolBar):
     def _clear(self) -> None:
         """Delete toolbar action."""
         while self.actions():
-            action = cast(QWidgetAction, self.actions()[0])
+            action = cast("QWidgetAction", self.actions()[0])
             # get the shutter widget associated with the action and delete it
             widget = action.defaultWidget()
             if widget is not None:
