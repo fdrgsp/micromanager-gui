@@ -20,7 +20,7 @@ The package is tested on Python 3.10 and 3.11.
 ## Installation
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui@calcium
+pip install git+https://github.com/fdrgsp/micromanager-gui@slackbot
 ```
 
 ### Installing PyQt
