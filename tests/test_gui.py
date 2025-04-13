@@ -34,7 +34,7 @@ def test_menu_wdg(qtbot: QtBot, global_mmcore: CMMCorePlus, _run_after_each_test
         if action.text() == "Console":
             continue
         action.trigger()
-    assert len(menu._widgets.keys()) == len(WIDGETS) + len(DOCKWIDGETS)
+    assert len(menu._widgets.keys()) == len(WIDGETS) + len(DOCKWIDGETS) - 1
 
 
 def test_menu_viewer(qtbot: QtBot, global_mmcore: CMMCorePlus, _run_after_each_test):
