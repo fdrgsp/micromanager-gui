@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Hashable, Mapping
+from typing import TYPE_CHECKING, Any
 
 import tensorstore as ts
 from ndv import DataWrapper, NDViewer
@@ -13,6 +13,8 @@ from micromanager_gui._widgets._snap_live_buttons import Live, Snap
 from ._preview_save_button import SaveButton
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable, Mapping
+
     import numpy as np
     from qtpy.QtGui import QCloseEvent
     from qtpy.QtWidgets import QWidget
@@ -87,6 +89,12 @@ class Preview(NDViewer):
     def closeEvent(self, event: QCloseEvent | None) -> None:
         self._mmc.stopSequenceAcquisition()
         super().closeEvent(event)
+
+    def _on_set_range_clicked(self) -> None:
+        # using method to swallow the parameter passed by _set_range_btn.clicked
+        self._canvas.set_range(
+            (0, self._mmc.getImageWidth() - 1), (0, self._mmc.getImageHeight() - 1)
+        )
 
     # Begin TODO: Remove once https://github.com/pyapp-kit/ndv/issues/39 solved
 
