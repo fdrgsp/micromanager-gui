@@ -49,7 +49,6 @@ RIGHT = Qt.DockWidgetArea.RightDockWidgetArea
 LEFT = Qt.DockWidgetArea.LeftDockWidgetArea
 BOTTOM = Qt.DockWidgetArea.BottomDockWidgetArea
 
-MMC = "mmc"
 MDA = "mda"
 WDGS = "wdgs"
 VIEWERS = "viewers"
@@ -275,14 +274,14 @@ class _MenuBar(QMenuBar):
         # All values in the dictionary below can be accessed from the console using
         # the associated string key
         user_vars = {
-            MMC: self._mmc,  # CMMCorePlus instance
             WDGS: self._widgets,  # dictionary of all the widgets
             MDA: self._mda,  # quick access to the MDA widget
             VIEWERS: self._get_current_mda_viewers(),  # dictionary of all the viewers
             PREVIEW: self._main_window._core_link._preview,  # access to preview widget
         }
 
-        self._mm_console = MMConsole(user_vars)
+        self._mm_console = MMConsole()
+        self._mm_console.push(user_vars)
 
         dock = QDockWidget(CONSOLE, self)
         dock.setAllowedAreas(LEFT | RIGHT | BOTTOM)
