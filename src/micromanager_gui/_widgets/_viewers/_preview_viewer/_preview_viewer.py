@@ -78,8 +78,6 @@ class Preview(NDViewer):
         ev.imageSnapped.connect(self._handle_snap)
         ev.continuousSequenceAcquisitionStarted.connect(self._start_live_viewer)
         ev.sequenceAcquisitionStopped.connect(self._stop_live_viewer)
-        ev.roiSet.connect(self._on_roi_set)
-        ev.propertyChanged.connect(self._on_property_changed)
         self._mmc.events.exposureChanged.connect(self._restart_live)
         self._mmc.events.configSet.connect(self._restart_live)
 
@@ -90,6 +88,12 @@ class Preview(NDViewer):
     def closeEvent(self, event: QCloseEvent | None) -> None:
         self._mmc.stopSequenceAcquisition()
         super().closeEvent(event)
+
+    def _on_set_range_clicked(self) -> None:
+        # using method to swallow the parameter passed by _set_range_btn.clicked
+        self._canvas.set_range(
+            (0, self._mmc.getImageWidth() - 1), (0, self._mmc.getImageHeight() - 1)
+        )
 
     # Begin TODO: Remove once https://github.com/pyapp-kit/ndv/issues/39 solved
 
@@ -177,14 +181,3 @@ class Preview(NDViewer):
         """Handles TimerEvents."""
         # Handle the timer event by updating the viewer (on gui thread)
         self._update_viewer()
-
-    def _on_roi_set(self) -> None:
-        """Reconfigure the viewer when a Camera ROI is set."""
-        self._update_datastore()
-
-    def _on_property_changed(self, dev: str, prop: str, value: str) -> None:
-        """Reconfigure the viewer when a Camera property is changed."""
-        # if any property related to the camera is changed, reconfigure the viewer
-        # Maybe be more strict about which properties trigger a reconfigure?
-        if dev == self._mmc.getCameraDevice() and prop != "Exposure":
-            self._update_datastore()
