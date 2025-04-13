@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Hashable, Mapping, cast
+from typing import TYPE_CHECKING, Any
 
 import tensorstore as ts
 from ndv import DataWrapper, NDViewer
-from ndv.viewer._backends._vispy import VispyViewerCanvas
 from pymmcore_plus import CMMCorePlus, Metadata
 from qtpy import QtCore
 from superqt.utils import ensure_main_thread
@@ -14,6 +13,8 @@ from micromanager_gui._widgets._snap_live_buttons import Live, Snap
 from ._preview_save_button import SaveButton
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable, Mapping
+
     import numpy as np
     from qtpy.QtGui import QCloseEvent
     from qtpy.QtWidgets import QWidget
@@ -89,6 +90,12 @@ class Preview(NDViewer):
         self._mmc.stopSequenceAcquisition()
         super().closeEvent(event)
 
+    def _on_set_range_clicked(self) -> None:
+        # using method to swallow the parameter passed by _set_range_btn.clicked
+        self._canvas.set_range(
+            (0, self._mmc.getImageWidth() - 1), (0, self._mmc.getImageHeight() - 1)
+        )
+
     # Begin TODO: Remove once https://github.com/pyapp-kit/ndv/issues/39 solved
 
     def _update_datastore(self) -> Any:
@@ -106,17 +113,7 @@ class Preview(NDViewer):
                 shape=self.ts_shape,
                 dtype=_data_type(self._mmc),
             ).result()
-
-            # this is a hack to update the canvas with the new image shape or the
-            # set_range method will not work properly
-            self._canvas = cast(VispyViewerCanvas, self._canvas)  # type: ignore
-            if self._canvas._current_shape:
-                self._canvas._current_shape = self.ts_shape
-
             super().set_data(self.ts_array)
-
-            self._canvas.set_range()
-
         return self.ts_array
 
     def set_data(
