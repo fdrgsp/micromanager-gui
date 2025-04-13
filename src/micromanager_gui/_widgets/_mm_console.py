@@ -18,8 +18,8 @@ if os.name == "nt":
         sys.stderr = open(os.devnull, "w")
 
 
-from PyQt6.QtWidgets import QApplication, QWidget
 from qtconsole.inprocess import QtInProcessKernelManager
+from qtpy.QtWidgets import QApplication, QWidget
 from traitlets import default
 
 try:
@@ -29,9 +29,9 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ipykernel.inprocess.ipkernel import InProcessInteractiveShell, InProcessKernel
-    from PyQt6.QtCore import QObject
-    from PyQt6.QtGui import QCloseEvent
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
+    from qtpy.QtCore import QObject
+    from qtpy.QtGui import QCloseEvent
 
     # RichJupyterWidget has a very complex inheritance structure, and mypy/pyright
     # are unable to determine that it is a QWidget subclass. This is a workaround.
