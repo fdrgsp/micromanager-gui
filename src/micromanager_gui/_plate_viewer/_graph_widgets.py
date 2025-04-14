@@ -20,13 +20,26 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ._plot_methods import plot_multi_well_data, plot_single_well_traces
-from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS
+from ._plot_methods import plot_multi_well_data, plot_single_well_data
+from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS, ROIData
 
 if TYPE_CHECKING:
+    from ._fov_table import WellInfo
     from ._plate_viewer import PlateViewer
 
 RED = "#C33"
+
+
+def _get_fov_data(
+    table_data: WellInfo, analysis_data: dict[str, dict[str, ROIData]]
+) -> dict[str, ROIData] | None:
+    """Return the analysis data for the current FOV."""
+    fov_name = f"{table_data.fov.name}_p{table_data.pos_idx}"
+    # if the well is not in the analysis data, use the old name we used to store
+    # the data (without the position index. e.g. "_p0")
+    if fov_name not in analysis_data:
+        fov_name = str(table_data.fov.name)
+    return analysis_data.get(fov_name, None)
 
 
 class _DisplaySingleWellTraces(QGroupBox):
@@ -70,6 +83,8 @@ class _DisplaySingleWellTraces(QGroupBox):
         """Enable or disable the random spin box and the update button."""
         if not state:
             self._graph._on_combo_changed(self._graph._combo.currentText())
+        else:
+            self._update()
 
     def _update(self) -> None:
         """Update the graph with random traces."""
@@ -78,13 +93,12 @@ class _DisplaySingleWellTraces(QGroupBox):
         table_data = self._graph._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        well_name = table_data.fov.name
-        if well_name in self._graph._plate_viewer._analysis_data:
-            data = self._graph._plate_viewer._analysis_data[well_name]
+        data = _get_fov_data(table_data, self._graph._plate_viewer._analysis_data)
+        if data is not None:
             rois = self._get_rois(data)
             if rois is None:
                 return
-            plot_single_well_traces(self._graph, data, text, rois=rois)
+            plot_single_well_data(self._graph, data, text, rois=rois)
 
     def _get_rois(self, data: dict) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
@@ -189,14 +203,9 @@ class _SingleWellGraphWidget(QWidget):
         table_data = self._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        # get the segmentation labels
-        # labels = self._plate_viewer._get_segmentation(table_data)
-        # if labels is None:
-        #     return
-        well_name = table_data.fov.name
-        if well_name in self._plate_viewer._analysis_data:
-            data = self._plate_viewer._analysis_data[well_name]
-            plot_single_well_traces(self, data, text, rois=None)
+        data = _get_fov_data(table_data, self._plate_viewer._analysis_data)
+        if data is not None:
+            plot_single_well_data(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
                 self._choose_dysplayed_traces._update()
 
@@ -249,9 +258,13 @@ class _DisplayMultiWellPositions(QGroupBox):
 
         self.toggled.connect(self._on_toggle)
 
-    def _on_toggle(self, state: bool) -> None: ...
+    def _on_toggle(self, state: bool) -> None:
+        ...
+        # to be implemented
 
-    def _update(self) -> None: ...
+    def _update(self) -> None:
+        ...
+        # to be implemented
 
 
 class _MultilWellGraphWidget(QWidget):
@@ -275,7 +288,8 @@ class _MultilWellGraphWidget(QWidget):
         top.addWidget(self._combo, 1)
         top.addWidget(self._save_btn, 0)
 
-        self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
+        # hiding this for now, to be implemented
+        # self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
 
         # Create a figure and a canvas
         self.figure = Figure()
@@ -285,7 +299,7 @@ class _MultilWellGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(top)
-        layout.addWidget(self._choose_dysplayed_positions)
+        # layout.addWidget(self._choose_dysplayed_positions)
         layout.addWidget(self.canvas)
 
         self.set_combo_text_red(True)
@@ -321,8 +335,8 @@ class _MultilWellGraphWidget(QWidget):
         plot_multi_well_data(
             self, text, self._plate_viewer._analysis_data, positions=None
         )
-        if self._choose_dysplayed_positions.isChecked():
-            self._choose_dysplayed_positions._update()
+        # if self._choose_dysplayed_positions.isChecked():
+        #     self._choose_dysplayed_positions._update()
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""

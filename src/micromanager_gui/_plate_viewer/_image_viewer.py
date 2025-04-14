@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING
 
 import cmap
 import numpy as np
+import tifffile
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import (
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -79,6 +81,8 @@ class _ImageViewer(QGroupBox):
         find_roi_lbl = QLabel("ROI:")
         find_roi_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._roi_number_le = QLineEdit()
+        # when pressing enter in the line edit, update the graph
+        self._roi_number_le.returnPressed.connect(self._highlight_rois)
         self._find_btn = QPushButton("Find")
         self._find_btn.clicked.connect(self._highlight_rois)
         self._clear_btn = QPushButton("Clear")
@@ -96,7 +100,7 @@ class _ImageViewer(QGroupBox):
         roi_layout.addWidget(self._find_btn)
         roi_layout.addWidget(self._clear_btn)
 
-        # LUT slider
+        # lUT slider
         self._clims = QLabeledRangeSlider(Qt.Orientation.Horizontal)
         self._clims.setStyleSheet(SS)
         self._clims.setHandleLabelPosition(
@@ -121,6 +125,12 @@ class _ImageViewer(QGroupBox):
         self._reset_view.setToolTip("Reset View")
         self._reset_view.setIcon(icon(MDI6.fullscreen))
         self._reset_view.clicked.connect(self._reset)
+        # save image button
+        self._save_image_btn = QPushButton()
+        self._save_image_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._save_image_btn.setToolTip("Save Image")
+        self._save_image_btn.setIcon(icon(MDI6.content_save_outline))
+        self._save_image_btn.clicked.connect(self._save_image)
         # bottom widget
         bottom_wdg = QWidget()
         bottom_wdg_layout = QHBoxLayout(bottom_wdg)
@@ -129,6 +139,7 @@ class _ImageViewer(QGroupBox):
         bottom_wdg_layout.addWidget(self._auto_clim)
         bottom_wdg_layout.addWidget(self._labels)
         bottom_wdg_layout.addWidget(self._reset_view)
+        bottom_wdg_layout.addWidget(self._save_image_btn)
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(roi_wdg)
@@ -225,22 +236,23 @@ class _ImageViewer(QGroupBox):
         if not rois:
             show_error_dialog(self, "Invalid ROIs provided!")
             return None
-        if max(rois) >= labels_data.max():
+
+        if max(rois) > labels_data.max():
             show_error_dialog(self, "Input ROIs out of range!")
             return None
 
-        # Clear the previous highlight image if it exists
+        # clear the previous highlight image if it exists
         if self._viewer.highlight_roi is not None:
             self._viewer.highlight_roi.parent = None
             self._viewer.highlight_roi = None
 
-        # Create a mask for the label to highlight it
+        # create a mask for the label to highlight it
         highlight = np.zeros_like(labels_data, dtype=np.uint8)
         for roi in rois:
             mask = labels_data == roi
             highlight[mask] = 255
 
-        # Add the highlight image to the viewer
+        # add the highlight image to the viewer
         self._viewer.highlight_roi = scene.visuals.Image(
             highlight,
             cmap=cmap.Colormap("green").to_vispy(),
@@ -277,6 +289,17 @@ class _ImageViewer(QGroupBox):
             return
         self._highlight_rois(roi)
         self.valueChanged.emit(roi)
+
+    def _save_image(self) -> None:
+        """Save the image and labels to a file."""
+        image = self._viewer._canvas.render()
+        if image is None:
+            return
+        (filename, _) = QFileDialog.getSaveFileName(
+            self, "Save Image", "", "PNG Files (*.png)"
+        )
+        if filename:
+            tifffile.imwrite(filename, image)
 
 
 class _ImageCanvas(QWidget):
@@ -388,7 +411,7 @@ class _ImageCanvas(QWidget):
     def _labels_custom_cmap(self, n_labels: int) -> Colormap:
         """Create a custom colormap for the labels."""
         colors = np.zeros((n_labels + 1, 4))
-        colors[0] = [0, 0, 0, 1]  # Black for background (0)
+        colors[0] = [0, 0, 0, 1]  # black for background (0)
         for i in range(1, n_labels + 1):
             colors[i] = [1, 1, 0, 1]  # yellow for all other labels
         return Colormap(colors)
@@ -401,17 +424,17 @@ class _ImageCanvas(QWidget):
 
         for label in np.unique(labels):
             if label == 0:
-                continue  # Skip background
+                continue  # skip background
 
-            mask = labels == label  # Binary mask for the current label
-            contour_list = find_contours(mask.astype(float), level=0.5)  # Find contours
+            mask = labels == label  # binary mask for the current label
+            contour_list = find_contours(mask.astype(float), level=0.5)  # find contours
 
             for contour in contour_list:
                 contour = np.round(contour).astype(
                     int
-                )  # Convert to integer coordinates
+                )  # convert to integer coordinates
 
-                # Expand the contour by setting a small square around each point
+                # expand the contour by adding pixels around the border
                 for x, y in contour:
                     x_min, x_max = (
                         max(0, x - thickness),
@@ -421,7 +444,7 @@ class _ImageCanvas(QWidget):
                         max(0, y - thickness),
                         min(labels.shape[1], y + thickness + 1),
                     )
-                    contours[x_min:x_max, y_min:y_max] = label  # Assign label value
+                    contours[x_min:x_max, y_min:y_max] = label  # assign label value
 
         return contours
 

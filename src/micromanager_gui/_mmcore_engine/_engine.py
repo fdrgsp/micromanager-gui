@@ -4,6 +4,7 @@ import time
 from itertools import product
 from typing import (
     TYPE_CHECKING,
+    Any,
     cast,
 )
 
@@ -109,7 +110,7 @@ class ArduinoEngine(MDAEngine):
         # if the autofocus was engaged at the start of the sequence AND autofocus action
         # did not fail, re-engage it. NOTE: we need to do that AFTER the runner calls
         # `setup_event`, so we can't do it inside the exec_event autofocus action above.
-        if self._af_was_engaged and self._af_succeeded:
+        if self._arduino_board is None and self._af_was_engaged and self._af_succeeded:
             self._mmc.enableContinuousFocus(True)
 
         # open the shutter for x sec before starting the acquisition when using GCaMP6
@@ -202,6 +203,16 @@ class ArduinoEngine(MDAEngine):
                 expected_images,
                 count,
             )
+
+    def _next_seqimg_payload(
+        self, event: MDAEvent, *args: Any, **kwargs: Any
+    ) -> PImagePayload:
+        """Grab next image from the circular buffer and return it as an ImagePayload."""
+        # TEMPORARY SOLUTION to cancel the sequence acquisition
+        if self._mmc.mda._wait_until_event(event):  # SLF001
+            self._mmc.mda.cancel()
+            self._mmc.stopSequenceAcquisition()
+        return super()._next_seqimg_payload(event, *args, **kwargs)
 
     def teardown_sequence(self, sequence: MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
