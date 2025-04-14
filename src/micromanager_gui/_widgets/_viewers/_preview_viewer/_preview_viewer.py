@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from collections.abc import Hashable, Mapping
 
     import numpy as np
-    from ndv.viewer._backends._vispy import VispyViewerCanvas
     from qtpy.QtGui import QCloseEvent
     from qtpy.QtWidgets import QWidget
 
