@@ -317,7 +317,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def compile_data(self) -> None:
         """Save the analysis data into CSV files."""
-        save_path = self._output_path.value()
+        save_path = self._analysis_path.value()
 
         # check if analysis was loaded
         if (
@@ -541,6 +541,10 @@ class _AnalyseCalciumTraces(QWidget):
             self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
+        compile_data_to_csv(
+            self._analysis_data, self._plate_map_data, self._analysis_path.value()
+        )
+
         # show a message box if there are failed labels
         if self._failed_labels:
             msg = (
@@ -548,9 +552,6 @@ class _AnalyseCalciumTraces(QWidget):
                 + "\n".join(self._failed_labels)
             )
             self._show_and_log_error(msg)
-            compile_data_to_csv(
-                self._analysis_data, self._plate_map_data, self._output_path.value()
-            )
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
