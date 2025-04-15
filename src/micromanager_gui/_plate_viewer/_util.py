@@ -623,7 +623,7 @@ def compile_data_to_csv(
 def _organize_fov_by_condition(
     analysis_data: dict[str, dict[str, ROIData]], plate_map: dict[str, dict[str, str]]
 ) -> list[str]:
-    """Organize the FOVs by the conditions."""
+    """Ordered the conditions."""
     fovs = list(analysis_data.keys())
     cond_1_list: list = []
     cond_2_list: list = []
