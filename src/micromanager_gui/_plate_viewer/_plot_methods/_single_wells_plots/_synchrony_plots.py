@@ -131,11 +131,12 @@ def _add_hover_functionality(
     synchrony_matrix: np.ndarray,
 ) -> None:
     """Add hover functionality using mplcursors."""
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
+    image = ax.images[0]
+    cursor = mplcursors.cursor(image, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
-        y, x = int(sel.target[0]), int(sel.target[1])
+        x, y = map(int, np.round(sel.target))  # <-- Snap to nearest pixel center
         roi_x, roi_y = rois[x], rois[y]
 
         sel.annotation.set(
