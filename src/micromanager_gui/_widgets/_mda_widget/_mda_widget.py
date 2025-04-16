@@ -107,7 +107,7 @@ class MDAWidget_(MDAWidget):
         # internal datastore.
         self.writer: OMETiffWriter | OMEZarrWriter | TensorStoreHandler | None = None
 
-        main_layout = cast(QBoxLayout, self.layout())
+        main_layout = cast("QBoxLayout", self.layout())
 
         # remove the existing save_info widget from the layout and replace it with
         # the custom SaveGroupBox widget that also handles tensorstore-zarr
