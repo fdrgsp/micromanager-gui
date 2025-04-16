@@ -110,7 +110,7 @@ class ArduinoEngine(MDAEngine):
         # if the autofocus was engaged at the start of the sequence AND autofocus action
         # did not fail, re-engage it. NOTE: we need to do that AFTER the runner calls
         # `setup_event`, so we can't do it inside the exec_event autofocus action above.
-        if self._af_was_engaged and self._af_succeeded:
+        if self._arduino_board is None and self._af_was_engaged and self._af_succeeded:
             self._mmc.enableContinuousFocus(True)
 
         # open the shutter for x sec before starting the acquisition when using GCaMP6
