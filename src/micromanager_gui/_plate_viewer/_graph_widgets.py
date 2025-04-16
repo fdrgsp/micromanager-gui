@@ -243,10 +243,10 @@ class _MultiConditionSelection(QGroupBox):
         self.setChecked(False)
 
         self.setToolTip(
-            "By default, the widget will display data grouped by the conditions in the "
-            "first platemap. Here you can enter the wells you want to visualize or "
-            "select conditions to display from the dropdown menu, which is populated by"
-            " the platemaps generated or loaded in the analysis folder"
+            "By default, the widget will display data from all the wells if no specific"
+            "wells/conditions selected. Here you can enter the wells you want to "
+            "visualize or select conditions to display, which is populated by"
+            " the platemaps generated or loaded in the analysis tab."
         )
 
         self.setSizePolicy(
@@ -281,12 +281,20 @@ class _MultiConditionSelection(QGroupBox):
 
         self.toggled.connect(self._on_toggle)
 
+    def _clear_plate_maps(self) -> None:
+        """Clear plate maps saved."""
+        self._plate_map.clear()
+        self._plate_map_color.clear()
+        self._cond_1_list.clear()
+        self._cond_2_list.clear()
+
     def _update_condition_list(self) -> None:
         """Update the conditions to display."""
-        if not bool(self._plate_map) or not bool(self._plate_map_color):
-            self._graph._update_plate_map()
-            self._plate_map.update(self._graph._plate_map_data)
-            self._plate_map_color.update(self._graph._plate_map_color)
+        self._clear_plate_maps()
+        self._graph._update_plate_map()
+        self._plate_map.update(self._graph._plate_map_data)
+        self._plate_map_color.update(self._graph._plate_map_color)
+        self.list_widget.clear()
 
         for well_name, conditions in self._plate_map.items():
             if COND1 in conditions:
@@ -300,12 +308,12 @@ class _MultiConditionSelection(QGroupBox):
                 self._cond_2_list[conditions[COND2]].append(well_name)
 
         cond_list = list(self._cond_1_list.keys()) + list(self._cond_2_list.keys())
-        display_item = min(len(cond_list), 4)
-        self.list_widget.setMaximumHeight(display_item * HEIGHT)
+        self.list_widget.setMaximumHeight(min(len(cond_list), 4) * HEIGHT)
         self.list_widget.addItems(cond_list)
 
     def _update_text(self) -> None:
         """Update text displayed to show selected conditions."""
+        self._cond_sel.setText("")
         selected_items = [item.text() for item in self.list_widget.selectedItems()]
         if selected_items:
             self._cond_sel.setText(", ".join(selected_items))
@@ -420,11 +428,11 @@ class _MultiConditionSelection(QGroupBox):
     def _get_fov_data_by_well(
         self, well_sel: list[str], analysis_data: dict[str, dict[str, ROIData]]
     ) -> dict[str, dict[str, ROIData]] | None:
-        """Group FOVs by well."""
+        """Group fovs by well."""
         if len(well_sel) > 1:
             wells = well_sel.copy()
         else:
-            all_wells = list(self._plate_map.keys())
+            all_wells = self._graph._all_wells
             wells = list(np.random.choice(all_wells, RANDOM_CHOICE))
 
         fovs_sel = self._get_fov_names(wells, analysis_data)
@@ -536,6 +544,7 @@ class _MultilWellGraphWidget(QWidget):
 
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._plate_map_color: dict[str, str] = {}
+        self._all_wells: list = []
 
         self._combo = QComboBox(self)
         self._combo.addItems(["None", *MULTI_WELL_COMBO_OPTIONS])
@@ -580,6 +589,9 @@ class _MultilWellGraphWidget(QWidget):
         self._fov = fov
         self._on_combo_changed(self._combo.currentText())
 
+    def clear_plate_map(self) -> None:
+        self._plate_map_data.clear()
+
     def clear_plot(self) -> None:
         """Clear the plot."""
         self.figure.clear()
@@ -621,11 +633,13 @@ class _MultilWellGraphWidget(QWidget):
         self.figure.savefig(filename, dpi=300)
 
     def _update_plate_map(self) -> None:
+        """Update the plate maps in multi-well tab."""
+        self.clear_plate_map()
+
         condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
         condition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
 
-        if condition_1_plate_map is None and condition_2_plate_map is None:
-            return None
+        self._all_wells = self._get_all_wells(self._plate_viewer._analysis_data)
 
         for data in condition_1_plate_map:
             self._plate_map_data[data.name] = {COND1: data.condition[0]}
@@ -640,3 +654,12 @@ class _MultilWellGraphWidget(QWidget):
 
             if data.condition[0]:
                 self._plate_map_color[data.condition[0]] = data.condition[1]
+
+    def _get_all_wells(self, analysis_data: dict[str, dict[str, ROIData]]) -> list[str]:
+        """Get a list of wells analyzed."""
+        wells: list[str] = []
+        for fov in analysis_data.keys():
+            well = fov.split("_")[0]
+            if well not in wells:
+                wells.append(well)
+        return wells

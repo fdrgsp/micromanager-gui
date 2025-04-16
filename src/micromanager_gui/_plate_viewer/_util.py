@@ -128,8 +128,7 @@ class ROIData(BaseClass):
     cell_size_units: str | None = None
     total_recording_time_in_sec: float | None = None
     active: bool | None = None
-    linear_phase: list[float] | None = None
-    cubic_phase: list[float] | None = None
+    instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
     # ... add whatever other data we need
