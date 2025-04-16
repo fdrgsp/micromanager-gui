@@ -140,8 +140,7 @@ class ROIData(BaseClass):
     cell_size_units: str | None = None
     total_recording_time_in_sec: float | None = None
     active: bool | None = None
-    linear_phase: list[float] | None = None
-    cubic_phase: list[float] | None = None
+    instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
     # ... add whatever other data we need
@@ -669,7 +668,7 @@ def _compile_data_per_fov(
     iei_list_fov: list[float] = []
     active_cells: int = 0
     cell_size_unit: str = ""
-    linear_phases: dict[str, list[float]] = {}
+    instantaneous_phase_dict: dict[str, list[float]] = {}
 
     for roi_name, roiData in fov_dict.items():
         if not isinstance(roiData, ROIData):
@@ -686,10 +685,13 @@ def _compile_data_per_fov(
                 else ""
             )
 
-        if isinstance(roiData.linear_phase, list) and len(roiData.linear_phase) > 0:
-            if roi_name not in linear_phases:
-                linear_phases[roi_name] = []
-            linear_phases[roi_name] = roiData.linear_phase
+        if (
+            isinstance(roiData.instantaneous_phase, list)
+            and len(roiData.instantaneous_phase) > 0
+        ):
+            if roi_name not in instantaneous_phase_dict:
+                instantaneous_phase_dict[roi_name] = []
+            instantaneous_phase_dict[roi_name] = roiData.instantaneous_phase
 
         # if cells are active (i.e. have at least one peak)
         if roiData.active:
@@ -708,7 +710,7 @@ def _compile_data_per_fov(
             # activity
             active_cells += 1
 
-    linear_synchrony = get_connectivity(linear_phases)
+    linear_synchrony = get_connectivity(instantaneous_phase_dict)
     percentage_active = float(active_cells / len(list(fov_dict.keys())) * 100)
 
     # NOTE: if adding more output measurements,
