@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pymmcore_plus.mda.handlers import OMETiffWriter
-from pymmcore_plus.metadata.serialize import to_builtins
 
 if TYPE_CHECKING:
     import numpy as np
@@ -105,7 +104,7 @@ class _OMETiffWriter(OMETiffWriter):
 
         # save metadata
         with open(self._folder / META, "w") as f:
-            formatted = json.dumps(to_builtins(meta), indent=2)
+            formatted = json.dumps(meta, indent=2)
             f.write(formatted)
 
         # save sequence
