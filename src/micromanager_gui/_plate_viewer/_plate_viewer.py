@@ -269,11 +269,6 @@ class PlateViewer(QMainWindow):
         # self._analysis_files_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # reader = TensorstoreZarrReader(data)
         # self._init_widget(reader)
-        data = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"
-        self._labels_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_labels"
-        self._analysis_files_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_analysis"
-        reader = TensorstoreZarrReader(data)
-        self._init_widget(reader)
         # ____________________________________________________________________________
 
     @property
@@ -376,8 +371,11 @@ class PlateViewer(QMainWindow):
             total_size = splitter.size().width()
             splitter.setSizes([int(size * total_size) for size in sizes])
 
-    def _highlight_roi(self, roi: int) -> None:
-        self._image_viewer._roi_number_le.setText(str(roi))
+    def _highlight_roi(self, roi: str | list[str]) -> None:
+        """Highlight the selected roi in the image viewer."""
+        if isinstance(roi, list):
+            roi = ",".join(roi)
+        self._image_viewer._roi_number_le.setText(roi)
         self._image_viewer._highlight_rois()
 
     def _show_init_dialog(self) -> None:
