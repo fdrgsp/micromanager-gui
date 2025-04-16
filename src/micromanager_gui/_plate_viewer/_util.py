@@ -46,8 +46,7 @@ COMPILE_METRICS = [
     "amplitude",
     "frequency",
     "cell_size",
-    # "linear_connectivity",
-    # "cubic_connectivity",
+    "synchrony",
     "iei",
     "percentage_active",
 ]
@@ -670,10 +669,9 @@ def _compile_data_per_fov(
     iei_list_fov: list[float] = []
     active_cells: int = 0
     cell_size_unit: str = ""
-    # cubic_phases: dict[str, list[float]] = {}
-    # linear_phases: dict[str, list[float]] = {}
+    linear_phases: dict[str, list[float]] = {}
 
-    for _roi_name, roiData in fov_dict.items():
+    for roi_name, roiData in fov_dict.items():
         if not isinstance(roiData, ROIData):
             continue
 
@@ -688,10 +686,10 @@ def _compile_data_per_fov(
                 else ""
             )
 
-        # if isinstance(roiData.linear_phase, list) and len(roiData.linear_phase) > 0:
-        #     if roi_name not in linear_phases:
-        #         linear_phases[roi_name] = []
-        #     linear_phases[roi_name] = roiData.linear_phase
+        if isinstance(roiData.linear_phase, list) and len(roiData.linear_phase) > 0:
+            if roi_name not in linear_phases:
+                linear_phases[roi_name] = []
+            linear_phases[roi_name] = roiData.linear_phase
 
         # if cells are active (i.e. have at least one peak)
         if roiData.active:
@@ -710,8 +708,7 @@ def _compile_data_per_fov(
             # activity
             active_cells += 1
 
-    # cubic_connectivity = get_connectivity(cubic_phases)
-    # linear_connectivity = get_connectivity(linear_phases)
+    linear_synchrony = get_connectivity(linear_phases)
     percentage_active = float(active_cells / len(list(fov_dict.keys())) * 100)
 
     # NOTE: if adding more output measurements,
@@ -721,12 +718,9 @@ def _compile_data_per_fov(
     data_per_fov_dict["cell_size"] = cell_size_list_fov
     data_per_fov_dict["iei"] = iei_list_fov
     data_per_fov_dict["percentage_active"] = [percentage_active]
-    # data_per_fov_dict["cubic_connectivity"] = (
-    #     cubic_connectivity if isinstance(cubic_connectivity, float) else np.nan
-    # )
-    # data_per_fov_dict["linear_connectivity"] = (
-    #     linear_connectivity if isinstance(linear_connectivity, float) else np.nan
-    # )
+    data_per_fov_dict["synchrony"] = [
+        linear_synchrony if isinstance(linear_synchrony, float) else np.nan
+    ]
     return data_per_fov_dict, cell_size_unit
 
 
