@@ -48,7 +48,6 @@ from ._util import (
     _WaitingProgressBarWidget,
     calculate_dff,
     create_stimulation_mask,
-    get_cubic_phase,
     get_iei,
     get_linear_phase,
     get_overlap_roi_with_stimulated_area,
@@ -836,11 +835,11 @@ class _AnalyseCalciumTraces(QWidget):
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
 
-        # get the linear and cubic phase of the peaks in the dec_dff trace
-        linear_phase, cubic_phase = [], []
-        if len(peaks_dec_dff) > 0:
-            linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
-            cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+        instantaneous_phase = (
+            get_linear_phase(timepoints, peaks_dec_dff)
+            if len(peaks_dec_dff) > 0
+            else None
+        )
 
         # if the elapsed time is not available or for any reason is different from
         # the number of timepoints, set it as list of timepoints every exp_time
@@ -867,8 +866,7 @@ class _AnalyseCalciumTraces(QWidget):
             condition_2=condition_2,
             total_recording_time_in_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
-            linear_phase=linear_phase,
-            cubic_phase=cubic_phase,
+            instantaneous_phase=instantaneous_phase,
             iei=iei,
             stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
         )

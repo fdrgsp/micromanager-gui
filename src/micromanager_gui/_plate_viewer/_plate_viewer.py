@@ -371,8 +371,11 @@ class PlateViewer(QMainWindow):
             total_size = splitter.size().width()
             splitter.setSizes([int(size * total_size) for size in sizes])
 
-    def _highlight_roi(self, roi: int) -> None:
-        self._image_viewer._roi_number_le.setText(str(roi))
+    def _highlight_roi(self, roi: str | list[str]) -> None:
+        """Highlight the selected roi in the image viewer."""
+        if isinstance(roi, list):
+            roi = ",".join(roi)
+        self._image_viewer._roi_number_le.setText(roi)
         self._image_viewer._highlight_rois()
 
     def _show_init_dialog(self) -> None:
