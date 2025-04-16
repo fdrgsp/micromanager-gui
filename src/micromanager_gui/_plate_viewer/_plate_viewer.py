@@ -269,6 +269,11 @@ class PlateViewer(QMainWindow):
         # self._analysis_files_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # reader = TensorstoreZarrReader(data)
         # self._init_widget(reader)
+        data = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"
+        self._labels_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_labels"
+        self._analysis_files_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_analysis"
+        reader = TensorstoreZarrReader(data)
+        self._init_widget(reader)
         # ____________________________________________________________________________
 
     @property

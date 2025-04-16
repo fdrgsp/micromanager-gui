@@ -415,9 +415,7 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
 def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
     if not peaks.any():
-        phase = [0.0 for _ in range(frames)]
-        return phase
-
+        return [0.0 for _ in range(frames)]
     peaks_list = [int(peak) for peak in peaks]
 
     if any(p < 0 or p >= frames for p in peaks):

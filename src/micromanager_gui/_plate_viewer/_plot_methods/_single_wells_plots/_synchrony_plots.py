@@ -24,14 +24,9 @@ def _plot_synchrony(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    if rois is None:
-        rois = [int(roi) for roi in data.keys() if roi.isdigit()]
-
     phase_dict = _get_phase_dict_from_rois(data, rois)
     if phase_dict is None:
         return None
-
-    active_rois = list(phase_dict.keys())
 
     synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
@@ -59,6 +54,7 @@ def _plot_synchrony(
 
     ax.set_box_aspect(1)
 
+    active_rois = list(phase_dict.keys())
     _add_hover_functionality(ax, widget, active_rois, synchrony_matrix)
     widget.figure.tight_layout()
     widget.canvas.draw()
@@ -69,7 +65,7 @@ def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
     if synchrony_matrix is None or synchrony_matrix.size == 0:
         return None
 
-    # Ensure the matrix is at least 2x2 and square
+    # ensure the matrix is at least 2x2 and square
     if synchrony_matrix.shape[0] < 2 or (
         synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
     ):
@@ -82,26 +78,25 @@ def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
 
 
 def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
-    """Calculate global synchrony (FluoroSNNAP)."""
-    active_rois = list(phase_dict.keys())  # ROI names
-
+    """Calculate global synchrony (as in the FluoroSNNAP software)."""
+    active_rois = list(phase_dict.keys())
     if len(active_rois) < 2:
         return None
 
-    # Convert phase_dict values into a NumPy array of shape (N, T)
-    phase_array = np.array([phase_dict[roi] for roi in active_rois])  # Shape (N, T)
+    # convert phase_dict values into a NumPy array of shape (#ROIs, #Timepoints)
+    phase_array = np.array([phase_dict[roi] for roi in active_rois])
 
-    # Compute pairwise phase difference using broadcasting (Shape: (N, N, T))
+    # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
     phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
         phase_array, axis=0
     )
 
-    # Ensure phase difference is within valid range [0, 2π]
+    # ensure phase difference is within valid range [0, 2π]
     phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
 
-    # Compute cosine and sine of the phase differences
-    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # Shape: (N, N)
-    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # Shape: (N, N)
+    # compute cosine and sine of the phase differences
+    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
+    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
 
     return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
@@ -109,24 +104,21 @@ def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | No
 def _get_phase_dict_from_rois(
     roi_data_dict: dict[str, ROIData], rois: list[int]
 ) -> dict[str, list[float]] | None:
-    """Organize the phase list from the rois wanted."""
+    """Get the phase info from the wanted ROIs."""
     phase_dict: dict[str, list[float]] = {}
+
+    if rois is None:
+        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
 
     # if less than two rois input, can't calculate synchrony
     if len(rois) < 2:
         return None
 
     for roi, roi_data in roi_data_dict.items():
-        roi_int = int(roi)
-        if roi_int not in rois:
+        if int(roi) not in rois:
             continue
-
-        phase_list = roi_data.instantaneous_phase
-
-        if not phase_list:
-            continue
-
-        phase_dict[roi] = phase_list
+        if (phase_list := roi_data.instantaneous_phase) is not None:
+            phase_dict[roi] = phase_list
 
     return phase_dict
 
