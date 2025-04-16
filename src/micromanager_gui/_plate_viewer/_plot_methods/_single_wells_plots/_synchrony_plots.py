@@ -102,7 +102,7 @@ def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | No
 
 
 def _get_phase_dict_from_rois(
-    roi_data_dict: dict[str, ROIData], rois: list[int]
+    roi_data_dict: dict[str, ROIData], rois: list[int] | None = None
 ) -> dict[str, list[float]] | None:
     """Get the phase info from the wanted ROIs."""
     phase_dict: dict[str, list[float]] = {}
@@ -143,6 +143,4 @@ def _add_hover_functionality(
             color="black",
         )
         if roi_x.isdigit() and roi_y.isdigit():
-            # TODO: display two ROIs?
-            widget.roiSelected.emit(roi_x)
-            widget.roiSelected.emit(roi_y)
+            widget.roiSelected.emit([roi_x, roi_y])

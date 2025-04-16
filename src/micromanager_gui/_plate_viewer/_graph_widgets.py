@@ -135,7 +135,7 @@ class _DisplaySingleWellTraces(QGroupBox):
 
 
 class _SingleWellGraphWidget(QWidget):
-    roiSelected = Signal(str)
+    roiSelected = Signal(object)
 
     def __init__(self, parent: PlateViewer) -> None:
         super().__init__(parent)
