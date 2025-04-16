@@ -78,6 +78,7 @@ class Preview(NDViewer):
         ev.imageSnapped.connect(self._handle_snap)
         ev.continuousSequenceAcquisitionStarted.connect(self._start_live_viewer)
         ev.sequenceAcquisitionStopped.connect(self._stop_live_viewer)
+
         self._mmc.events.exposureChanged.connect(self._restart_live)
         self._mmc.events.configSet.connect(self._restart_live)
 
@@ -88,12 +89,6 @@ class Preview(NDViewer):
     def closeEvent(self, event: QCloseEvent | None) -> None:
         self._mmc.stopSequenceAcquisition()
         super().closeEvent(event)
-
-    def _on_set_range_clicked(self) -> None:
-        # using method to swallow the parameter passed by _set_range_btn.clicked
-        self._canvas.set_range(
-            (0, self._mmc.getImageWidth() - 1), (0, self._mmc.getImageHeight() - 1)
-        )
 
     # Begin TODO: Remove once https://github.com/pyapp-kit/ndv/issues/39 solved
 

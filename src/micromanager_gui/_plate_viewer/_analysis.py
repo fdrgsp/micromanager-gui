@@ -35,7 +35,6 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._util import (
-    BLUE,
     COND1,
     COND2,
     GENOTYPE_MAP,
@@ -48,9 +47,7 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
-    compile_data_to_csv,
     create_stimulation_mask,
-    get_cubic_phase,
     get_iei,
     get_linear_phase,
     get_overlap_roi_with_stimulated_area,
@@ -204,11 +201,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
         self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
-        self._save_btn = QPushButton("Compile Data")
-        self._save_btn.setSizePolicy(*FIXED)
-        self._save_btn.setIcon(icon(MDI6.file, color=BLUE))
-        self._save_btn.setIconSize(QSize(25, 25))
-        self._save_btn.clicked.connect(self.compile_data)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
@@ -227,7 +219,6 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
         progress_wdg_layout.addWidget(self._run_btn)
-        progress_wdg_layout.addWidget(self._save_btn)
         progress_wdg_layout.addWidget(self._cancel_btn)
         progress_wdg_layout.addWidget(self._progress_bar)
         progress_wdg_layout.addWidget(self._progress_pos_label)
@@ -314,29 +305,6 @@ class _AnalyseCalciumTraces(QWidget):
                 "errored": self._on_worker_finished,
             },
         )
-
-    def compile_data(self) -> None:
-        """Save the analysis data into CSV files."""
-        save_path = self._analysis_path.value()
-
-        # check if analysis was loaded
-        if (
-            self._plate_viewer is None
-            or len(list(self._plate_viewer._analysis_data.keys())) < 1
-        ):
-            msg = "No analyzed data!\nLoad or run analysis."
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
-            return None
-
-        self._handle_plate_map()
-
-        compile_data_to_csv(
-            self._plate_viewer._analysis_data, self._plate_map_data, save_path
-        )
-
-        msg = f"Data compiled and saved in folder {Path(save_path).parent.name}"
-        LOGGER.info(msg)
 
     def cancel(self) -> None:
         """Cancel the current run."""
@@ -540,10 +508,6 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
-
-        compile_data_to_csv(
-            self._analysis_data, self._plate_map_data, self._analysis_path.value()
-        )
 
         # show a message box if there are failed labels
         if self._failed_labels:
@@ -871,11 +835,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
 
-        # get the linear and cubic phase of the peaks in the dec_dff trace
-        linear_phase, cubic_phase = [], []
-        if len(peaks_dec_dff) > 0:
-            linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
-            cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+        instantaneous_phase = get_linear_phase(timepoints, peaks_dec_dff)
 
         # if the elapsed time is not available or for any reason is different from
         # the number of timepoints, set it as list of timepoints every exp_time
@@ -902,8 +862,7 @@ class _AnalyseCalciumTraces(QWidget):
             condition_2=condition_2,
             total_recording_time_in_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
-            linear_phase=linear_phase,
-            cubic_phase=cubic_phase,
+            instantaneous_phase=instantaneous_phase,
             iei=iei,
             stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
         )

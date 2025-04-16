@@ -22,7 +22,6 @@ from micromanager_gui._plate_viewer._util import (
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
-    SYNCHRONY_ALL,
 )
 
 from ._multi_wells_plots._multi_well_data_plot import (
@@ -67,7 +66,7 @@ MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_IEI: {"iei": True},
     CELL_SIZE_ALL: {"cell_size": True},
-    SYNCHRONY_ALL: {"sync": True},
+    # SYNCHRONY_ALL: {"sync": True},
 }
 
 

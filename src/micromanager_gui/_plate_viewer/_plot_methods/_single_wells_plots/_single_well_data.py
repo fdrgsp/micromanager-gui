@@ -57,9 +57,6 @@ def _plot_single_well_data(
         if amp or freq or iei:
             _plot_metrics(ax, roi_key, roi_data, amp, freq, iei)
         else:
-            # plot only active neurons if asked to plot peaks
-            if with_peaks and not roi_data.active:
-                continue
             _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count)
             count += COUNT_INCREMENT
 
