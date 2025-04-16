@@ -40,6 +40,7 @@ def _generate_raster_plot(
     # if amplitude colors are used, determine min/max amplitude range
     min_amp, max_amp = (float("inf"), float("-inf")) if amplitude_colors else (0, 0)
 
+    active_rois = []
     # loop over the ROIData and get the peaks and their colors for each ROI
     for roi_key, roi_data in data.items():
         roi_id = int(roi_key)
@@ -48,6 +49,9 @@ def _generate_raster_plot(
 
         if not roi_data.peaks_dec_dff or not roi_data.peaks_amplitudes_dec_dff:
             continue
+
+        # store the active ROIs
+        active_rois.append(roi_id)
 
         # convert the x-axis frames to seconds
         if roi_data.total_recording_time_in_sec is not None:
@@ -95,7 +99,7 @@ def _generate_raster_plot(
         cbar.set_label("Amplitude")
 
     widget.figure.tight_layout()
-    _add_hover_functionality(ax, widget, rois)
+    _add_hover_functionality(ax, widget, active_rois)
     widget.canvas.draw()
 
 
