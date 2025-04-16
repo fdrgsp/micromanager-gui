@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
@@ -35,9 +36,9 @@ def _plot_synchrony(
 
     synchrony = _get_synchrony(synchrony_matrix)
 
-    ax.imshow(synchrony_matrix, cmap="viridis", aspect="auto")
+    ax.imshow(synchrony_matrix, cmap="viridis", aspect="auto", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis),
+        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Synchrony index")
