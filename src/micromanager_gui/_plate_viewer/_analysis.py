@@ -331,10 +331,13 @@ class _AnalyseCalciumTraces(QWidget):
         self._handle_plate_map()
 
         compile_data_to_csv(
-            self._plate_viewer._analysis_data, self._plate_map_data, save_path
+            self._plate_viewer._analysis_data,
+            self._plate_map_data,
+            self._is_stimulated(),
+            save_path,
         )
 
-        msg = f"Data compiled and saved in folder {Path(save_path).parent.name}"
+        msg = f"Data compiled and saved in folder {Path(save_path).stem}"
         LOGGER.info(msg)
 
     def cancel(self) -> None:
@@ -541,7 +544,10 @@ class _AnalyseCalciumTraces(QWidget):
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
         compile_data_to_csv(
-            self._analysis_data, self._plate_map_data, self._analysis_path.value()
+            self._analysis_data,
+            self._plate_map_data,
+            self._is_stimulated(),
+            self._analysis_path.value(),
         )
 
         # show a message box if there are failed labels
