@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 RED = "#C33"
 HEIGHT = 20
 RANDOM_CHOICE = 5
-SEPARATOR = "\n"
+SEPARATOR = "_"
 
 
 def _get_fov_data(
