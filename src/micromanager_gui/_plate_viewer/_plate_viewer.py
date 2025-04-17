@@ -264,15 +264,15 @@ class PlateViewer(QMainWindow):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        data = r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/NC240503_240927_Treated_CBDanalogs.tensorstore.zarr"
-        self._labels_path = (
-            r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/test_label"
-        )
-        self._analysis_files_path = (
-            r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/test_graphs"
-        )
-        reader = TensorstoreZarrReader(data)
-        self._init_widget(reader)
+        # data = r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/NC240503_240927_Treated_CBDanalogs.tensorstore.zarr" # noqa: E501
+        # self._labels_path = (
+        #     r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/test_label"
+        # )
+        # self._analysis_files_path = (
+        #     r"/Volumes/T7 Shield/LAM77_NC240503_384_CBD_20240927/test_graphs"
+        # )
+        # reader = TensorstoreZarrReader(data)
+        # self._init_widget(reader)
         # ____________________________________________________________________________
 
     @property
