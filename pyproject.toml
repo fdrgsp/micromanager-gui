@@ -190,4 +190,4 @@ ignore = [
 # HATCH_BUILD_HOOKS_ENABLE = "1"
 
 [tool.typos.default] 
-extend-ignore-identifiers-re = ["(?i)nd2?.*", "(?i)ome"]
+extend-ignore-identifiers-re = ["(?i)nd2?.*", "(?i)ome", "whis"]
