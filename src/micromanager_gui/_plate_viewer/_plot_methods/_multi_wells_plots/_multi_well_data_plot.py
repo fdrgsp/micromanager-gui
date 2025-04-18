@@ -194,7 +194,11 @@ def _plot_multi_cond_data(
         #     sync_idx = get_connectivity(phase_dict)
         #     dp_list.append(sync_idx)
 
-    data_list = [dp_dict[cond] for cond in cond_ordered]
+    data_list, final_cond = [], []
+    for cond in cond_ordered:
+        if cond in dp_dict:
+            data_list.append(dp_dict[cond])
+            final_cond.append(cond)
 
     # violin plot
     # ax.violinplot(data_list)
@@ -202,7 +206,7 @@ def _plot_multi_cond_data(
     #   labels=cond_ordered)
 
     # boxplot
-    ax.boxplot(data_list, tick_labels=cond_ordered, whis=(0, 100))
+    ax.boxplot(data_list, tick_labels=final_cond, whis=(0, 100))
 
     _set_axis_labels(ax, amp, freq, iei, cell_size, sync, cell_size_unit)
 
