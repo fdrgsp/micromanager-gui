@@ -67,6 +67,8 @@ def _rearrange_by_condition(
                 cond_key = c2
             else:
                 cond_key = "NoCondition"
+            if roi_data.stimulated:
+                cond_key += "_evk"
             conds.setdefault(cond_key, {}).setdefault(well_fov, {})[roi_key] = roi_data
     return conds
 
