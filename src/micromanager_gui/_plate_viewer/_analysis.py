@@ -34,6 +34,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
+from ._to_csv import data_to_csv
 from ._util import (
     BLUE,
     COND1,
@@ -48,7 +49,6 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
-    compile_data_to_csv,
     create_stimulation_mask,
     get_iei,
     get_linear_phase,
@@ -207,7 +207,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._save_btn.setSizePolicy(*FIXED)
         self._save_btn.setIcon(icon(MDI6.file, color=BLUE))
         self._save_btn.setIconSize(QSize(25, 25))
-        self._save_btn.clicked.connect(self.compile_data)
+        self._save_btn.clicked.connect(self._save_as_csv)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
@@ -310,35 +310,9 @@ class _AnalyseCalciumTraces(QWidget):
             _connect={
                 "yielded": self._show_and_log_error,
                 "finished": self._on_worker_finished,
-                "errored": self._on_worker_finished,
+                "errored": self._on_worker_errored,
             },
         )
-
-    def compile_data(self) -> None:
-        """Save the analysis data into CSV files."""
-        save_path = self._analysis_path.value()
-
-        # check if analysis was loaded
-        if (
-            self._plate_viewer is None
-            or len(list(self._plate_viewer._analysis_data.keys())) < 1
-        ):
-            msg = "No analyzed data!\nLoad or run analysis."
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
-            return None
-
-        self._handle_plate_map()
-
-        compile_data_to_csv(
-            self._plate_viewer._analysis_data,
-            self._plate_map_data,
-            self._is_stimulated(),
-            save_path,
-        )
-
-        msg = f"Data compiled and saved in folder {Path(save_path).stem}"
-        LOGGER.info(msg)
 
     def cancel(self) -> None:
         """Cancel the current run."""
@@ -353,6 +327,31 @@ class _AnalyseCalciumTraces(QWidget):
         # stop the elapsed timer
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
+
+    def _save_as_csv(self) -> None:
+        """Save the analysis data into CSV files."""
+        save_path = self._analysis_path.value()
+
+        # check if analysis was loaded
+        if self._plate_viewer is None or not list(
+            self._plate_viewer._analysis_data.keys()
+        ):
+            msg = "No analyzed data!\nLoad or run analysis."
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+            return None
+
+        self._handle_plate_map()
+
+        data_to_csv(
+            self._plate_viewer._analysis_data,
+            self._plate_map_data,
+            self._is_stimulated(),
+            save_path,
+        )
+
+        msg = f"Data compiled and saved in folder {Path(save_path).stem}"
+        LOGGER.info(msg)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""
@@ -543,7 +542,8 @@ class _AnalyseCalciumTraces(QWidget):
             self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
-        compile_data_to_csv(
+        # save the analysis data to a JSON file
+        data_to_csv(
             self._analysis_data,
             self._plate_map_data,
             self._is_stimulated(),
@@ -557,6 +557,13 @@ class _AnalyseCalciumTraces(QWidget):
                 + "\n".join(self._failed_labels)
             )
             self._show_and_log_error(msg)
+
+    def _on_worker_errored(self) -> None:
+        """Called when the worker encounters an error."""
+        LOGGER.info("Extraction of traces terminated with an error.")
+        self._enable(True)
+        self._elapsed_timer.stop()
+        self._cancel_waiting_bar.stop()
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
