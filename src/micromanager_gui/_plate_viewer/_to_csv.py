@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xlsxwriter
@@ -18,6 +19,54 @@ COMPILE_METRICS = [
     "iei",
     "percentage_active",
 ]
+
+
+def _rearrange_by_condition(
+    data: dict[str, dict[str, ROIData]],
+) -> dict[str, dict[str, dict[str, ROIData]]]:
+    """Rearrange the data by condition.
+
+    Parameters
+    ----------
+    data: dict[str, dict[str, dict[str, ROIData]]
+        The data to rearrange.
+    """
+    conds: dict[str, dict[str, dict[str, ROIData]]] = {}
+    for well_fov, rois in data.items():  # "key1", "key2", ...
+        for roi_key, roi_data in rois.items():  #  ("1", ROIData), ("2", ROIData), ...
+            c1 = roi_data.condition_1
+            c2 = roi_data.condition_2
+            if c1 and c2:
+                cond_key = f"{c1}_{c2}"
+            elif c1:
+                cond_key = c1
+            elif c2:
+                cond_key = c2
+            else:
+                cond_key = "NoCondition"
+            if roi_data.stimulated:
+                cond_key += "_evk"
+            conds.setdefault(cond_key, {}).setdefault(well_fov, {})[roi_key] = roi_data
+    return conds
+
+
+def _rearrange_by_condition_by_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
+) -> dict[str, list[Any]]:
+    """Create a table by the specified parameter."""
+    parameter_dict: dict[str, list[Any]] = {}
+    for cond in data:  # "cond1", "cond2", ...
+        for key in data[cond].keys():  # "key1", "key2", ...
+            for roi in data[cond][key]:  # "1", "2", ...
+                roi_data = data[cond][key][roi]  # ROIData
+                if not hasattr(roi_data, parameter):
+                    raise ValueError(
+                        f"The parameter '{parameter}' is not found in the ROI data."
+                    )
+                if key not in parameter_dict:
+                    parameter_dict[key] = []
+                parameter_dict[key].append(getattr(roi_data, parameter))
+    return parameter_dict
 
 
 def data_to_csv(
@@ -42,35 +91,6 @@ def data_to_csv(
         cond_ordered,
         save_path,
     )
-
-
-def _rearrange_by_condition(
-    data: dict[str, dict[str, ROIData]],
-) -> dict[str, dict[str, dict[str, ROIData]]]:
-    """Rearrange the data by condition.
-
-    Parameters
-    ----------
-    data: dict[str, dict[str, dict[str, ROIData]]
-        The data to rearrange.
-    """
-    conds: dict[str, dict[str, dict[str, ROIData]]] = {}
-    for well_fov, rois in data.items():
-        for roi_key, roi_data in rois.items():
-            c1 = roi_data.condition_1
-            c2 = roi_data.condition_2
-            if c1 and c2:
-                cond_key = f"{c1}_{c2}"
-            elif c1:
-                cond_key = c1
-            elif c2:
-                cond_key = c2
-            else:
-                cond_key = "NoCondition"
-            if roi_data.stimulated:
-                cond_key += "_evk"
-            conds.setdefault(cond_key, {}).setdefault(well_fov, {})[roi_key] = roi_data
-    return conds
 
 
 def _organize_fov_by_condition(
