@@ -509,6 +509,12 @@ class _AnalyseCalciumTraces(QWidget):
             self._plate_viewer._analysis_data = self._analysis_data
             self._plate_viewer._analysis_files_path = self._analysis_path.value()
 
+            # update the graphs with the new data
+            if self._plate_viewer._tab.currentIndex() == 1:
+                self._plate_viewer._on_tab_changed(1)
+                for gh in self._plate_viewer.SW_GRAPHS:
+                    gh._on_combo_changed(gh._combo.currentText())
+
         # show a message box if there are failed labels
         if self._failed_labels:
             msg = (
