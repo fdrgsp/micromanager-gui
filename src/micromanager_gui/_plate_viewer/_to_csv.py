@@ -52,10 +52,11 @@ def _rearrange_by_condition(
 
 def _rearrange_by_condition_by_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
-) -> dict[str, list[Any]]:
+) -> dict[str, dict[str, list[Any]]]:
     """Create a table by the specified parameter."""
-    parameter_dict: dict[str, list[Any]] = {}
+    parameter_dict: dict[str, dict[str, list[Any]]] = {}
     for cond in data:  # "cond1", "cond2", ...
+        parameter_dict[cond] = {}
         for key in data[cond].keys():  # "key1", "key2", ...
             for roi in data[cond][key]:  # "1", "2", ...
                 roi_data = data[cond][key][roi]  # ROIData
@@ -63,9 +64,9 @@ def _rearrange_by_condition_by_parameter(
                     raise ValueError(
                         f"The parameter '{parameter}' is not found in the ROI data."
                     )
-                if key not in parameter_dict:
-                    parameter_dict[key] = []
-                parameter_dict[key].append(getattr(roi_data, parameter))
+                if key not in parameter_dict[cond]:
+                    parameter_dict[cond][key] = []
+                parameter_dict[cond][key].append(getattr(roi_data, parameter))
     return parameter_dict
 
 
