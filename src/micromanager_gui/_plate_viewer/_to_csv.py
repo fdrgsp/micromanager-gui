@@ -8,17 +8,16 @@ import xlsxwriter
 
 from ._util import COND1, COND2, ROIData, _get_synchrony, _get_synchrony_matrix
 
-# ---------------------------Measurement to save data as CSV---------------------------
-# Each metric here will be pulled/calculated from the analysis data and compile into
-# a CSV at the end of the analysis.
-COMPILE_METRICS = [
-    "amplitude",
-    "frequency",
-    "cell_size",
-    "synchrony",
-    "iei",
-    "percentage_active",
-]
+PERCENTAGE_ACTIVE = "percentage_active"
+SYNCHRONY = "synchrony"
+CSV_PARAMETERS: dict[str, str] = {
+    "amplitude": "peaks_amplitudes_dec_dff",
+    "frequency": "dec_dff_frequency",
+    "cell_size": "cell_size",
+    "iei": "iei",
+    "percentage_active": PERCENTAGE_ACTIVE,
+    "synchrony": SYNCHRONY,
+}
 
 
 def _rearrange_by_condition(
@@ -59,16 +58,32 @@ def _rearrange_by_condition_by_parameter(
     for condition, key_dict in data.items():
         for key, roi_dict in key_dict.items():
             for roi_data in roi_dict.values():
-                if not hasattr(roi_data, parameter):
-                    raise ValueError(
-                        f"The parameter '{parameter}' is not found in the ROI data."
-                    )
-                value = getattr(roi_data, parameter)
+                if parameter == PERCENTAGE_ACTIVE:
+                    value = ...
+                elif parameter == SYNCHRONY:
+                    value = ...
+                else:
+                    if not hasattr(roi_data, parameter):
+                        raise ValueError(
+                            f"The parameter '{parameter}' is not found in the ROI data."
+                        )
+                    value = getattr(roi_data, parameter)
                 parameter_dict.setdefault(condition, {}).setdefault(key, []).append(
                     value
                 )
 
     return parameter_dict
+
+
+# ---------------------------Measurement to save data as CSV---------------------------
+COMPILE_METRICS = [
+    "amplitude",
+    "frequency",
+    "cell_size",
+    "synchrony",
+    "iei",
+    "percentage_active",
+]
 
 
 def data_to_csv(
