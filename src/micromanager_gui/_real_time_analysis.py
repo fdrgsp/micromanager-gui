@@ -486,8 +486,8 @@ def _extract_traces_data(
         # store the data to the analysis dict as ROIData
         analysis_data[str(label_value)] = ROIData(
             well_fov_position=label_name,
-            raw_trace=roi_trace.tolist(),  # type: ignore
-            dff=dff.tolist(),  # type: ignore
+            raw_trace=roi_trace.tolist(),
+            dff=dff.tolist(),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
