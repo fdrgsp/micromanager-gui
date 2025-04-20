@@ -468,10 +468,12 @@ def _extract_traces_data(
         # get the conditions for the well
         condition_1, condition_2 = _get_conditions(label_name, plate_map_data)
 
-        # get the linear and cubic phase of the peaks in the dec_dff trace
-        # linear_phase = []
-        linear_phase = get_linear_phase(timepoints, peaks_dec_dff)
-        # cubic_phase = get_cubic_phase(timepoints, peaks_dec_dff)
+        # calculate the instantaneous phase of the peaks in the dec_dff trace
+        instantaneous_phase = (
+            get_linear_phase(timepoints, peaks_dec_dff)
+            if len(peaks_dec_dff) > 0
+            else None
+        )
 
         # if the elapsed time is not available or for any reason is different from
         # the number of timepoints, set it as list of timepoints every exp_time
@@ -484,8 +486,8 @@ def _extract_traces_data(
         # store the data to the analysis dict as ROIData
         analysis_data[str(label_value)] = ROIData(
             well_fov_position=label_name,
-            raw_trace=roi_trace.tolist(),  # type: ignore
-            dff=dff.tolist(),  # type: ignore
+            raw_trace=roi_trace.tolist(),
+            dff=dff.tolist(),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
@@ -498,8 +500,7 @@ def _extract_traces_data(
             condition_2=condition_2,
             total_recording_time_in_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
-            linear_phase=linear_phase,
-            # cubic_phase=cubic_phase,
+            instantaneous_phase=instantaneous_phase,
             iei=iei,
             stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
         )

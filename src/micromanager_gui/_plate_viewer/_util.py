@@ -34,6 +34,7 @@ COND1 = "condition_1"
 COND2 = "condition_2"
 STIMULATION_MASK = "stimulation_mask.tif"
 
+
 # -----------------------------------GRAPH PLOTTING-----------------------------------
 # Anything added here will appear in the dropdown menu in the graph widget.
 # Modify the plot_traces function in _plot_methods.py to add the corresponding plotting
@@ -441,6 +442,47 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     phase[frames - 1] = 2 * np.pi * (len(peaks_list) - 1)
 
     return phase
+
+
+def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
+    """Calculate the connection matrix."""
+    if synchrony_matrix is None or synchrony_matrix.size == 0:
+        return None
+
+    # ensure the matrix is at least 2x2 and square
+    if synchrony_matrix.shape[0] < 2 or (
+        synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
+    ):
+        return None
+
+    return float(
+        np.median(np.sum(synchrony_matrix, axis=0) - 1)
+        / (synchrony_matrix.shape[0] - 1)
+    )
+
+
+def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
+    """Calculate global synchrony (as in the FluoroSNNAP software)."""
+    active_rois = list(phase_dict.keys())
+    if len(active_rois) < 2:
+        return None
+
+    # convert phase_dict values into a NumPy array of shape (#ROIs, #Timepoints)
+    phase_array = np.array([phase_dict[roi] for roi in active_rois])
+
+    # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
+    phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
+        phase_array, axis=0
+    )
+
+    # ensure phase difference is within valid range [0, 2π]
+    phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
+
+    # compute cosine and sine of the phase differences
+    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
+    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
+
+    return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
 
 
 def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:

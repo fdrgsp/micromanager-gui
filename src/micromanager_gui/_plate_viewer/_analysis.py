@@ -34,6 +34,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
+from ._to_csv import _save_to_csv
 from ._util import (
     COND1,
     COND2,
@@ -302,7 +303,7 @@ class _AnalyseCalciumTraces(QWidget):
             _connect={
                 "yielded": self._show_and_log_error,
                 "finished": self._on_worker_finished,
-                "errored": self._on_worker_finished,
+                "errored": self._on_worker_errored,
             },
         )
 
@@ -515,6 +516,9 @@ class _AnalyseCalciumTraces(QWidget):
                 for gh in self._plate_viewer.SW_GRAPHS:
                     gh._on_combo_changed(gh._combo.currentText())
 
+        # save the analysis data to a JSON file
+        _save_to_csv(self._analysis_path.value(), self._analysis_data)
+
         # show a message box if there are failed labels
         if self._failed_labels:
             msg = (
@@ -522,6 +526,13 @@ class _AnalyseCalciumTraces(QWidget):
                 + "\n".join(self._failed_labels)
             )
             self._show_and_log_error(msg)
+
+    def _on_worker_errored(self) -> None:
+        """Called when the worker encounters an error."""
+        LOGGER.info("Extraction of traces terminated with an error.")
+        self._enable(True)
+        self._elapsed_timer.stop()
+        self._cancel_waiting_bar.stop()
 
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
@@ -858,8 +869,8 @@ class _AnalyseCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            raw_trace=roi_trace.tolist(),  # type: ignore
-            dff=dff.tolist(),  # type: ignore
+            raw_trace=roi_trace.tolist(),
+            dff=dff.tolist(),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,

@@ -50,8 +50,9 @@ from ._init_dialog import _InitDialog
 from ._logger import LOGGER
 from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
-from ._save_as_tiff_widget import _SaveAsTiff
+from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
+from ._to_csv import _save_to_csv
 from ._util import (
     GENOTYPE_MAP,
     TREATMENT_MAP,
@@ -101,10 +102,13 @@ class PlateViewer(QMainWindow):
         self.file_menu = self.menu_bar.addMenu("File")
         open_action = QAction("Open Zarr Datastore...", self)
         open_action.triggered.connect(self._show_init_dialog)
-        save_action = QAction("Save Data as Tiff...", self)
-        save_action.triggered.connect(self._show_save_as_tiff_dialog)
+        save_as_tiff_action = QAction("Save Data as Tiff...", self)
+        save_as_tiff_action.triggered.connect(self._show_save_as_tiff_dialog)
+        save_as_csv_action = QAction("Save Analysis Data as CSV...", self)
+        save_as_csv_action.triggered.connect(self._show_save_as_csv_dialog)
         self.file_menu.addAction(open_action)
-        self.file_menu.addAction(save_action)
+        self.file_menu.addAction(save_as_tiff_action)
+        self.file_menu.addAction(save_as_csv_action)
         self.setMenuBar(self.menu_bar)
 
         # scene and view for the plate map
@@ -448,6 +452,24 @@ class PlateViewer(QMainWindow):
                     "finished": self._on_loading_finished,
                 },
             )
+
+    def _show_save_as_csv_dialog(self) -> None:
+        """Show the save as csv dialog."""
+        if self._analysis_data is None:
+            show_error_dialog(self, "No data to save! Run or load analysis data first.")
+            return
+
+        dialog = _SaveAsCSV(self)
+
+        if dialog.exec():
+            path = dialog.value()
+            if not Path(path).is_dir():
+                show_error_dialog(
+                    self, f"The path {path} is not a directory! Cannot save the data."
+                )
+                return
+
+            _save_to_csv(path, self._analysis_data)
 
     def _init_loading_bar(self, text: str) -> None:
         """Reset the loading bar."""
