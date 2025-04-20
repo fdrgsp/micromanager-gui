@@ -48,7 +48,7 @@ def _export_to_csv_by_conditions_and_fovs(
     """Save each parameter in `data` as a separate CSV with columns as condition_key."""
     path = Path(path)
     exp_name = path.stem
-    folder = path / "cvs_by_conditions_and_fovs"
+    folder = path / "csv_by_conditions_and_fovs"
     folder.mkdir(parents=True, exist_ok=True)
 
     for parameter, condition_dict in data.items():

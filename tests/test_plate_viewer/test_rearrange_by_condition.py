@@ -193,7 +193,7 @@ def test_save_as_csv(tmp_path: Path):
     folder.mkdir()
     _save_to_csv(folder, data)
 
-    expected_file_fov = folder / "cvs_by_conditions_and_fovs"
+    expected_file_fov = folder / "csv_by_conditions_and_fovs"
     assert expected_file_fov.exists()
     assert expected_file_fov.is_dir()
     assert (expected_file_fov / "test_folder_amplitude_cf.csv").exists()
