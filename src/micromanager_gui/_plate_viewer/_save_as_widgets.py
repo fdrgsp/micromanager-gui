@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from qtpy.QtWidgets import (
@@ -67,7 +68,7 @@ class _SaveAsTiff(QDialog):
     def accept(self) -> Any:
         """Override QDialog accept method."""
         path, _ = self.value()
-        if not path:
+        if not path or not Path(path).is_dir() or not Path(path).exists():
             show_error_dialog(self, "Please select a path to save the .tiff files.")
             return
         return super().accept()
@@ -76,3 +77,38 @@ class _SaveAsTiff(QDialog):
         """Return the selected path and positions list."""
         positions = parse_lineedit_text(self._pos_line_edit.text())
         return self._browse_widget.value(), positions
+
+
+class _SaveAsCSV(QDialog):
+    def __init__(self, parent: PlateViewer | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Save Analysis As CSV")
+
+        # save folder selection widget
+        self._browse_widget = _BrowseWidget(
+            self, "Save Path", "", "Select the path to save the .csv files."
+        )
+
+        # ok, cancel buttons
+        self._button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self._button_box.accepted.connect(self.accept)
+        self._button_box.rejected.connect(self.reject)
+
+        # main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self._browse_widget)
+        main_layout.addWidget(self._button_box)
+
+    def accept(self) -> Any:
+        """Override QDialog accept method."""
+        path = self.value()
+        if not path or not Path(path).is_dir() or not Path(path).exists():
+            show_error_dialog(self, "Please select a valid path.")
+            return
+        return super().accept()
+
+    def value(self) -> str:
+        """Return the selected path."""
+        return self._browse_widget.value()

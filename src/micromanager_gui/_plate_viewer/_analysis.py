@@ -36,7 +36,6 @@ from tqdm import tqdm
 from ._logger import LOGGER
 from ._to_csv import _save_to_csv
 from ._util import (
-    BLUE,
     COND1,
     COND2,
     GENOTYPE_MAP,
@@ -203,11 +202,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
         self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
-        self._save_btn = QPushButton("Compile Data")
-        self._save_btn.setSizePolicy(*FIXED)
-        self._save_btn.setIcon(icon(MDI6.file, color=BLUE))
-        self._save_btn.setIconSize(QSize(25, 25))
-        self._save_btn.clicked.connect(self._save_as_csv)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
@@ -226,7 +220,6 @@ class _AnalyseCalciumTraces(QWidget):
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
         progress_wdg_layout.addWidget(self._run_btn)
-        progress_wdg_layout.addWidget(self._save_btn)
         progress_wdg_layout.addWidget(self._cancel_btn)
         progress_wdg_layout.addWidget(self._progress_bar)
         progress_wdg_layout.addWidget(self._progress_pos_label)
@@ -327,23 +320,6 @@ class _AnalyseCalciumTraces(QWidget):
         # stop the elapsed timer
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
-
-    def _save_as_csv(self) -> None:
-        """Save the analysis data into CSV files."""
-        save_path = self._analysis_path.value()
-
-        # check if analysis was loaded
-        if self._plate_viewer is None or not list(
-            self._plate_viewer._analysis_data.keys()
-        ):
-            msg = "No analyzed data!\nLoad or run analysis."
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
-            return None
-
-        _save_to_csv(self._analysis_path.value(), self._analysis_data)
-
-        LOGGER.info(f"Data saved as .csv in {Path(save_path).stem}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""
