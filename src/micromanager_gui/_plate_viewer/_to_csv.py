@@ -31,18 +31,20 @@ def _save_to_csv(
         path = Path(path)
 
     # Rearrange the data by condition
-    data_by_condition = _rearrange_by_condition(analysis_data)
+    data_by_condition = _rearrange_by_conditions_and_fovs(analysis_data)
     # Rearrange the data by condition and parameter
     data_by_condition_by_parameter = {
-        parameter: _rearrange_by_condition_by_parameter(data_by_condition, parameter)
+        parameter: _rearrange_conditions_and_fovs_by_parameter(
+            data_by_condition, parameter
+        )
         for parameter in CSV_PARAMETERS.values()
     }
     # Save the data as CSV files
-    _export_to_csv_by_conditions_and_fovs(path, data_by_condition_by_parameter)
+    _export_to_csv_grouped_by_conditions_and_fovs(path, data_by_condition_by_parameter)
     _export_to_csv_grouped_by_conditions(path, data_by_condition_by_parameter)
 
 
-def _export_to_csv_by_conditions_and_fovs(
+def _export_to_csv_grouped_by_conditions_and_fovs(
     path: Path | str, data: dict[str, dict[str, dict[str, list]]]
 ) -> None:
     """Save each parameter in `data` as a separate CSV with columns as condition_key."""
@@ -98,7 +100,7 @@ def _flatten_if_list_of_lists(values: list[Any]) -> list[Any]:
     return values
 
 
-def _rearrange_by_condition(
+def _rearrange_by_conditions_and_fovs(
     data: dict[str, dict[str, ROIData]],
 ) -> dict[str, dict[str, dict[str, ROIData]]]:
     """Rearrange the data by condition.
@@ -127,7 +129,7 @@ def _rearrange_by_condition(
     return conds
 
 
-def _rearrange_by_condition_by_parameter(
+def _rearrange_conditions_and_fovs_by_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
 ) -> dict[str, dict[str, list[Any]]]:
     """Create a dict grouped by the specified parameter per condition."""

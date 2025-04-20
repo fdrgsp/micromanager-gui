@@ -3,8 +3,8 @@ from pathlib import Path
 from micromanager_gui._plate_viewer._to_csv import (
     PERCENTAGE_ACTIVE,
     SYNCHRONY,
-    _rearrange_by_condition,
-    _rearrange_by_condition_by_parameter,
+    _rearrange_by_conditions_and_fovs,
+    _rearrange_conditions_and_fovs_by_parameter,
     _save_to_csv,
 )
 from micromanager_gui._plate_viewer._util import ROIData
@@ -104,7 +104,7 @@ data = {
 
 def test_rearrange_by_condition():
     """Test the rearrange_by_condition function."""
-    rearranged = _rearrange_by_condition(data)
+    rearranged = _rearrange_by_conditions_and_fovs(data)
     assert list(rearranged.keys()) == [
         "c1_t1_evk",
         "c1_t1",
@@ -145,8 +145,8 @@ def test_rearrange_by_condition():
 
 
 def test_rearrange_by_condition_by_parameter():
-    rearranged = _rearrange_by_condition(data)
-    rearranged_by_param = _rearrange_by_condition_by_parameter(
+    rearranged = _rearrange_by_conditions_and_fovs(data)
+    rearranged_by_param = _rearrange_conditions_and_fovs_by_parameter(
         rearranged, "peaks_amplitudes_dec_dff"
     )
     assert rearranged_by_param == {
@@ -159,7 +159,7 @@ def test_rearrange_by_condition_by_parameter():
         "NoCondition": {"key7": [[13, 14], [13, 14]]},
         "NoCondition_evk": {"key8": [[15, 16], [15, 16], [15, 16]]},
     }
-    rearranged_by_active = _rearrange_by_condition_by_parameter(
+    rearranged_by_active = _rearrange_conditions_and_fovs_by_parameter(
         rearranged, PERCENTAGE_ACTIVE
     )
     assert rearranged_by_active == {
@@ -172,7 +172,7 @@ def test_rearrange_by_condition_by_parameter():
         "NoCondition": {"key7": [0.0]},
         "NoCondition_evk": {"key8": [66.66666666666666]},
     }
-    rearranged_by_synchrony = _rearrange_by_condition_by_parameter(
+    rearranged_by_synchrony = _rearrange_conditions_and_fovs_by_parameter(
         rearranged, SYNCHRONY
     )
     assert rearranged_by_synchrony == {
