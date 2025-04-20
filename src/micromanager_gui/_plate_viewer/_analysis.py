@@ -34,7 +34,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
-from ._to_csv import data_to_csv
+from ._to_csv import _save_to_csv
 from ._util import (
     BLUE,
     COND1,
@@ -341,17 +341,9 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, msg)
             return None
 
-        self._handle_plate_map()
+        _save_to_csv(self._analysis_path.value(), self._analysis_data)
 
-        data_to_csv(
-            self._plate_viewer._analysis_data,
-            self._plate_map_data,
-            self._is_stimulated(),
-            save_path,
-        )
-
-        msg = f"Data compiled and saved in folder {Path(save_path).stem}"
-        LOGGER.info(msg)
+        LOGGER.info(f"Data saved as .csv in {Path(save_path).stem}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""
@@ -549,12 +541,7 @@ class _AnalyseCalciumTraces(QWidget):
                     gh._on_combo_changed(gh._combo.currentText())
 
         # save the analysis data to a JSON file
-        data_to_csv(
-            self._analysis_data,
-            self._plate_map_data,
-            self._is_stimulated(),
-            self._analysis_path.value(),
-        )
+        _save_to_csv(self._analysis_path.value(), self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:
