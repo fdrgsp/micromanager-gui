@@ -50,7 +50,7 @@ from ._init_dialog import _InitDialog
 from ._logger import LOGGER
 from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
-from ._save_as_tiff_widget import _SaveAsTiff
+from ._save_as_widgets import _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._util import (
     GENOTYPE_MAP,
