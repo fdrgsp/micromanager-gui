@@ -455,7 +455,7 @@ class PlateViewer(QMainWindow):
 
     def _show_save_as_csv_dialog(self) -> None:
         """Show the save as csv dialog."""
-        if self._analysis_data is None:
+        if not self._analysis_data:
             show_error_dialog(self, "No data to save! Run or load analysis data first.")
             return
 
