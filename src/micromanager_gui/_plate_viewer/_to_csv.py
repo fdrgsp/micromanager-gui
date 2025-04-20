@@ -38,17 +38,17 @@ def _save_to_csv(
         for parameter in CSV_PARAMETERS.values()
     }
     # Save the data as CSV files
-    _export_to_csv_by_condition_and_fovs(path, data_by_condition_by_parameter)
-    _export_to_csv_grouped_by_condition(path, data_by_condition_by_parameter)
+    _export_to_csv_by_conditions_and_fovs(path, data_by_condition_by_parameter)
+    _export_to_csv_grouped_by_conditions(path, data_by_condition_by_parameter)
 
 
-def _export_to_csv_by_condition_and_fovs(
+def _export_to_csv_by_conditions_and_fovs(
     path: Path | str, data: dict[str, dict[str, dict[str, list]]]
 ) -> None:
     """Save each parameter in `data` as a separate CSV with columns as condition_key."""
     path = Path(path)
     exp_name = path.stem
-    folder = path / "cvs_by_fovs"
+    folder = path / "cvs_by_conditions_and_fovs"
     folder.mkdir(parents=True, exist_ok=True)
 
     for parameter, condition_dict in data.items():
@@ -64,7 +64,7 @@ def _export_to_csv_by_condition_and_fovs(
         df.to_csv(csv_path, index=False)
 
 
-def _export_to_csv_grouped_by_condition(
+def _export_to_csv_grouped_by_conditions(
     path: Path | str, data: dict[str, dict[str, dict[str, list]]]
 ) -> None:
     """Save each parameter as a separate CSV, grouping all values by condition.
