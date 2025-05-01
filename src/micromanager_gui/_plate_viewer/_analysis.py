@@ -796,7 +796,7 @@ class _AnalyseCalciumTraces(QWidget):
         px_size = meta[0].get("PixelSizeUm", None)
         # calculate the size of the roi in µm if px_size is available or not 0,
         # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * (px_size)^2 if px_size else roi_size_pixel
+        roi_size = roi_size_pixel * (px_size ** 2) if px_size else roi_size_pixel
 
         # exclude small rois, might not be necessary if trained cellpose performs
         # better
