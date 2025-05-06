@@ -858,10 +858,11 @@ class _AnalyseCalciumTraces(QWidget):
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
-        # to store the amplitudes of the stimulated peaks as dict {power: [amplitude]}
+        # to store the amplitudes of the stimulated peaks as dict:
+        # {power_pulselength: [amplitude]}
         amplitudes_stimulated_peaks: dict[float, list[float]] = {}
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
-        if stimulated and stimulation_meta is not None and peaks_dec_dff:
+        if stimulated and stimulation_meta is not None and len(peaks_dec_dff) > 0:
             # get the stimulation info from the metadata (if any)
             frames_and_powers = stimulation_meta.get("pulse_on_frame", {})
             sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
@@ -873,12 +874,14 @@ class _AnalyseCalciumTraces(QWidget):
                 # check if the peak is on the stimulation frame or in the next 5 frames
                 if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
                     amplitude = dec_dff[peak_idx]
-                    amplitudes_stimulated_peaks.setdefault(power, []).append(amplitude)
+                    pulse_len = stimulation_meta.get("led_pulse_duration", "unknown")
+                    col = f"{power}_{pulse_len}"
+                    amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
 
         # calculate the frequency of the peaks in the dec_dff trace
         frequency = (
             len(peaks_dec_dff) / tot_time_sec
-            if tot_time_sec and peaks_dec_dff
+            if tot_time_sec and len(peaks_dec_dff) > 0
             else None
         )
 
@@ -887,7 +890,9 @@ class _AnalyseCalciumTraces(QWidget):
 
         # calculate the linear phase of the peaks in the dec_dff trace
         instantaneous_phase = (
-            get_linear_phase(timepoints, peaks_dec_dff) if peaks_dec_dff else None
+            get_linear_phase(timepoints, peaks_dec_dff)
+            if len(peaks_dec_dff) > 0
+            else None
         )
 
         # if the elapsed time is not available or for any reason is different from
