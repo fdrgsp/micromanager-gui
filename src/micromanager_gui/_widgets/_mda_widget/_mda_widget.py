@@ -20,11 +20,7 @@ from useq import CustomAction, MDAEvent, MDASequence
 from micromanager_gui._widgets._mda_widget._arduino._arduino_led_dialog import (
     StimulationValues,
 )
-from micromanager_gui._writers import (
-    _OMETiffWriter,
-    _TensorStoreHandler,
-    _TiffSequenceWriter,
-)
+from micromanager_gui._writers import _OMETiffWriter, _TiffSequenceWriter
 
 from ._arduino import ArduinoLedWidget
 from ._real_time_analysis_wdg import RealTimeAnalysisWidget
@@ -412,7 +408,7 @@ class MDAWidget_(MDAWidget):
 
     def _create_writer(
         self, save_format: str, save_path: Path
-    ) -> OMEZarrWriter | _OMETiffWriter | _TensorStoreHandler | None:
+    ) -> OMEZarrWriter | _OMETiffWriter | TensorStoreHandler | None:
         """Create a writer for the MDAViewer based on the save format."""
         # use internal OME-TIFF writer if selected
         if OME_TIFF in save_format:
@@ -429,9 +425,9 @@ class MDAWidget_(MDAWidget):
         # able to handle it.
         return None
 
-    def _create_zarr_tensorstore(self, save_path: Path) -> _TensorStoreHandler:
+    def _create_zarr_tensorstore(self, save_path: Path) -> TensorStoreHandler:
         """Create a Zarr TensorStore writer."""
-        return _TensorStoreHandler(
+        return TensorStoreHandler(
             driver="zarr",
             path=save_path,
             delete_existing=True,
