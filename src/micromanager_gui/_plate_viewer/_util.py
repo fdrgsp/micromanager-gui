@@ -559,15 +559,11 @@ def get_overlap_roi_with_stimulated_area(
     # count nonzero pixels in the ROI mask
     cell_pixels = np.count_nonzero(roi_mask)
 
-    print(f"cell_pixels: {cell_pixels}")
-
     # if the ROI mask has no pixels, return 0
     if cell_pixels == 0:
         return 0.0
 
     # count overlapping pixels (logical AND operation)
     overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
-
-    print(f"overlapping_pixels: {overlapping_pixels}")
 
     return overlapping_pixels / cell_pixels
