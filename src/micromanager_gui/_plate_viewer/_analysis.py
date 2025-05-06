@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,6 +13,7 @@ import tifffile
 import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
+from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
@@ -74,7 +76,7 @@ CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
-STIMULATION_AREA_THRESHOLD = 0.5  # 50%
+STIMULATION_AREA_THRESHOLD = 0.1  # 10%
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -690,6 +692,14 @@ class _AnalyseCalciumTraces(QWidget):
         # check if it is an evoked activity experiment
         stimulated = self._is_stimulated()
 
+        # get the stimulation metadata if it is an evoked activity experiment
+        stimulation_meta: dict[str, Any] | None = None
+        if stimulated:
+            event = meta[0].get(event_key, {})
+            seq = event.get("sequence", {})
+            metadata = seq.get("metadata", {}).get(PYMMCW_METADATA_KEY, {})
+            stimulation_meta = metadata.get("stimulation")
+
         LOGGER.info(f"Extracting Traces from Well {fov_name}.")
         for label_value, label_mask in tqdm(
             labels_masks.items(), desc=f"Extracting Traces from Well {fov_name}"
@@ -701,6 +711,7 @@ class _AnalyseCalciumTraces(QWidget):
             self._process_roi_trace(
                 data,
                 meta,
+                stimulation_meta,
                 fov_name,
                 label_value,
                 label_mask,
@@ -778,6 +789,7 @@ class _AnalyseCalciumTraces(QWidget):
         self,
         data: np.ndarray,
         meta: list[dict],
+        stimulation_meta: dict[str, Any] | None,
         fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
@@ -796,7 +808,7 @@ class _AnalyseCalciumTraces(QWidget):
         px_size = meta[0].get("PixelSizeUm", None)
         # calculate the size of the roi in µm if px_size is available or not 0,
         # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * (px_size ** 2) if px_size else roi_size_pixel
+        roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
 
         # exclude small rois, might not be necessary if trained cellpose performs
         # better
@@ -846,16 +858,36 @@ class _AnalyseCalciumTraces(QWidget):
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
 
+        # to store the amplitudes of the stimulated peaks as dict {power: [amplitude]}
+        amplitudes_stimulated_peaks: dict[float, list[float]] = {}
+        # if the experiment is evoked, get the amplitudes of the stimulated peaks
+        if stimulated and stimulation_meta is not None and peaks_dec_dff:
+            # get the stimulation info from the metadata (if any)
+            frames_and_powers = stimulation_meta.get("pulse_on_frame", {})
+            sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
+            for frame, power in frames_and_powers.items():
+                stim_frame = int(frame) + 1
+                # find index of first peak >= stim_frame
+                i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
+                peak_idx = sorted_peaks_dec_dff[i]
+                # check if the peak is on the stimulation frame or in the next 5 frames
+                if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
+                    amplitude = dec_dff[peak_idx]
+                    amplitudes_stimulated_peaks.setdefault(power, []).append(amplitude)
+
         # calculate the frequency of the peaks in the dec_dff trace
-        frequency = len(peaks_dec_dff) / tot_time_sec if tot_time_sec else None
+        frequency = (
+            len(peaks_dec_dff) / tot_time_sec
+            if tot_time_sec and peaks_dec_dff
+            else None
+        )
 
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
 
+        # calculate the linear phase of the peaks in the dec_dff trace
         instantaneous_phase = (
-            get_linear_phase(timepoints, peaks_dec_dff)
-            if len(peaks_dec_dff) > 0
-            else None
+            get_linear_phase(timepoints, peaks_dec_dff) if peaks_dec_dff else None
         )
 
         # if the elapsed time is not available or for any reason is different from
@@ -886,6 +918,7 @@ class _AnalyseCalciumTraces(QWidget):
             instantaneous_phase=instantaneous_phase,
             iei=iei,
             stimulated=roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD,
+            amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
