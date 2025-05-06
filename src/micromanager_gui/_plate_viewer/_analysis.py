@@ -860,7 +860,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         # to store the amplitudes of the stimulated peaks as dict:
         # {power_pulselength: [amplitude]}
-        amplitudes_stimulated_peaks: dict[float, list[float]] = {}
+        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
+
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if stimulated and stimulation_meta is not None and len(peaks_dec_dff) > 0:
             # get the stimulation info from the metadata (if any)

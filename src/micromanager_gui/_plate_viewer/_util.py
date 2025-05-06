@@ -131,7 +131,7 @@ class ROIData(BaseClass):
     instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
-    amplitudes_stimulated_peaks: dict[float, list[float]] | None = None
+    amplitudes_stimulated_peaks: dict[str, list[float]] | None = None
     # ... add whatever other data we need
 
 

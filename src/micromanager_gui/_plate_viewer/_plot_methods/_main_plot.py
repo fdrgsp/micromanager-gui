@@ -20,6 +20,7 @@ from micromanager_gui._plate_viewer._util import (
     RASTER_PLOT_AMP_WITH_COLORBAR,
     RAW_TRACES,
     STIMULATED_AREA,
+    STIMULATED_PEAKS_AMP,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
 )
@@ -27,7 +28,10 @@ from micromanager_gui._plate_viewer._util import (
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
 from ._single_wells_plots._single_well_data import _plot_single_well_data
-from ._single_wells_plots._stimulation_plots import _visualize_stimulated_area
+from ._single_wells_plots._stimulation_plots import (
+    _plot_stimulated_peaks_amplitude,
+    _visualize_stimulated_area,
+)
 from ._single_wells_plots._synchrony_plots import _plot_synchrony
 
 if TYPE_CHECKING:
@@ -56,6 +60,7 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
+    STIMULATED_PEAKS_AMP: {},
     GLOBAL_SYNCHRONY: {},
 }
 
@@ -92,6 +97,12 @@ def plot_single_well_data(
     # plot stimulated area/ROIs
     if text in {STIMULATED_AREA, STIMULATED_ROIS, STIMULATED_ROIS_WITH_STIMULATED_AREA}:
         return _visualize_stimulated_area(
+            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+        )
+
+    # plot stimulated peaks amplitude
+    if text in {STIMULATED_PEAKS_AMP}:
+        return _plot_stimulated_peaks_amplitude(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
