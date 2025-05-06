@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
-from pymmcore_plus._logger import logger
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 
 if TYPE_CHECKING:
@@ -48,18 +46,20 @@ class _TensorStoreHandler(TensorStoreHandler):
             ]
 
         if self.ts_driver.startswith("zarr"):
-            store.kvstore.write(".zattrs", json_dumps(metadata).decode("utf-8"))
-            attrs = store.kvstore.read(".zattrs").result().value
-            logger.info("Writing 'tensorstore_zarr' store 'zattrs' to disk.")
-            start_time = time.time()
-            # HACK: wait for attrs to be written. If we don't have the while loop,
-            # most of the time the attrs will not be written. To avoid looping forever,
-            # we wait for WAIT_TIME seconds. If the attrs are not written by then,
-            # we continue.
-            while not attrs and not time.time() - start_time > WAIT_TIME:
-                store.kvstore.write(".zattrs", json_dumps(metadata).decode("utf-8"))
-                attrs = store.kvstore.read(".zattrs").result().value
-
+            store.kvstore.write(
+                ".zattrs", json_dumps(metadata).decode("utf-8")
+            ).result()
+        #     store.kvstore.write(".zattrs", json_dumps(metadata).decode("utf-8"))
+        #     attrs = store.kvstore.read(".zattrs").result().value
+        #     logger.info("Writing 'tensorstore_zarr' store 'zattrs' to disk.")
+        #     start_time = time.time()
+        #     # HACK: wait for attrs to be written. If we don't have the while loop,
+        #     # most of the time the attrs will not be written. To avoid looping forever,
+        #     # we wait for WAIT_TIME seconds. If the attrs are not written by then,
+        #     # we continue.
+        #     while not attrs and not time.time() - start_time > WAIT_TIME:
+        #         store.kvstore.write(".zattrs", json_dumps(metadata).decode("utf-8"))
+        #         attrs = store.kvstore.read(".zattrs").result().value
         elif self.ts_driver == "n5":  # pragma: no cover
             attrs = json_loads(store.kvstore.read("attributes.json").result().value)
             attrs.update(metadata)
