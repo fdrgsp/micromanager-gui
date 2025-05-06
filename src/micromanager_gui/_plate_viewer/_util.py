@@ -65,6 +65,7 @@ STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
+STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 
 SINGLE_WELL_COMBO_OPTIONS = [
@@ -86,6 +87,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    STIMULATED_PEAKS_AMP,
     GLOBAL_SYNCHRONY,
 ]
 
@@ -515,8 +517,15 @@ def create_stimulation_mask(stimulation_file: str) -> np.ndarray:
     blue_img = tifffile.imread(stimulation_file)
 
     # check if the image is already a binary mask
-    if np.unique(blue_img).size == 2:
+    unique = np.unique(blue_img)
+    # if only pne values which is 1 (full fov illumination)
+    if unique.size == 1 and unique[0] == 1:
         return blue_img  # type: ignore
+    # if only two values which are 0 and 1 (binary mask)
+    elif unique.size == 2:
+        # if the image is already a binary mask, return it
+        if unique[0] == 0 and unique[1] == 1:
+            return blue_img  # type: ignore
 
     # apply Gaussian Blur to reduce noise
     blur = filters.gaussian(blue_img, sigma=2)
@@ -550,11 +559,15 @@ def get_overlap_roi_with_stimulated_area(
     # count nonzero pixels in the ROI mask
     cell_pixels = np.count_nonzero(roi_mask)
 
+    print(f"cell_pixels: {cell_pixels}")
+
     # if the ROI mask has no pixels, return 0
     if cell_pixels == 0:
         return 0.0
 
     # count overlapping pixels (logical AND operation)
     overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
+
+    print(f"overlapping_pixels: {overlapping_pixels}")
 
     return overlapping_pixels / cell_pixels
