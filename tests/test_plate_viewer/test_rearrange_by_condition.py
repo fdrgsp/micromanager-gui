@@ -3,8 +3,8 @@ from pathlib import Path
 from micromanager_gui._plate_viewer._to_csv import (
     PERCENTAGE_ACTIVE,
     SYNCHRONY,
-    _rearrange_by_conditions_and_fovs,
-    _rearrange_conditions_and_fovs_by_parameter,
+    _rearrange_by_parameter,
+    _rearrange_fov_by_conditions,
     _save_to_csv,
 )
 from micromanager_gui._plate_viewer._util import ROIData
@@ -104,7 +104,7 @@ data = {
 
 def test_rearrange_by_condition():
     """Test the rearrange_by_condition function."""
-    rearranged = _rearrange_by_conditions_and_fovs(data)
+    rearranged = _rearrange_fov_by_conditions(data)
     assert list(rearranged.keys()) == [
         "c1_t1_evk",
         "c1_t1",
@@ -145,8 +145,8 @@ def test_rearrange_by_condition():
 
 
 def test_rearrange_by_condition_by_parameter():
-    rearranged = _rearrange_by_conditions_and_fovs(data)
-    rearranged_by_param = _rearrange_conditions_and_fovs_by_parameter(
+    rearranged = _rearrange_fov_by_conditions(data)
+    rearranged_by_param = _rearrange_by_parameter(
         rearranged, "peaks_amplitudes_dec_dff"
     )
     assert rearranged_by_param == {
@@ -159,9 +159,7 @@ def test_rearrange_by_condition_by_parameter():
         "NoCondition": {"key7": [[13, 14], [13, 14]]},
         "NoCondition_evk": {"key8": [[15, 16], [15, 16], [15, 16]]},
     }
-    rearranged_by_active = _rearrange_conditions_and_fovs_by_parameter(
-        rearranged, PERCENTAGE_ACTIVE
-    )
+    rearranged_by_active = _rearrange_by_parameter(rearranged, PERCENTAGE_ACTIVE)
     assert rearranged_by_active == {
         "c1_t1_evk": {"key1": [100.0]},
         "c1_t1": {"key1": [100.0]},
@@ -172,9 +170,7 @@ def test_rearrange_by_condition_by_parameter():
         "NoCondition": {"key7": [0.0]},
         "NoCondition_evk": {"key8": [66.66666666666666]},
     }
-    rearranged_by_synchrony = _rearrange_conditions_and_fovs_by_parameter(
-        rearranged, SYNCHRONY
-    )
+    rearranged_by_synchrony = _rearrange_by_parameter(rearranged, SYNCHRONY)
     assert rearranged_by_synchrony == {
         "c1_t1_evk": {"key1": [1.0]},
         "c1_t1": {"key1": [None]},
@@ -196,9 +192,9 @@ def test_save_as_csv(tmp_path: Path):
     expected_file_fov = folder / "csv_by_conditions_and_fovs"
     assert expected_file_fov.exists()
     assert expected_file_fov.is_dir()
-    assert (expected_file_fov / "test_folder_amplitude_cf.csv").exists()
+    assert (expected_file_fov / "test_folder_amplitude_per_fov.csv").exists()
 
     expected_file_condition = folder / "csv_by_conditions"
     assert expected_file_condition.exists()
     assert expected_file_condition.is_dir()
-    assert (expected_file_condition / "test_folder_amplitude_c.csv").exists()
+    assert (expected_file_condition / "test_folder_amplitude.csv").exists()

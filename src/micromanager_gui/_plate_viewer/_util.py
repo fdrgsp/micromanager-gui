@@ -66,6 +66,7 @@ STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
+SPONTANEOUS_PEAKS_AMP = "Spontaneous Peaks Amplitudes (non due to stimulation)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 
 SINGLE_WELL_COMBO_OPTIONS = [
@@ -88,6 +89,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
     STIMULATED_PEAKS_AMP,
+    SPONTANEOUS_PEAKS_AMP,
     GLOBAL_SYNCHRONY,
 ]
 
@@ -131,7 +133,11 @@ class ROIData(BaseClass):
     instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     stimulated: bool = False
+    # this is the amp of the peaks of the roi that are due to the stimulation event
     amplitudes_stimulated_peaks: dict[str, list[float]] | None = None
+    # this is the amp of the peaks of the roi that are not due to the stimulation event
+    # but are due to the spontaneous activity of the roi
+    amplitudes_spontaneous_peaks: list[float] | None = None
     # ... add whatever other data we need
 
 
