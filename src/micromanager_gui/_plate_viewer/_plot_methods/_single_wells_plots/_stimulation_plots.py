@@ -353,10 +353,8 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
             rois_rec_time.append(ttime)
 
         color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
-
-        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
-
         peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
         ax.plot(peaks_indices, np.array(trace)[peaks_indices] + count, "x", color="k")
 
         count += 1
