@@ -242,7 +242,7 @@ def _plot_stimulated_rois(
     ax.imshow(labels, cmap=cmap, norm=norm)
 
     _add_legend(ax)
-    _add_hover_functionality(ax, widget, labels, stim_mask)
+    _add_hover_functionality_plot_stim_roi(ax, widget, labels, stim_mask)
 
 
 def _group_rois(data: dict, rois: list[int] | None) -> tuple[list[int], list[int]]:
@@ -297,7 +297,7 @@ def _add_legend(ax: Axes) -> None:
     )
 
 
-def _add_hover_functionality(
+def _add_hover_functionality_plot_stim_roi(
     ax: Axes,
     widget: _SingleWellGraphWidget,
     labels: np.ndarray,
@@ -321,3 +321,92 @@ def _add_hover_functionality(
             sel.annotation.arrow_patch.set_alpha(0)  # hide arrow
         if roi_val and roi_val.isdigit():
             widget.roiSelected.emit(roi_val)
+
+
+def _plot_stimulated_vs_non_stimulated_roi_amp(
+    widget: _SingleWellGraphWidget,
+    data: dict[str, ROIData],
+    rois: list[int] | None = None,
+) -> None:
+    """Plot various types of traces."""
+    # clear the figure
+    widget.figure.clear()
+    ax = widget.figure.add_subplot(111)
+
+    rois_rec_time: list[float] = []
+    count = 0
+
+    for roi_key, roi_data in data.items():
+        if rois is not None and int(roi_key) not in rois:
+            continue
+
+        if (
+            (trace := roi_data.dec_dff) is None
+            or roi_data.peaks_dec_dff is None
+            or not roi_data.active
+        ):
+            continue
+
+        trace = _normalize_trace(trace)
+
+        if (ttime := roi_data.total_recording_time_in_sec) is not None:
+            rois_rec_time.append(ttime)
+
+        color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
+
+        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
+
+        peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+        ax.plot(peaks_indices, np.array(trace)[peaks_indices] + count, "x", color="k")
+
+        count += 1
+
+    ax.set_title("Stimulated vs Non-Stimulated ROIs Traces (Norm Dec dF/F)")
+    ax.set_yticklabels([])
+    ax.set_yticks([])
+    ax.set_ylabel("ROIs")
+    _update_time_axis(ax, rois_rec_time, trace)
+    _add_hover_functionality_stim_vs_non_stim(ax, widget)
+    widget.figure.tight_layout()
+    widget.canvas.draw()
+
+
+def _normalize_trace(trace: list[float]) -> list[float]:
+    """Normalize the trace to the range [0, 1]."""
+    tr = np.array(trace)
+    normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
+    return cast(list[float], normalized.tolist())
+
+
+def _update_time_axis(
+    ax: Axes, rois_rec_time: list[float], trace: list[float] | None
+) -> None:
+    if trace is None or sum(rois_rec_time) <= 0:
+        ax.set_xlabel("Frames")
+        return
+    # get the average total recording time in seconds
+    avg_rec_time = int(np.mean(rois_rec_time))
+    # get total number of frames from the trace
+    total_frames = len(trace) if trace is not None else 1
+    # compute tick positions
+    tick_interval = avg_rec_time / total_frames
+    x_ticks = np.linspace(0, total_frames, num=5, dtype=int)
+    x_labels = [str(int(t * tick_interval)) for t in x_ticks]
+    ax.set_xticks(x_ticks)
+    ax.set_xticklabels(x_labels)
+    ax.set_xlabel("Time (s)")
+
+
+def _add_hover_functionality_stim_vs_non_stim(
+    ax: Axes, widget: _SingleWellGraphWidget
+) -> None:
+    """Add hover functionality using mplcursors."""
+    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
+
+    @cursor.connect("add")  # type: ignore [misc]
+    def on_add(sel: mplcursors.Selection) -> None:
+        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
+        if sel.artist.get_label():
+            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            if roi.isdigit():
+                widget.roiSelected.emit(roi)

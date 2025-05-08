@@ -134,7 +134,6 @@ def _plot_trace(
             peaks_indices,
             np.array(trace)[peaks_indices] + (count if normalize else 0),
             "x",
-            label=f"Peaks ROI {roi_key}",
         )
 
 

@@ -65,6 +65,9 @@ STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = (
+    "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"
+)
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
 SPONTANEOUS_PEAKS_AMP = "Spontaneous Peaks Amplitudes (non due to stimulation)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
@@ -88,6 +91,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_AREA,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
     STIMULATED_PEAKS_AMP,
     SPONTANEOUS_PEAKS_AMP,
     GLOBAL_SYNCHRONY,

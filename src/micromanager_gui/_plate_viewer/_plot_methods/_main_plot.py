@@ -24,6 +24,7 @@ from micromanager_gui._plate_viewer._util import (
     STIMULATED_PEAKS_AMP,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
 )
 
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
@@ -32,6 +33,7 @@ from ._single_wells_plots._single_well_data import _plot_single_well_data
 from ._single_wells_plots._stimulation_plots import (
     _plot_spontaneous_peaks_amplitude,
     _plot_stimulated_peaks_amplitude,
+    _plot_stimulated_vs_non_stimulated_roi_amp,
     _visualize_stimulated_area,
 )
 from ._single_wells_plots._synchrony_plots import _plot_synchrony
@@ -62,6 +64,7 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {},
     STIMULATED_PEAKS_AMP: {},
     SPONTANEOUS_PEAKS_AMP: {},
     GLOBAL_SYNCHRONY: {},
@@ -112,6 +115,11 @@ def plot_single_well_data(
     # plot spontaneous peaks amplitude (non due to stimulation)
     if text == SPONTANEOUS_PEAKS_AMP:
         return _plot_spontaneous_peaks_amplitude(
+            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
+        )
+
+    if text == STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS:
+        return _plot_stimulated_vs_non_stimulated_roi_amp(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
