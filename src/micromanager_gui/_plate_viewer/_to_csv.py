@@ -62,8 +62,8 @@ def _save_to_csv(
     # Save the data as CSV files
     _export_to_csv_grouped_by_conditions_per_fovs(path, fov_by_condition_by_parameter)
     _export_to_csv_grouped_by_conditions(path, fov_by_condition_by_parameter)
-    # _export_to_csv_grouped_by_conditions_per_fovs_evk(path, fov_by_condition_by_parameter_evk)  # noqa: E501
-    # _export_to_csv_grouped_by_conditions_evk(path, fov_by_condition_by_parameter_evk)
+    _export_to_csv_grouped_by_conditions_per_fovs_evk(path, fov_by_condition_by_parameter_evk)  # noqa: E501
+    _export_to_csv_grouped_by_conditions_evk(path, fov_by_condition_by_parameter_evk)
     # fmt: on
 
 
@@ -167,67 +167,66 @@ def _export_to_csv_grouped_by_conditions(
         df.to_csv(csv_path, index=False)
 
 
-# def _export_to_csv_grouped_by_conditions_per_fovs_evk(
-#     path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
-# ) -> None:
-#     """Save each parameter in `data` as a separate CSV with columns as condition_key."""
-#     path = Path(path)
-#     exp_name = path.stem
-#     folder = path / "csv_by_conditions_and_fovs"
-#     folder.mkdir(parents=True, exist_ok=True)
+def _export_to_csv_grouped_by_conditions_per_fovs_evk(
+    path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
+) -> None:
+    """Save each parameter in `data` as a separate CSV with columns as condition_key."""
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "csv_by_conditions_and_fovs"
+    folder.mkdir(parents=True, exist_ok=True)
 
-#     for parameter, condition_dict in data.items():
-#         series_dict = {}
-#         if condition_dict is None:
-#             continue
-#         print()
-#         for condition, keys in condition_dict.items():
-#             print(f"condition: {condition}") # g1_t1_evk_stim_10_100
-#             for key, values in keys.items():
-#                 col_name = f"{condition}_{key}"
-#                 print(f"    col_name: {col_name}") # g1_t1_evk_stim_10_100_B7_0000_p0
-#                 if isinstance(values, dict):  #  dict (stimulated)
-#                     for roi_key, values_1 in values.items():
-#                         col_name = f"{condition}_{key}_{roi_key}"  # g1_t1_evk_stim_10_100_B7_0000_p0_40_100
-#                         flat_values = _flatten_if_list_of_lists(values_1)
-#                 else:  # list (spontaneous)
-#                     flat_values = _flatten_if_list_of_lists(values)
-#                 print(f"        col_name: {col_name}")
-#                 series_dict[col_name] = pd.Series(flat_values)
+    for parameter, condition_dict in data.items():
+        series_dict = {}
+        if condition_dict is None:
+            continue
+        for condition, keys in condition_dict.items():
+            for key, values in keys.items():
+                col_name = f"{condition}_{key}"
+                if isinstance(values, dict):  #  dict (stimulated)
+                    for roi_key, values_1 in values.items():
+                        if roi_key in col_name:
+                            flat_values = _flatten_if_list_of_lists(values_1)
+                else:  # list (spontaneous)
+                    flat_values = _flatten_if_list_of_lists(values)
+                series_dict[col_name] = pd.Series(flat_values)
 
-#         df = pd.DataFrame(series_dict)
-#         csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}_per_fov.csv"
-#         df.to_csv(csv_path, index=False)
+        df = pd.DataFrame(series_dict)
+        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}_per_fov.csv"
+        df.to_csv(csv_path, index=False)
 
 
-# def _export_to_csv_grouped_by_conditions_evk(
-#     path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
-# ) -> None:
-#     """Save each parameter as a separate CSV, grouping all values by condition.
+def _export_to_csv_grouped_by_conditions_evk(
+    path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
+) -> None:
+    """Save each parameter as a separate CSV, grouping all values by condition.
 
-#     Each column corresponds to a condition and contains all values (from all keys)
-#     stacked together.
-#     """
-#     path = Path(path)
-#     exp_name = path.stem
-#     folder = path / "csv_by_conditions"
-#     folder.mkdir(parents=True, exist_ok=True)
+    Each column corresponds to a condition and contains all values (from all keys)
+    stacked together.
+    """
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "csv_by_conditions"
+    folder.mkdir(parents=True, exist_ok=True)
 
-#     for parameter, condition_dict in data.items():
-#         series_dict = {}
-#         if condition_dict is None:
-#             continue
-#         for condition, keys in condition_dict.items():
-#             all_values = []
-#             for key, values in keys.items():
-#                 # for
-#                 flat_values = _flatten_if_list_of_lists(values)
-#                 all_values.extend(flat_values)
-#             series_dict[condition] = pd.Series(all_values)
+    for parameter, condition_dict in data.items():
+        series_dict = {}
+        if condition_dict is None:
+            continue
+        for condition, keys in condition_dict.items():
+            all_values = []
+            for _, values in keys.items():
+                if isinstance(values, dict):  #  dict (stimulated)
+                    for _, values_1 in values.items():
+                        flat_values = _flatten_if_list_of_lists(values_1)
+                else:  # list (spontaneous)
+                    flat_values = _flatten_if_list_of_lists(values)
+                all_values.extend(flat_values)
+            series_dict[condition] = pd.Series(all_values)
 
-#         df = pd.DataFrame(series_dict)
-#         csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
-#         df.to_csv(csv_path, index=False)
+        df = pd.DataFrame(series_dict)
+        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
+        df.to_csv(csv_path, index=False)
 
 
 def _flatten_if_list_of_lists(values: list[Any]) -> list[Any]:
