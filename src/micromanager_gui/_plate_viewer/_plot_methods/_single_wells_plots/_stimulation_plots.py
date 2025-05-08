@@ -67,7 +67,7 @@ def _plot_stimulated_peaks_amplitude(
     # e.g. {"10% 100ms": [(1, 0.5), (2, 0.6)], "20% 200ms": [(3, 0.7)]}
     for power_pulse in power_pulse_and_amps:
         power_pulse_spit = power_pulse.split("_")
-        x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms pulse"
+        x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms"
         renamed_power_pulse_and_amps[x_name] = power_pulse_and_amps[power_pulse]
 
     # plot each power_pulse group as a scatter
@@ -193,7 +193,7 @@ def _visualize_stimulated_area(
     if with_rois:
         _plot_stimulated_rois(ax, widget, data, rois, stim_mask, stimulated_area)
     else:
-        ax.imshow(stim_mask, cmap="gray")
+        ax.imshow(stim_mask, cmap="gray", clim=(0, 1))
 
     ax.axis("off")
     widget.figure.tight_layout()
