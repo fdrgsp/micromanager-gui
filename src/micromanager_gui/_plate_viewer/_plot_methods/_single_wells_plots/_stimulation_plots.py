@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 import mplcursors
 import numpy as np
+from scipy.datasets import face
 import tifffile
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Patch
@@ -241,7 +242,7 @@ def _plot_stimulated_rois(
             ax.plot(contour[:, 1], contour[:, 0], color="yellow", linewidth=1)
     ax.imshow(labels, cmap=cmap, norm=norm)
 
-    _add_legend(ax)
+    _add_legend(ax, (0.5, 1.02))
     _add_hover_functionality_plot_stim_roi(ax, widget, labels, stim_mask)
 
 
@@ -280,7 +281,7 @@ def _generate_color_mapping(
     return color_mapping
 
 
-def _add_legend(ax: Axes) -> None:
+def _add_legend(ax: Axes, bbox_to_anchor: tuple[float]) -> None:
     """Add legend to the plot."""
     legend_patches = [
         Patch(color="green", label="Stimulated ROIs"),
@@ -363,6 +364,20 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     ax.set_yticklabels([])
     ax.set_yticks([])
     ax.set_ylabel("ROIs")
+
+    legend_patches = [
+        Patch(facecolor=STIMULATED_COLOR, label="Stimulated ROIs"),
+        Patch(facecolor=NON_STIMULATED_COLOR, label="Non-Stimulated ROIs"),
+    ]
+    ax.legend(
+        handles=legend_patches,
+        loc="best",
+        frameon=True,
+        fontsize="small",
+        edgecolor="black",
+        facecolor="white",
+    )
+
     _update_time_axis(ax, rois_rec_time, trace)
     _add_hover_functionality_stim_vs_non_stim(ax, widget)
     widget.figure.tight_layout()
