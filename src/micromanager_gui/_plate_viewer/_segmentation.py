@@ -457,11 +457,9 @@ class _CellposeSegmentation(QWidget):
     def _update_progress_bar(self, value: str | int) -> None:
         # update only the progress label if the value is a string
         if isinstance(value, str):
-            print("updating progress label", value)
             self._progress_label.setText(value)
             return
         # update the progress bar value if the value is an integer
-        print("updating progress bar", value)
         self._progress_bar.setValue(value)
 
     def _update_progress_label(self, time_str: str) -> None:
