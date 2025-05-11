@@ -60,14 +60,12 @@ def _save_to_csv(
 
     # fmt: off
     # Save the data as CSV files
+    _export_raw_data(path, analysis_data)
     _export_to_csv_grouped_by_conditions_per_fovs(path, fov_by_condition_by_parameter)
     _export_to_csv_grouped_by_conditions(path, fov_by_condition_by_parameter)
     _export_to_csv_grouped_by_conditions_per_fovs_evk(path, fov_by_condition_by_parameter_evk)  # noqa: E501
     _export_to_csv_grouped_by_conditions_evk(path, fov_by_condition_by_parameter_evk)
     # fmt: on
-
-
-def r(evk_data: dict[str, dict[str, dict[str, ROIData]]]) -> None: ...
 
 
 def _rearrange_fov_by_conditions(
@@ -107,11 +105,40 @@ def _rearrange_fov_by_conditions(
                     ] = roi_data
             else:
                 key = f"{cond_key}_evk_spont"
-                evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[roi_key] = (
-                    roi_data
-                )
+                evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
+                    roi_key
+                ] = roi_data
 
     return conds, evoked_conds
+
+
+def _export_raw_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> None:
+    """Save the raw data as CSV files.
+
+    Columns are frames and rows are ROIs.
+    """
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "raw_data"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # store traces by well_fov and roi_key
+    rows = {}
+    for well_fov, rois in data.items():
+        for roi_key, roi_data in rois.items():
+            if roi_data.raw_trace is None:
+                continue
+            row_name = f"{well_fov}_{roi_key}"
+            rows[row_name] = roi_data.raw_trace
+
+    # convert to DataFrame (handles unequal lengths by filling with NaN)
+    df = pd.DataFrame.from_dict(rows, orient="index")
+
+    # give the columns t0, t1, t2, ... name
+    df.columns = [f"t{i}" for i in range(df.shape[1])]
+
+    # save to CSV
+    df.to_csv(folder / f"{exp_name}_raw_data.csv", index=True)
 
 
 def _export_to_csv_grouped_by_conditions_per_fovs(
