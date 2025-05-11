@@ -697,9 +697,8 @@ class _AnalyseCalciumTraces(QWidget):
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
         if evoked_experiment:
-            event = meta[0].get(event_key, {})
-            seq = event.get("sequence", {})
-            metadata = seq.get("metadata", {}).get(PYMMCW_METADATA_KEY, {})
+            seq = self._data.sequence or {}
+            metadata = seq.metadata.get(PYMMCW_METADATA_KEY, {})
             evoked_experiment_meta = metadata.get("stimulation")
 
         LOGGER.info(f"Extracting Traces from Well {fov_name}.")
@@ -869,6 +868,12 @@ class _AnalyseCalciumTraces(QWidget):
         amplitudes_stimulated_peaks: dict[str, list[float]] = {}
         amplitudes_spontaneous_peaks: list[float] = []
 
+        evoked_experiment = True
+        evoked_experiment_meta = {
+            "pulse_on_frame": {"10": 10, "23": 20, "61": 30, "79": 40},
+            "led_pulse_duration": 100
+        }
+
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if (
             evoked_experiment
@@ -941,6 +946,7 @@ class _AnalyseCalciumTraces(QWidget):
             active=len(peaks_dec_dff) > 0,
             instantaneous_phase=instantaneous_phase,
             iei=iei,
+            evoked_experiment=evoked_experiment,
             stimulated=is_roi_stimulated,
             amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
             amplitudes_spontaneous_peaks=amplitudes_spontaneous_peaks or None,

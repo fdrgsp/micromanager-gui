@@ -136,6 +136,7 @@ class ROIData(BaseClass):
     active: bool | None = None
     instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
+    evoked_experiment: bool = False
     stimulated: bool = False
     # this is the amp of the peaks of the roi that are due to the stimulation event
     amplitudes_stimulated_peaks: dict[str, list[float]] | None = None
