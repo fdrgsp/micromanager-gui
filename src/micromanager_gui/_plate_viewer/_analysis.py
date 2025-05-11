@@ -868,12 +868,6 @@ class _AnalyseCalciumTraces(QWidget):
         amplitudes_stimulated_peaks: dict[str, list[float]] = {}
         amplitudes_spontaneous_peaks: list[float] = []
 
-        evoked_experiment = True
-        evoked_experiment_meta = {
-            "pulse_on_frame": {"10": 10, "23": 20, "61": 30, "79": 40},
-            "led_pulse_duration": 100
-        }
-
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if (
             evoked_experiment
