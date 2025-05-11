@@ -24,6 +24,7 @@ from micromanager_gui._plate_viewer._util import (
     STIMULATED_PEAKS_AMP,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
 )
 
@@ -64,7 +65,8 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
-    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {},
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {"with_peaks": False},
+    STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
     STIMULATED_PEAKS_AMP: {},
     SPONTANEOUS_PEAKS_AMP: {},
     GLOBAL_SYNCHRONY: {},
@@ -118,7 +120,10 @@ def plot_single_well_data(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
-    if text == STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS:
+    if text in {
+        STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
+        STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
+    }:
         return _plot_stimulated_vs_non_stimulated_roi_amp(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )

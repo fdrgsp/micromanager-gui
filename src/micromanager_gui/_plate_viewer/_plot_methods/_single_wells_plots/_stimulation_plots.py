@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, cast
 
 import mplcursors
 import numpy as np
-from scipy.datasets import face
 import tifffile
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Patch
@@ -242,7 +241,7 @@ def _plot_stimulated_rois(
             ax.plot(contour[:, 1], contour[:, 0], color="yellow", linewidth=1)
     ax.imshow(labels, cmap=cmap, norm=norm)
 
-    _add_legend(ax, (0.5, 1.02))
+    _add_legend(ax)
     _add_hover_functionality_plot_stim_roi(ax, widget, labels, stim_mask)
 
 
@@ -281,7 +280,7 @@ def _generate_color_mapping(
     return color_mapping
 
 
-def _add_legend(ax: Axes, bbox_to_anchor: tuple[float]) -> None:
+def _add_legend(ax: Axes) -> None:
     """Add legend to the plot."""
     legend_patches = [
         Patch(color="green", label="Stimulated ROIs"),
@@ -328,37 +327,48 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
+    with_peaks: bool = False,
 ) -> None:
-    """Plot various types of traces."""
-    # clear the figure
+    """Plot normalized dec dF/F traces for stimulated and non-stimulated ROIs."""
+    # Clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
     rois_rec_time: list[float] = []
-    count = 0
 
-    for roi_key, roi_data in data.items():
-        if rois is not None and int(roi_key) not in rois:
+    # sort ROIs: stimulated first, then non-stimulated
+    sorted_items = sorted(
+        [
+            (roi_key, roi_data)
+            for roi_key, roi_data in data.items()
+            if roi_data.active
+            and roi_data.dec_dff is not None
+            and roi_data.peaks_dec_dff is not None
+            and (rois is None or int(roi_key) in rois)
+        ],
+        key=lambda item: not item[
+            1
+        ].stimulated,  # stimulated=True -> False (comes first)
+    )
+
+    for count, (roi_key, roi_data) in enumerate(sorted_items):
+        if roi_data.dec_dff is None or roi_data.peaks_dec_dff is None:
             continue
 
-        if (
-            (trace := roi_data.dec_dff) is None
-            or roi_data.peaks_dec_dff is None
-            or not roi_data.active
-        ):
-            continue
-
-        trace = _normalize_trace(trace)
+        trace = _normalize_trace(roi_data.dec_dff)
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
             rois_rec_time.append(ttime)
 
         color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
-        peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
-        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
-        ax.plot(peaks_indices, np.array(trace)[peaks_indices] + count, "x", color="k")
 
-        count += 1
+        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
+
+        if with_peaks:
+            peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+            ax.plot(
+                peaks_indices, np.array(trace)[peaks_indices] + count, "x", color="k"
+            )
 
     ax.set_title("Stimulated vs Non-Stimulated ROIs Traces (Norm Dec dF/F)")
     ax.set_yticklabels([])

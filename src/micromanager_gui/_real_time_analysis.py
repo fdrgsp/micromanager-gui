@@ -332,8 +332,8 @@ def _segment_and_analyse(
     # SEGMENTATION - CELLPOSE --------------------------------------------------------
     logger.info(f"SegmentAndAnalyse -> Segmenting image: {label_name}...")
     # max projection from half to the end of the stack
-    data_half_to_end = data[data.shape[0] // 2 :, :, :]  # type: ignore # TODO: fix
-    max_proj = data_half_to_end.max(axis=0)  # type: ignore  # TODO: fix as above
+    data_half_to_end = data[data.shape[0] // 2 :, :, :]
+    max_proj = data_half_to_end.max(axis=0)
 
     model, min_peaks_height, stimulation_params, plate_map_data = analysis_info
 

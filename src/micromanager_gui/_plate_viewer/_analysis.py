@@ -696,8 +696,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
-        if evoked_experiment:
-            seq = self._data.sequence or {}
+        if evoked_experiment and (seq := self._data.sequence) is not None:
             metadata = seq.metadata.get(PYMMCW_METADATA_KEY, {})
             evoked_experiment_meta = metadata.get("stimulation")
 
