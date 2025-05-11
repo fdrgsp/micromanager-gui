@@ -105,9 +105,9 @@ def _rearrange_fov_by_conditions(
                     ] = roi_data
             else:
                 key = f"{cond_key}_evk_spont"
-                evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
-                    roi_key
-                ] = roi_data
+                evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[roi_key] = (
+                    roi_data
+                )
 
     return conds, evoked_conds
 
