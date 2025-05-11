@@ -326,7 +326,8 @@ def _segment_and_analyse(
     p_idx = int(label_name.split("_")[-1][1:])  # a1_0020_p23 -> p23-> 23
 
     # get data and metadata from the datastore for the position index
-    data = datastore.isel(p=p_idx)
+    # data = datastore.isel(p=p_idx)
+    data = datastore.store[p_idx].read().result().squeeze()
 
     # SEGMENTATION - CELLPOSE --------------------------------------------------------
     logger.info(f"SegmentAndAnalyse -> Segmenting image: {label_name}...")
