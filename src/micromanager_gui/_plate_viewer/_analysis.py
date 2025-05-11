@@ -879,10 +879,16 @@ class _AnalyseCalciumTraces(QWidget):
             # get the stimulation info from the metadata (if any)
             frames_and_powers = evoked_experiment_meta.get("pulse_on_frame", {})
             sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
+
             for frame, power in frames_and_powers.items():
                 stim_frame = int(frame) + 1
-                # find index of first peak >= stim_frame
+                # find index of first peak >= stim_frame.
                 i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
+                # Note that if the frame is not found, bisect_left returns the index
+                # where it would be inserted and so the max index + 1. We need to check
+                # if the index is valid and, if not, skip it.
+                if i >= len(sorted_peaks_dec_dff):
+                    continue
                 peak_idx = sorted_peaks_dec_dff[i]
                 # check if the peak is on the stimulation frame or in the next 5 frames
                 if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
