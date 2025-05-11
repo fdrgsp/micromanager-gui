@@ -14,12 +14,12 @@ from micromanager_gui._plate_viewer._util import (
     DFF,
     DFF_NORMALIZED,
     GLOBAL_SYNCHRONY,
+    NON_STIMULATED_PEAKS_AMP,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
     RASTER_PLOT_AMP_WITH_COLORBAR,
     RAW_TRACES,
-    SPONTANEOUS_PEAKS_AMP,
     STIMULATED_AREA,
     STIMULATED_PEAKS_AMP,
     STIMULATED_ROIS,
@@ -32,8 +32,7 @@ from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
 from ._single_wells_plots._single_well_data import _plot_single_well_data
 from ._single_wells_plots._stimulation_plots import (
-    _plot_spontaneous_peaks_amplitude,
-    _plot_stimulated_peaks_amplitude,
+    _plot_stim_or_not_stim_peaks_amplitude,
     _plot_stimulated_vs_non_stimulated_roi_amp,
     _visualize_stimulated_area,
 )
@@ -67,8 +66,8 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {"with_peaks": False},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
-    STIMULATED_PEAKS_AMP: {},
-    SPONTANEOUS_PEAKS_AMP: {},
+    STIMULATED_PEAKS_AMP: {"stimulated": True},
+    NON_STIMULATED_PEAKS_AMP: {"stimulated": False},
     GLOBAL_SYNCHRONY: {},
 }
 
@@ -109,14 +108,8 @@ def plot_single_well_data(
         )
 
     # plot stimulated peaks amplitude
-    if text == STIMULATED_PEAKS_AMP:
-        return _plot_stimulated_peaks_amplitude(
-            widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
-        )
-
-    # plot spontaneous peaks amplitude (non due to stimulation)
-    if text == SPONTANEOUS_PEAKS_AMP:
-        return _plot_spontaneous_peaks_amplitude(
+    if text in {STIMULATED_PEAKS_AMP, NON_STIMULATED_PEAKS_AMP}:
+        return _plot_stim_or_not_stim_peaks_amplitude(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 

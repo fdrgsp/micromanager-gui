@@ -26,10 +26,11 @@ STIMULATED_COLOR = "green"
 NON_STIMULATED_COLOR = "magenta"
 
 
-def _plot_stimulated_peaks_amplitude(
+def _plot_stim_or_not_stim_peaks_amplitude(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
+    stimulated: bool = False,
 ) -> None:
     """Visualize stimulated peak amplitudes per ROI per stimulation parameters."""
     # clear the figure
@@ -41,6 +42,7 @@ def _plot_stimulated_peaks_amplitude(
     if analysis_path is None:
         return
 
+    pulse: str = ""
     # {power_pulselength: [(ROI1, amp1), (ROI2, amp2), ...]}
     # e.g. {"10_100": [(1, 0.5), (2, 0.6)], "20_200": [(3, 0.7)]}
     power_pulse_and_amps: dict[str, list[tuple[int, float]]] = {}
@@ -48,10 +50,20 @@ def _plot_stimulated_peaks_amplitude(
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        if not roi_data.stimulated or roi_data.amplitudes_stimulated_peaks is None:
+        amplitudes = (
+            roi_data.amplitudes_stimulated_peaks
+            if stimulated
+            else roi_data.amplitudes_non_stimulated_peaks
+        )
+
+        if amplitudes is None:
             continue
+
+        if not pulse:
+            pulse = next(iter(amplitudes.keys())).split("_")[1]
+
         # power_pulse is f"{power}_{pulse_len}"
-        for power_pulse, amp_list in roi_data.amplitudes_stimulated_peaks.items():
+        for power_pulse, amp_list in amplitudes.items():
             for amp_val in amp_list:
                 power_pulse_and_amps.setdefault(power_pulse, []).append(
                     (int(roi_key), amp_val)
@@ -67,7 +79,8 @@ def _plot_stimulated_peaks_amplitude(
     # e.g. {"10% 100ms": [(1, 0.5), (2, 0.6)], "20% 200ms": [(3, 0.7)]}
     for power_pulse in power_pulse_and_amps:
         power_pulse_spit = power_pulse.split("_")
-        x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms"
+        # x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms"
+        x_name = f"{power_pulse_spit[0]}%"
         renamed_power_pulse_and_amps[x_name] = power_pulse_and_amps[power_pulse]
 
     # plot each power_pulse group as a scatter
@@ -85,8 +98,8 @@ def _plot_stimulated_peaks_amplitude(
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
     ax.set_ylabel("Amplitude")
-    ax.set_title("Stimulated Peak Amplitudes per Power/Pulse Length")
-    ax.tick_params(axis="x", rotation=45)
+    title = "Stimulated" if stimulated else "Non-Stimulated"
+    ax.set_title(f"{title} Peak Amplitudes per Power ({pulse} ms pulses)")
     widget.figure.tight_layout()
     widget.canvas.draw()
 
@@ -97,7 +110,7 @@ def _add_hover_to_stimulated_amp_plot(
     metadata: list[tuple[list[int], list[float]]],
 ) -> None:
     """Add hover tooltips to amplitude scatter plot points."""
-    cursor = mplcursors.cursor(artists, hover=True)
+    cursor = mplcursors.cursor(artists, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore
     def on_add(sel: mplcursors.Selection) -> None:
@@ -114,57 +127,6 @@ def _add_hover_to_stimulated_amp_plot(
         sel.annotation.arrow_patch.set_alpha(0.5)
 
         widget.roiSelected.emit(str(roi))
-
-
-def _plot_spontaneous_peaks_amplitude(
-    widget: _SingleWellGraphWidget,
-    data: dict[str, ROIData],
-    rois: list[int] | None = None,
-) -> None:
-    """Visualize non-stimulated peak amplitudes per ROI."""
-    # clear the figure
-    widget.figure.clear()
-    ax = widget.figure.add_subplot(111)
-
-    # get analysis path
-    analysis_path = widget._plate_viewer.analysis_files_path
-    if analysis_path is None:
-        return
-
-    for roi_key, roi_data in data.items():
-        if rois is not None and int(roi_key) not in rois:
-            continue
-        if roi_data.amplitudes_spontaneous_peaks is None:
-            continue
-        ax.plot(
-            [int(roi_key)] * len(roi_data.amplitudes_spontaneous_peaks),
-            roi_data.amplitudes_spontaneous_peaks,
-            "o",
-            label=f"ROI {roi_key}",
-        )
-
-    _add_hover_to_spontaneous_amp_plot(ax, widget)
-
-    ax.set_xlabel("ROIs")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Spontaneous Peak Amplitudes")
-    widget.figure.tight_layout()
-    widget.canvas.draw()
-
-
-def _add_hover_to_spontaneous_amp_plot(
-    ax: Axes, widget: _SingleWellGraphWidget
-) -> None:
-    """Add hover functionality using mplcursors."""
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if sel.artist.get_label():
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
 
 
 def _visualize_stimulated_area(
@@ -336,7 +298,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
 
     rois_rec_time: list[float] = []
 
-    # sort ROIs: stimulated first, then non-stimulated
+    # sort ROIs: non-stimulated first, then stimulated
     sorted_items = sorted(
         [
             (roi_key, roi_data)
@@ -346,9 +308,8 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
             and roi_data.peaks_dec_dff is not None
             and (rois is None or int(roi_key) in rois)
         ],
-        key=lambda item: not item[
-            1
-        ].stimulated,  # stimulated=True -> False (comes first)
+        # stimulated=False → 0 → non-stimulated comes first
+        key=lambda item: item[1].stimulated,
     )
 
     for count, (roi_key, roi_data) in enumerate(sorted_items):
@@ -381,7 +342,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     ]
     ax.legend(
         handles=legend_patches,
-        loc="best",
+        loc="upper left",
         frameon=True,
         fontsize="small",
         edgecolor="black",

@@ -72,7 +72,7 @@ STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = (
     "Stimulated vs Non-Stimulated Normalized [0, 1] with Peaks (Deconvolved DeltaF/F0)"
 )
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
-SPONTANEOUS_PEAKS_AMP = "Spontaneous Peaks Amplitudes (non due to stimulation)"
+NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 
 SINGLE_WELL_COMBO_OPTIONS = [
@@ -97,7 +97,7 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
     STIMULATED_PEAKS_AMP,
-    SPONTANEOUS_PEAKS_AMP,
+    NON_STIMULATED_PEAKS_AMP,
     GLOBAL_SYNCHRONY,
 ]
 
@@ -144,9 +144,9 @@ class ROIData(BaseClass):
     stimulated: bool = False
     # this is the amp of the peaks of the roi that are due to the stimulation event
     amplitudes_stimulated_peaks: dict[str, list[float]] | None = None
-    # this is the amp of the peaks of the roi that are not due to the stimulation event
-    # but are due to the spontaneous activity of the roi
-    amplitudes_spontaneous_peaks: list[float] | None = None
+    # this is the amp of the peaks of the roi that happens at the stimulation event
+    # but are not due to direct light stimulation
+    amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
     # ... add whatever other data we need
 
 

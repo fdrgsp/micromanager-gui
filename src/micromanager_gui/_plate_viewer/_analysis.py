@@ -861,45 +861,22 @@ class _AnalyseCalciumTraces(QWidget):
         # check if the roi is stimulated
         is_roi_stimulated = roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD
 
-        # to store the amplitudes of the stimulated peaks as dict:
-        # {power_pulselength: [amplitude]}
-        # and non stimulated peaks as list: [amplitude]
+        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
         amplitudes_stimulated_peaks: dict[str, list[float]] = {}
-        amplitudes_spontaneous_peaks: list[float] = []
+        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
 
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if (
             evoked_experiment
             and evoked_experiment_meta is not None
-            and is_roi_stimulated
             and len(peaks_dec_dff) > 0
         ):
-            non_stim_peaks_idx: list[float] = peaks_dec_dff.tolist().copy()
             # get the stimulation info from the metadata (if any)
-            frames_and_powers = evoked_experiment_meta.get("pulse_on_frame", {})
-            sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
-
-            for frame, power in frames_and_powers.items():
-                stim_frame = int(frame) + 1
-                # find index of first peak >= stim_frame.
-                i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
-                # Note that if the frame is not found, bisect_left returns the index
-                # where it would be inserted and so the max index + 1. We need to check
-                # if the index is valid and, if not, skip it.
-                if i >= len(sorted_peaks_dec_dff):
-                    continue
-                peak_idx = sorted_peaks_dec_dff[i]
-                # check if the peak is on the stimulation frame or in the next 5 frames
-                if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
-                    amplitude = dec_dff[peak_idx]
-                    pulse_len = evoked_experiment_meta.get(
-                        "led_pulse_duration", "unknown"
-                    )
-                    col = f"{power}_{pulse_len}"
-                    amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
-                    # remove the peak from the non stimulated peaks
-                    non_stim_peaks_idx.remove(peak_idx)
-            amplitudes_spontaneous_peaks = [dec_dff[pk] for pk in non_stim_peaks_idx]
+            amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks = (
+                self._update_stim_vs_non_stim(
+                    evoked_experiment_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
+                )
+            )
 
         # calculate the frequency of the peaks in the dec_dff trace
         frequency = (
@@ -948,8 +925,46 @@ class _AnalyseCalciumTraces(QWidget):
             evoked_experiment=evoked_experiment,
             stimulated=is_roi_stimulated,
             amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
-            amplitudes_spontaneous_peaks=amplitudes_spontaneous_peaks or None,
+            amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
         )
+
+    def _update_stim_vs_non_stim(
+        self,
+        evoked_experiment_meta: dict[str, Any],
+        dec_dff: np.ndarray,
+        peaks_dec_dff: np.ndarray,
+        is_roi_stimulated: bool,
+    ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+        """Update the stimulated and non-stimulated peaks amplitude dict."""
+        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
+        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
+        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
+
+        frames_and_powers = evoked_experiment_meta.get("pulse_on_frame", {})
+        sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
+
+        for frame, power in frames_and_powers.items():
+            stim_frame = int(frame) + 1
+            # find index of first peak >= stim_frame.
+            i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
+            # Note that if the frame is not found, bisect_left returns the index
+            # where it would be inserted and so the max index + 1. We need to check
+            # if the index is valid and, if not, skip it.
+            if i >= len(sorted_peaks_dec_dff):
+                continue
+            peak_idx = sorted_peaks_dec_dff[i]
+            # check if the peak is on the stimulation frame or in the next 5 frames
+            if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
+                amplitude = dec_dff[peak_idx]
+                pulse_len = evoked_experiment_meta.get("led_pulse_duration", "unknown")
+                col = f"{power}_{pulse_len}"
+                if is_roi_stimulated:
+                    amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
+                else:
+                    amplitudes_non_stimulated_peaks.setdefault(col, []).append(
+                        amplitude
+                    )
+        return amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
         """Get the conditions for the well if any."""
