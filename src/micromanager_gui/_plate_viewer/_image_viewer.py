@@ -410,10 +410,19 @@ class _ImageCanvas(QWidget):
 
     def _labels_custom_cmap(self, n_labels: int) -> Colormap:
         """Create a custom colormap for the labels."""
-        colors = np.zeros((n_labels + 1, 4))
-        colors[0] = [0, 0, 0, 1]  # black for background (0)
-        for i in range(1, n_labels + 1):
-            colors[i] = [1, 1, 0, 1]  # yellow for all other labels
+        if n_labels == 0:
+            # Fallback to a valid colormap with two entries: background and dummy
+            colors = np.array(
+                [
+                    [0, 0, 0, 1],  # background (0)
+                    [1, 1, 1, 1],  # dummy label color (white)
+                ]
+            )
+        else:
+            colors = np.zeros((n_labels + 1, 4))
+            colors[0] = [0, 0, 0, 1]  # black for background (0)
+            for i in range(1, n_labels + 1):
+                colors[i] = [1, 1, 0, 1]  # yellow for labels
         return Colormap(colors)
 
     def _extract_label_contours(
