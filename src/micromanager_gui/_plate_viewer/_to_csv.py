@@ -200,11 +200,6 @@ def _export_to_csv_grouped_by_conditions(
             series_dict[condition] = pd.Series(all_values)
 
         df = pd.DataFrame(series_dict)
-
-        # sort the columns by the number after the last `_p`
-        sorted_columns = sorted(df.columns, key=extract_on)
-        df = df[sorted_columns]
-
         csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
         df.to_csv(csv_path, index=False)
 
@@ -266,11 +261,6 @@ def _export_to_csv_grouped_by_conditions_evk(
             series_dict[condition] = pd.Series(all_values)
 
         df = pd.DataFrame(series_dict)
-
-        # sort the columns by the number after the last `_p`
-        sorted_columns = sorted(df.columns, key=extract_on)
-        df = df[sorted_columns]
-
         csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
         df.to_csv(csv_path, index=False)
 
