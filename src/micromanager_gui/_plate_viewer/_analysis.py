@@ -3,6 +3,7 @@ from __future__ import annotations
 import bisect
 import json
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
@@ -42,6 +43,7 @@ from ._util import (
     COND2,
     GENOTYPE_MAP,
     GREEN,
+    MWCM,
     RED,
     STIMULATION_MASK,
     TREATMENT_MAP,
@@ -107,6 +109,8 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
         self._min_peaks_height: float = 0.0
 
+        self._led_power_equation: Any | None = None
+
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
 
@@ -146,6 +150,25 @@ class _AnalyseCalciumTraces(QWidget):
             is_dir=False,
         )
         self._stimulation_area_path.hide()
+
+        self._led_power_wdg = QWidget(self)
+        self._led_power_wdg.setToolTip(
+            "Insert the linear equation to convert the LED power to mW (in the form of "
+            "y = a * x + b). Leave it empty to use the values from the metadata."
+        )
+        led_lbl = QLabel("LED Power Equation:")
+        led_lbl.setSizePolicy(*FIXED)
+        self._led_power_equation_le = QLineEdit(self)
+        self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
+        self._led_power_equation_le.setPlaceholderText(
+            "y= a * x + b ( Leave it empty to use the values from the metadata)."
+        )
+        led_layout = QHBoxLayout(self._led_power_wdg)
+        led_layout.setContentsMargins(0, 0, 0, 0)
+        led_layout.setSpacing(5)
+        led_layout.addWidget(led_lbl)
+        led_layout.addWidget(self._led_power_equation_le)
+        self._led_power_wdg.hide()
 
         # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
         self._analysis_path = _BrowseWidget(
@@ -214,6 +237,7 @@ class _AnalyseCalciumTraces(QWidget):
         fixed_width = self._analysis_path._label.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
+        led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         min_peaks_lbl.setFixedWidth(fixed_width)
 
@@ -232,6 +256,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(experiment_type_wdg)
+        wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addWidget(min_peaks_lbl_wdg)
         wdg_layout.addWidget(self._analysis_path)
@@ -342,11 +367,33 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulated area path widget."""
-        (
+        if text == EVOKED:
             self._stimulation_area_path.show()
-            if text == EVOKED
-            else self._stimulation_area_path.hide()
+            self._led_power_wdg.show()
+        else:
+            self._stimulation_area_path.hide()
+            self._led_power_wdg.hide()
+
+    def linear_equation_from_str(self, equation: str) -> Any | None:
+        # Match format: y = m*x + q (allowing optional spaces and + or - for q)
+        if not equation:
+            return None
+
+        match = re.match(
+            r"y\s*=\s*([+-]?\d*\.?\d+)\s*\*\s*x\s*([+-]\s*\d*\.?\d+)", equation
         )
+        if not match:
+            msg = (
+                "Invalid equation format! Should be in the form: y = m * x + q\n"
+                "Using values from the metadata."
+            )
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+            return None
+
+        m = float(match[1])
+        q = float(match[2].replace(" ", ""))
+        return lambda x: m * x + q
 
     def _reset_progress_bar(self) -> None:
         """Reset the progress bar and elapsed time label."""
@@ -391,6 +438,11 @@ class _AnalyseCalciumTraces(QWidget):
             return None
 
         self._min_peaks_height = self._min_peaks_height_spin.value()
+
+        # get the LED power equation from the line edit
+        self._led_power_equation = self.linear_equation_from_str(
+            self._led_power_equation_le.text()
+        )
 
         return self._get_positions_to_analyze()
 
@@ -957,6 +1009,9 @@ class _AnalyseCalciumTraces(QWidget):
             if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
                 amplitude = dec_dff[peak_idx]
                 pulse_len = evoked_experiment_meta.get("led_pulse_duration", "unknown")
+                if self._led_power_equation is not None:
+                    power = self._led_power_equation(power)
+                    power = f"{power:.3f}{MWCM}"
                 col = f"{power}_{pulse_len}"
                 if is_roi_stimulated:
                     amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)

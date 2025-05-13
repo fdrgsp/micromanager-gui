@@ -33,6 +33,7 @@ TREATMENT_MAP = "treatment_plate_map.json"
 COND1 = "condition_1"
 COND2 = "condition_2"
 STIMULATION_MASK = "stimulation_mask.tif"
+MWCM = "mW/cm²"
 
 
 # -----------------------------------GRAPH PLOTTING-----------------------------------

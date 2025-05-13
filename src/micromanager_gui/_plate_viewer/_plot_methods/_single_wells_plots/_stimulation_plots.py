@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -10,7 +11,7 @@ from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Patch
 from skimage.measure import find_contours
 
-from micromanager_gui._plate_viewer._util import STIMULATION_MASK
+from micromanager_gui._plate_viewer._util import MWCM, STIMULATION_MASK
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -45,6 +46,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     pulse: str = ""
     # {power_pulselength: [(ROI1, amp1), (ROI2, amp2), ...]}
     # e.g. {"10_100": [(1, 0.5), (2, 0.6)], "20_200": [(3, 0.7)]}
+    # or {"1mW/cm²_100": [(1, 0.5), (2, 0.6)], ...}
     power_pulse_and_amps: dict[str, list[tuple[int, float]]] = {}
     for roi_key, roi_data in data.items():
         if rois is not None and int(roi_key) not in rois:
@@ -71,7 +73,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
 
     # sort the power_pulse_and_amps dictionary by power
     power_pulse_and_amps = dict(
-        sorted(power_pulse_and_amps.items(), key=lambda x: int(x[0].split("_")[0]))
+        sorted(power_pulse_and_amps.items(), key=lambda x: extract_leading_number(x[0]))
     )
 
     # rename as power_pulse = "10_100" -> "10% 100ms"
@@ -80,7 +82,8 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     for power_pulse in power_pulse_and_amps:
         power_pulse_spit = power_pulse.split("_")
         # x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms"
-        x_name = f"{power_pulse_spit[0]}%"
+        x_name = f"{power_pulse_spit[0]}"
+        x_name = f"{x_name}%" if MWCM not in x_name else x_name
         renamed_power_pulse_and_amps[x_name] = power_pulse_and_amps[power_pulse]
 
     # plot each power_pulse group as a scatter
@@ -98,10 +101,19 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
     ax.set_ylabel("Amplitude")
+    # rotate 45 degrees x labels
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
     title = "Stimulated" if stimulated else "Non-Stimulated"
     ax.set_title(f"{title} Peak Amplitudes per Power ({pulse} ms pulses)")
     widget.figure.tight_layout()
     widget.canvas.draw()
+
+
+def extract_leading_number(key: str) -> float:
+    """Extract leading number from key (before '_'), stripping units if present."""
+    if match := re.match(r"(\d+(?:\.\d+)?)", key.split("_")[0]):
+        return float(match[1])
+    raise ValueError(f"Could not extract a valid number from key: {key}")
 
 
 def _add_hover_to_stimulated_amp_plot(
