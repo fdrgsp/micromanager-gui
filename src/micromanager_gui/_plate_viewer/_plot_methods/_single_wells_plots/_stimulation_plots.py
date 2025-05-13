@@ -75,7 +75,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     power_pulse_and_amps = dict(
         sorted(power_pulse_and_amps.items(), key=lambda x: extract_leading_number(x[0]))
     )
-
+    x_axis_label = ""
     # rename as power_pulse = "10_100" -> "10% 100ms"
     renamed_power_pulse_and_amps: dict[str, list[tuple[int, float]]] = {}
     # e.g. {"10% 100ms": [(1, 0.5), (2, 0.6)], "20% 200ms": [(3, 0.7)]}
@@ -83,7 +83,12 @@ def _plot_stim_or_not_stim_peaks_amplitude(
         power_pulse_spit = power_pulse.split("_")
         # x_name = f"{power_pulse_spit[0]}% {power_pulse_spit[1]}ms"
         x_name = f"{power_pulse_spit[0]}"
-        x_name = f"{x_name}%" if MWCM not in x_name else x_name
+        if MWCM in x_name:  # e.g. "30mW/cm²"
+            x_name = x_name.split(MWCM)[0]
+            if not x_axis_label:
+                x_axis_label = "Irradiance (mW/cm²)"
+        elif not x_axis_label:
+            x_axis_label = "Power (%)"
         renamed_power_pulse_and_amps[x_name] = power_pulse_and_amps[power_pulse]
 
     # plot each power_pulse group as a scatter
@@ -101,8 +106,9 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
     ax.set_ylabel("Amplitude")
-    # rotate 45 degrees x labels
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+    ax.set_xlabel(x_axis_label)
+    if x_axis_label == "Irradiance (mW/cm²)":
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
     title = "Stimulated" if stimulated else "Non-Stimulated"
     ax.set_title(f"{title} Peak Amplitudes per Power ({pulse} ms pulses)")
     widget.figure.tight_layout()
