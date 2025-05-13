@@ -55,7 +55,7 @@ def _plot_multi_well_data(
                     amp_list, well_freq_list, "o", label=f"{well_and_fov} - roi{roi}"
                 )
                 ax.set_xlabel("Amplitude")
-                ax.set_ylabel("Frequency")
+                ax.set_ylabel("Frequency (Hz)")
 
             elif amp:
                 if r_data.peaks_amplitudes_dec_dff is None:
@@ -79,7 +79,7 @@ def _plot_multi_well_data(
                     label=f"{well_and_fov} - roi{roi}",
                 )
                 ax.set_xlabel("Wells")
-                ax.set_ylabel("Frequency")
+                ax.set_ylabel("Frequency (Hz)")
 
             elif iei:
                 if r_data.iei is None:

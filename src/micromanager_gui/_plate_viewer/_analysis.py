@@ -286,6 +286,14 @@ class _AnalyseCalciumTraces(QWidget):
         self._data = data
 
     @property
+    def analysis_data(self) -> dict[str, dict[str, ROIData]]:
+        return self._analysis_data
+
+    @analysis_data.setter
+    def analysis_data(self, data: dict[str, dict[str, ROIData]]) -> None:
+        self._analysis_data = data
+
+    @property
     def labels_path(self) -> str | None:
         return self._labels_path
 
@@ -294,12 +302,12 @@ class _AnalyseCalciumTraces(QWidget):
         self._labels_path = labels_path
 
     @property
-    def analysis_data(self) -> dict[str, dict[str, ROIData]]:
-        return self._analysis_data
+    def analysis_path(self) -> str | None:
+        return self._analysis_path.value()
 
-    @analysis_data.setter
-    def analysis_data(self, data: dict[str, dict[str, ROIData]]) -> None:
-        self._analysis_data = data
+    @analysis_path.setter
+    def analysis_path(self, analysis_path: str | None) -> None:
+        self._analysis_path.setValue(analysis_path or "")
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
@@ -357,7 +365,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _update_plate_viewer_analysis_path(self, path: str) -> None:
         """Update the analysis path of the plate viewer."""
         if self._plate_viewer is not None:
-            self._plate_viewer._analysis_files_path = path
+            self._plate_viewer._pv_analysis_path = path
 
     # def _update_plate_viewer_analysis_path(self, path: str) -> None:
     #     """Update the analysis path of the plate viewer."""
@@ -563,8 +571,10 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer._analysis_data = self._analysis_data
-            self._plate_viewer._analysis_files_path = self._analysis_path.value()
+            self._plate_viewer.pv_analysis_data = self._analysis_data
+            # not suing the plate viewer `pv_analysis_path` property because we do not
+            # want to trigger data reloading
+            self._plate_viewer._pv_analysis_path = self._analysis_path.value()
 
             # update the graphs with the new data
             if self._plate_viewer._tab.currentIndex() == 1:

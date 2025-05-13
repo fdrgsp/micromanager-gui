@@ -143,13 +143,13 @@ def _set_axis_labels(
     """Set axis labels based on the plotted data."""
     if amp and freq:
         ax.set_xlabel("Amplitude")
-        ax.set_ylabel("Frequency")
+        ax.set_ylabel("Frequency (Hz)")
     elif amp:
         ax.set_xlabel("ROIs")
         ax.set_ylabel("Amplitude")
     elif freq:
         ax.set_xlabel("ROIs")
-        ax.set_ylabel("Frequency")
+        ax.set_ylabel("Frequency (Hz)")
     elif iei:
         ax.set_xlabel("ROIs")
         ax.set_ylabel("Inter-event intervals (sec)")

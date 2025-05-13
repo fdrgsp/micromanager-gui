@@ -39,7 +39,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     ax = widget.figure.add_subplot(111)
 
     # get analysis path
-    analysis_path = widget._plate_viewer.analysis_files_path
+    analysis_path = widget._plate_viewer.pv_analysis_path
     if analysis_path is None:
         return
 
@@ -160,7 +160,7 @@ def _visualize_stimulated_area(
     ax = widget.figure.add_subplot(111)
 
     # get analysis path
-    analysis_path = widget._plate_viewer.analysis_files_path
+    analysis_path = widget._plate_viewer.pv_analysis_path
     if analysis_path is None:
         return
 
@@ -190,7 +190,7 @@ def _plot_stimulated_rois(
 ) -> None:
     """Plot the ROIs with stimulated and non-stimulated areas."""
     # get the labels file path
-    labels_image_path = widget._plate_viewer.labels_path
+    labels_image_path = widget._plate_viewer.pv_labels_path
     if labels_image_path is None:
         return
 

@@ -250,6 +250,14 @@ class _CellposeSegmentation(QWidget):
     def labels(self) -> dict[str, np.ndarray]:
         return self._labels
 
+    @property
+    def output_path(self) -> str | None:
+        return self._output_path.value()
+
+    @output_path.setter
+    def output_path(self, analysis_path: str | None) -> None:
+        self._output_path.setValue(analysis_path or "")
+
     def cancel(self) -> None:
         """Cancel the current run."""
         if self._worker is not None:
@@ -386,7 +394,7 @@ class _CellposeSegmentation(QWidget):
     def _update_plate_viewer_labels_path(self, path: str) -> None:
         """Update the labels path of the PlateViewer."""
         if self._plate_viewer is not None:
-            self._plate_viewer.labels_path = path
+            self._plate_viewer.pv_labels_path = path
 
     def _overwrite_msgbox(self) -> Any:
         """Show a message box to ask the user if wants to overwrite the labels."""

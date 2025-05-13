@@ -92,10 +92,10 @@ class PlateViewer(QMainWindow):
         self.setCentralWidget(self._central_widget)
 
         self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
-        self._labels_path = labels_path
-        self._analysis_files_path = analysis_files_path
+        self._pv_labels_path = labels_path
+        self._pv_analysis_path = analysis_files_path
 
-        self._analysis_data: dict[str, dict[str, ROIData]] = {}
+        self._pv_analysis_data: dict[str, dict[str, ROIData]] = {}
 
         # add menu bar
         self.menu_bar = QMenuBar(self)
@@ -289,35 +289,35 @@ class PlateViewer(QMainWindow):
         self._init_widget(value)
 
     @property
-    def labels_path(self) -> str | None:
-        return self._labels_path
+    def pv_labels_path(self) -> str | None:
+        return self._pv_labels_path
 
-    @labels_path.setter
-    def labels_path(self, value: str | None) -> None:
-        self._labels_path = value
+    @pv_labels_path.setter
+    def pv_labels_path(self, value: str | None) -> None:
+        self._pv_labels_path = value
         self._analysis_wdg.labels_path = value
         self._on_fov_table_selection_changed()
 
     @property
-    def labels(self) -> dict[str, np.ndarray]:
+    def pv_labels(self) -> dict[str, np.ndarray]:
         return self._segmentation_wdg.labels
 
     @property
-    def analysis_files_path(self) -> str | None:
-        return self._analysis_files_path
+    def pv_analysis_path(self) -> str | None:
+        return self._pv_analysis_path
 
-    @analysis_files_path.setter
-    def analysis_files_path(self, value: str) -> None:
-        self._analysis_files_path = value
+    @pv_analysis_path.setter
+    def pv_analysis_path(self, value: str) -> None:
+        self._pv_analysis_path = value
         self._load_analysis_data(value)
 
     @property
-    def analysis_data(self) -> dict[str, dict[str, ROIData]]:
-        return self._analysis_data
+    def pv_analysis_data(self) -> dict[str, dict[str, ROIData]]:
+        return self._pv_analysis_data
 
-    @analysis_data.setter
-    def analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
-        self._analysis_data = value
+    @pv_analysis_data.setter
+    def pv_analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
+        self._pv_analysis_data = value
 
     def _update_graphs_with_roi(self, roi: int) -> None:
         """Update the graphs with the given roi.
@@ -389,11 +389,11 @@ class PlateViewer(QMainWindow):
             datastore_path=(
                 str(self._datastore.path) if self._datastore is not None else None
             ),
-            labels_path=self._labels_path,
-            analysis_path=self._analysis_files_path,
+            labels_path=self._pv_labels_path,
+            analysis_path=self._pv_analysis_path,
         )
         if init_dialog.exec():
-            datastore, self._labels_path, self._analysis_files_path = (
+            datastore, self._pv_labels_path, self._pv_analysis_path = (
                 init_dialog.value()
             )
             # clear fov table
@@ -455,7 +455,7 @@ class PlateViewer(QMainWindow):
 
     def _show_save_as_csv_dialog(self) -> None:
         """Show the save as csv dialog."""
-        if not self._analysis_data:
+        if not self._pv_analysis_data:
             show_error_dialog(self, "No data to save! Run or load analysis data first.")
             return
 
@@ -469,7 +469,7 @@ class PlateViewer(QMainWindow):
                 )
                 return
 
-            _save_to_csv(path, self._analysis_data)
+            _save_to_csv(path, self._pv_analysis_data)
 
     def _init_loading_bar(self, text: str) -> None:
         """Reset the loading bar."""
@@ -548,7 +548,7 @@ class PlateViewer(QMainWindow):
                 # get the name of the file without the extensions
                 well = f.name.removesuffix(f.suffix)
                 # create the dict for the well
-                self._analysis_data[well] = {}
+                self._pv_analysis_data[well] = {}
                 # open the data for the well
                 with open(f) as file:
                     try:
@@ -557,7 +557,7 @@ class PlateViewer(QMainWindow):
                         msg = f"Error reading the analysis data: {e}"
                         LOGGER.error(msg)
                         yield msg  # for showing the error dialog
-                        self._analysis_data = data
+                        self._pv_analysis_data = data
                     # if the data is empty, continue
                     if not data:
                         continue
@@ -566,7 +566,7 @@ class PlateViewer(QMainWindow):
                         if not roi.isdigit():
                             # this is the case of global data
                             # (e.g. cubic or linear global connectivity)
-                            self._analysis_data[roi] = data[roi]
+                            self._pv_analysis_data[roi] = data[roi]
                             continue
                         # get the data for the roi
                         fov_data = cast(dict, data[roi])
@@ -575,12 +575,12 @@ class PlateViewer(QMainWindow):
                             if key not in ROIData.__annotations__:
                                 fov_data.pop(key)
                         # convert to a ROIData object and add store it in _analysis_data
-                        self._analysis_data[well][roi] = ROIData(**fov_data)
+                        self._pv_analysis_data[well][roi] = ROIData(**fov_data)
         except Exception as e:
             msg = f"Error loading the analysis data: {e}"
             LOGGER.error(msg)
             yield msg  # for showing the error dialog
-            self._analysis_data.clear()
+            self._pv_analysis_data.clear()
 
     def _filter_data(self, path_list: list[Path]) -> list[Path]:
         filtered_paths: list[Path] = []
@@ -630,13 +630,14 @@ class PlateViewer(QMainWindow):
     ) -> None:
         """Initialize the widget with the given datastore."""
         # clear the image viewer cache
+        self._plate_view.clear()
         self._image_viewer._viewer._contour_cache.clear()
         self._plate_map_genotype.clear()
         self._plate_map_treatment.clear()
 
         # load analysis json file if the path is not None
-        if self._analysis_files_path:
-            self._load_analysis_data(self._analysis_files_path)
+        if self._pv_analysis_path:
+            self._load_analysis_data(self._pv_analysis_path)
 
         self._datastore = reader
 
@@ -678,12 +679,12 @@ class PlateViewer(QMainWindow):
 
         # set the segmentation widget data
         self._segmentation_wdg.data = self._datastore
-        self._segmentation_wdg._output_path._path.setText(self._labels_path)
+        self._segmentation_wdg.output_path = self._pv_labels_path
         # set the analysis widget data
         self._analysis_wdg.data = self._datastore
-        self._analysis_wdg.labels_path = self._labels_path
-        self._analysis_wdg._analysis_data = self._analysis_data
-        self._analysis_wdg._analysis_path._path.setText(self._analysis_files_path)
+        self._analysis_wdg.analysis_data = self._pv_analysis_data
+        self._analysis_wdg.labels_path = self._pv_labels_path
+        self._analysis_wdg.analysis_path = self._pv_analysis_path
 
         self._load_plate_map(plate)
 
@@ -760,11 +761,11 @@ class PlateViewer(QMainWindow):
         self._plate_map_genotype.setPlate(plate)
         self._plate_map_treatment.setPlate(plate)
         # load plate map if exists
-        if self._analysis_files_path is not None:
-            gen_path = Path(self._analysis_files_path) / GENOTYPE_MAP
+        if self._pv_analysis_path is not None:
+            gen_path = Path(self._pv_analysis_path) / GENOTYPE_MAP
             if gen_path.exists():
                 self._plate_map_genotype.setValue(gen_path)
-            treat_path = Path(self._analysis_files_path) / TREATMENT_MAP
+            treat_path = Path(self._pv_analysis_path) / TREATMENT_MAP
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 
@@ -833,10 +834,10 @@ class PlateViewer(QMainWindow):
     def _get_fov_data(self, value: WellInfo) -> dict[str, ROIData] | None:
         """Get the analysis data for the given FOV."""
         fov_name = f"{value.fov.name}_p{value.pos_idx}"
-        fov_data = self._analysis_data.get(str(value.fov.name), None)
+        fov_data = self._pv_analysis_data.get(str(value.fov.name), None)
         # use the old name we used to save the data (without position index. e.g. "_p0")
         if fov_data is None:
-            fov_data = self._analysis_data.get(fov_name, None)
+            fov_data = self._pv_analysis_data.get(fov_name, None)
         return fov_data
 
     def _set_graphs_fov(self, value: WellInfo | None) -> None:
@@ -848,13 +849,13 @@ class PlateViewer(QMainWindow):
 
     def _get_labels(self, value: WellInfo) -> np.ndarray | None:
         """Get the labels for the given FOV."""
-        if self._labels_path is None:
+        if self._pv_labels_path is None:
             return None
 
-        if not Path(self._labels_path).is_dir():
+        if not Path(self._pv_labels_path).is_dir():
             show_error_dialog(
                 self,
-                f"Error while loading the labels. Path {self._labels_path} is not a "
+                f"Error while loading the labels. Path {self._pv_labels_path} is not a "
                 "directory!",
             )
             return None
@@ -862,7 +863,7 @@ class PlateViewer(QMainWindow):
         # and should end with _on where n is the position number (e.g. C3_0000_p0.tif)
         pos_idx = f"p{value.pos_idx}"
         pos_name = value.fov.name
-        for f in Path(self._labels_path).iterdir():
+        for f in Path(self._pv_labels_path).iterdir():
             name = f.name.replace(f.suffix, "")
             if pos_name and pos_name in f.name and name.endswith(f"_{pos_idx}"):
                 return tifffile.imread(f)  # type: ignore
@@ -898,4 +899,4 @@ class PlateViewer(QMainWindow):
 
     def _update_multi_wells_graphs_combo(self) -> None:
         for mw_graph in self.MW_GRAPHS:
-            mw_graph.set_combo_text_red(not self._analysis_data)
+            mw_graph.set_combo_text_red(not self._pv_analysis_data)

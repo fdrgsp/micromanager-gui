@@ -93,7 +93,7 @@ class _DisplaySingleWellTraces(QGroupBox):
         table_data = self._graph._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        data = _get_fov_data(table_data, self._graph._plate_viewer._analysis_data)
+        data = _get_fov_data(table_data, self._graph._plate_viewer._pv_analysis_data)
         if data is not None:
             rois = self._get_rois(data)
             if rois is None:
@@ -203,7 +203,7 @@ class _SingleWellGraphWidget(QWidget):
         table_data = self._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        data = _get_fov_data(table_data, self._plate_viewer._analysis_data)
+        data = _get_fov_data(table_data, self._plate_viewer._pv_analysis_data)
         if data is not None:
             plot_single_well_data(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
@@ -333,7 +333,7 @@ class _MultilWellGraphWidget(QWidget):
             return
 
         plot_multi_well_data(
-            self, text, self._plate_viewer._analysis_data, positions=None
+            self, text, self._plate_viewer._pv_analysis_data, positions=None
         )
         # if self._choose_dysplayed_positions.isChecked():
         #     self._choose_dysplayed_positions._update()
