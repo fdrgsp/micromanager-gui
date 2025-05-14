@@ -23,7 +23,7 @@ from micromanager_gui._widgets._mda_widget._arduino._arduino_led_dialog import (
 from micromanager_gui._writers import _OMETiffWriter, _TiffSequenceWriter
 
 from ._arduino import ArduinoLedWidget
-from ._real_time_analysis_wdg import RealTimeAnalysisWidget
+from ._realtime_cellpose_segmentation_wdg import RealTimeCellposeSegmentationWidget
 from ._save_widget import (
     OME_TIFF,
     OME_ZARR,
@@ -39,7 +39,6 @@ NUM_SPLIT = re.compile(r"(.*?)(?:_(\d{3,}))?$")
 OME_TIFFS = tuple(WRITERS[OME_TIFF])
 GB_CACHE = 2_000_000_000  # 2 GB for tensorstore cache
 STIMULATION = "stimulation"
-ANALYSIS = "analysis"
 SEGMENTATION = "segmentation"
 CRITICAL_MSG = (
     "'Arduino LED Stimulation' is selected but an error occurred while trying "
@@ -185,8 +184,8 @@ class MDAWidget_(MDAWidget):
         # ----------------------------------------------------
 
         # ------------ Segmentation & Analysis ----------------
-        self._seg_and_analysis_wdg = RealTimeAnalysisWidget(self)
-        main_layout.insertWidget(5, self._seg_and_analysis_wdg)
+        self._segmentation_wdg = RealTimeCellposeSegmentationWidget(self)
+        main_layout.insertWidget(5, self._segmentation_wdg)
         # ----------------------------------------------------
 
     def value(self) -> MDASequence:
@@ -194,20 +193,15 @@ class MDAWidget_(MDAWidget):
         value = cast(MDASequence, super().value())
 
         arduino_settings = self._arduino_led_wdg.value()
-        segment_settings, analyse_settings = self._seg_and_analysis_wdg.value()
+        segment_settings = self._segmentation_wdg.value()
 
-        if not arduino_settings and (
-            segment_settings is None and analyse_settings is None
-        ):
+        if not arduino_settings and segment_settings is None:
             return value
 
-        # update metadata with the analysis settings
-        if segment_settings is not None or analyse_settings is not None:
+        # update metadata with the segmentation settings
+        if segment_settings is not None:
             meta = value.metadata.get(PYMMCW_METADATA_KEY, {})
-            meta[ANALYSIS] = {
-                SEGMENTATION: segment_settings,
-                ANALYSIS: analyse_settings,
-            }
+            meta[SEGMENTATION] = segment_settings
 
         # update metadata with the Arduino LED stimulation settings
         if arduino_settings:

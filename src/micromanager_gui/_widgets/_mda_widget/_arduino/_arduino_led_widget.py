@@ -27,12 +27,14 @@ class ArduinoLedWidget(QGroupBox):
 
         self._arduino_led_control = ArduinoLedControl(self)
 
-        self._settings_btn = QPushButton("Arduino Settings...")
-        self._settings_btn.setSizePolicy(FIXED)
-        self._settings_btn.clicked.connect(self._show_settings)
-
         self._enable_led = QCheckBox("Enable Arduino LED stimulation")
         self._enable_led.setSizePolicy(FIXED)
+        self._enable_led.toggled.connect(self._on_enable_toggled)
+
+        self._settings_btn = QPushButton("Arduino Settings...")
+        self._settings_btn.setSizePolicy(FIXED)
+        self._settings_btn.setEnabled(False)
+        self._settings_btn.clicked.connect(self._show_settings)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -77,3 +79,9 @@ class ArduinoLedWidget(QGroupBox):
             self._arduino_led_control.raise_()
         else:
             self._arduino_led_control.show()
+
+    def _on_enable_toggled(self, checked: bool) -> None:
+        """Enable/disable the analysis settings button based on the checkbox state."""
+        self._settings_btn.setEnabled(checked)
+        if not checked:
+            self._arduino_led_control.hide()
