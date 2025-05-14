@@ -44,7 +44,7 @@ EXT = (WRITERS[OME_ZARR][0], WRITERS[ZARR_TESNSORSTORE][0])
 
 CUSTOM = "custom"
 CYTO3 = "cyto3"
-CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
 
 
 class _SelectModelPath(_BrowseWidget):

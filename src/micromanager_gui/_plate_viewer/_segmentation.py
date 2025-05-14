@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
 
 
 class _SelectModelPath(_BrowseWidget):

@@ -21,7 +21,7 @@ from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
 CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
-CUSTOM_MODEL_PATH = "models/cp_img8_epoch7000_py"
+CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
