@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from ._util import ROIData, _get_synchrony, _get_synchrony_matrix
@@ -61,6 +62,8 @@ def _save_to_csv(
     _export_to_csv_grouped_by_conditions(path, fov_by_condition_by_parameter)
     _export_to_csv_grouped_by_conditions_per_fovs_evk(path, fov_by_condition_by_parameter_evk)  # noqa: E501
     _export_to_csv_grouped_by_conditions_evk(path, fov_by_condition_by_parameter_evk)
+
+    _export_to_csv_mean_amp_grouped_by_condition(path, fov_by_condition_by_parameter)
     # fmt: on
 
 
@@ -263,6 +266,51 @@ def _export_to_csv_grouped_by_conditions_evk(
         df = pd.DataFrame(series_dict)
         csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
         df.to_csv(csv_path, index=False)
+
+
+def _export_to_csv_mean_amp_grouped_by_condition(
+    path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
+) -> None:
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "grouped"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # Extract relevant parts
+    output_rows = []
+
+    # Get all FOV names from any condition (assuming same across conditions)
+    fov_names = set()
+    for cond_data in data["peaks_amplitudes_dec_dff"].values():
+        fov_names.update(cond_data.keys())
+
+    # Construct the table
+    for fov in sorted(fov_names):
+        row = {"FOV": fov}
+        for cond, fovs in data["peaks_amplitudes_dec_dff"].items():
+            if fov in fovs:
+                # Safe flattening of uneven ROI arrays
+                flat_values = [v for roi in fovs[fov] for v in roi]
+                mean_val = np.mean(flat_values)
+                sem_val = np.std(flat_values, ddof=1) / np.sqrt(len(flat_values))
+                n_val = len(fovs[fov])
+                row[f"{cond}_Mean"] = round(mean_val, 5)
+                row[f"{cond}_SEM"] = round(sem_val, 5)
+                row[f"{cond}_N"] = n_val
+                print(
+                    f"Condition: {cond}, FOV: {fov}, Mean: {mean_val}, SEM: {sem_val},"
+                    " N: {n_val}"
+                )
+            else:
+                row[f"{cond}_Mean"] = ""
+                row[f"{cond}_SEM"] = ""
+                row[f"{cond}_N"] = ""
+        output_rows.append(row)
+
+    # Create DataFrame and save
+    df = pd.DataFrame(output_rows)
+    csv_path = folder / f"{exp_name}_mean_amplitude.csv"
+    df.to_csv(csv_path, index=False)
 
 
 def _flatten_if_list_of_lists(values: list[Any]) -> list[Any]:

@@ -269,8 +269,8 @@ class PlateViewer(QMainWindow):
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
-        # self._labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
-        # self._analysis_files_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
+        # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
+        # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # reader = TensorstoreZarrReader(data)
         # self._init_widget(reader)
         # ____________________________________________________________________________
