@@ -14,6 +14,7 @@ from micromanager_gui._plate_viewer._util import (
     DFF,
     DFF_NORMALIZED,
     GLOBAL_SYNCHRONY,
+    GLOBAL_SYNCHRONY_P_VALUE,
     NON_STIMULATED_PEAKS_AMP,
     NORMALIZED_TRACES,
     RASTER_PLOT,
@@ -68,7 +69,8 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
     STIMULATED_PEAKS_AMP: {"stimulated": True},
     NON_STIMULATED_PEAKS_AMP: {"stimulated": False},
-    GLOBAL_SYNCHRONY: {},
+    GLOBAL_SYNCHRONY: {"with_p_value": False},
+    GLOBAL_SYNCHRONY_P_VALUE: {"with_p_value": True},
 }
 
 MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
@@ -127,7 +129,7 @@ def plot_single_well_data(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
 
-    if text in {GLOBAL_SYNCHRONY}:
+    if text in {GLOBAL_SYNCHRONY, GLOBAL_SYNCHRONY_P_VALUE}:
         return _plot_synchrony(widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text])
 
     # plot other types of graphs

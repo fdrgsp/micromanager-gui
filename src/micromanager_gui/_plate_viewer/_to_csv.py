@@ -6,7 +6,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ._util import ROIData, _get_synchrony, _get_synchrony_matrix
+from ._logger import LOGGER
+from ._util import (
+    ROIData,
+    _get_synchrony,
+    _get_synchrony_matrix,
+)
 
 PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
@@ -30,7 +35,8 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 NESTED = ["peaks_amplitudes_dec_dff", "dec_dff_frequency", "iei", "cell_size"]
-SINGLE_VALUE = ["percentage_active", "synchrony"]
+SINGLE_VALUE = ["percentage_active"]
+TUPLES = ["synchrony"]
 
 
 def _save_to_csv(
@@ -59,11 +65,16 @@ def _save_to_csv(
 
     # fmt: off
     # Save the data as CSV files
-    _export_raw_data(path, analysis_data)
-    _export_dff_data(path, analysis_data)
-    _export_dec_dff_data(path, analysis_data)
-    _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)
-    _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)
+    try:
+        _export_raw_data(path, analysis_data)
+        _export_dff_data(path, analysis_data)
+        _export_dec_dff_data(path, analysis_data)
+        _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
+        _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
+    except Exception as e:
+        LOGGER.error(f"Error exporting data to CSV: {e}")
+        return
+    LOGGER.info(f"Successfully exported data as CSV files to `{path}`.")
     # fmt: on
 
 
@@ -252,6 +263,12 @@ def _export_to_csv_mean_values_grouped_by_condition(
                     row[f"{cond}_Value"] = (
                         round(val, 5) if isinstance(val, (int, float)) else ""
                     )
+                elif parameter in TUPLES:
+                    # tuples are sync_value, p_value, z_score
+                    val = values[0]
+                    row[f"{cond}_Value"] = (
+                        round(val, 5) if isinstance(val, (int, float)) else ""
+                    )
                 else:
                     # catch-all fallback
                     row[f"{cond}_Data"] = str(values)
@@ -390,9 +407,23 @@ def _get_synchrony_parameter(
                 if roi_data.instantaneous_phase is not None
             }
             synchrony_matrix = _get_synchrony_matrix(instantaneous_phase_dict)
+
             linear_synchrony = _get_synchrony(synchrony_matrix)
+
+            # null_scores = compute_null_distribution(
+            #     instantaneous_phase_dict, num_shuffles=1000
+            # )
+            # z_score = compute_z_score(linear_synchrony, null_scores)
+            # “Empirical p-values were computed using 1000 surrogate shuffles of the
+            # data, comparing the observed synchrony score to the distribution of
+            # scores from randomly permuted phase traces (using a +1 correction).”
+            # Standard practice in permutation testing (called pseudocount correction):
+            # p_value = (
+            #     np.sum(null_scores >= linear_synchrony) + 1) / (len(null_scores) + 1
+            # )
+
             synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
-                linear_synchrony
+                (linear_synchrony, 0.0, 0.0)
             )
     return synchrony_dict
 
