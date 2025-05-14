@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tifffile
-import torch
-from cellpose import models
+from cellpose import core, models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
 from qtpy.QtWidgets import (
@@ -171,14 +170,11 @@ class CellposeBatchSegmentation(QDialog):
             positions = list(range(len(sequence.stage_positions)))
 
             # only cuda since per now cellpose does not work with gpu on mac
-            use_gpu = torch.cuda.is_available()
-            dev = torch.device("cuda" if use_gpu else "cpu")
+            use_gpu = core.use_gpu()
             if model_type == CUSTOM:
-                model = CellposeModel(
-                    pretrained_model=model_path, gpu=use_gpu, device=dev
-                )
+                model = CellposeModel(pretrained_model=model_path, gpu=use_gpu)
             else:  # model_type == CYTO3
-                model = models.Cellpose(gpu=use_gpu, model_type=model_type, device=dev)
+                model = models.Cellpose(gpu=use_gpu, model_type=model_type)
 
             file_name = d.path.name
             for ext in EXT:

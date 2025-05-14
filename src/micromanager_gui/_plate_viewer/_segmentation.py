@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sympy import use
 import tifffile
 import torch
 from cellpose import models
@@ -26,6 +27,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from cellpose import core
 from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm
@@ -372,10 +374,9 @@ class _CellposeSegmentation(QWidget):
 
     def _initialize_model(self) -> CellposeModel | None:
         """Initialize the Cellpose model based on user selection."""
-        use_gpu = torch.cuda.is_available()
-        dev = torch.device("cuda" if use_gpu else "cpu")
-        LOGGER.info(f"Use GPU: {use_gpu}, Device: {dev}")
-        print("Use GPU:", use_gpu, "Device:", dev)
+        use_gpu = core.use_gpu()
+        LOGGER.info(f"Use GPU: {use_gpu}")
+        print("Use GPU:", use_gpu)
 
         if self._models_combo.currentText() == "custom":
             custom_model_path = self._browse_custom_model.value()
@@ -383,13 +384,9 @@ class _CellposeSegmentation(QWidget):
                 show_error_dialog(self, "Please select a custom model path.")
                 LOGGER.error("No custom model path selected.")
                 return None
-            return CellposeModel(
-                pretrained_model=custom_model_path, gpu=use_gpu, device=dev
-            )
+            return CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
 
-        return models.Cellpose(
-            gpu=use_gpu, model_type=self._models_combo.currentText(), device=dev
-        )
+        return models.Cellpose(gpu=use_gpu, model_type=self._models_combo.currentText())
 
     def _update_plate_viewer_labels_path(self, path: str) -> None:
         """Update the labels path of the PlateViewer."""

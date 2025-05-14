@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import tifffile
 import useq
-from cellpose import models
+from cellpose import core, models
 from pymmcore_plus._logger import logger
 from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -181,7 +181,7 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
         label_name = f"p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model = models.Cellpose(gpu=True, model_type=MODEL_TYPE)
+    model = models.Cellpose(gpu=core.use_gpu(), model_type=MODEL_TYPE)
 
     # run cellpose
     logger.info(f"SegmentNeurons -> Segmenting image: {label_name}...")
