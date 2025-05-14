@@ -29,6 +29,8 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS.items()},
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
+NESTED = ["peaks_amplitudes_dec_dff", "dec_dff_frequency", "iei", "cell_size"]
+SINGLE_VALUE = ["percentage_active", "synchrony"]
 
 
 def _save_to_csv(
@@ -58,12 +60,10 @@ def _save_to_csv(
     # fmt: off
     # Save the data as CSV files
     _export_raw_data(path, analysis_data)
-    _export_to_csv_grouped_by_conditions_per_fovs(path, fov_by_condition_by_parameter)
-    _export_to_csv_grouped_by_conditions(path, fov_by_condition_by_parameter)
-    _export_to_csv_grouped_by_conditions_per_fovs_evk(path, fov_by_condition_by_parameter_evk)  # noqa: E501
-    _export_to_csv_grouped_by_conditions_evk(path, fov_by_condition_by_parameter_evk)
-
-    _export_to_csv_mean_amp_grouped_by_condition(path, fov_by_condition_by_parameter)
+    _export_dff_data(path, analysis_data)
+    _export_dec_dff_data(path, analysis_data)
+    _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)
+    _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)
     # fmt: on
 
 
@@ -141,134 +141,65 @@ def _export_raw_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> N
     df.to_csv(folder / f"{exp_name}_raw_data.csv", index=True)
 
 
-def extract_on(col: str) -> int:
-    """Extract the number after the last `_p` in the column name."""
-    try:
-        return int(col.rsplit("_p", 1)[-1])
-    except (IndexError, ValueError):
-        return float("inf")  # type: ignore
+def _export_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> None:
+    """Save the dFF data as CSV files.
 
-
-def _export_to_csv_grouped_by_conditions_per_fovs(
-    path: Path | str, data: dict[str, dict[str, dict[str, list]]]
-) -> None:
-    """Save each parameter in `data` as a separate CSV with columns as condition_key."""
-    path = Path(path)
-    exp_name = path.stem
-    folder = path / "csv_by_conditions_and_fovs"
-    folder.mkdir(parents=True, exist_ok=True)
-
-    for parameter, condition_dict in data.items():
-        series_dict = {}
-        if condition_dict is None:
-            continue
-        for condition, keys in condition_dict.items():
-            for key, values in keys.items():
-                col_name = f"{condition}_{key}"
-                flat_values = _flatten_if_list_of_lists(values)
-                series_dict[col_name] = pd.Series(flat_values)
-
-        df = pd.DataFrame(series_dict)
-
-        # sort the columns by the number after the last `_p`
-        sorted_columns = sorted(df.columns, key=extract_on)
-        df = df[sorted_columns]
-
-        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}_per_fov.csv"
-        df.to_csv(csv_path, index=False)
-
-
-def _export_to_csv_grouped_by_conditions(
-    path: Path | str, data: dict[str, dict[str, dict[str, list]]]
-) -> None:
-    """Save each parameter as a separate CSV, grouping all values by condition.
-
-    Each column corresponds to a condition and contains all values (from all keys)
-    stacked together.
+    Columns are frames and rows are ROIs.
     """
     path = Path(path)
     exp_name = path.stem
-    folder = path / "csv_by_conditions"
+    folder = path / "dff_data"
     folder.mkdir(parents=True, exist_ok=True)
 
-    for parameter, condition_dict in data.items():
-        series_dict = {}
-        if condition_dict is None:
-            continue
-        for condition, keys in condition_dict.items():
-            all_values = []
-            for values in keys.values():
-                flat_values = _flatten_if_list_of_lists(values)
-                all_values.extend(flat_values)
-            series_dict[condition] = pd.Series(all_values)
+    # store traces by well_fov and roi_key
+    rows = {}
+    for well_fov, rois in data.items():
+        for roi_key, roi_data in rois.items():
+            if roi_data.dff is None:
+                continue
+            row_name = f"{well_fov}_{roi_key}"
+            rows[row_name] = roi_data.dff
 
-        df = pd.DataFrame(series_dict)
-        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
-        df.to_csv(csv_path, index=False)
+    # convert to DataFrame (handles unequal lengths by filling with NaN)
+    df = pd.DataFrame.from_dict(rows, orient="index")
 
+    # give the columns t0, t1, t2, ... name
+    df.columns = [f"t{i}" for i in range(df.shape[1])]
 
-def _export_to_csv_grouped_by_conditions_per_fovs_evk(
-    path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
-) -> None:
-    """Save each parameter in `data` as a separate CSV with columns as condition_key."""
-    path = Path(path)
-    exp_name = path.stem
-    folder = path / "csv_by_conditions_and_fovs" / "evoked"
-    folder.mkdir(parents=True, exist_ok=True)
-
-    for parameter, condition_dict in data.items():
-        series_dict = {}
-        if condition_dict is None:
-            continue
-        for condition, keys in condition_dict.items():
-            for key, values in keys.items():
-                col_name = f"{condition}_{key}"
-                for roi_key, values_1 in values.items():
-                    if roi_key in col_name:
-                        flat_values = _flatten_if_list_of_lists(values_1)
-                series_dict[col_name] = pd.Series(flat_values)
-
-        df = pd.DataFrame(series_dict)
-
-        # sort the columns by the number after the last `_p`
-        sorted_columns = sorted(df.columns, key=extract_on)
-        df = df[sorted_columns]
-
-        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}_per_fov.csv"
-        df.to_csv(csv_path, index=False)
+    # save to CSV
+    df.to_csv(folder / f"{exp_name}_dff_data.csv", index=True)
 
 
-def _export_to_csv_grouped_by_conditions_evk(
-    path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
-) -> None:
-    """Save each parameter as a separate CSV, grouping all values by condition.
+def _export_dec_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> None:
+    """Save the dec_dFF data as CSV files.
 
-    Each column corresponds to a condition and contains all values (from all keys)
-    stacked together.
+    Columns are frames and rows are ROIs.
     """
     path = Path(path)
     exp_name = path.stem
-    folder = path / "csv_by_conditions" / "evoked"
+    folder = path / "dec_dff_data"
     folder.mkdir(parents=True, exist_ok=True)
 
-    for parameter, condition_dict in data.items():
-        series_dict = {}
-        if condition_dict is None:
-            continue
-        for condition, keys in condition_dict.items():
-            all_values = []
-            for _, values in keys.items():
-                for _, values_1 in values.items():
-                    flat_values = _flatten_if_list_of_lists(values_1)
-                    all_values.extend(flat_values)
-            series_dict[condition] = pd.Series(all_values)
+    # store traces by well_fov and roi_key
+    rows = {}
+    for well_fov, rois in data.items():
+        for roi_key, roi_data in rois.items():
+            if roi_data.dec_dff is None:
+                continue
+            row_name = f"{well_fov}_{roi_key}"
+            rows[row_name] = roi_data.dec_dff
 
-        df = pd.DataFrame(series_dict)
-        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
-        df.to_csv(csv_path, index=False)
+    # convert to DataFrame (handles unequal lengths by filling with NaN)
+    df = pd.DataFrame.from_dict(rows, orient="index")
+
+    # give the columns t0, t1, t2, ... name
+    df.columns = [f"t{i}" for i in range(df.shape[1])]
+
+    # save to CSV
+    df.to_csv(folder / f"{exp_name}_dec_dff_data.csv", index=True)
 
 
-def _export_to_csv_mean_amp_grouped_by_condition(
+def _export_to_csv_mean_values_grouped_by_condition(
     path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
 ) -> None:
     path = Path(path)
@@ -276,96 +207,155 @@ def _export_to_csv_mean_amp_grouped_by_condition(
     folder = path / "grouped"
     folder.mkdir(parents=True, exist_ok=True)
 
-    # Extract relevant parts
-    output_rows = []
+    for parameter, condition_dict in data.items():
+        if parameter not in PARAMETER_TO_KEY:
+            continue  # Skip unknown parameters
 
-    # Get all FOV names from any condition (assuming same across conditions)
-    fov_names = set()
-    for cond_data in data["peaks_amplitudes_dec_dff"].values():
-        fov_names.update(cond_data.keys())
+        output_rows = []
 
-    # Construct the table
-    for fov in sorted(fov_names):
-        row = {"FOV": fov}
-        for cond, fovs in data["peaks_amplitudes_dec_dff"].items():
-            if fov in fovs:
-                # Safe flattening of uneven ROI arrays
-                flat_values = [v for roi in fovs[fov] for v in roi]
-                mean_val = np.mean(flat_values)
-                sem_val = np.std(flat_values, ddof=1) / np.sqrt(len(flat_values))
-                n_val = len(fovs[fov])
-                row[f"{cond}_Mean"] = round(mean_val, 5)
-                row[f"{cond}_SEM"] = round(sem_val, 5)
-                row[f"{cond}_N"] = n_val
-                print(
-                    f"Condition: {cond}, FOV: {fov}, Mean: {mean_val}, SEM: {sem_val},"
-                    " N: {n_val}"
-                )
-            else:
-                row[f"{cond}_Mean"] = ""
-                row[f"{cond}_SEM"] = ""
-                row[f"{cond}_N"] = ""
-        output_rows.append(row)
+        # get all FOV names
+        fov_names: set[str] = set()
+        for cond_data in condition_dict.values():
+            fov_names.update(cond_data.keys())
 
-    # Create DataFrame and save
-    df = pd.DataFrame(output_rows)
-    csv_path = folder / f"{exp_name}_mean_amplitude.csv"
-    df.to_csv(csv_path, index=False)
+        for fov in sorted(fov_names):
+            row: dict[str, Any] = {"FOV": fov}
+            for cond, fovs in condition_dict.items():
+                values = fovs.get(fov)
+
+                if values is None:
+                    row[f"{cond}_Mean"] = ""
+                    row[f"{cond}_SEM"] = ""
+                    row[f"{cond}_N"] = ""
+                    continue
+
+                # handle nested structure for multi-ROI data
+                if parameter in NESTED:
+                    if isinstance(values, list) and any(
+                        isinstance(el, list) for el in values
+                    ):
+                        flat_values = [v for roi in values for v in roi]
+                    else:
+                        flat_values = values
+                    mean_val = np.mean(flat_values)
+                    n_val = len(flat_values)
+                    sem_val = (
+                        np.std(flat_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
+                    )
+                    row[f"{cond}_Mean"] = round(mean_val, 5)
+                    row[f"{cond}_SEM"] = round(sem_val, 5)
+                    row[f"{cond}_N"] = n_val
+
+                # handle single-value lists like percentage_active or synchrony
+                elif parameter in SINGLE_VALUE:
+                    val = values[0] if isinstance(values, list) and values else ""
+                    row[f"{cond}_Value"] = (
+                        round(val, 5) if isinstance(val, (int, float)) else ""
+                    )
+                else:
+                    # catch-all fallback
+                    row[f"{cond}_Data"] = str(values)
+
+            output_rows.append(row)
+
+        df = pd.DataFrame(output_rows)
+        csv_path = folder / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
+        df.to_csv(csv_path, index=False)
 
 
-def _flatten_if_list_of_lists(values: list[Any]) -> list[Any]:
-    """Flatten a list of lists if necessary."""
-    if values and all(isinstance(v, list) for v in values):
-        return [item for sublist in values for item in sublist]
-    return values
+def _export_to_csv_mean_values_evk_parameters(
+    path: Path | str, data: dict[str, dict[str, dict[str, dict[str, list[Any]]]]]
+) -> None:
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "grouped_evk"
+
+    for parameter, condition_dict in data.items():
+        if parameter not in CSV_PARAMETERS_EVK.keys():
+            continue
+
+        folder.mkdir(parents=True, exist_ok=True)
+
+        output_rows = []
+
+        # Collect all unique FOV_stim combinations
+        fov_stim_keys = set()
+        for cond_data in condition_dict.values():
+            for fov, stim_dict in cond_data.items():
+                for stim in stim_dict:
+                    fov_stim_keys.add((fov, stim))
+
+        # Create rows per (FOV, stimulus)
+        for fov, stim in sorted(fov_stim_keys):
+            row_key = f"{fov}_{stim}"
+            row = {"FOV": row_key}
+
+            for cond, fovs in condition_dict.items():
+                if stim_values := fovs.get(fov, {}).get(stim):
+                    mean_val = np.mean(stim_values)
+                    n_val = len(stim_values)
+                    sem_val = (
+                        np.std(stim_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
+                    )
+                    row[f"{cond}_Mean"] = round(mean_val, 5)
+                    row[f"{cond}_SEM"] = round(sem_val, 5)
+                    row[f"{cond}_N"] = str(n_val)
+                else:
+                    row[f"{cond}_Mean"] = ""
+                    row[f"{cond}_SEM"] = ""
+                    row[f"{cond}_N"] = ""
+
+            output_rows.append(row)
+
+        df = pd.DataFrame(output_rows)
+        csv_path = folder / f"{exp_name}_{parameter}.csv"
+        df.to_csv(csv_path, index=False)
 
 
 def _rearrange_by_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]],
     parameter: str,
-    evk: bool = False,
 ) -> dict[str, dict[str, list[Any]]]:
     """Create a dict grouped by the specified parameter per condition."""
     if parameter == PERCENTAGE_ACTIVE:
-        return _get_percentage_active_parameter(data)
+        try:
+            return _get_percentage_active_parameter(data)
+        except Exception as e:
+            print(f"Error calculating percentage active: {e}")
+            return {}
     if parameter == SYNCHRONY:
-        return _get_synchrony_parameter(data)
-    return _get_parameter(data, parameter)
+        try:
+            return _get_synchrony_parameter(data)
+        except Exception as e:
+            print(f"Error calculating synchrony: {e}")
+            return {}
+    try:
+        return _get_parameter(data, parameter)
+    except Exception as e:
+        print(f"Error calculating parameter '{parameter}': {e}")
+        return {}
 
 
 def _rearrange_by_parameter_evk(
     data: dict[str, dict[str, dict[str, ROIData]]],
     parameter: str,
-) -> dict[str, dict[str, dict[str, list[Any]]]] | dict[str, dict[str, list[Any]]]:
+) -> dict[str, dict[str, dict[str, list[Any]]]]:
     """Create a dict grouped by the specified parameter per condition."""
     if parameter == AMP_STIMULATED_PEAKS:
-        return _get_amplitude_stim_or_non_stim_peaks_parameter(data)
+        try:
+            return _get_amplitude_stim_or_non_stim_peaks_parameter(data)
+        except Exception as e:
+            print(f"Error calculating stimulated peaks: {e}")
+            return {}
     if parameter == AMP_NON_STIMULATED_PEAKS:
-        return _get_amplitude_stim_or_non_stim_peaks_parameter(data, stimulated=False)
-    else:
-        raise ValueError(f"The parameter '{parameter}' is not found in the ROI data.")
-
-
-def _get_parameter(
-    data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
-) -> dict[str, dict[str, list[Any]]]:
-    """Group the data by the specified parameter."""
-    parameter_dict: dict[str, dict[str, list[Any]]] = {}
-    for condition, well_fov_dict in data.items():
-        for well_fov, roi_dict in well_fov_dict.items():
-            for roi_data in roi_dict.values():
-                if not hasattr(roi_data, parameter):
-                    raise ValueError(
-                        f"The parameter '{parameter}' is not found in the ROI data."
-                    )
-                value = getattr(roi_data, parameter)
-                if value is None:
-                    continue
-                parameter_dict.setdefault(condition, {}).setdefault(
-                    well_fov, []
-                ).append(value)
-
-    return parameter_dict
+        try:
+            return _get_amplitude_stim_or_non_stim_peaks_parameter(
+                data, stimulated=False
+            )
+        except Exception as e:
+            print(f"Error calculating non-stimulated peaks: {e}")
+            return {}
+    return {}
 
 
 def _get_percentage_active_parameter(
@@ -407,39 +397,12 @@ def _get_synchrony_parameter(
     return synchrony_dict
 
 
-def _get_amplitude_stim_or_non_stim_peaks_parameter(
-    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
-) -> dict[str, dict[str, dict[str, list[Any]]]]:
-    """Group the data by the amplitude of stimulated peaks."""
-    amps_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
-    for condition, well_fov_dict in data.items():
-        for well_fov, roi_dict in well_fov_dict.items():
-            for _, roi_data in roi_dict.items():
-                amps = (
-                    roi_data.amplitudes_stimulated_peaks
-                    if stimulated
-                    else roi_data.amplitudes_non_stimulated_peaks
-                )
-                if amps is None:
-                    continue
-                # power_pulse is f"{power}_{pulse_len}"
-                for power_pulse, amp_list in amps.items():
-                    for amp_val in amp_list:
-                        amps_dict.setdefault(condition, {}).setdefault(
-                            well_fov, {}
-                        ).setdefault(power_pulse, []).append(amp_val)
-    return amps_dict
-
-
-def _get_amplitude_spontaneous_peaks_parameter(
+def _get_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
 ) -> dict[str, dict[str, list[Any]]]:
     """Group the data by the specified parameter."""
     parameter_dict: dict[str, dict[str, list[Any]]] = {}
     for condition, well_fov_dict in data.items():
-        # Skip evoked stimulated conditions
-        if "evk_stim" in condition:
-            continue
         for well_fov, roi_dict in well_fov_dict.items():
             for roi_data in roi_dict.values():
                 if not hasattr(roi_data, parameter):
@@ -454,3 +417,33 @@ def _get_amplitude_spontaneous_peaks_parameter(
                 ).append(value)
 
     return parameter_dict
+
+
+def _get_amplitude_stim_or_non_stim_peaks_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
+) -> dict[str, dict[str, dict[str, list[Any]]]]:
+    """Group the data by condition → FOV → power_pulse (matching the condition name)."""
+    amps_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
+    for condition, fov_dict in data.items():
+        if stimulated and "evk_stim_" in condition:
+            target_power_pulse = condition.split("evk_stim_")[-1]
+        elif not stimulated and "evk_non_stim_" in condition:
+            target_power_pulse = condition.split("evk_non_stim_")[-1]
+        else:
+            continue  # skip unrelated conditions
+        for fov, roi_dict in fov_dict.items():
+            for roi_data in roi_dict.values():
+                amps = (
+                    roi_data.amplitudes_stimulated_peaks
+                    if stimulated
+                    else roi_data.amplitudes_non_stimulated_peaks
+                )
+                if not amps:
+                    continue
+                if target_power_pulse not in amps:
+                    continue
+                values = amps[target_power_pulse]
+                amps_dict.setdefault(condition, {}).setdefault(fov, {}).setdefault(
+                    target_power_pulse, []
+                ).extend(values)
+    return amps_dict

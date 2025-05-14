@@ -273,11 +273,6 @@ class PlateViewer(QMainWindow):
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # reader = TensorstoreZarrReader(data)
         # self._init_widget(reader)
-        data = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"
-        self._pv_labels_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_labels"
-        self._pv_analysis_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_analysis"
-        reader = TensorstoreZarrReader(data)
-        self._init_widget(reader)
         # ____________________________________________________________________________
 
     @property
@@ -466,6 +461,7 @@ class PlateViewer(QMainWindow):
             return
 
         dialog = _SaveAsCSV(self)
+        dialog.resize(500, dialog.sizeHint().height())
 
         if dialog.exec():
             path = dialog.value()
