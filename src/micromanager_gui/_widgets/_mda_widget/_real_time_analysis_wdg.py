@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -38,53 +39,155 @@ def _sort_plate(item: str) -> tuple[int, int | str]:
     return (0, int(parts[0])) if parts[0].isdigit() else (1, item)  # type: ignore
 
 
-class RealTimeAnalysisParameters(TypedDict):
-    """A class to store the values of _SegmentAndAnalyseWidget."""
-
-    min_peaks_height: float  # min height for the peaks detection
-    experiment_type: str  # SPONTANEOUS or EVOKED
-    stimulation_mask_path: str  # path to the stimulated area mask
-    model_type: str  # CYTO3 or CUSTOM
-    model_path: str  # path to the custom model
-    genotype_map: list[PlateMapData]
-    treatment_map: list[PlateMapData]
-
-
-class RealTimeAnalysisWidget(QGroupBox):
+class RealTimeAnalysisWidget(QWidget):
     """Widget to enable Segmentation and Analysis while recording."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent=parent)
 
+        self._segmentation_checkbox = QCheckBox("Enable Segmentation")
+        self._segmentation_checkbox.setSizePolicy(*FIXED)
+        self._segmentation_checkbox.toggled.connect(
+            self._on_segmentation_checkbox_toggled
+        )
+        self._segmentation_settings_btn = QPushButton("Segmentation Settings...")
+        self._segmentation_settings_btn.setSizePolicy(*FIXED)
+        self._segmentation_settings_btn.clicked.connect(
+            self._show_segmentation_settings
+        )
+        self.segmentation_gbox = QGroupBox(self)
+        self.segmentation_gbox.setCheckable(False)
+        segmentation_gbox_layout = QHBoxLayout(self.segmentation_gbox)
+        segmentation_gbox_layout.setContentsMargins(10, 10, 10, 10)
+        segmentation_gbox_layout.setSpacing(20)
+        segmentation_gbox_layout.addWidget(self._segmentation_checkbox)
+        segmentation_gbox_layout.addWidget(self._segmentation_settings_btn)
+        segmentation_gbox_layout.addStretch(1)
+
+        self._analysis_checkbox = QCheckBox("Enable Analysis")
+        self._analysis_checkbox.setSizePolicy(*FIXED)
+        self._analysis_settings_btn = QPushButton("Analysis Settings...")
+        self._analysis_settings_btn.setSizePolicy(*FIXED)
+        self._analysis_settings_btn.clicked.connect(self._show_analysis_settings)
+        self.analysis_gbox = QGroupBox(self)
+        self.analysis_gbox.setCheckable(False)
+        analysis_gbox_layout = QHBoxLayout(self.analysis_gbox)
+        analysis_gbox_layout.setContentsMargins(10, 10, 10, 10)
+        analysis_gbox_layout.setSpacing(20)
+        analysis_gbox_layout.addWidget(self._analysis_checkbox)
+        analysis_gbox_layout.addWidget(self._analysis_settings_btn)
+        self.analysis_gbox.setEnabled(False)
+        analysis_gbox_layout.addStretch(1)
+
+        self._segmentation_dialog = RealTimeSegmentationDialog(self)
         self._analysis_dialog = RealTimeAnalysisDialog(self)
-        self._settings_btn = QPushButton("Segmentation and Analysis Settings...")
-        self._settings_btn.setSizePolicy(*FIXED)
-        self._settings_btn.clicked.connect(self._show_settings)
 
-        self._enable = QCheckBox("Enable Segmentation and Analysis")
-        self._enable.setSizePolicy(*FIXED)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(10)
+        main_layout.addWidget(self.segmentation_gbox)
+        main_layout.addWidget(self.analysis_gbox)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(15)
-        layout.addWidget(self._enable)
-        layout.addWidget(self._settings_btn)
-        layout.addStretch(1)
+        fixed_width = self._segmentation_checkbox.sizeHint().width()
+        self._analysis_checkbox.setFixedWidth(fixed_width)
 
-    def isChecked(self) -> bool:
-        """Return True if the checkbox is checked."""
-        return cast(bool, self._enable.isChecked())
+    def _on_segmentation_checkbox_toggled(self, checked: bool) -> None:
+        """Enable/disable the analysis settings button based on the checkbox state."""
+        self.analysis_gbox.setEnabled(checked)
 
-    def value(self) -> RealTimeAnalysisParameters | None:
-        """Return the current value of the widget."""
-        return self._analysis_dialog.value() if self._enable.isChecked() else None
+    def _show_segmentation_settings(self) -> None:
+        """Show the segmentation settings dialog."""
+        if self._segmentation_dialog.isVisible():
+            self._segmentation_dialog.raise_()
+        else:
+            self._segmentation_dialog.show()
 
-    def _show_settings(self) -> None:
-        """Show the settings dialog."""
+    def _show_analysis_settings(self) -> None:
+        """Show the analysis settings dialog."""
         if self._analysis_dialog.isVisible():
             self._analysis_dialog.raise_()
         else:
             self._analysis_dialog.show()
+
+    def isSegmentationEnabled(self) -> bool:
+        """Return True if the checkbox is checked."""
+        return cast(bool, self._segmentation_checkbox.isChecked())
+
+    def isAnalysisEnabled(self) -> bool:
+        """Return True if the checkbox is checked."""
+        return cast(
+            bool, self._analysis_checkbox.isChecked() and self.analysis_gbox.isEnabled()
+        )
+
+    def value(
+        self,
+    ) -> tuple[SegmentationParameters | None, AnalysisParameters | None]:
+        """Return the current value of the widget."""
+        value: list = [None, None]
+        if self.isSegmentationEnabled():
+            value[0] = self._segmentation_dialog.value()
+        if self.isAnalysisEnabled():
+            value[1] = self._analysis_dialog.value()
+        return tuple(value)
+
+
+class SegmentationParameters(TypedDict):
+    """A class to store the values of RealTimeAnalysisWidget."""
+
+    model_type: str  # cellpose model type
+    model_path: str  # path to the custom model
+
+
+class RealTimeSegmentationDialog(QDialog):
+    """A Widget to set the segmentation parameters."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Segmentation Parameters")
+
+        # Cellpose -----------------------------------------------------------------
+        self._browse_custom_model = _SelectModelPath(self, label="Path")
+        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
+        self._browse_custom_model.hide()
+
+        self._models_combo = QComboBox()
+        self._models_combo.addItems(MODELS)
+        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
+
+        model_lbl = QLabel("Model:")
+        model_lbl.setSizePolicy(*FIXED)
+
+        cellpose_wdg = QGroupBox(self, title="Cellpose")
+        cellpose_wdg.setCheckable(False)
+        cellpose_wdg_layout = QGridLayout(cellpose_wdg)
+        cellpose_wdg_layout.setContentsMargins(10, 10, 10, 10)
+        cellpose_wdg_layout.setSpacing(5)
+        cellpose_wdg_layout.addWidget(model_lbl, 0, 0)
+        cellpose_wdg_layout.addWidget(self._models_combo, 0, 1)
+        cellpose_wdg_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
+
+        # Styling ------------------------------------------------------------------
+        fixed_width = model_lbl.sizeHint().width()
+        self._browse_custom_model._label.setFixedWidth(fixed_width)
+
+        # Layout -------------------------------------------------------------------
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.addWidget(cellpose_wdg)
+
+    def _on_model_combo_changed(self, model: str) -> None:
+        """Show the custom model path if the model is 'custom'."""
+        (
+            self._browse_custom_model.show()
+            if model == "custom"
+            else self._browse_custom_model.hide()
+        )
+
+    def value(self) -> SegmentationParameters:
+        """Return the model type and path."""
+        model_type = self._models_combo.currentText()
+        model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
+        return {"model_type": model_type, "model_path": model_path}
 
 
 class _PlateMap(QGroupBox):
@@ -134,12 +237,23 @@ class _PlateMap(QGroupBox):
         self._plate_map_treatment.setPlate(plate)
 
 
+class AnalysisParameters(TypedDict):
+    """A class to store the values of RealTimeAnalysisDialog."""
+
+    min_peaks_height: float  # min height for the peaks detection
+    experiment_type: str  # SPONTANEOUS or EVOKED
+    led_power_equation: str  # linear equation to convert LED power to mW
+    stimulation_mask_path: str  # path to the stimulated area mask
+    genotype_map: list[PlateMapData]
+    treatment_map: list[PlateMapData]
+
+
 class RealTimeAnalysisDialog(QDialog):
-    """A Widget to set the segmentation and analysis parameters."""
+    """A Widget to set the analysis parameters."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Segmentation and Analysis Parameters")
+        self.setWindowTitle("Analysis Parameters")
 
         # Experiment type ----------------------------------------------------------
         experiment_type_label = QLabel("Type:")
@@ -163,6 +277,25 @@ class RealTimeAnalysisDialog(QDialog):
         )
         self._stimulation_area_path.hide()
 
+        self._led_power_wdg = QWidget(self)
+        self._led_power_wdg.setToolTip(
+            "Insert the linear equation to convert the LED power to mW (in the form of "
+            "y = a * x + b). Leave it empty to use the values from the metadata."
+        )
+        led_lbl = QLabel("LED Power Equation:")
+        led_lbl.setSizePolicy(*FIXED)
+        self._led_power_equation_le = QLineEdit(self)
+        self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
+        self._led_power_equation_le.setPlaceholderText(
+            "y= a * x + b ( Leave it empty to use the values from the metadata)."
+        )
+        led_layout = QHBoxLayout(self._led_power_wdg)
+        led_layout.setContentsMargins(0, 0, 0, 0)
+        led_layout.setSpacing(5)
+        led_layout.addWidget(led_lbl)
+        led_layout.addWidget(self._led_power_equation_le)
+        self._led_power_wdg.hide()
+
         experiment_type_wdg = QGroupBox(self, title="Experiment")
         experiment_type_wdg.setCheckable(False)
         experiment_type_wdg_layout = QGridLayout(experiment_type_wdg)
@@ -170,7 +303,8 @@ class RealTimeAnalysisDialog(QDialog):
         experiment_type_wdg_layout.setSpacing(5)
         experiment_type_wdg_layout.addWidget(experiment_type_label, 0, 0)
         experiment_type_wdg_layout.addWidget(self._experiment_type_combo, 0, 1)
-        experiment_type_wdg_layout.addWidget(self._stimulation_area_path, 1, 0, 1, 2)
+        experiment_type_wdg_layout.addWidget(self._led_power_wdg, 1, 0, 1, 2)
+        experiment_type_wdg_layout.addWidget(self._stimulation_area_path, 2, 0, 1, 2)
 
         # peaks settings -------------------------------------------------------------
         min_peaks_lbl_wdg = QGroupBox(self, title="Find Peaks Settings")
@@ -190,26 +324,6 @@ class RealTimeAnalysisDialog(QDialog):
         min_peaks_layout.addWidget(min_peaks_lbl)
         min_peaks_layout.addWidget(self._min_peaks_height_spin)
 
-        # Cellpose -----------------------------------------------------------------
-        self._browse_custom_model = _SelectModelPath(self)
-        self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
-        self._browse_custom_model.hide()
-
-        self._models_combo = QComboBox()
-        self._models_combo.addItems(MODELS)
-        self._models_combo.currentTextChanged.connect(self._on_model_combo_changed)
-
-        model_lbl = QLabel("Model:")
-
-        cellpose_wdg = QGroupBox(self, title="Cellpose")
-        cellpose_wdg.setCheckable(False)
-        cellpose_wdg_layout = QGridLayout(cellpose_wdg)
-        cellpose_wdg_layout.setContentsMargins(10, 10, 10, 10)
-        cellpose_wdg_layout.setSpacing(5)
-        cellpose_wdg_layout.addWidget(model_lbl, 0, 0)
-        cellpose_wdg_layout.addWidget(self._models_combo, 0, 1)
-        cellpose_wdg_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
-
         # plate map ---------------------------------------------------------------
         self._plate_map = _PlateMap(self)
 
@@ -223,55 +337,39 @@ class RealTimeAnalysisDialog(QDialog):
         # Styling ------------------------------------------------------------------
         fixed_width = self._stimulation_area_path._label.sizeHint().width()
         experiment_type_label.setFixedWidth(fixed_width)
-        self._browse_custom_model._label.setFixedWidth(fixed_width)
         self._plate_map._well_plate_lbl.setFixedWidth(fixed_width)
-        model_lbl.setFixedWidth(fixed_width)
         min_peaks_lbl.setFixedWidth(fixed_width)
+        led_lbl.setFixedWidth(fixed_width)
 
         # Layout -------------------------------------------------------------------
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(20)
-        main_layout.addWidget(cellpose_wdg)
         main_layout.addWidget(experiment_type_wdg)
         main_layout.addWidget(min_peaks_lbl_wdg)
         main_layout.addWidget(self._plate_map)
         main_layout.addWidget(self._button_box)
 
-        # self.setMinimumHeight(1000)
-
-    def value(self) -> RealTimeAnalysisParameters:
+    def value(self) -> AnalysisParameters | None:
         """Return the model type and path."""
-        # Get experiment type and stimulation mask path
         experiment_type = self._experiment_type_combo.currentText()
         stimulation_mask_path = (
             self._stimulation_area_path.value() if experiment_type == EVOKED else ""
         )
-        # Get model type and path
-        model_type = self._models_combo.currentText()
-        model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
         return {
             "min_peaks_height": self._min_peaks_height_spin.value(),
             "experiment_type": experiment_type,
+            "led_power_equation": self._led_power_equation_le.text(),
             "stimulation_mask_path": stimulation_mask_path,
-            "model_type": model_type,
-            "model_path": model_path,
             "genotype_map": self._plate_map._plate_map_genotype.value(),
             "treatment_map": self._plate_map._plate_map_treatment.value(),
         }
 
     def _on_activity_changed(self, text: str) -> None:
-        """Show or hide the stimulated area path widget."""
-        (
+        """Show or hide the stimulation area path and LED power widgets."""
+        if text == EVOKED:
             self._stimulation_area_path.show()
-            if text == EVOKED
-            else self._stimulation_area_path.hide()
-        )
-
-    def _on_model_combo_changed(self, model: str) -> None:
-        """Show the custom model path if the model is 'custom'."""
-        (
-            self._browse_custom_model.show()
-            if model == "custom"
-            else self._browse_custom_model.hide()
-        )
+            self._led_power_wdg.show()
+        else:
+            self._stimulation_area_path.hide()
+            self._led_power_wdg.hide()

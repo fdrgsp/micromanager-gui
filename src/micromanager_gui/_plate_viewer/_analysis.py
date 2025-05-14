@@ -7,7 +7,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
 import tifffile
@@ -109,7 +109,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
         self._min_peaks_height: float = 0.0
 
-        self._led_power_equation: Any | None = None
+        self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
@@ -374,7 +374,7 @@ class _AnalyseCalciumTraces(QWidget):
     #         self._plate_viewer._load_data_from_json(analysis_path)
 
     def _on_activity_changed(self, text: str) -> None:
-        """Show or hide the stimulated area path widget."""
+        """Show or hide the stimulation area path and LED power widgets."""
         if text == EVOKED:
             self._stimulation_area_path.show()
             self._led_power_wdg.show()
@@ -382,7 +382,7 @@ class _AnalyseCalciumTraces(QWidget):
             self._stimulation_area_path.hide()
             self._led_power_wdg.hide()
 
-    def linear_equation_from_str(self, equation: str) -> Any | None:
+    def linear_equation_from_str(self, equation: str) -> Callable | None:
         # Match format: y = m*x + q (allowing optional spaces and + or - for q)
         if not equation:
             return None
@@ -851,14 +851,14 @@ class _AnalyseCalciumTraces(QWidget):
         self,
         data: np.ndarray,
         meta: list[dict],
-        evoked_experiment_meta: dict[str, Any] | None,
+        evoked_meta: dict[str, Any] | None,
         fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
         timepoints: int,
         exp_time: float,
         tot_time_sec: float,
-        evoked_experiment: bool,
+        evoked_exp: bool,
         elapsed_time_list: list[float],
     ) -> None:
         """Process individual ROI traces."""
@@ -879,7 +879,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # check if the roi is stimulated
         roi_stimulation_overlap_ratio = 0.0
-        if evoked_experiment and self._stimulated_area_mask is not None:
+        if evoked_exp and self._stimulated_area_mask is not None:
             roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
                 self._stimulated_area_mask, label_mask
             )
@@ -928,15 +928,11 @@ class _AnalyseCalciumTraces(QWidget):
         amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
 
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
-        if (
-            evoked_experiment
-            and evoked_experiment_meta is not None
-            and len(peaks_dec_dff) > 0
-        ):
+        if evoked_exp and evoked_meta is not None and len(peaks_dec_dff) > 0:
             # get the stimulation info from the metadata (if any)
             amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks = (
                 self._update_stim_vs_non_stim(
-                    evoked_experiment_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
+                    evoked_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
                 )
             )
 
@@ -984,7 +980,7 @@ class _AnalyseCalciumTraces(QWidget):
             active=len(peaks_dec_dff) > 0,
             instantaneous_phase=instantaneous_phase,
             iei=iei,
-            evoked_experiment=evoked_experiment,
+            evoked_experiment=evoked_exp,
             stimulated=is_roi_stimulated,
             amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
             amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,

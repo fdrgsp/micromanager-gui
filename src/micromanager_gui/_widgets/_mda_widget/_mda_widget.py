@@ -40,6 +40,7 @@ OME_TIFFS = tuple(WRITERS[OME_TIFF])
 GB_CACHE = 2_000_000_000  # 2 GB for tensorstore cache
 STIMULATION = "stimulation"
 ANALYSIS = "analysis"
+SEGMENTATION = "segmentation"
 CRITICAL_MSG = (
     "'Arduino LED Stimulation' is selected but an error occurred while trying "
     "to communicate with the Arduino. \nPlease, verify that the device is "
@@ -193,15 +194,20 @@ class MDAWidget_(MDAWidget):
         value = cast(MDASequence, super().value())
 
         arduino_settings = self._arduino_led_wdg.value()
-        segment_and_analyse = self._seg_and_analysis_wdg.value()
+        segment_settings, analyse_settings = self._seg_and_analysis_wdg.value()
 
-        if not arduino_settings and segment_and_analyse is None:
+        if not arduino_settings and (
+            segment_settings is None and analyse_settings is None
+        ):
             return value
 
         # update metadata with the analysis settings
-        if segment_and_analyse is not None and segment_and_analyse:
+        if segment_settings is not None or analyse_settings is not None:
             meta = value.metadata.get(PYMMCW_METADATA_KEY, {})
-            meta[ANALYSIS] = segment_and_analyse
+            meta[ANALYSIS] = {
+                SEGMENTATION: segment_settings,
+                ANALYSIS: analyse_settings,
+            }
 
         # update metadata with the Arduino LED stimulation settings
         if arduino_settings:
