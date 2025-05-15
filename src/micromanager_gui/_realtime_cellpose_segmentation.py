@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 from multiprocessing import Process
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
@@ -14,14 +14,10 @@ from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 from ._widgets._mda_widget._mda_widget import SEGMENTATION
+from ._widgets._mda_widget._realtime_cellpose_segmentation_wdg import CUSTOM, CYTO3
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
-
-
-MODEL_TYPE = "cyto3"
-CHANNEL = [0, 0]
-DIAMETER = 0
 
 
 class RealTimeCellposeSegmentation:
@@ -153,11 +149,11 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
         return
 
     # get metadata from the sequence
-    meta = seq.metadata.get(PYMMCW_METADATA_KEY, {})
+    meta = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
     save_dir = meta.get("save_dir")
-    save_name = meta.get("save_name")
+    save_name = meta.get("save_name", "")
 
-    if save_dir is None or save_name is None:
+    if not save_dir or not save_name:
         logger.warning("SegmentNeurons -> No save directory found.")
         return
 
@@ -181,12 +177,22 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
         label_name = f"p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model = models.Cellpose(gpu=core.use_gpu(), model_type=MODEL_TYPE)
+    model_info = meta.get(SEGMENTATION, {})
+    model_type: str = model_info.get("model_type")
+    model_path: str = model_info.get("model_path")
+    use_gpu = core.use_gpu()
+    if model_type == CUSTOM and model_path:
+        model = models.CellposeModel(pretrained_model=model_path, gpu=use_gpu)
+    else:
+        model = models.Cellpose(gpu=use_gpu, model_type=model_type or CYTO3)
 
     # run cellpose
-    logger.info(f"SegmentNeurons -> Segmenting image: {label_name}...")
-    labels, _, _, _ = model.eval(image, diameter=DIAMETER, channels=CHANNEL)
+    logger.info(
+        f"SegmentNeurons -> Segmenting image: {label_name}... "
+        f"(gpu={use_gpu}, model={model_path if model_type == CUSTOM else model_type})"
+    )
+    output = model.eval(image)
 
     # save to disk
-    tifffile.imwrite(save_dir / label_name, labels)
+    tifffile.imwrite(save_dir / label_name, output[0])
     logger.info(f"SegmentNeurons -> Saving labels: {save_dir}/{label_name}")
