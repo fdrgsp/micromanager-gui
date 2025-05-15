@@ -3,10 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sympy import use
 import tifffile
-import torch
-from cellpose import models
+from cellpose import core, models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import QSize, Signal
@@ -27,7 +25,6 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from cellpose import core
 from superqt.fonticon import icon
 from superqt.utils import create_worker
 from tqdm import tqdm

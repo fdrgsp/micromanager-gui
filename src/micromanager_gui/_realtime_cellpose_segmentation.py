@@ -188,5 +188,5 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
     labels, _, _, _ = model.eval(image, diameter=DIAMETER, channels=CHANNEL)
 
     # save to disk
-    tifffile.imsave(save_dir / label_name, labels)
+    tifffile.imwrite(save_dir / label_name, labels)
     logger.info(f"SegmentNeurons -> Saving labels: {save_dir}/{label_name}")
