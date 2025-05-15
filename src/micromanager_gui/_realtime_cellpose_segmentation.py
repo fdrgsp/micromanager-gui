@@ -150,7 +150,7 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
 
     # get metadata from the sequence
     meta = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
-    save_dir = meta.get("save_dir")
+    save_dir = meta.get("save_dir", "")
     save_name = meta.get("save_name", "")
 
     if not save_dir or not save_name:
