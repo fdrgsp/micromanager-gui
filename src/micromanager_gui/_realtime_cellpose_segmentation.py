@@ -189,7 +189,7 @@ def _segment_image(image: np.ndarray, event: dict) -> None:
     # run cellpose
     logger.info(
         f"SegmentNeurons -> Segmenting image: {label_name}... "
-        f"(gpu={use_gpu}, model={model_path if model_type == CUSTOM else model_type})"
+        f"(gpu={use_gpu}, model_type={model_type}, model_path={model_path})"
     )
     output = model.eval(image)
 
