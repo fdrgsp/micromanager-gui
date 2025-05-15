@@ -659,7 +659,6 @@ class PlateViewer(QMainWindow):
         if not isinstance(plate_plan, useq.WellPlatePlan):
             plate_plan = self._retrieve_plate_plan()
             if plate_plan is None:
-                show_error_dialog(self, "Cannot find the plate plan in the metadata!")
                 return
 
         plate = plate_plan.plate
@@ -702,59 +701,64 @@ class PlateViewer(QMainWindow):
             dict, self._datastore.sequence.metadata.get(PYMMCW_METADATA_KEY, {})
         )
 
-        # in the old version the HCS metadata was in the root of the metadata
-        if old_hcs_meta := meta.get(HCS, {}):
-            old_plate = old_hcs_meta.get("plate")
-            if not old_plate:
-                return None
+        try:
+            # in the old version the HCS metadata was in the root of the metadata
+            if old_hcs_meta := meta.get(HCS, {}):
+                old_plate = old_hcs_meta.get("plate")
+                if not old_plate:
+                    return None
 
-            old_plate = (
-                old_plate if isinstance(old_plate, OldPlate) else OldPlate(**old_plate)
-            )
+                old_plate = (
+                    old_plate if isinstance(old_plate, OldPlate) else OldPlate(**old_plate)
+                )
 
-            # old plate to new useq.WellPlate
-            plate = useq.WellPlate(
-                name=old_plate.id,
-                rows=old_plate.rows,
-                columns=old_plate.columns,
-                well_spacing=(old_plate.well_spacing_x, old_plate.well_spacing_y),
-                well_size=(old_plate.well_size_x, old_plate.well_size_y),
-                circular_wells=old_plate.circular,
-            )
+                # old plate to new useq.WellPlate
+                plate = useq.WellPlate(
+                    name=old_plate.id,
+                    rows=old_plate.rows,
+                    columns=old_plate.columns,
+                    well_spacing=(old_plate.well_spacing_x, old_plate.well_spacing_y),
+                    well_size=(old_plate.well_size_x, old_plate.well_size_y),
+                    circular_wells=old_plate.circular,
+                )
 
-            # old_meta should be like this:
-            # plate: OldPlate] = None
-            # wells: list[Well] = None
-            # name: str
-            # row: int
-            # column: int
-            # calibration: CalibrationData = None
-            # plate: OldPlatePlate] = None
-            # well_A1_center: tuple[float, float] = None
-            # rotation_matrix: list[list[float]] = None
-            # calibration_positions_a1: list[tuple[float, float]] = None
-            # calibration_positions_an: list[tuple[float, float]] = None
-            # positions: list[Position] = None
+                # old_meta should be like this:
+                # plate: OldPlate] = None
+                # wells: list[Well] = None
+                # name: str
+                # row: int
+                # column: int
+                # calibration: CalibrationData = None
+                # plate: OldPlatePlate] = None
+                # well_A1_center: tuple[float, float] = None
+                # rotation_matrix: list[list[float]] = None
+                # calibration_positions_a1: list[tuple[float, float]] = None
+                # calibration_positions_an: list[tuple[float, float]] = None
+                # positions: list[Position] = None
 
-            # group the selected wells by row and column
-            selected_wells = tuple(
-                zip(
-                    *(
-                        (well["row"], well["column"])
-                        for well in old_hcs_meta.get("wells", [])
+                # group the selected wells by row and column
+                selected_wells = tuple(
+                    zip(
+                        *(
+                            (well["row"], well["column"])
+                            for well in old_hcs_meta.get("wells", [])
+                        )
                     )
                 )
-            )
-            # create useq plate plan
-            plate_plan = useq.WellPlatePlan(
-                plate=plate,
-                a1_center_xy=old_hcs_meta["calibration"]["well_A1_center"],
-                selected_wells=cast(
-                    tuple[tuple[int, int], tuple[int, int]], selected_wells
-                ),
-            )
+                # create useq plate plan
+                plate_plan = useq.WellPlatePlan(
+                    plate=plate,
+                    a1_center_xy=old_hcs_meta["calibration"]["well_A1_center"],
+                    selected_wells=cast(
+                        tuple[tuple[int, int], tuple[int, int]], selected_wells
+                    ),
+                )
+            return plate_plan
 
-        return plate_plan
+        except Exception as e:
+            show_error_dialog(self, "Cannot find the plate plan in the metadata!")
+            LOGGER.error(f"Error retrieving the plate plan: {e}")
+            return None
 
     def _load_plate_map(self, plate: useq.WellPlate) -> None:
         """Load the plate map from the given file."""
