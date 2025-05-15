@@ -67,7 +67,7 @@ class _SelectModelPath(_BrowseWidget):
             self._path.setText(path)
 
 
-class CellposeBatchSegmentation(QDialog):
+class CellposeBatchSegmentationMP(QDialog):
     def __init__(
         self,
         parent: QWidget | None = None,

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
-from micromanager_gui import CellposeBatchSegmentation, MicroManagerGUI, PlateViewer
+from micromanager_gui import CellposeBatchSegmentationMP, MicroManagerGUI, PlateViewer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -70,7 +70,7 @@ def batch_cellpose() -> None:
     """Open the Batch Cellpose Segmentation."""
     app = QApplication([])
     app.setWindowIcon(QIcon(str(CELLPOSE_ICON)))
-    cp = CellposeBatchSegmentation()
+    cp = CellposeBatchSegmentationMP()
     cp.show()
     sys.excepthook = _our_excepthook
     app.exec()
