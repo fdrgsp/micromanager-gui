@@ -25,12 +25,6 @@ CUSTOM_MODEL_PATH = "cellpose_models/cp_img8_epoch7000_py"
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 
-def _sort_plate(item: str) -> tuple[int, int | str]:
-    """Sort well plate keys by number first, then by string."""
-    parts = item.split("-")
-    return (0, int(parts[0])) if parts[0].isdigit() else (1, item)  # type: ignore
-
-
 class RealTimeCellposeSegmentationWidget(QGroupBox):
     """Widget to enable Segmentation and Analysis while recording."""
 
@@ -73,13 +67,13 @@ class RealTimeCellposeSegmentationWidget(QGroupBox):
             self._segmentation_dialog.resize(400, h)
             self._segmentation_dialog.show()
 
-    def isSegmentationEnabled(self) -> bool:
+    def is_segmentation_enabled(self) -> bool:
         """Return True if the checkbox is checked."""
         return cast(bool, self._enable_segmentation_checkbox.isChecked())
 
     def value(self) -> SegmentationParameters | None:
         """Return the current value of the widget."""
-        if self.isSegmentationEnabled():
+        if self.is_segmentation_enabled():
             return self._segmentation_dialog.value()
         return None
 
