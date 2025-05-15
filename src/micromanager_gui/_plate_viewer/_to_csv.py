@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from ._logger import LOGGER
 from ._util import (
     ROIData,
     _get_synchrony,
@@ -35,8 +35,7 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 NESTED = ["peaks_amplitudes_dec_dff", "dec_dff_frequency", "iei", "cell_size"]
-SINGLE_VALUE = ["percentage_active"]
-TUPLES = ["synchrony"]
+SINGLE_VALUES = ["percentage_active", "synchrony"]
 
 
 def _save_to_csv(
@@ -65,6 +64,7 @@ def _save_to_csv(
 
     # fmt: off
     # Save the data as CSV files
+    print(f"Exporting data to `{path}`...")
     try:
         _export_raw_data(path, analysis_data)
         _export_dff_data(path, analysis_data)
@@ -72,9 +72,9 @@ def _save_to_csv(
         _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
         _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
     except Exception as e:
-        LOGGER.error(f"Error exporting data to CSV: {e}")
+        print(f"Error exporting data to CSV: {e}")
         return
-    LOGGER.info(f"Successfully exported data as CSV files to `{path}`.")
+    print(f"Successfully exported data as CSV files to `{path}`.")
     # fmt: on
 
 
@@ -213,14 +213,16 @@ def _export_dec_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) 
 def _export_to_csv_mean_values_grouped_by_condition(
     path: Path | str, data: dict[str, dict[str, dict[str, Any]]]
 ) -> None:
+    """Export mean values grouped by condition to CSV."""
     path = Path(path)
     exp_name = path.stem
     folder = path / "grouped"
     folder.mkdir(parents=True, exist_ok=True)
 
     for parameter, condition_dict in data.items():
-        if parameter not in PARAMETER_TO_KEY:
-            continue  # Skip unknown parameters
+        if parameter in SINGLE_VALUES:
+            _export_to_csv_single_values(folder, exp_name, parameter, condition_dict)
+            continue
 
         output_rows = []
 
@@ -240,38 +242,20 @@ def _export_to_csv_mean_values_grouped_by_condition(
                     row[f"{cond}_N"] = ""
                     continue
 
-                # handle nested structure for multi-ROI data
-                if parameter in NESTED:
-                    if isinstance(values, list) and any(
-                        isinstance(el, list) for el in values
-                    ):
-                        flat_values = [v for roi in values for v in roi]
-                    else:
-                        flat_values = values
-                    mean_val = np.mean(flat_values)
-                    n_val = len(flat_values)
-                    sem_val = (
-                        np.std(flat_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
-                    )
-                    row[f"{cond}_Mean"] = round(mean_val, 5)
-                    row[f"{cond}_SEM"] = round(sem_val, 5)
-                    row[f"{cond}_N"] = n_val
-
-                # handle single-value lists like percentage_active or synchrony
-                elif parameter in SINGLE_VALUE:
-                    val = values[0] if isinstance(values, list) and values else ""
-                    row[f"{cond}_Value"] = (
-                        round(val, 5) if isinstance(val, (int, float)) else ""
-                    )
-                elif parameter in TUPLES:
-                    # tuples are sync_value, p_value, z_score
-                    val = values[0]
-                    row[f"{cond}_Value"] = (
-                        round(val, 5) if isinstance(val, (int, float)) else ""
-                    )
+                if isinstance(values, list) and any(
+                    isinstance(el, list) for el in values
+                ):
+                    flat_values = [v for roi in values for v in roi]
                 else:
-                    # catch-all fallback
-                    row[f"{cond}_Data"] = str(values)
+                    flat_values = values
+                mean_val = np.mean(flat_values)
+                n_val = len(flat_values)
+                sem_val = (
+                    np.std(flat_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
+                )
+                row[f"{cond}_Mean"] = round(mean_val, 5)
+                row[f"{cond}_SEM"] = round(sem_val, 5)
+                row[f"{cond}_N"] = n_val
 
             output_rows.append(row)
 
@@ -280,15 +264,45 @@ def _export_to_csv_mean_values_grouped_by_condition(
         df.to_csv(csv_path, index=False)
 
 
+def _export_to_csv_single_values(
+    path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export single-value data to CSV."""
+    columns = {}
+    max_len = 0
+    for condition, fovs in data.items():
+        values = []
+        for _, value in fovs.items():
+            for e in value:
+                if isinstance(e, tuple):
+                    # this is for synchrony that could have (sync, p_val, z_score)
+                    values.append(e[0])
+                else:
+                    values.append(e)
+        columns[condition] = values
+        max_len = max(max_len, len(values))
+
+    # create DataFrame
+    # pad with NaNs to make all columns equal length (for pandas DataFrame)
+    padded_rows = zip_longest(*columns.values(), fillvalue=float("nan"))
+    df = pd.DataFrame(padded_rows, columns=columns.keys())
+    df = df.round(4)
+
+    # save to CSV
+    csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
+    df.to_csv(csv_path, index=False)
+
+
 def _export_to_csv_mean_values_evk_parameters(
     path: Path | str, data: dict[str, dict[str, dict[str, dict[str, list[Any]]]]]
 ) -> None:
+    """Export mean values of evoked parameters to CSV."""
     path = Path(path)
     exp_name = path.stem
     folder = path / "grouped_evk"
 
     for parameter, condition_dict in data.items():
-        if parameter not in CSV_PARAMETERS_EVK.keys():
+        if not condition_dict:
             continue
 
         folder.mkdir(parents=True, exist_ok=True)
