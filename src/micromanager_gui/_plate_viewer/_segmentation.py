@@ -120,22 +120,7 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model.setValue(CUSTOM_MODEL_PATH)
         self._browse_custom_model.hide()
 
-        # CHANNEL AND DIAMETER WIDGETS ------------------------------------------
-        channel_wdg = QWidget(self)
-        channel_layout = QHBoxLayout(channel_wdg)
-        channel_layout.setContentsMargins(0, 0, 0, 0)
-        channel_layout.setSpacing(5)
-        self._channel_combo_label = QLabel("Segment Channel:")
-        self._channel_combo_label.setSizePolicy(*FIXED)
-        self._channel_combo = QComboBox()
-        self._channel_combo.setToolTip("Select the channel to segment.")
-        if self._data is not None and self._data.sequence:
-            chs = self._data.sequence.sizes.get("c")
-            if chs is not None:
-                self._channel_combo.addItems([str(i) for i in range(chs)])
-        channel_layout.addWidget(self._channel_combo_label)
-        channel_layout.addWidget(self._channel_combo)
-
+        # DIAMETER WIDGETS ------------------------------------------
         diameter_wdg = QWidget(self)
         diameter_layout = QHBoxLayout(diameter_wdg)
         diameter_layout.setContentsMargins(0, 0, 0, 0)
@@ -201,7 +186,6 @@ class _CellposeSegmentation(QWidget):
         # STYLING ---------------------------------------------------------------
         fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
         self._models_combo_label.setMinimumWidth(fixed_lbl_width)
-        self._channel_combo_label.setMinimumWidth(fixed_lbl_width)
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
         pos_lbl.setMinimumWidth(fixed_lbl_width)
@@ -219,11 +203,10 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.setSpacing(5)
         settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
         settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
-        settings_groupbox_layout.addWidget(channel_wdg, 2, 0, 1, 2)
-        settings_groupbox_layout.addWidget(diameter_wdg, 3, 0, 1, 2)
-        settings_groupbox_layout.addWidget(self._output_path, 4, 0, 1, 2)
-        settings_groupbox_layout.addWidget(pos_wdg, 5, 0, 1, 2)
-        settings_groupbox_layout.addWidget(progress_wdg, 6, 0, 1, 2)
+        settings_groupbox_layout.addWidget(diameter_wdg, 2, 0, 1, 2)
+        settings_groupbox_layout.addWidget(self._output_path, 3, 0, 1, 2)
+        settings_groupbox_layout.addWidget(pos_wdg, 4, 0, 1, 2)
+        settings_groupbox_layout.addWidget(progress_wdg, 5, 0, 1, 2)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -237,13 +220,8 @@ class _CellposeSegmentation(QWidget):
         return self._data
 
     @data.setter
-    def data(self, data: TensorstoreZarrReader | OMEZarrReader) -> None:
+    def data(self, data: TensorstoreZarrReader | OMEZarrReader | None) -> None:
         self._data = data
-        if self._data.sequence is None:
-            return
-        chs = self._data.sequence.sizes.get("c")
-        if chs is not None:
-            self._channel_combo.addItems([str(i) for i in range(chs)])
 
     @property
     def labels(self) -> dict[str, np.ndarray]:
@@ -257,14 +235,7 @@ class _CellposeSegmentation(QWidget):
     def output_path(self, analysis_path: str | None) -> None:
         self._output_path.setValue(analysis_path or "")
 
-    def cancel(self) -> None:
-        """Cancel the current run."""
-        if self._worker is not None:
-            self._worker.quit()
-        self._elapsed_timer.stop()
-        self._reset_progress_bar()
-        self._enable(True)
-        LOGGER.info("Cellpose segmentation canceled.")
+    # PUBLIC METHODS ------------------------------------------------------------------
 
     def run(self) -> None:
         """Perform the Cellpose segmentation in a separate thread."""
@@ -283,15 +254,20 @@ class _CellposeSegmentation(QWidget):
         if not self._handle_existing_labels():
             return
 
-        self._start_segmentation(positions)
+        self._start_segmentation_thread(positions)
 
-    def _reset_progress_bar(self) -> None:
-        """Reset and initialize progress bar."""
-        self._progress_bar.reset()
-        self._progress_bar.setValue(0)
-        self._progress_label.setText("[0/0]")
-        self._elapsed_time_label.setText("00:00:00")
+    def cancel(self) -> None:
+        """Cancel the current run."""
+        if self._worker is not None:
+            self._worker.quit()
+        self._elapsed_timer.stop()
+        self._reset_progress_bar()
+        self._enable(True)
+        LOGGER.info("Cellpose segmentation canceled.")
 
+    # PRIVATE METHODS -----------------------------------------------------------------
+
+    # PREPARE FOR RUN -----------------------------------------------------------------
     def _validate_segmentation_setup(self) -> bool:
         """Check if the necessary data is available before segmentation."""
         if self._data is None:
@@ -344,7 +320,9 @@ class _CellposeSegmentation(QWidget):
         self._update_plate_viewer_labels_path(path)
         return True
 
-    def _start_segmentation(self, positions: list[int]) -> None:
+    # RUN THE SEGMENTATION ------------------------------------------------------------
+
+    def _start_segmentation_thread(self, positions: list[int]) -> None:
         """Prepare segmentation and start it in a separate thread."""
         model = self._initialize_model()
         if model is None:
@@ -358,7 +336,6 @@ class _CellposeSegmentation(QWidget):
             self._segment,
             path=self._output_path.value(),
             model=model,
-            channel=[self._channel_combo.currentIndex(), 0],
             diameter=self._diameter_spin.value() or None,
             positions=positions,
             _start_thread=True,
@@ -369,11 +346,82 @@ class _CellposeSegmentation(QWidget):
             },
         )
 
+    def _segment(
+        self,
+        path: str,
+        model: CellposeModel,
+        diameter: float | None,
+        positions: list[int],
+    ) -> Generator[str | int, None, None]:
+        """Perform the segmentation using Cellpose."""
+        LOGGER.info("Starting Cellpose segmentation.")
+
+        if self._data is None:
+            return
+
+        for p in tqdm(positions):
+            if self._worker is not None and self._worker.abort_requested:
+                break
+            # get the data
+            data, meta = self._data.isel(p=p, metadata=True)
+
+            # get position name from metadata (in old metadata, the key was "Event")
+            key = "mda_event" if "mda_event" in meta[0] else "Event"
+            pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
+            # yield the current position name to update the progress bar
+            yield f"[Well {pos_name} p{p} (tot {len(positions)})]"
+            # max projection from half to the end of the stack
+            data_half_to_end = data[data.shape[0] // 2 :, :, :]
+            # perform cellpose on each time point
+            cyto_frame = data_half_to_end.max(axis=0)
+            output = model.eval(cyto_frame, diameter=diameter)
+            labels = output[0]
+            # store the masks in the labels dict
+            self._labels[f"{pos_name}_p{p}"] = labels
+            # yield the current position to update the progress bar
+            if len(positions) == 1:
+                yield p
+            elif len(positions) > 1:
+                if p + 1 > len(positions):
+                    yield len(positions)
+                else:
+                    yield p + 1
+            # save to disk
+            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
+
+    def _on_worker_finished(self) -> None:
+        """Enable the widgets when the segmentation is finished."""
+        LOGGER.info("Cellpose segmentation finished.")
+        self._enable(True)
+        self._elapsed_timer.stop()
+        self._progress_bar.setValue(self._progress_bar.maximum())
+        self.segmentationFinished.emit()
+
+    # WIDGET---------------------------------------------------------------------------
+
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the widgets."""
+        self._models_combo.setEnabled(enable)
+        self._browse_custom_model.setEnabled(enable)
+        self._output_path.setEnabled(enable)
+        self._pos_le.setEnabled(enable)
+        self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._analysis_wdg.setEnabled(enable)
+
+    def _reset_progress_bar(self) -> None:
+        """Reset and initialize progress bar."""
+        self._progress_bar.reset()
+        self._progress_bar.setValue(0)
+        self._progress_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
     def _initialize_model(self) -> CellposeModel | None:
         """Initialize the Cellpose model based on user selection."""
         use_gpu = core.use_gpu()
         LOGGER.info(f"Use GPU: {use_gpu}")
-        print("Use GPU:", use_gpu)
 
         if self._models_combo.currentText() == "custom":
             custom_model_path = self._browse_custom_model.value()
@@ -405,50 +453,6 @@ class _CellposeSegmentation(QWidget):
         msg.setDefaultButton(QMessageBox.StandardButton.No)
         return msg.exec()
 
-    def _segment(
-        self,
-        path: str,
-        model: CellposeModel,
-        channel: list[int],
-        diameter: float,
-        positions: list[int],
-    ) -> Generator[str | int, None, None]:
-        """Perform the segmentation using Cellpose."""
-        LOGGER.info("Starting Cellpose segmentation.")
-
-        if self._data is None:
-            return
-
-        for p in tqdm(positions):
-            if self._worker is not None and self._worker.abort_requested:
-                break
-            # get the data
-            data, meta = self._data.isel(p=p, metadata=True)
-
-            # get position name from metadata (in old metadata, the key was "Event")
-            key = "mda_event" if "mda_event" in meta[0] else "Event"
-            pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-            # yield the current position name to update the progress bar
-            yield f"[Well {pos_name} p{p} (tot {len(positions)})]"
-            # max projection from half to the end of the stack
-            data_half_to_end = data[data.shape[0] // 2 :, :, :]
-            # perform cellpose on each time point
-            cyto_frame = data_half_to_end.max(axis=0)
-            output = model.eval(cyto_frame, diameter=diameter, channels=channel)
-            labels = output[0]
-            # store the masks in the labels dict
-            self._labels[f"{pos_name}_p{p}"] = labels
-            # yield the current position to update the progress bar
-            if len(positions) == 1:
-                yield p
-            elif len(positions) > 1:
-                if p + 1 > len(positions):
-                    yield len(positions)
-                else:
-                    yield p + 1
-            # save to disk
-            tifffile.imwrite(Path(path) / f"{pos_name}_p{p}.tif", labels)
-
     def _on_model_combo_changed(self, text: str) -> None:
         """Show or hide the custom model path widget."""
         if text == "custom":
@@ -467,27 +471,6 @@ class _CellposeSegmentation(QWidget):
     def _update_progress_label(self, time_str: str) -> None:
         """Update the progress label with elapsed time."""
         self._elapsed_time_label.setText(time_str)
-
-    def _on_worker_finished(self) -> None:
-        """Enable the widgets when the segmentation is finished."""
-        LOGGER.info("Cellpose segmentation finished.")
-        self._enable(True)
-        self._elapsed_timer.stop()
-        self._progress_bar.setValue(self._progress_bar.maximum())
-        self.segmentationFinished.emit()
-
-    def _enable(self, enable: bool) -> None:
-        """Enable or disable the widgets."""
-        self._models_combo.setEnabled(enable)
-        self._browse_custom_model.setEnabled(enable)
-        self._channel_combo.setEnabled(enable)
-        self._output_path.setEnabled(enable)
-        self._pos_le.setEnabled(enable)
-        self._run_btn.setEnabled(enable)
-        if self._plate_viewer is None:
-            return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
-        self._plate_viewer._analysis_wdg.setEnabled(enable)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Override the close event to cancel the worker."""

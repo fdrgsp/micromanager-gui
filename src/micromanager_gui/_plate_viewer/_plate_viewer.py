@@ -91,7 +91,7 @@ class PlateViewer(QMainWindow):
         self._central_widget_layout.setContentsMargins(10, 10, 10, 10)
         self.setCentralWidget(self._central_widget)
 
-        self._datastore: TensorstoreZarrReader | OMEZarrReader | None = None
+        self._data: TensorstoreZarrReader | OMEZarrReader | None = None
         self._pv_labels_path = labels_path
         self._pv_analysis_path = analysis_files_path
 
@@ -101,7 +101,7 @@ class PlateViewer(QMainWindow):
         self.menu_bar = QMenuBar(self)
         self.file_menu = self.menu_bar.addMenu("File")
         open_action = QAction("Open Zarr Datastore...", self)
-        open_action.triggered.connect(self._show_init_dialog)
+        open_action.triggered.connect(self._show_data_input_dialog)
         save_as_tiff_action = QAction("Save Data as Tiff...", self)
         save_as_tiff_action.triggered.connect(self._show_save_as_tiff_dialog)
         save_as_csv_action = QAction("Save Analysis Data as CSV...", self)
@@ -271,22 +271,12 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
         # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
-        # reader = TensorstoreZarrReader(data)
-        # self._init_widget(reader)
-        # ____________________________________________________________________________
+        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+        # _____________________________________________________________________________
 
     @property
-    def datastore(
-        self,
-    ) -> TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader | None:
-        return self._datastore
-
-    @datastore.setter
-    def datastore(
-        self, value: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
-    ) -> None:
-        self._datastore = value
-        self._init_widget(value)
+    def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
+        return self._data
 
     @property
     def pv_labels_path(self) -> str | None:
@@ -309,7 +299,7 @@ class PlateViewer(QMainWindow):
     @pv_analysis_path.setter
     def pv_analysis_path(self, value: str) -> None:
         self._pv_analysis_path = value
-        self._load_analysis_data(value)
+        self._load_and_set_analysis_data(value)
 
     @property
     def pv_analysis_data(self) -> dict[str, dict[str, ROIData]]:
@@ -319,50 +309,65 @@ class PlateViewer(QMainWindow):
     def pv_analysis_data(self, value: dict[str, dict[str, ROIData]]) -> None:
         self._pv_analysis_data = value
 
-    def _update_graphs_with_roi(self, roi: int) -> None:
-        """Update the graphs with the given roi.
+    # PUBLIC METHODS-------------------------------------------------------------------
 
-        This function is called when a roi is selected in the image viewer and will
-        update the graphs with the traces of the selected roi.
-        """
-        # get the current tab index
-        idx = self._tab.currentIndex()
-        if idx == 0:
-            return
-        for graph in self.SW_GRAPHS:
-            if graph._combo.currentText() == "None":
-                continue
-            graph._choose_dysplayed_traces.setChecked(True)
-            graph._choose_dysplayed_traces._roi_le.setText(str(roi))
-            graph._choose_dysplayed_traces._update()
+    def initialize_widget(
+        self, datastore_path: str, labels_path: str = "", analysis_path: str = ""
+    ) -> None:
+        """Initialize the widget with given datastore, labels and analysis path."""
+        # CLEARING---------------------------------------------------------------------
 
-    def _show_plate_map_dialog(self) -> None:
-        """Show the plate map dialog."""
-        if self._plate_map_dialog.isHidden():
-            self._plate_map_dialog.show()
+        self._clear_widget_before_initiialization()
+
+        # DATASTORE--------------------------------------------------------------------
+
+        # select which reader to use for the datastore
+        if datastore_path.endswith(TS):
+            # read tensorstore
+            self._data = TensorstoreZarrReader(datastore_path)
+        elif datastore_path.endswith(ZR):
+            # read ome zarr
+            self._data = OMEZarrReader(datastore_path)
         else:
-            self._plate_map_dialog.raise_()
-            self._plate_map_dialog.activateWindow()
-
-    def _on_tab_changed(self, idx: int) -> None:
-        """Update the graph combo boxes when the tab is changed."""
-        # skip if the tab is the analysis tab
-        if idx == 0:
+            self._data = None
+            show_error_dialog(
+                self,
+                f"Unsupported file format! Only {WRITERS[ZARR_TESNSORSTORE][0]} and"
+                f" {WRITERS[OME_ZARR][0]} are supported.",
+            )
             return
 
-        # if single wells tab is selected
-        if idx == 1:
-            # get the current fov
-            value = self._fov_table.value() if self._fov_table.selectedItems() else None
-            if value is None:
-                return
-            fov_data = self._get_fov_data(value)
-            # update the graphs combo boxes
-            self._update_single_wells_graphs_combo(combo_red=(fov_data is None))
+        self._data = cast((TensorstoreZarrReader | OMEZarrReader), self._data)
+        if self._data.sequence is None:
+            show_error_dialog(
+                self,
+                "useq.MDASequence not found! Cannot use the  `PlateViewer` without "
+                "the useq.MDASequence in the datastore metadata!",
+            )
+            return
 
-        # if multi wells tab is selected
-        elif idx == 2:
-            self._update_multi_wells_graphs_combo()
+        # LOAD ANALYSIS DATA-----------------------------------------------------------
+
+        self._pv_analysis_path = analysis_path
+        self._pv_labels_path = labels_path
+
+        # load analysis json file if the analysis path is set
+        if self._pv_analysis_path:
+            self._load_and_set_analysis_data(self._pv_analysis_path)
+
+        # UPDATE SEGMENTATION AND ANALYSIS WIDGETS-------------------------------------
+
+        self._set_segmentation_and_analysis_widgets_data()
+
+        # LOAD PLATE-------------------------------------------------------------------
+        plate = self._load_plate_plan(self._data.sequence.stage_positions)
+
+        # LOAD PLATE MAP---------------------------------------------------------------
+
+        if plate is not None:
+            self._load_plate_map(plate)
+
+    # WIDGET INITIALIZATION------------------------------------------------------------
 
     def _set_splitter_sizes(self) -> None:
         """Set the initial sizes for the splitters."""
@@ -375,135 +380,45 @@ class PlateViewer(QMainWindow):
             total_size = splitter.size().width()
             splitter.setSizes([int(size * total_size) for size in sizes])
 
-    def _highlight_roi(self, roi: str | list[str]) -> None:
-        """Highlight the selected roi in the image viewer."""
-        if isinstance(roi, list):
-            roi = ",".join(roi)
-        self._image_viewer._roi_number_le.setText(roi)
-        self._image_viewer._highlight_rois()
+    # DATA INITIALIZATION--------------------------------------------------------------
 
-    def _show_init_dialog(self) -> None:
-        """Show a dialog to select a zarr datastore file and segmentation path."""
+    def _show_data_input_dialog(self) -> None:
+        """Show dialog to select zarr datastore, segmentation and analysis path."""
         init_dialog = _InitDialog(
             self,
-            datastore_path=(
-                str(self._datastore.path) if self._datastore is not None else None
-            ),
+            datastore_path=(str(self._data.path) if self._data is not None else None),
             labels_path=self._pv_labels_path,
             analysis_path=self._pv_analysis_path,
         )
         init_dialog.resize(600, init_dialog.sizeHint().height())
         if init_dialog.exec():
-            datastore, self._pv_labels_path, self._pv_analysis_path = (
-                init_dialog.value()
-            )
-            # clear fov table
-            self._fov_table.clear()
-            # clear scene
-            self._plate_view.clearSelection()
-            reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
-            if datastore.endswith(TS):
-                # read tensorstore
-                reader = TensorstoreZarrReader(datastore)
-            elif datastore.endswith(ZR):
-                # read ome zarr
-                reader = OMEZarrReader(datastore)
-            else:
-                show_error_dialog(
-                    self,
-                    f"Unsupported file format! Only {WRITERS[ZARR_TESNSORSTORE][0]} and"
-                    f" {WRITERS[OME_ZARR][0]} are supported.",
-                )
-                return
+            self.initialize_widget(*init_dialog.value())
 
-            self._init_widget(reader)
+    def _clear_widget_before_initiialization(self) -> None:
+        """Clear the widget before initializing it with new data."""
+        # clear the datastore
+        self._data = None
+        # clear fov table
+        self._fov_table.clear()
+        # clear scene
+        self._plate_view.clear()
+        # clear the image viewer cache
+        self._image_viewer._viewer._contour_cache.clear()
+        # clear the plate map
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+        # clear the analysis data
+        self._pv_analysis_data.clear()
+        # clear the segmentation widget
+        self._segmentation_wdg.data = None
+        self._segmentation_wdg.output_path = None
+        # set the analysis widget data
+        self._analysis_wdg.data = None
+        self._analysis_wdg.analysis_data.clear()
+        self._analysis_wdg.labels_path = None
+        self._analysis_wdg.analysis_path = None
 
-    def _show_save_as_tiff_dialog(self) -> None:
-        """Show the save as tiff dialog."""
-        if self._datastore is None or (sequence := self._datastore.sequence) is None:
-            show_error_dialog(
-                self,
-                "No data to save or useq.MDASequence not found! Cannot save the data.",
-            )
-            return
-
-        dialog = _SaveAsTiff(self)
-
-        if dialog.exec():
-            path, positions = dialog.value()
-
-            if not Path(path).is_dir():
-                show_error_dialog(
-                    self, f"The path {path} is not a directory! Cannot save the data."
-                )
-                return
-
-            # start the waiting progress bar
-            self._init_loading_bar("Saving as tiff...")
-            self._loading_bar.setRange(0, len(positions))
-
-            create_worker(
-                self._save_as_tiff,
-                path=path,
-                positions=positions,
-                sequence=sequence,
-                _start_thread=True,
-                _connect={
-                    "yielded": self._update_progress,
-                    "finished": self._on_loading_finished,
-                },
-            )
-
-    def _show_save_as_csv_dialog(self) -> None:
-        """Show the save as csv dialog."""
-        if not self._pv_analysis_data:
-            show_error_dialog(self, "No data to save! Run or load analysis data first.")
-            return
-
-        dialog = _SaveAsCSV(self)
-        dialog.resize(500, dialog.sizeHint().height())
-
-        if dialog.exec():
-            path = dialog.value()
-            if not Path(path).is_dir():
-                show_error_dialog(
-                    self, f"The path {path} is not a directory! Cannot save the data."
-                )
-                return
-
-            _save_to_csv(path, self._pv_analysis_data)
-
-    def _init_loading_bar(self, text: str) -> None:
-        """Reset the loading bar."""
-        self._loading_bar.setEnabled(True)
-        self._loading_bar.setText(text)
-        self._loading_bar.setValue(0)
-        self._loading_bar.showPercentage(True)
-        self._loading_bar.show()
-
-    def _save_as_tiff(
-        self, path: str, positions: list[int], sequence: useq.MDASequence
-    ) -> Generator[int, None, None]:
-        """Save the selected positions as tiff files."""
-        # TODO: multithreading or multiprocessing
-        # TODO: also save metadata
-        if not self._datastore:
-            return
-        if not positions:
-            positions = list(range(len(sequence.stage_positions) - 1))
-        for pos in tqdm(positions, desc="Saving as tiff"):
-            data, meta = self._datastore.isel(p=pos, metadata=True)
-            # the "Event" key was used in the old metadata format
-            event_key = "mda_event" if "mda_event" in meta[0] else "Event"
-            # get the well name from metadata
-            pos_name = (
-                meta[0].get(event_key, {}).get("pos_name", f"pos_{str(pos).zfill(4)}")
-            )
-            # save the data as tiff
-            tifffile.imwrite(Path(path) / f"{pos_name}.tiff", data)
-            yield pos + 1
-
-    def _load_analysis_data(self, path: str | Path) -> None:
+    def _load_and_set_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
         if isinstance(path, str):
             path = Path(path)
@@ -523,7 +438,7 @@ class PlateViewer(QMainWindow):
         self._init_loading_bar("Loading Analysis Data...")
 
         create_worker(
-            self._load_data_from_json,
+            self._load_and_set_data_from_json,
             path=path,
             _start_thread=True,
             _connect={
@@ -537,8 +452,9 @@ class PlateViewer(QMainWindow):
         """Called when the loading of the analysis data is finished."""
         self._loading_bar.hide()
 
-    # TODO: maybe use ThreadPoolExecutor
-    def _load_data_from_json(self, path: Path) -> Generator[int | str, None, None]:
+    def _load_and_set_data_from_json(
+        self, path: Path
+    ) -> Generator[int | str, None, None]:
         """Load the analysis data from the given JSON file."""
         json_files = self._filter_data(list(path.glob("*.json")))
         self._loading_bar.setRange(0, len(json_files))
@@ -620,46 +536,30 @@ class PlateViewer(QMainWindow):
 
         return filtered_paths
 
-    def _update_progress(self, value: int | str) -> None:
-        """Update the progress bar value."""
-        if isinstance(value, str):
-            show_error_dialog(self, value)
-        else:
-            self._loading_bar.setValue(value)
+    def _set_segmentation_and_analysis_widgets_data(self) -> None:
+        """Update the segmentation and analysis widgets data."""
+        # set the segmentation widget data
+        self._segmentation_wdg.data = self._data
+        self._segmentation_wdg.output_path = self._pv_labels_path
+        # set the analysis widget data
+        self._analysis_wdg.data = self._data
+        self._analysis_wdg.analysis_data = self._pv_analysis_data
+        self._analysis_wdg.labels_path = self._pv_labels_path
+        self._analysis_wdg.analysis_path = self._pv_analysis_path
 
-    def _init_widget(
-        self, reader: TensorstoreZarrReader | TensorstoreZarrReader | OMEZarrReader
-    ) -> None:
-        """Initialize the widget with the given datastore."""
-        # clear the image viewer cache
-        self._plate_view.clear()
-        self._image_viewer._viewer._contour_cache.clear()
-        self._plate_map_genotype.clear()
-        self._plate_map_treatment.clear()
+    def _load_plate_plan(
+        self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None
+    ) -> useq.WellPlate | None:
+        """Load the plate from the datastore."""
+        if self._data is None or plate_plan is None:
+            return None
 
-        # load analysis json file if the path is not None
-        if self._pv_analysis_path:
-            self._load_analysis_data(self._pv_analysis_path)
-
-        self._datastore = reader
-
-        if self._datastore.sequence is None:
-            show_error_dialog(
-                self,
-                "useq.MDASequence not found! Cannot use the  `PlateViewer` without "
-                "the useq.MDASequence in the datastore metadata!",
-            )
-            return
-
-        plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = (
-            self._datastore.sequence.stage_positions
-        )
         plate: useq.WellPlate | None = None
 
         if not isinstance(plate_plan, useq.WellPlatePlan):
-            plate_plan = self._retrieve_plate_plan()
+            plate_plan = self._retrieve_plate_plan_from_old_maradata()
             if plate_plan is None:
-                return
+                return None
 
         plate = plate_plan.plate
 
@@ -677,29 +577,17 @@ class PlateViewer(QMainWindow):
         for r, c in wells.keys():
             if (r, c) not in selected:
                 self._plate_view.setWellColor(r, c, UNSELECTABLE_COLOR)
+        return plate
 
-        # set the segmentation widget data
-        self._segmentation_wdg.data = self._datastore
-        self._segmentation_wdg.output_path = self._pv_labels_path
-        # set the analysis widget data
-        self._analysis_wdg.data = self._datastore
-        self._analysis_wdg.analysis_data = self._pv_analysis_data
-        self._analysis_wdg.labels_path = self._pv_labels_path
-        self._analysis_wdg.analysis_path = self._pv_analysis_path
-
-        self._load_plate_map(plate)
-
-    def _retrieve_plate_plan(self) -> useq.WellPlatePlan | None:
+    def _retrieve_plate_plan_from_old_maradata(self) -> useq.WellPlatePlan | None:
         """Retrieve the plate plan from the old metadata version."""
-        if self._datastore is None:
+        if self._data is None:
             return None
 
-        if self._datastore.sequence is None:
+        if self._data.sequence is None:
             return None
 
-        meta = cast(
-            dict, self._datastore.sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-        )
+        meta = cast(dict, self._data.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
 
         try:
             # in the old version the HCS metadata was in the root of the metadata
@@ -709,7 +597,9 @@ class PlateViewer(QMainWindow):
                     return None
 
                 old_plate = (
-                    old_plate if isinstance(old_plate, OldPlate) else OldPlate(**old_plate)
+                    old_plate
+                    if isinstance(old_plate, OldPlate)
+                    else OldPlate(**old_plate)
                 )
 
                 # old plate to new useq.WellPlate
@@ -764,6 +654,7 @@ class PlateViewer(QMainWindow):
         """Load the plate map from the given file."""
         self._plate_map_genotype.clear()
         self._plate_map_treatment.clear()
+
         self._plate_map_genotype.setPlate(plate)
         self._plate_map_treatment.setPlate(plate)
         # load plate map if exists
@@ -775,15 +666,161 @@ class PlateViewer(QMainWindow):
             if treat_path.exists():
                 self._plate_map_treatment.setValue(treat_path)
 
+    # ---------------------WIDGETS------------------------------------
+
+    def _init_loading_bar(self, text: str) -> None:
+        """Reset the loading bar."""
+        self._loading_bar.setEnabled(True)
+        self._loading_bar.setText(text)
+        self._loading_bar.setValue(0)
+        self._loading_bar.showPercentage(True)
+        self._loading_bar.show()
+
+    def _update_graphs_with_roi(self, roi: int) -> None:
+        """Update the graphs with the given roi.
+
+        This function is called when a roi is selected in the image viewer and will
+        update the graphs with the traces of the selected roi.
+        """
+        # get the current tab index
+        idx = self._tab.currentIndex()
+        if idx == 0:
+            return
+        for graph in self.SW_GRAPHS:
+            if graph._combo.currentText() == "None":
+                continue
+            graph._choose_dysplayed_traces.setChecked(True)
+            graph._choose_dysplayed_traces._roi_le.setText(str(roi))
+            graph._choose_dysplayed_traces._update()
+
+    def _show_plate_map_dialog(self) -> None:
+        """Show the plate map dialog."""
+        if self._plate_map_dialog.isHidden():
+            self._plate_map_dialog.show()
+        else:
+            self._plate_map_dialog.raise_()
+            self._plate_map_dialog.activateWindow()
+
+    def _on_tab_changed(self, idx: int) -> None:
+        """Update the graph combo boxes when the tab is changed."""
+        # skip if the tab is the analysis tab
+        if idx == 0:
+            return
+
+        # if single wells tab is selected
+        if idx == 1:
+            # get the current fov
+            value = self._fov_table.value() if self._fov_table.selectedItems() else None
+            if value is None:
+                return
+            fov_data = self._get_fov_data(value)
+            # update the graphs combo boxes
+            self._update_single_wells_graphs_combo(combo_red=(fov_data is None))
+
+        # if multi wells tab is selected
+        elif idx == 2:
+            self._update_multi_wells_graphs_combo()
+
+    def _highlight_roi(self, roi: str | list[str]) -> None:
+        """Highlight the selected roi in the image viewer."""
+        if isinstance(roi, list):
+            roi = ",".join(roi)
+        self._image_viewer._roi_number_le.setText(roi)
+        self._image_viewer._highlight_rois()
+
+    def _show_save_as_tiff_dialog(self) -> None:
+        """Show the save as tiff dialog."""
+        if self._data is None or (sequence := self._data.sequence) is None:
+            show_error_dialog(
+                self,
+                "No data to save or useq.MDASequence not found! Cannot save the data.",
+            )
+            return
+
+        dialog = _SaveAsTiff(self)
+
+        if dialog.exec():
+            path, positions = dialog.value()
+
+            if not Path(path).is_dir():
+                show_error_dialog(
+                    self, f"The path {path} is not a directory! Cannot save the data."
+                )
+                return
+
+            # start the waiting progress bar
+            self._init_loading_bar("Saving as tiff...")
+            self._loading_bar.setRange(0, len(positions))
+
+            create_worker(
+                self._save_as_tiff,
+                path=path,
+                positions=positions,
+                sequence=sequence,
+                _start_thread=True,
+                _connect={
+                    "yielded": self._update_progress,
+                    "finished": self._on_loading_finished,
+                },
+            )
+
+    def _save_as_tiff(
+        self, path: str, positions: list[int], sequence: useq.MDASequence
+    ) -> Generator[int, None, None]:
+        """Save the selected positions as tiff files."""
+        # TODO: multithreading or multiprocessing
+        # TODO: also save metadata
+        if not self._data:
+            return
+        if not positions:
+            positions = list(range(len(sequence.stage_positions) - 1))
+        for pos in tqdm(positions, desc="Saving as tiff"):
+            data, meta = self._data.isel(p=pos, metadata=True)
+            # the "Event" key was used in the old metadata format
+            event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+            # get the well name from metadata
+            pos_name = (
+                meta[0].get(event_key, {}).get("pos_name", f"pos_{str(pos).zfill(4)}")
+            )
+            # save the data as tiff
+            tifffile.imwrite(Path(path) / f"{pos_name}.tiff", data)
+            yield pos + 1
+
+    def _show_save_as_csv_dialog(self) -> None:
+        """Show the save as csv dialog."""
+        if not self._pv_analysis_data:
+            show_error_dialog(self, "No data to save! Run or load analysis data first.")
+            return
+
+        dialog = _SaveAsCSV(self)
+        dialog.resize(500, dialog.sizeHint().height())
+
+        if dialog.exec():
+            path = dialog.value()
+            if not Path(path).is_dir():
+                show_error_dialog(
+                    self, f"The path {path} is not a directory! Cannot save the data."
+                )
+                return
+
+            _save_to_csv(path, self._pv_analysis_data)
+
+    def _update_progress(self, value: int | str) -> None:
+        """Update the progress bar value."""
+        if isinstance(value, str):
+            show_error_dialog(self, value)
+        else:
+            self._loading_bar.setValue(value)
+
     def _on_scene_well_changed(self) -> None:
         """Update the FOV table when a well is selected."""
         self._fov_table.clear()
         self._image_viewer._clear_highlight()
 
-        if self._datastore is None:
+        if self._data is None:
             return
 
-        if self._datastore.sequence is None:
+        if self._data.sequence is None:
             show_error_dialog(
                 self,
                 "useq.MDASequence not found! Cannot retrieve the Well data without "
@@ -797,7 +834,7 @@ class PlateViewer(QMainWindow):
         well_name = next(iter(well_dict)).data(DATA_POSITION).name
 
         # add the fov per position to the table
-        for idx, pos in enumerate(self._datastore.sequence.stage_positions):
+        for idx, pos in enumerate(self._data.sequence.stage_positions):
             if pos.name and well_name in pos.name:
                 self._fov_table.add_position(WellInfo(idx, pos))
 
@@ -814,15 +851,15 @@ class PlateViewer(QMainWindow):
             self._update_single_wells_graphs_combo(combo_red=True, clear=True)
             return
 
-        if self._datastore is None:
+        if self._data is None:
             return
 
-        if not self._datastore.sequence:
+        if not self._data.sequence:
             return
 
         # get a single frame for the selected FOV (at 2/3 of the time points)
-        t = int(len(self._datastore.sequence.stage_positions) / 3 * 2)
-        data = cast(np.ndarray, self._datastore.isel(p=value.pos_idx, t=t, c=0))
+        t = int(len(self._data.sequence.stage_positions) / 3 * 2)
+        data = cast(np.ndarray, self._data.isel(p=value.pos_idx, t=t, c=0))
         # get labels if they exist
         labels = self._get_labels(value)
         # get the analysis data for the current fov if it exists
@@ -878,10 +915,10 @@ class PlateViewer(QMainWindow):
     def _on_fov_double_click(self) -> None:
         """Open the selected FOV in a new StackViewer window."""
         value = self._fov_table.value() if self._fov_table.selectedItems() else None
-        if value is None or self._datastore is None:
+        if value is None or self._data is None:
             return
 
-        data = self._datastore.isel(p=value.pos_idx)
+        data = self._data.isel(p=value.pos_idx)
         viewer = NDViewer(data, parent=self)
         viewer._ndims_btn.hide()
         viewer.setWindowTitle(value.fov.name or f"Position {value.pos_idx}")

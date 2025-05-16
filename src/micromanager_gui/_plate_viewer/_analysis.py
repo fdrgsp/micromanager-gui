@@ -282,7 +282,7 @@ class _AnalyseCalciumTraces(QWidget):
         return self._data
 
     @data.setter
-    def data(self, data: TensorstoreZarrReader | OMEZarrReader) -> None:
+    def data(self, data: TensorstoreZarrReader | OMEZarrReader | None) -> None:
         self._data = data
 
     @property
@@ -298,7 +298,7 @@ class _AnalyseCalciumTraces(QWidget):
         return self._labels_path
 
     @labels_path.setter
-    def labels_path(self, labels_path: str) -> None:
+    def labels_path(self, labels_path: str | None) -> None:
         self._labels_path = labels_path
 
     @property
@@ -308,6 +308,8 @@ class _AnalyseCalciumTraces(QWidget):
     @analysis_path.setter
     def analysis_path(self, analysis_path: str | None) -> None:
         self._analysis_path.setValue(analysis_path or "")
+
+    # PUBLIC METHODS ---------------------------------------------------------------
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
@@ -356,72 +358,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Override the close event to cancel the worker."""
-        if self._worker is not None:
-            self._worker.quit()
-        super().closeEvent(event)
+    # PRIVATE METHODS -----------------------------------------------------------------
 
-    def _update_plate_viewer_analysis_path(self, path: str) -> None:
-        """Update the analysis path of the plate viewer."""
-        if self._plate_viewer is not None:
-            self._plate_viewer._pv_analysis_path = path
-
-    # def _update_plate_viewer_analysis_path(self, path: str) -> None:
-    #     """Update the analysis path of the plate viewer."""
-    #     if (analysis_path := Path(path)).is_dir() and self._plate_viewer is not None:
-    #         self._plate_viewer._analysis_files_path = analysis_path
-    #         self._plate_viewer._load_data_from_json(analysis_path)
-
-    def _on_activity_changed(self, text: str) -> None:
-        """Show or hide the stimulation area path and LED power widgets."""
-        if text == EVOKED:
-            self._stimulation_area_path.show()
-            self._led_power_wdg.show()
-        else:
-            self._stimulation_area_path.hide()
-            self._led_power_wdg.hide()
-
-    def linear_equation_from_str(self, equation: str) -> Callable | None:
-        # Match format: y = m*x + q (allowing optional spaces and + or - for q)
-        if not equation:
-            return None
-
-        match = re.match(
-            r"y\s*=\s*([+-]?\d*\.?\d+)\s*\*\s*x\s*([+-]\s*\d*\.?\d+)", equation
-        )
-        if not match:
-            msg = (
-                "Invalid equation format! Should be in the form: y = m * x + q\n"
-                "Using values from the metadata."
-            )
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
-            return None
-
-        m = float(match[1])
-        q = float(match[2].replace(" ", ""))
-        return lambda x: m * x + q
-
-    def _reset_progress_bar(self) -> None:
-        """Reset the progress bar and elapsed time label."""
-        self._progress_bar.reset()
-        self._progress_bar.setValue(0)
-        self._progress_pos_label.setText("[0/0]")
-        self._elapsed_time_label.setText("00:00:00")
-
-    def _enable(self, enable: bool) -> None:
-        """Enable or disable the widgets."""
-        self._cancel_waiting_bar.setEnabled(True)
-        self._pos_le.setEnabled(enable)
-        self._stimulation_area_path.setEnabled(enable)
-        self._experiment_type_combo.setEnabled(enable)
-        self._analysis_path.setEnabled(enable)
-        self._run_btn.setEnabled(enable)
-        if self._plate_viewer is None:
-            return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
-        self._plate_viewer._segmentation_wdg.setEnabled(enable)
+    # PREPARATION FOR RUNNING ---------------------------------------------------------
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -453,11 +392,6 @@ class _AnalyseCalciumTraces(QWidget):
         )
 
         return self._get_positions_to_analyze()
-
-    def _is_evoked_experiment(self) -> bool:
-        """Return True if the activity type is evoked."""
-        activity_type = self._experiment_type_combo.currentText()
-        return activity_type == EVOKED  # type: ignore
 
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
@@ -505,6 +439,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._show_and_log_error("No Output Path provided!")
         return None
 
+    def _is_evoked_experiment(self) -> bool:
+        """Return True if the activity type is evoked."""
+        activity_type = self._experiment_type_combo.currentText()
+        return activity_type == EVOKED  # type: ignore
+
     def _prepare_stimulation_mask(self, analysis_path: Path) -> bool:
         """Generate the stimulation mask if the experiment involves evoked activity."""
         if stim_area_file := self._stimulation_area_path.value():
@@ -517,6 +456,27 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask = None
         self._show_and_log_error("No Stimulated Area File Provided!")
         return False
+
+    def linear_equation_from_str(self, equation: str) -> Callable | None:
+        # Match format: y = m*x + q (allowing optional spaces and + or - for q)
+        if not equation:
+            return None
+
+        match = re.match(
+            r"y\s*=\s*([+-]?\d*\.?\d+)\s*\*\s*x\s*([+-]\s*\d*\.?\d+)", equation
+        )
+        if not match:
+            msg = (
+                "Invalid equation format! Should be in the form: y = m * x + q\n"
+                "Using values from the metadata."
+            )
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+            return None
+
+        m = float(match[1])
+        q = float(match[2].replace(" ", ""))
+        return lambda x: m * x + q
 
     def _get_positions_to_analyze(self) -> list[int] | None:
         """Get the positions to analyze."""
@@ -543,75 +503,6 @@ class _AnalyseCalciumTraces(QWidget):
         LOGGER.info("Positions to analyze: %s", positions)
         return positions
 
-    def _show_and_log_error(self, msg: str) -> None:
-        """Log and display an error message."""
-        LOGGER.error(msg)
-        show_error_dialog(self, msg)
-
-    def _plate_map_msgbox(self, msg: str) -> Any:
-        """Show a message box to ask the user if wants to overwrite the labels."""
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        msg_box.setText(msg)
-        msg_box.setWindowTitle("Plate Map")
-        msg_box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-        return msg_box.exec()
-
-    def _on_worker_finished(self) -> None:
-        """Called when the extraction is finished."""
-        LOGGER.info("Extraction of traces finished.")
-
-        self._enable(True)
-
-        self._elapsed_timer.stop()
-        self._cancel_waiting_bar.stop()
-
-        # update the analysis data of the plate viewer
-        if self._plate_viewer is not None:
-            self._plate_viewer.pv_analysis_data = self._analysis_data
-            # not suing the plate viewer `pv_analysis_path` property because we do not
-            # want to trigger data reloading
-            self._plate_viewer._pv_analysis_path = self._analysis_path.value()
-
-            # update the graphs with the new data
-            if self._plate_viewer._tab.currentIndex() == 1:
-                self._plate_viewer._on_tab_changed(1)
-                for gh in self._plate_viewer.SW_GRAPHS:
-                    gh._on_combo_changed(gh._combo.currentText())
-
-        # save the analysis data to a JSON file
-        _save_to_csv(self._analysis_path.value(), self._analysis_data)
-
-        # show a message box if there are failed labels
-        if self._failed_labels:
-            msg = (
-                "The following labels were not found during the analysis:\n\n"
-                + "\n".join(self._failed_labels)
-            )
-            self._show_and_log_error(msg)
-
-    def _on_worker_errored(self) -> None:
-        """Called when the worker encounters an error."""
-        LOGGER.info("Extraction of traces terminated with an error.")
-        self._enable(True)
-        self._elapsed_timer.stop()
-        self._cancel_waiting_bar.stop()
-
-    def _update_progress_label(self, time_str: str) -> None:
-        """Update the progress label with elapsed time."""
-        self._elapsed_time_label.setText(time_str)
-
-    def _update_progress_bar(self) -> None:
-        """Update the progress bar value."""
-        if self._check_for_abort_requested():
-            return
-        value = self._progress_bar.value() + 1
-        self._progress_bar.setValue(value)
-        self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
-
     def _get_labels_file(self, label_name: str) -> str | None:
         """Get the labels file for the given name."""
         if self._labels_path is None:
@@ -621,46 +512,11 @@ class _AnalyseCalciumTraces(QWidget):
                 return str(label_file)
         return None
 
-    def _check_for_abort_requested(self) -> bool:
-        return bool(self._worker is not None and self._worker.abort_requested)
-
-    def _save_plate_map(self, path: Path, data: list[PlateMapData]) -> None:
-        """Save the plate map data to a JSON file."""
-        with path.open("w") as f:
-            json.dump(data, f, indent=2)
-
-    def _handle_plate_map(self) -> None:
-        if self._plate_viewer is None:
-            return
-
-        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
-        conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
-
-        # save plate map
-        LOGGER.info("Saving Plate Maps.")
-        if condition_1_plate_map:
-            path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
-        if conition_2_plate_map:
-            path = Path(self._analysis_path.value()) / TREATMENT_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
-
-        # update the stored _plate_map_data dict so we have the condition for each well
-        # name as the key. e.g.:
-        # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
-        self._plate_map_data.clear()
-        for data in condition_1_plate_map:
-            self._plate_map_data[data.name] = {COND1: data.condition[0]}
-
-        for data in conition_2_plate_map:
-            if data.name in self._plate_map_data:
-                self._plate_map_data[data.name][COND2] = data.condition[0]
-            else:
-                self._plate_map_data[data.name] = {COND2: data.condition[0]}
+    # RUN THE ANALYSIS -------------------------------------------------------------
 
     def _extract_traces_data(self, positions: list[int]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
-        LOGGER.info("Starting traces extraction...")
+        LOGGER.info("Starting traces analysis...")
 
         # save plate maps and update the stored _plate_map_data dict
         self._handle_plate_map()
@@ -702,6 +558,38 @@ class _AnalyseCalciumTraces(QWidget):
 
         except Exception as e:
             yield f"An error occurred: {e}"
+
+    def _check_for_abort_requested(self) -> bool:
+        return bool(self._worker is not None and self._worker.abort_requested)
+
+    def _handle_plate_map(self) -> None:
+        if self._plate_viewer is None:
+            return
+
+        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
+        conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+
+        # save plate map
+        LOGGER.info("Saving Plate Maps.")
+        if condition_1_plate_map:
+            path = Path(self._analysis_path.value()) / GENOTYPE_MAP
+            self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
+        if conition_2_plate_map:
+            path = Path(self._analysis_path.value()) / TREATMENT_MAP
+            self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
+
+        # update the stored _plate_map_data dict so we have the condition for each well
+        # name as the key. e.g.:
+        # {"A1": {"condition_1": "condition_1", "condition_2": "condition_2"}}
+        self._plate_map_data.clear()
+        for data in condition_1_plate_map:
+            self._plate_map_data[data.name] = {COND1: data.condition[0]}
+
+        for data in conition_2_plate_map:
+            if data.name in self._plate_map_data:
+                self._plate_map_data[data.name][COND2] = data.condition[0]
+            else:
+                self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
     def _extract_trace_data_for_chunk(
         self, positions: list[int], start: int, end: int
@@ -762,10 +650,9 @@ class _AnalyseCalciumTraces(QWidget):
             metadata = seq.metadata.get(PYMMCW_METADATA_KEY, {})
             evoked_experiment_meta = metadata.get("stimulation")
 
-        LOGGER.info(f"Extracting Traces from Well {fov_name}.")
-        for label_value, label_mask in tqdm(
-            labels_masks.items(), desc=f"Extracting Traces from Well {fov_name}"
-        ):
+        msg = f"Extracting Traces Data from Well {fov_name}."
+        LOGGER.info(msg)
+        for label_value, label_mask in tqdm(labels_masks.items(), desc=msg):
             if self._check_for_abort_requested():
                 break
 
@@ -813,6 +700,21 @@ class _AnalyseCalciumTraces(QWidget):
         labels_range = np.unique(labels[labels != 0])
         return {label_value: (labels == label_value) for label_value in labels_range}
 
+    def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
+        elapsed_time_list: list[float] = []
+        # get the elapsed time for each timepoint to calculate tot_time_sec
+        if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
+            for m in meta:
+                et = m[cam_key].get(ELAPSED_TIME_KEY)
+                if et is not None:
+                    elapsed_time_list.append(float(et))
+        else:  # old metadata format
+            for m in meta:
+                et = m.get(ELAPSED_TIME_KEY)
+                if et is not None:
+                    elapsed_time_list.append(float(et))
+        return elapsed_time_list
+
     def _calculate_total_time(
         self,
         elapsed_time_list: list[float],
@@ -831,21 +733,6 @@ class _AnalyseCalciumTraces(QWidget):
                 elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
             ) / 1000
         return tot_time_sec
-
-    def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
-        elapsed_time_list: list[float] = []
-        # get the elapsed time for each timepoint to calculate tot_time_sec
-        if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
-            for m in meta:
-                et = m[cam_key].get(ELAPSED_TIME_KEY)
-                if et is not None:
-                    elapsed_time_list.append(float(et))
-        else:  # old metadata format
-            for m in meta:
-                et = m.get(ELAPSED_TIME_KEY)
-                if et is not None:
-                    elapsed_time_list.append(float(et))
-        return elapsed_time_list
 
     def _process_roi_trace(
         self,
@@ -1039,6 +926,48 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1 = condition_2 = None
         return condition_1, condition_2
 
+    def _on_worker_finished(self) -> None:
+        """Called when the data extraction is finished."""
+        LOGGER.info("Traces Analysis Finished.")
+        self._enable(True)
+        self._elapsed_timer.stop()
+        self._cancel_waiting_bar.stop()
+
+        # update the analysis data of the plate viewer
+        if self._plate_viewer is not None:
+            self._plate_viewer.pv_analysis_data = self._analysis_data
+
+            # update the graphs with the new data
+            if self._plate_viewer._tab.currentIndex() != 0:
+                self._plate_viewer._on_tab_changed(1)
+                for sgh in self._plate_viewer.SW_GRAPHS:
+                    sgh._on_combo_changed(sgh._combo.currentText())
+                for mgh in self._plate_viewer.MW_GRAPHS:
+                    mgh._on_combo_changed(mgh._combo.currentText())
+
+        # save the analysis data to a JSON file
+        _save_to_csv(self._analysis_path.value(), self._analysis_data)
+
+        # show a message box if there are failed labels
+        if self._failed_labels:
+            msg = (
+                "The following labels were not found during the analysis:\n\n"
+                + "\n".join(self._failed_labels)
+            )
+            self._show_and_log_error(msg)
+
+    def _on_worker_errored(self) -> None:
+        """Called when the worker encounters an error."""
+        LOGGER.info("Extraction of traces terminated with an error.")
+        self._enable(True)
+        self._elapsed_timer.stop()
+        self._cancel_waiting_bar.stop()
+
+    def _save_plate_map(self, path: Path, data: list[PlateMapData]) -> None:
+        """Save the plate map data to a JSON file."""
+        with path.open("w") as f:
+            json.dump(data, f, indent=2)
+
     def _save_analysis_data(self, pos_name: str) -> None:
         """Save analysis data to a JSON file."""
         LOGGER.info("Saving JSON file for Well %s.", pos_name)
@@ -1050,3 +979,74 @@ class _AnalyseCalciumTraces(QWidget):
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
             )
+
+    # WIDGET --------------------------------------------------------------------------
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Override the close event to cancel the worker."""
+        if self._worker is not None:
+            self._worker.quit()
+        super().closeEvent(event)
+
+    def _enable(self, enable: bool) -> None:
+        """Enable or disable the widgets."""
+        self._cancel_waiting_bar.setEnabled(True)
+        self._pos_le.setEnabled(enable)
+        self._stimulation_area_path.setEnabled(enable)
+        self._experiment_type_combo.setEnabled(enable)
+        self._analysis_path.setEnabled(enable)
+        self._run_btn.setEnabled(enable)
+        if self._plate_viewer is None:
+            return
+        self._plate_viewer._plate_map_group.setEnabled(enable)
+        self._plate_viewer._segmentation_wdg.setEnabled(enable)
+
+    def _update_plate_viewer_analysis_path(self, path: str) -> None:
+        """Update the analysis path of the plate viewer."""
+        if self._plate_viewer is not None:
+            self._plate_viewer._pv_analysis_path = path
+
+    def _on_activity_changed(self, text: str) -> None:
+        """Show or hide the stimulation area path and LED power widgets."""
+        if text == EVOKED:
+            self._stimulation_area_path.show()
+            self._led_power_wdg.show()
+        else:
+            self._stimulation_area_path.hide()
+            self._led_power_wdg.hide()
+
+    def _reset_progress_bar(self) -> None:
+        """Reset the progress bar and elapsed time label."""
+        self._progress_bar.reset()
+        self._progress_bar.setValue(0)
+        self._progress_pos_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
+    def _show_and_log_error(self, msg: str) -> None:
+        """Log and display an error message."""
+        LOGGER.error(msg)
+        show_error_dialog(self, msg)
+
+    def _plate_map_msgbox(self, msg: str) -> Any:
+        """Show a message box to ask the user if wants to overwrite the labels."""
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setText(msg)
+        msg_box.setWindowTitle("Plate Map")
+        msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+        return msg_box.exec()
+
+    def _update_progress_label(self, time_str: str) -> None:
+        """Update the progress label with elapsed time."""
+        self._elapsed_time_label.setText(time_str)
+
+    def _update_progress_bar(self) -> None:
+        """Update the progress bar value."""
+        if self._check_for_abort_requested():
+            return
+        value = self._progress_bar.value() + 1
+        self._progress_bar.setValue(value)
+        self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
