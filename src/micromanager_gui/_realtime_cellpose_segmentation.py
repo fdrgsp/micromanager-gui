@@ -78,13 +78,6 @@ class RealTimeCellposeSegmentation:
         if not self._enabled:
             return
 
-        if event.sequence is None:
-            self._enabled = False
-            logger.warning(
-                "SegmentNeurons -> No MDAsequence found. Disabling segmentation."
-            )
-            return
-
         self._queue.put((image, event.model_dump()))
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
@@ -140,7 +133,7 @@ def _segment_image(
 ) -> None:
     """Segment the image."""
     # get saving metadata from the sequence
-    meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
+    meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
     save_dir = cast(str, meta.get("save_dir", ""))
     save_name = cast(str, meta.get("save_name", ""))
 
@@ -200,5 +193,5 @@ def _segment_image(
     output = model.eval(image)
 
     # save to disk
-    tifffile.imwrite(labels_dir / label_name, output[0])
     logger.info(f"SegmentNeurons -> Saving labels: {labels_dir}/{label_name}")
+    tifffile.imwrite(labels_dir / label_name, output[0])
