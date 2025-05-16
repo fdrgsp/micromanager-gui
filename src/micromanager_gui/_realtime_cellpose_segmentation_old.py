@@ -32,6 +32,10 @@ class RealTimeCellposeSegmentation:
 
         self._segmentation_process: Process | None = None
 
+        self._timepoints: int | None = None
+
+        self._max_proj: np.ndarray | None = None
+
         # Create a multiprocessing Queue
         self._queue: mp.Queue[tuple[np.ndarray, dict] | None] = mp.Queue()
 
@@ -41,6 +45,8 @@ class RealTimeCellposeSegmentation:
 
     def _on_sequence_started(self, sequence: useq.MDASequence) -> None:
         self._is_running = True
+        self._max_proj = None
+        self._timepoints = None
 
         meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
         self._enabled = meta.get(SEGMENTATION, False)
@@ -65,9 +71,12 @@ class RealTimeCellposeSegmentation:
             )
             return
 
+        if sequence.time_plan is not None:
+            self._timepoints = sequence.time_plan.num_timepoints() or None
+
         # create a separate process for segmentation
         self._segmentation_process = Process(
-            target=_segmentation_worker, args=(self._queue, sequence)
+            target=_segmentation_worker, args=(self._queue,)
         )
 
         logger.info("SegmentNeurons -> Starting segmentation worker...")
@@ -80,12 +89,29 @@ class RealTimeCellposeSegmentation:
 
         if event.sequence is None:
             self._enabled = False
-            logger.warning(
-                "SegmentNeurons -> No MDAsequence found. Disabling segmentation."
-            )
+            logger.warning("SegmentNeurons -> No sequence found.")
             return
 
-        self._queue.put((image, event.model_dump()))
+        t_index = event.index.get("t")
+        if t_index is None or self._timepoints is None:
+            return
+
+        # start at half the timepoints
+        start_timepoint = (self._timepoints // 2) - 1
+
+        # create a max projection of the images for segmentation
+        if t_index >= start_timepoint and t_index <= self._timepoints - 1:
+            self._max_proj = (
+                image if self._max_proj is None else np.maximum(self._max_proj, image)
+            )
+            # when the max_proj is ready, send it to the segmentation process
+            if t_index == self._timepoints - 1:
+                # send the max_proj image to the segmentation process
+                self._queue.put((self._max_proj, event.model_dump()))
+                self._max_proj = None
+                pos_idx = event.index.get("p", None)
+                pos = f"(pos{pos_idx})" if pos_idx is not None else ""
+                logger.info(f"SegmentNeurons -> Sending max_proj to segment {pos}.")
 
     def _on_sequence_finished(self, sequence: useq.MDASequence) -> None:
         self._is_running = False
@@ -105,49 +131,30 @@ class RealTimeCellposeSegmentation:
 
 
 # this must not be part of the SegmentNeurons class
-def _segmentation_worker(queue: mp.Queue, sequence: useq.MDASequence) -> None:
+def _segmentation_worker(queue: mp.Queue) -> None:
     """Segmentation worker running in a separate process."""
-    _max_proj: np.ndarray | None = None
-    # this at this point of the code should never be None and thus never be triggered
-    if (t_plan := sequence.time_plan) is None:
-        return
-    timepoints = t_plan.num_timepoints()
-    start_timepoint = timepoints // 2 - 1
-
     while True:
         args = queue.get()
         if args is None:
             break
-
-        image, event = args
-        useq_event = useq.MDAEvent(**event)
-        t_index = useq_event.index.get("t")
-        if t_index is None:
-            break
-
-        # update the max projection
-        if t_index >= start_timepoint and t_index <= timepoints - 1:
-            _max_proj = image if _max_proj is None else np.maximum(_max_proj, image)
-
-        # segment the max projection once it is ready
-        if t_index == timepoints - 1 and _max_proj is not None:
-            _segment_image(_max_proj, useq_event, sequence)
-            _max_proj = None
+        _segment_image(*args)
 
 
-def _segment_image(
-    image: np.ndarray, event: useq.MDAEvent, sequence: useq.MDASequence
-) -> None:
+def _segment_image(image: np.ndarray, event: dict) -> None:
     """Segment the image."""
-    # get saving metadata from the sequence
-    meta = sequence.metadata.get(PYMMCW_METADATA_KEY, {})
-    save_dir = cast(str, meta.get("save_dir", ""))
-    save_name = cast(str, meta.get("save_name", ""))
+    useq_event = useq.MDAEvent(**event)
+    seq = useq_event.sequence
+    if seq is None:
+        logger.warning("SegmentNeurons -> No sequence found.")
+        return
+
+    # get metadata from the sequence
+    meta = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
+    save_dir = meta.get("save_dir", "")
+    save_name = meta.get("save_name", "")
 
     if not save_dir or not save_name:
-        logger.warning(
-            "SegmentNeurons -> No save directory found. Skipping segmentation."
-        )
+        logger.warning("SegmentNeurons -> No save directory found.")
         return
 
     # remove extension if present
@@ -157,35 +164,22 @@ def _segment_image(
             break
 
     # create the save directory path
-    labels_dir = Path(save_dir) / f"{save_name}_labels"
+    save_dir = Path(save_dir) / f"{save_name}_labels"
 
     # make the save directory if it does not exist
-    labels_dir.mkdir(parents=True, exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     # create the labels file name
-    p_idx = event.index.get("p", 0)
-    if pos_name := event.pos_name:
+    p_idx = useq_event.index.get("p", 0)
+    if pos_name := useq_event.pos_name:
         label_name = f"{pos_name}_p{p_idx}.tif"
     else:
         label_name = f"p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model_info = cast(dict, meta.get(SEGMENTATION, {}))
-    model_type: str = model_info.get("model_type", "")
-    model_path: str = model_info.get("model_path", "")
-
-    if not model_type:
-        logger.warning(
-            "SegmentNeurons -> No Cellpose model type found. Skipping segmentation."
-        )
-        return
-
-    if model_type == CUSTOM and not model_path:
-        logger.warning(
-            "SegmentNeurons -> No Cellpose model path found. Skipping segmentation."
-        )
-        return
-
+    model_info = meta.get(SEGMENTATION, {})
+    model_type: str = model_info.get("model_type")
+    model_path: str = model_info.get("model_path")
     use_gpu = core.use_gpu()
     if model_type == CUSTOM and model_path:
         model = models.CellposeModel(pretrained_model=model_path, gpu=use_gpu)
@@ -195,10 +189,10 @@ def _segment_image(
     # run cellpose
     logger.info(
         f"SegmentNeurons -> Segmenting image: {label_name}... "
-        f"(gpu={use_gpu}, model_type={model_type}, model_path={model_path or 'None'})"
+        f"(gpu={use_gpu}, model_type={model_type}, model_path={model_path})"
     )
     output = model.eval(image)
 
     # save to disk
-    tifffile.imwrite(labels_dir / label_name, output[0])
-    logger.info(f"SegmentNeurons -> Saving labels: {labels_dir}/{label_name}")
+    tifffile.imwrite(save_dir / label_name, output[0])
+    logger.info(f"SegmentNeurons -> Saving labels: {save_dir}/{label_name}")
