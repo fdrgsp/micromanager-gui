@@ -40,6 +40,20 @@ def _plot_single_well_data(
     ]
     ax.set_title(" - ".join(filter(None, title)))
 
+    # compute global min/max if normalization is requested
+    global_min = global_max = 0.0
+    if normalize:
+        all_values = []
+        for roi_key, roi_data in data.items():
+            if rois is not None and int(roi_key) not in rois:
+                continue
+            trace = _get_trace(roi_data, dff, dec)
+            if trace is not None:
+                all_values.extend(trace)
+        global_min, global_max = (
+            (np.min(all_values), np.max(all_values)) if all_values else (0.0, 1.0)
+        )
+
     rois_rec_time: list[float] = []
     count = 0
 
@@ -47,7 +61,7 @@ def _plot_single_well_data(
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        trace: list[float] | None = _get_trace(roi_data, dff, dec)
+        trace = _get_trace(roi_data, dff, dec)
         if trace is None:
             continue
 
@@ -60,7 +74,17 @@ def _plot_single_well_data(
             # plot only active neurons if asked to plot peaks
             if with_peaks and not roi_data.active:
                 continue
-            _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count)
+            _plot_trace(
+                ax,
+                roi_key,
+                trace,
+                normalize,
+                with_peaks,
+                roi_data,
+                count,
+                global_min,
+                global_max,
+            )
             count += COUNT_INCREMENT
 
     _set_axis_labels(ax, amp, freq, iei, dff, dec)
@@ -113,26 +137,30 @@ def _plot_metrics(
 def _plot_trace(
     ax: Axes,
     roi_key: str,
-    trace: list[float],
+    trace: list[float] | np.ndarray,
     normalize: bool,
     with_peaks: bool,
     roi_data: ROIData,
     count: int,
+    global_min: float,
+    global_max: float,
 ) -> None:
     """Plot trace data with optional normalization and peaks."""
+    offset = count * 1.2  # Vertical separation; adjust as needed
+
     if normalize:
-        trace = _normalize_trace(trace)
-        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}")
+        trace = _normalize_trace(trace, global_min, global_max) + offset
+        ax.plot(trace, label=f"ROI {roi_key}")
+        ax.set_yticks([])  # optional: clean visual
         ax.set_yticklabels([])
-        ax.set_yticks([])
     else:
         ax.plot(trace, label=f"ROI {roi_key}")
 
     if with_peaks and roi_data.peaks_dec_dff:
-        peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+        peaks_indices = [int(p) for p in roi_data.peaks_dec_dff]
         ax.plot(
             peaks_indices,
-            np.array(trace)[peaks_indices] + (count if normalize else 0),
+            np.array(trace)[peaks_indices],
             "x",
         )
 
@@ -183,11 +211,13 @@ def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     return roi_data.raw_trace
 
 
-def _normalize_trace(trace: list[float]) -> list[float]:
-    """Normalize the trace to the range [0, 1]."""
-    tr = np.array(trace)
-    normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
-    return cast(list[float], normalized.tolist())
+def _normalize_trace(
+    trace: list[float] | np.ndarray, global_min: float, global_max: float
+) -> np.ndarray:
+    """Normalize a trace using shared min and max values."""
+    tr = np.array(trace) if isinstance(trace, list) else trace
+    denom = global_max - global_min
+    return np.zeros_like(tr) if denom == 0 else (tr - global_min) / denom
 
 
 def _update_time_axis(
