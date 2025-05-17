@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING
 from micromanager_gui._plate_viewer._util import (
     DEC_DFF,
     DEC_DFF_AMPLITUDE,
+    DEC_DFF_AMPLITUDE_SEM,
+    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE_STD,
+    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_FREQUENCY,
     DEC_DFF_IEI,
@@ -46,6 +50,7 @@ if TYPE_CHECKING:
     )
     from micromanager_gui._plate_viewer._util import ROIData
 
+# fmt: off
 SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
     NORMALIZED_TRACES: {"normalize": True},
@@ -56,8 +61,12 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
     DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
+    DEC_DFF_AMPLITUDE_STD: {"dec": True, "amp": True, "std": True},
+    DEC_DFF_AMPLITUDE_SEM: {"dec": True, "amp": True, "sem": True},
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
+    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True, "std": True},  # noqa: E501
+    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True, "sem": True},  # noqa: E501
     RASTER_PLOT: {"amplitude_colors": False},
     RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
@@ -79,7 +88,7 @@ MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_IEI: {"iei": True},
 }
-
+# fmt: on
 
 # ------------------------------SINGLE-WELL PLOTTING------------------------------------
 # To add a new option to the dropdown menu in the graph widget, add the option to

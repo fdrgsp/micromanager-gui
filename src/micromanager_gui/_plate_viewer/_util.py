@@ -49,12 +49,15 @@ DFF_NORMALIZED = "DeltaF/F0 Normalized"
 DEC_DFF = "Deconvolved DeltaF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
 DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
-DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"  # noqa: E501
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"
 DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
+DEC_DFF_AMPLITUDE_STD = "Deconvolved DeltaF/F0 Amplitudes (Mean ± Std)"
+DEC_DFF_AMPLITUDE_SEM = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM)"
 DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
+DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY = "Deconvolved DeltaF/F0 Mean Amplitudes (Mean ± Std) vs Frequencies"  # noqa: E501
+DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY = "Deconvolved DeltaF/F0 Mean Amplitudes (Mean ± SEM) vs Frequencies"  # noqa: E501
 DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
-
 DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
 DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
@@ -68,10 +71,10 @@ STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
 STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = (
-    "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"  # noqa: E501
+    "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"
 )
 STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = (
-    "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"  # noqa: E501
+    "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"
 )
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
 NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
@@ -89,8 +92,12 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_NORMALIZED,
     DEC_DFF_NORMALIZED_WITH_PEAKS,
     DEC_DFF_AMPLITUDE,
+    DEC_DFF_AMPLITUDE_STD,
+    DEC_DFF_AMPLITUDE_SEM,
     DEC_DFF_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY,
     DEC_DFF_IEI,
     RASTER_PLOT,
     RASTER_PLOT_AMP,

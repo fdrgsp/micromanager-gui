@@ -235,19 +235,10 @@ class PlateViewer(QMainWindow):
 
         self._multi_well_graph_wdg_1 = _MultilWellGraphWidget(self)
         self._multi_well_graph_wdg_2 = _MultilWellGraphWidget(self)
-        self._multi_well_graph_wdg_3 = _MultilWellGraphWidget(self)
-        self._multi_well_graph_wdg_4 = _MultilWellGraphWidget(self)
         multi_well_layout.addWidget(self._multi_well_graph_wdg_1, 0, 0)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 0, 1)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_3, 1, 0)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_4, 1, 1)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 1, 0)
 
-        self.MW_GRAPHS = [
-            self._multi_well_graph_wdg_1,
-            self._multi_well_graph_wdg_2,
-            self._multi_well_graph_wdg_3,
-            self._multi_well_graph_wdg_4,
-        ]
+        self.MW_GRAPHS = [self._multi_well_graph_wdg_1, self._multi_well_graph_wdg_2]
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
@@ -272,7 +263,7 @@ class PlateViewer(QMainWindow):
         # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-        # _____________________________________________________________________________
+        # ____________________________________________________________________________
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:

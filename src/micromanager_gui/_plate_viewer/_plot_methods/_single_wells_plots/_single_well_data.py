@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING, cast
 
 import mplcursors
@@ -31,6 +30,8 @@ def _plot_single_well_data(
     amp: bool = False,
     freq: bool = False,
     iei: bool = False,
+    sem: bool = False,
+    std: bool = False,
 ) -> None:
     """Plot various types of traces."""
     # clear the figure
@@ -68,7 +69,7 @@ def _plot_single_well_data(
             rois_rec_time.append(ttime)
 
         if amp or freq or iei:
-            _plot_metrics(ax, roi_key, roi_data, amp, freq, iei)
+            _plot_metrics(ax, roi_key, roi_data, amp, freq, iei, std, sem)
         else:
             # plot only active neurons if asked to plot peaks
             if with_peaks and not roi_data.active:
@@ -86,7 +87,9 @@ def _plot_single_well_data(
             )
             count += COUNT_INCREMENT
 
-    _set_graph_title_and_labels(ax, amp, freq, iei, dff, dec, normalize, with_peaks)
+    _set_graph_title_and_labels(
+        ax, amp, freq, iei, dff, dec, normalize, with_peaks, std, sem
+    )
     if not (amp or freq or iei):
         _update_time_axis(ax, rois_rec_time, trace)
     widget.figure.tight_layout()
@@ -96,7 +99,14 @@ def _plot_single_well_data(
 
 
 def _plot_metrics(
-    ax: Axes, roi_key: str, roi_data: ROIData, amp: bool, freq: bool, iei: bool
+    ax: Axes,
+    roi_key: str,
+    roi_data: ROIData,
+    amp: bool,
+    freq: bool,
+    iei: bool,
+    std: bool,
+    sem: bool,
 ) -> None:
     """Plot amplitude, frequency, or inter-event intervals."""
     if amp and freq:
@@ -105,21 +115,73 @@ def _plot_metrics(
             or roi_data.dec_dff_frequency is None
         ):
             return
-        ax.plot(
-            roi_data.peaks_amplitudes_dec_dff,
-            [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
-            "o",
-            label=f"ROI {roi_key}",
-        )
+        # plot mean amplitude +- std of each ROI vs frequency
+        if std:
+            mean_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
+            std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
+            ax.errorbar(
+                mean_amp,
+                roi_data.dec_dff_frequency,
+                xerr=std_amp,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        # plot mean amplitude +- sem of each ROI vs frequency
+        elif sem:
+            mean_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
+            sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+            ax.errorbar(
+                mean_amp,
+                roi_data.dec_dff_frequency,
+                xerr=sem_amp,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        else:
+            ax.plot(
+                roi_data.peaks_amplitudes_dec_dff,
+                [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
+                "o",
+                label=f"ROI {roi_key}",
+            )
     elif amp:
         if roi_data.peaks_amplitudes_dec_dff is None:
             return
-        ax.plot(
-            [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
-            roi_data.peaks_amplitudes_dec_dff,
-            "o",
-            label=f"ROI {roi_key}",
-        )
+        # plot mean amplitude +- std of each ROI
+        if std:
+            mean_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
+            std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
+            if int(roi_key) in {5, 36}:
+                print(f"roi_key: {roi_key}, mean_amp: {mean_amp}, std_amp: {std_amp}")
+            ax.errorbar(
+                [int(roi_key)],
+                mean_amp,
+                yerr=std_amp,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        # plot mean amplitude +- sem of each ROI
+        elif sem:
+            mean_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
+            sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+            ax.errorbar(
+                [int(roi_key)],
+                mean_amp,
+                yerr=sem_amp,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        else:
+            ax.plot(
+                [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
+                roi_data.peaks_amplitudes_dec_dff,
+                "o",
+                label=f"ROI {roi_key}",
+            )
     elif freq:
         if roi_data.dec_dff_frequency is None:
             return
@@ -169,19 +231,37 @@ def _set_graph_title_and_labels(
     dec: bool,
     normalize: bool,
     with_peaks: bool,
+    std: bool,
+    sem: bool,
 ) -> None:
     """Set axis labels based on the plotted data."""
     x_lbl: str | None = None
     if amp and freq:
-        title = "Amplitude vs Frequency"
-        x_lbl = "Amplitude"
+        if std:
+            title = "ROIs Mean Amplitude ± StD vs Frequency"
+            x_lbl = "Mean Amplitude ± StD"
+        elif sem:
+            title = "ROIs Mean Amplitude ± SEM vs Frequency"
+            x_lbl = "Mean Amplitude ± SEM"
+        else:
+            title = "ROIs Amplitude vs Frequency"
+            x_lbl = "Amplitude"
+        title += " (Deconvolved dF/F)" if dec else ""
         y_lbl = "Frequency (Hz)"
     elif amp:
-        title = "Amplitude (dF/F)" if dff else "Amplitude (Deconvolved dF/F)"
+        if std:
+            title = "Mean Amplitude ± StD"
+            y_lbl = "Mean Amplitude ± StD"
+        elif sem:
+            title = "Mean Amplitude ± SEM"
+            y_lbl = "Mean Amplitude ± SEM"
+        else:
+            title = "Amplitude"
+            y_lbl = "Amplitude"
+        title += " (Deconvolved dF/F)" if dec else ""
         x_lbl = "ROIs"
-        y_lbl = "Amplitude"
     elif freq:
-        title = "Frequency (Hz)" if dff else "Frequency (Deconvolved dF/F)"
+        title = "Frequency (Deconvolved dF/F)" if dec else "Frequency"
         x_lbl = "ROIs"
         y_lbl = "Frequency (Hz)"
     elif iei:
@@ -222,7 +302,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if (lbl:=sel.artist.get_label()) and "ROI" in lbl:
+        if (lbl := sel.artist.get_label()) and "ROI" in lbl:
             roi = cast(str, sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
