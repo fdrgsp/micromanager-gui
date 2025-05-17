@@ -309,14 +309,13 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     rois: list[int] | None = None,
     with_peaks: bool = False,
 ) -> None:
-    """Plot normalized dec dF/F traces for stimulated and non-stimulated ROIs."""
-    # Clear the figure
+    """Plot dec dF/F traces with global percentile normalization (5th-100th)."""
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
     rois_rec_time: list[float] = []
 
-    # sort ROIs: non-stimulated first, then stimulated
+    # Filter and sort ROIs: non-stimulated first
     sorted_items = sorted(
         [
             (roi_key, roi_data)
@@ -326,30 +325,39 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
             and roi_data.peaks_dec_dff is not None
             and (rois is None or int(roi_key) in rois)
         ],
-        # stimulated=False → 0 → non-stimulated comes first
         key=lambda item: item[1].stimulated,
     )
 
-    for count, (roi_key, roi_data) in enumerate(sorted_items):
-        if roi_data.dec_dff is None or roi_data.peaks_dec_dff is None:
-            continue
+    # gather all dec_dff values from included ROIs
+    all_values = []
+    for _, roi_data in sorted_items:
+        all_values.extend(roi_data.dec_dff)
 
-        trace = _normalize_trace(roi_data.dec_dff)
+    # compute 5th and 100th percentiles globally
+    p5, p100 = np.percentile(all_values, [5, 100]) if all_values else (0.0, 1.0)
+
+    # plot each ROI trace with normalized and vertically offset values
+    for count, (roi_key, roi_data) in enumerate(sorted_items):
+        trace = _normalize_trace_percentile(roi_data.dec_dff, p5, p100)
+        offset = count * 1.2
+        trace_offset = np.array(trace) + offset
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
             rois_rec_time.append(ttime)
 
         color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
-
-        ax.plot(np.array(trace) + count, label=f"ROI {roi_key}", color=color)
+        ax.plot(trace_offset, label=f"ROI {roi_key}", color=color)
 
         if with_peaks:
-            peaks_indices = [int(peak) for peak in roi_data.peaks_dec_dff]
+            peaks_indices = [int(p) for p in roi_data.peaks_dec_dff]
             ax.plot(
-                peaks_indices, np.array(trace)[peaks_indices] + count, "x", color="k"
+                peaks_indices,
+                np.array(trace)[peaks_indices] + offset,
+                "x",
+                color="k",
             )
 
-    ax.set_title("Stimulated vs Non-Stimulated ROIs Traces (Norm Dec dF/F)")
+    ax.set_title("Stimulated vs Non-Stimulated ROIs Traces (Normalized Dec dF/F)")
     ax.set_yticklabels([])
     ax.set_yticks([])
     ax.set_ylabel("ROIs")
@@ -373,10 +381,16 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     widget.canvas.draw()
 
 
-def _normalize_trace(trace: list[float]) -> list[float]:
-    """Normalize the trace to the range [0, 1]."""
+def _normalize_trace_percentile(
+    trace: list[float], p5: float, p100: float
+) -> list[float]:
+    """Normalize a trace using the global 5th and 100th percentiles."""
     tr = np.array(trace)
-    normalized = (tr - np.min(tr)) / (np.max(tr) - np.min(tr))
+    denom = p100 - p5
+    if denom == 0:
+        return cast(list[float], np.zeros_like(tr).tolist())
+    normalized = (tr - p5) / denom
+    normalized = np.clip(normalized, 0, 1)  # ensure values in [0, 1]
     return cast(list[float], normalized.tolist())
 
 

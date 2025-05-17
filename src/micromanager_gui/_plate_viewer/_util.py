@@ -41,14 +41,15 @@ MWCM = "mW/cm²"
 # Modify the plot_traces function in _plot_methods.py to add the corresponding plotting
 # logic for the new options.
 
+# fmt: off
 RAW_TRACES = "Raw Traces"
-NORMALIZED_TRACES = "Normalized Traces [0, 1]"
+NORMALIZED_TRACES = "Normalized Traces"
 DFF = "DeltaF/F0"
-DFF_NORMALIZED = "DeltaF/F0 Normalized [0, 1]"
+DFF_NORMALIZED = "DeltaF/F0 Normalized"
 DEC_DFF = "Deconvolved DeltaF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
-DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized [0, 1]"
-DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized [0, 1] with Peaks"
+DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"  # noqa: E501
 DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
@@ -67,15 +68,16 @@ STIMULATED_ROIS_WITH_STIMULATED_AREA = (
     "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
 )
 STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = (
-    "Stimulated vs Non-Stimulated Normalized [0, 1] (Deconvolved DeltaF/F0)"
+    "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"  # noqa: E501
 )
 STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = (
-    "Stimulated vs Non-Stimulated Normalized [0, 1] with Peaks (Deconvolved DeltaF/F0)"
+    "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"  # noqa: E501
 )
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
 NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 GLOBAL_SYNCHRONY_P_VALUE = "Global Synchrony (with p-value)"
+# fmt: on
 
 SINGLE_WELL_COMBO_OPTIONS = [
     RAW_TRACES,

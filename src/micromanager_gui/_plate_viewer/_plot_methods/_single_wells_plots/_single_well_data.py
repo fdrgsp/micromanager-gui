@@ -34,14 +34,8 @@ def _plot_single_well_data(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    title = [
-        "Normalized Traces [0, 1]" if normalize else "",
-        "Peaks" if with_peaks else "",
-    ]
-    ax.set_title(" - ".join(filter(None, title)))
-
     # compute global min/max if normalization is requested
-    global_min = global_max = 0.0
+    p5 = p100 = 0.0
     if normalize:
         all_values = []
         for roi_key, roi_data in data.items():
@@ -50,9 +44,10 @@ def _plot_single_well_data(
             trace = _get_trace(roi_data, dff, dec)
             if trace is not None:
                 all_values.extend(trace)
-        global_min, global_max = (
-            (np.min(all_values), np.max(all_values)) if all_values else (0.0, 1.0)
+        p5, p100 = (
+            np.percentile(all_values, [5, 100]) if all_values else (0.0, 1.0)
         )
+
 
     rois_rec_time: list[float] = []
     count = 0
@@ -82,11 +77,17 @@ def _plot_single_well_data(
                 with_peaks,
                 roi_data,
                 count,
-                global_min,
-                global_max,
+                p5,
+                p100,
             )
             count += COUNT_INCREMENT
 
+    title = [
+        "Normalized Traces [global min, global max]" if normalize else "",
+        "Peaks" if with_peaks else "",
+    ]
+
+    ax.set_title(" - ".join(filter(None, title)))
     _set_axis_labels(ax, amp, freq, iei, dff, dec)
     if not (amp or freq or iei):
         _update_time_axis(ax, rois_rec_time, trace)
@@ -142,27 +143,23 @@ def _plot_trace(
     with_peaks: bool,
     roi_data: ROIData,
     count: int,
-    global_min: float,
-    global_max: float,
+    p5: float,
+    p100: float,
 ) -> None:
-    """Plot trace data with optional normalization and peaks."""
-    offset = count * 1.2  # Vertical separation; adjust as needed
+    """Plot trace data with optional percentile-based normalization and peaks."""
+    offset = count * 1.1  # vertical offset
 
     if normalize:
-        trace = _normalize_trace(trace, global_min, global_max) + offset
+        trace = _normalize_trace_percentile(trace, p5, p100) + offset
         ax.plot(trace, label=f"ROI {roi_key}")
-        ax.set_yticks([])  # optional: clean visual
+        ax.set_yticks([])
         ax.set_yticklabels([])
     else:
         ax.plot(trace, label=f"ROI {roi_key}")
 
     if with_peaks and roi_data.peaks_dec_dff:
         peaks_indices = [int(p) for p in roi_data.peaks_dec_dff]
-        ax.plot(
-            peaks_indices,
-            np.array(trace)[peaks_indices],
-            "x",
-        )
+        ax.plot(peaks_indices, np.array(trace)[peaks_indices], "x")
 
 
 def _set_axis_labels(
@@ -211,13 +208,16 @@ def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     return roi_data.raw_trace
 
 
-def _normalize_trace(
-    trace: list[float] | np.ndarray, global_min: float, global_max: float
+def _normalize_trace_percentile(
+    trace: list[float] | np.ndarray, p5: float, p100: float
 ) -> np.ndarray:
-    """Normalize a trace using shared min and max values."""
+    """Normalize a trace using 5th-100th percentile, clipped to [0, 1]."""
     tr = np.array(trace) if isinstance(trace, list) else trace
-    denom = global_max - global_min
-    return np.zeros_like(tr) if denom == 0 else (tr - global_min) / denom
+    denom = p100 - p5
+    if denom == 0:
+        return np.zeros_like(tr)
+    normalized = (tr - p5) / denom
+    return np.clip(normalized, 0, 1)
 
 
 def _update_time_axis(
