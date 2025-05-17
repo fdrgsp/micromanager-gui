@@ -108,6 +108,8 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     ax.set_ylabel("Amplitude")
     ax.set_xlabel(x_axis_label)
     if x_axis_label == "Irradiance (mW/cm²)":
+        ticks = ax.get_xticks()
+        ax.set_xticks(ticks)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
     title = "Stimulated" if stimulated else "Non-Stimulated"
     ax.set_title(f"{title} Peak Amplitudes per Power ({pulse} ms pulses)")
