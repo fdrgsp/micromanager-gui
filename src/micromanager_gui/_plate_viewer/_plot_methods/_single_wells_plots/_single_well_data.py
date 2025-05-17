@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, cast
 
 import mplcursors
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
 
 
 COUNT_INCREMENT = 1
+P1 = 5
+P2 = 99
 
 
 def _plot_single_well_data(
@@ -34,8 +37,8 @@ def _plot_single_well_data(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    # compute global min/max if normalization is requested
-    p5 = p100 = 0.0
+    # compute nth and nth percentiles globally
+    p1 = p2 = 0.0
     if normalize:
         all_values = []
         for roi_key, roi_data in data.items():
@@ -44,10 +47,11 @@ def _plot_single_well_data(
             trace = _get_trace(roi_data, dff, dec)
             if trace is not None:
                 all_values.extend(trace)
-        p5, p100 = (
-            np.percentile(all_values, [5, 100]) if all_values else (0.0, 1.0)
-        )
-
+        if all_values:
+            percentiles = np.percentile(all_values, [P1, P2])
+            p1, p2 = float(percentiles[0]), float(percentiles[1])
+        else:
+            p1, p2 = 0.0, 1.0
 
     rois_rec_time: list[float] = []
     count = 0
@@ -77,18 +81,12 @@ def _plot_single_well_data(
                 with_peaks,
                 roi_data,
                 count,
-                p5,
-                p100,
+                p1,
+                p2,
             )
             count += COUNT_INCREMENT
 
-    title = [
-        "Normalized Traces [global min, global max]" if normalize else "",
-        "Peaks" if with_peaks else "",
-    ]
-
-    ax.set_title(" - ".join(filter(None, title)))
-    _set_axis_labels(ax, amp, freq, iei, dff, dec)
+    _set_graph_title_and_labels(ax, amp, freq, iei, dff, dec, normalize, with_peaks)
     if not (amp or freq or iei):
         _update_time_axis(ax, rois_rec_time, trace)
     widget.figure.tight_layout()
@@ -143,14 +141,14 @@ def _plot_trace(
     with_peaks: bool,
     roi_data: ROIData,
     count: int,
-    p5: float,
-    p100: float,
+    p1: float,
+    p2: float,
 ) -> None:
     """Plot trace data with optional percentile-based normalization and peaks."""
     offset = count * 1.1  # vertical offset
 
     if normalize:
-        trace = _normalize_trace_percentile(trace, p5, p100) + offset
+        trace = _normalize_trace_percentile(trace, p1, p2) + offset
         ax.plot(trace, label=f"ROI {roi_key}")
         ax.set_yticks([])
         ax.set_yticklabels([])
@@ -162,26 +160,59 @@ def _plot_trace(
         ax.plot(peaks_indices, np.array(trace)[peaks_indices], "x")
 
 
-def _set_axis_labels(
-    ax: Axes, amp: bool, freq: bool, iei: bool, dff: bool, dec: bool
+def _set_graph_title_and_labels(
+    ax: Axes,
+    amp: bool,
+    freq: bool,
+    iei: bool,
+    dff: bool,
+    dec: bool,
+    normalize: bool,
+    with_peaks: bool,
 ) -> None:
     """Set axis labels based on the plotted data."""
+    x_lbl: str | None = None
     if amp and freq:
-        ax.set_xlabel("Amplitude")
-        ax.set_ylabel("Frequency (Hz)")
+        title = "Amplitude vs Frequency"
+        x_lbl = "Amplitude"
+        y_lbl = "Frequency (Hz)"
     elif amp:
-        ax.set_xlabel("ROIs")
-        ax.set_ylabel("Amplitude")
+        title = "Amplitude (dF/F)" if dff else "Amplitude (Deconvolved dF/F)"
+        x_lbl = "ROIs"
+        y_lbl = "Amplitude"
     elif freq:
-        ax.set_xlabel("ROIs")
-        ax.set_ylabel("Frequency (Hz)")
+        title = "Frequency (Hz)" if dff else "Frequency (Deconvolved dF/F)"
+        x_lbl = "ROIs"
+        y_lbl = "Frequency (Hz)"
     elif iei:
-        ax.set_xlabel("ROIs")
-        ax.set_ylabel("Inter-event intervals (sec)")
-    else:
-        ax.set_ylabel(
-            "dF/F" if dff else "Deconvolved dF/F" if dec else "Fluorescence Intensity"
+        title = (
+            "Inter-event intervals (dF/F)"
+            if dff
+            else "Inter-event intervals (Deconvolved dF/F)"
         )
+        x_lbl = "ROIs"
+        y_lbl = "Inter-event intervals (sec)"
+    else:
+        if dff:
+            title = "Normalized Traces (dF/F)" if normalize else "Traces (dF/F)"
+            y_lbl = "ROIs" if normalize else "dF/F"
+        elif dec:
+            title = (
+                "Normalized Traces (Deconvolved dF/F)"
+                if normalize
+                else "Traces (Deconvolved dF/F)"
+            )
+            y_lbl = "ROIs" if normalize else "Deconvolved dF/F"
+        else:
+            title = "Normalized Traces" if normalize else "Raw Traces"
+            y_lbl = "ROIs" if normalize else "Fluorescence Intensity"
+        if with_peaks:
+            title += " with Peaks"
+
+    ax.set_title(title)
+    ax.set_ylabel(y_lbl)
+    if x_lbl is not None:
+        ax.set_xlabel(x_lbl)
 
 
 def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
@@ -192,9 +223,11 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         if sel.artist.get_label():
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+            with contextlib.suppress(Exception):
+                print("-----------------", sel.artist.get_label())
+                roi = cast(str, sel.artist.get_label().split(" ")[1])
+                if roi.isdigit():
+                    widget.roiSelected.emit(roi)
 
 
 def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
@@ -209,14 +242,14 @@ def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
 
 
 def _normalize_trace_percentile(
-    trace: list[float] | np.ndarray, p5: float, p100: float
+    trace: list[float] | np.ndarray, p1: float, p2: float
 ) -> np.ndarray:
     """Normalize a trace using 5th-100th percentile, clipped to [0, 1]."""
     tr = np.array(trace) if isinstance(trace, list) else trace
-    denom = p100 - p5
+    denom = p2 - p1
     if denom == 0:
         return np.zeros_like(tr)
-    normalized = (tr - p5) / denom
+    normalized = (tr - p1) / denom
     return np.clip(normalized, 0, 1)
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
 DEFAULT_COLOR = "gray"
 STIMULATED_COLOR = "green"
 NON_STIMULATED_COLOR = "magenta"
+P1 = 5
+P2 = 99
 
 
 def _plot_stim_or_not_stim_peaks_amplitude(
@@ -111,8 +114,13 @@ def _plot_stim_or_not_stim_peaks_amplitude(
         ticks = ax.get_xticks()
         ax.set_xticks(ticks)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    title = "Stimulated" if stimulated else "Non-Stimulated"
-    ax.set_title(f"{title} Peak Amplitudes per Power ({pulse} ms pulses)")
+    title = (
+        "Stimulated" if stimulated else "Non-Stimulated"
+    ) + " Peak Amplitudes per Power"
+    if pulse:
+        title += f" ({pulse} ms pulses)"
+    title += "\n(Normalized Deconvolved dF/F)"
+    ax.set_title(title)
     widget.figure.tight_layout()
     widget.canvas.draw()
 
@@ -331,17 +339,25 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     )
 
     # gather all dec_dff values from included ROIs
-    all_values = []
+    all_values: list[float] = []
     for _, roi_data in sorted_items:
+        if roi_data.dec_dff is None:
+            continue
         all_values.extend(roi_data.dec_dff)
 
-    # compute 5th and 100th percentiles globally
-    p5, p100 = np.percentile(all_values, [5, 100]) if all_values else (0.0, 1.0)
+    # compute nth and nth percentiles globally
+    if all_values:
+        percentiles = np.percentile(all_values, [P1, P2])
+        p1, p2 = float(percentiles[0]), float(percentiles[1])
+    else:
+        p1, p2 = 0.0, 1.0
 
     # plot each ROI trace with normalized and vertically offset values
     for count, (roi_key, roi_data) in enumerate(sorted_items):
-        trace = _normalize_trace_percentile(roi_data.dec_dff, p5, p100)
-        offset = count * 1.2
+        if roi_data.dec_dff is None:
+            continue
+        trace = _normalize_trace_percentile(roi_data.dec_dff, p1, p2)
+        offset = count * 1.1
         trace_offset = np.array(trace) + offset
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
@@ -350,7 +366,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
         color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
         ax.plot(trace_offset, label=f"ROI {roi_key}", color=color)
 
-        if with_peaks:
+        if with_peaks and roi_data.peaks_dec_dff is not None:
             peaks_indices = [int(p) for p in roi_data.peaks_dec_dff]
             ax.plot(
                 peaks_indices,
@@ -359,7 +375,9 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
                 color="k",
             )
 
-    ax.set_title("Stimulated vs Non-Stimulated ROIs Traces (Normalized Dec dF/F)")
+    ax.set_title(
+        "Stimulated vs Non-Stimulated ROIs Traces \n(Normalized Deconvolved dF/F)"
+    )
     ax.set_yticklabels([])
     ax.set_yticks([])
     ax.set_ylabel("ROIs")
@@ -384,14 +402,14 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
 
 
 def _normalize_trace_percentile(
-    trace: list[float], p5: float, p100: float
+    trace: list[float], p1: float, p2: float
 ) -> list[float]:
     """Normalize a trace using the global 5th and 100th percentiles."""
     tr = np.array(trace)
-    denom = p100 - p5
+    denom = p2 - p1
     if denom == 0:
         return cast(list[float], np.zeros_like(tr).tolist())
-    normalized = (tr - p5) / denom
+    normalized = (tr - p1) / denom
     normalized = np.clip(normalized, 0, 1)  # ensure values in [0, 1]
     return cast(list[float], normalized.tolist())
 
@@ -425,6 +443,7 @@ def _add_hover_functionality_stim_vs_non_stim(
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         if sel.artist.get_label():
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+            with contextlib.suppress(Exception):
+                roi = cast(str, sel.artist.get_label().split(" ")[1])
+                if roi.isdigit():
+                    widget.roiSelected.emit(roi)
