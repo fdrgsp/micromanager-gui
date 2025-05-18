@@ -410,6 +410,9 @@ class _CellposeSegmentation(QWidget):
             return
         self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._analysis_wdg.setEnabled(enable)
+        # disable graphs tabs
+        self._plate_viewer._tab.setTabEnabled(1, enable)
+        self._plate_viewer._tab.setTabEnabled(2, enable)
 
     def _reset_progress_bar(self) -> None:
         """Reset and initialize progress bar."""
