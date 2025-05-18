@@ -659,7 +659,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
         if evoked_experiment and (seq := self._data.sequence) is not None:
-            metadata = seq.metadata.get(PYMMCW_METADATA_KEY, {})
+            metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
         msg = f"Extracting Traces Data from Well {fov_name}."
@@ -825,6 +825,7 @@ class _AnalyseCalciumTraces(QWidget):
         # to store the amplitudes as dict: {power_pulselength: [amplitude]}
         amplitudes_stimulated_peaks: dict[str, list[float]] = {}
         amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
+        stimulation_frames_and_powers: dict[str, int] = {}
 
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if evoked_exp and evoked_meta is not None and len(peaks_dec_dff) > 0:
@@ -1024,6 +1025,9 @@ class _AnalyseCalciumTraces(QWidget):
             return
         self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._segmentation_wdg.setEnabled(enable)
+        # disable graphs tabs
+        self._plate_viewer._tab.setTabEnabled(1, enable)
+        self._plate_viewer._tab.setTabEnabled(2, enable)
 
     def _update_plate_viewer_analysis_path(self, path: str) -> None:
         """Update the analysis path of the plate viewer."""

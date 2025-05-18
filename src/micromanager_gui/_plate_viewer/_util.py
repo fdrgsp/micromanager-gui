@@ -180,7 +180,7 @@ class ROIData(BaseClass):
     # this is the amp of the peaks of the roi that happens at the stimulation event
     # but are not due to direct light stimulation
     amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
-    stmulations_frames_and_powers: dict[str, list[float]] | None = None
+    stmulations_frames_and_powers: dict[str, int] | None = None
     # ... add whatever other data we need
 
 

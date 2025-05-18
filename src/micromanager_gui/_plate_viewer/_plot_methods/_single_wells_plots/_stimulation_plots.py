@@ -383,7 +383,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     else:
         p1, p2 = 0.0, 1.0
 
-    stmulations_frames_and_powers: dict[str, list[float]] = {}
+    stmulations_frames_and_powers: dict[str, int] = {}
     # plot each ROI trace with normalized and vertically offset values
     for count, (roi_key, roi_data) in enumerate(sorted_items):
         if roi_data.dec_dff is None:
