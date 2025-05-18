@@ -27,6 +27,7 @@ def _plot_traces_data(
     dec: bool = False,
     normalize: bool = False,
     with_peaks: bool = False,
+    active_only: bool = False,
 ) -> None:
     """Plot traces data."""
     # clear the figure
@@ -60,8 +61,8 @@ def _plot_traces_data(
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
             rois_rec_time.append(ttime)
 
-        # plot only active neurons if asked to plot peaks
-        if with_peaks and not roi_data.active:
+        # plot only active neurons if asked to plot peaks or active only
+        if (with_peaks or active_only) and not roi_data.active:
             continue
 
         _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count, p1, p2)

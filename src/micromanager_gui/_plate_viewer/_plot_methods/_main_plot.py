@@ -30,6 +30,7 @@ RAW_TRACES = "Raw Traces"
 NORMALIZED_TRACES = "Normalized Traces"
 DFF = "DeltaF/F0"
 DFF_NORMALIZED = "DeltaF/F0 Normalized"
+DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved DeltaF/F0 Normalized (Active Only)"
 DEC_DFF = "Deconvolved DeltaF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
 DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
@@ -60,7 +61,6 @@ NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
 NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 GLOBAL_SYNCHRONY_P_VALUE = "Global Synchrony (with p-value)"
-# fmt: on
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -70,9 +70,10 @@ TRACES_GROUP = {
     DFF: {"dff": True},
     DFF_NORMALIZED: {"dff": True, "normalize": True},
     DEC_DFF: {"dec": True},
-    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True},
+    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True,}, # "active_only": True default with "with_peaks" # noqa: E501
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
-    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
+    DEC_DFF_NORMALIZED_ACTIVE_ONLY: {"dec": True, "normalize": True, "active_only": True},  # noqa: E501
+    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},  # "active_only": True default with "with_peaks" # noqa: E501
 }
 
 AMPLITUDE_GROUP = {
@@ -119,7 +120,7 @@ EVOKED_GROUP = {
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
 }
-
+# fmt: on
 
 # SINGLE WELLS PLOTS ------------------------------------------------------------------
 
