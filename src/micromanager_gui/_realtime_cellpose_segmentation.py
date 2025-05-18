@@ -10,11 +10,11 @@ import tifffile
 import useq
 from cellpose import core, models
 from pymmcore_plus._logger import logger
-from pymmcore_widgets.mda._save_widget import ALL_EXTENSIONS
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
 from ._widgets._mda_widget._mda_widget import SEGMENTATION
 from ._widgets._mda_widget._realtime_cellpose_segmentation_wdg import CUSTOM, CYTO3
+from ._widgets._mda_widget._save_widget import ALL_EXTENSIONS
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
