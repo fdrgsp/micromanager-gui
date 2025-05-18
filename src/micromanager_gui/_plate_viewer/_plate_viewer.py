@@ -52,7 +52,7 @@ from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
-from ._to_csv import _save_to_csv
+from ._to_csv import save_to_csv
 from ._util import (
     GENOTYPE_MAP,
     TREATMENT_MAP,
@@ -801,7 +801,7 @@ class PlateViewer(QMainWindow):
                 )
                 return
 
-            _save_to_csv(path, self._pv_analysis_data)
+            save_to_csv(path, self._pv_analysis_data)
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""
