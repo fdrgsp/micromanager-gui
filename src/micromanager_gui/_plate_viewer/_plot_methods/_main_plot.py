@@ -5,9 +5,15 @@ from typing import TYPE_CHECKING
 from micromanager_gui._plate_viewer._util import (
     DEC_DFF,
     DEC_DFF_AMPLITUDE,
+    DEC_DFF_AMPLITUDE_SEM,
+    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE_STD,
+    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY,
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_FREQUENCY,
     DEC_DFF_IEI,
+    DEC_DFF_IEI_SEM,
+    DEC_DFF_IEI_STD,
     DEC_DFF_NORMALIZED,
     DEC_DFF_NORMALIZED_WITH_PEAKS,
     DEC_DFF_WITH_PEAKS,
@@ -16,6 +22,8 @@ from micromanager_gui._plate_viewer._util import (
     GLOBAL_SYNCHRONY,
     GLOBAL_SYNCHRONY_P_VALUE,
     NON_STIMULATED_PEAKS_AMP,
+    NON_STIMULATED_PEAKS_AMP_SEM,
+    NON_STIMULATED_PEAKS_AMP_STD,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
@@ -23,6 +31,8 @@ from micromanager_gui._plate_viewer._util import (
     RAW_TRACES,
     STIMULATED_AREA,
     STIMULATED_PEAKS_AMP,
+    STIMULATED_PEAKS_AMP_SEM,
+    STIMULATED_PEAKS_AMP_STD,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
@@ -46,6 +56,7 @@ if TYPE_CHECKING:
     )
     from micromanager_gui._plate_viewer._util import ROIData
 
+# fmt: off
 SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RAW_TRACES: {},
     NORMALIZED_TRACES: {"normalize": True},
@@ -56,19 +67,29 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
     DEC_DFF_AMPLITUDE: {"dec": True, "amp": True},
+    DEC_DFF_AMPLITUDE_STD: {"dec": True, "amp": True, "std": True},
+    DEC_DFF_AMPLITUDE_SEM: {"dec": True, "amp": True, "sem": True},
     DEC_DFF_FREQUENCY: {"dec": True, "freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True},
+    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True, "std": True},  # noqa: E501
+    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY: {"dec": True, "amp": True, "freq": True, "sem": True},  # noqa: E501
     RASTER_PLOT: {"amplitude_colors": False},
     RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
     DEC_DFF_IEI: {"dec": True, "iei": True},
+    DEC_DFF_IEI_STD: {"dec": True, "iei": True, "std": True},
+    DEC_DFF_IEI_SEM: {"dec": True, "iei": True, "sem": True},
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {"with_peaks": False},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
     STIMULATED_PEAKS_AMP: {"stimulated": True},
+    STIMULATED_PEAKS_AMP_STD: {"stimulated": True, "std": True},
+    STIMULATED_PEAKS_AMP_SEM: {"stimulated": True, "sem": True},
     NON_STIMULATED_PEAKS_AMP: {"stimulated": False},
+    NON_STIMULATED_PEAKS_AMP_STD: {"stimulated": False, "std": True},
+    NON_STIMULATED_PEAKS_AMP_SEM: {"stimulated": False, "sem": True},
     GLOBAL_SYNCHRONY: {"with_p_value": False},
     GLOBAL_SYNCHRONY_P_VALUE: {"with_p_value": True},
 }
@@ -79,7 +100,7 @@ MULTI_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_IEI: {"iei": True},
 }
-
+# fmt: on
 
 # ------------------------------SINGLE-WELL PLOTTING------------------------------------
 # To add a new option to the dropdown menu in the graph widget, add the option to
@@ -110,7 +131,14 @@ def plot_single_well_data(
         )
 
     # plot stimulated peaks amplitude
-    if text in {STIMULATED_PEAKS_AMP, NON_STIMULATED_PEAKS_AMP}:
+    if text in {
+        STIMULATED_PEAKS_AMP,
+        NON_STIMULATED_PEAKS_AMP,
+        STIMULATED_PEAKS_AMP_STD,
+        NON_STIMULATED_PEAKS_AMP_STD,
+        STIMULATED_PEAKS_AMP_SEM,
+        NON_STIMULATED_PEAKS_AMP_SEM,
+    }:
         return _plot_stim_or_not_stim_peaks_amplitude(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )

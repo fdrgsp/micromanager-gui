@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -35,6 +34,8 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     stimulated: bool = False,
+    std: bool = False,
+    sem: bool = False,
 ) -> None:
     """Visualize stimulated peak amplitudes per ROI per stimulation parameters."""
     # clear the figure
@@ -61,7 +62,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
             else roi_data.amplitudes_non_stimulated_peaks
         )
 
-        if amplitudes is None:
+        if not amplitudes:
             continue
 
         if not pulse:
@@ -98,28 +99,58 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     all_artists: list = []
     all_metadata: list[tuple[list[int], list[float]]] = []
     for power_pulse_label, roi_amp_pairs in renamed_power_pulse_and_amps.items():
-        rois_, amps = zip(*roi_amp_pairs)
+        amps = np.array([amp for _, amp in roi_amp_pairs])
+        rois_ = [roi for roi, _ in roi_amp_pairs]
 
-        scatter = ax.scatter(
-            [power_pulse_label] * len(amps), amps, label=power_pulse_label
-        )
-        all_artists.append(scatter)
-        all_metadata.append((rois_, amps))  # type: ignore
+        if std or sem:
+            mean_amp = np.mean(amps)
+            std_amp = np.std(amps)
+            n = len(amps)
+            error = std_amp if std else std_amp / np.sqrt(n)
+
+            errorbar = ax.errorbar(
+                power_pulse_label,
+                mean_amp,
+                yerr=error,
+                fmt="o",
+                capsize=5,
+                label=power_pulse_label,
+            )
+            all_artists.append(errorbar)
+            all_metadata.append((rois_, [mean_amp]))
+        else:
+            scatter = ax.scatter(
+                [power_pulse_label] * len(amps), amps, label=power_pulse_label
+            )
+            all_artists.append(scatter)
+            all_metadata.append((rois_, cast(list[float], amps.tolist())))
 
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
-    ax.set_ylabel("Amplitude")
+    ax.set_ylabel(
+        "Mean Amplitude ± StD"
+        if std
+        else "Mean Amplitude ± SEM"
+        if sem
+        else "Amplitude"
+    )
     ax.set_xlabel(x_axis_label)
     if x_axis_label == "Irradiance (mW/cm²)":
         ticks = ax.get_xticks()
         ax.set_xticks(ticks)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    title = (
-        "Stimulated" if stimulated else "Non-Stimulated"
-    ) + " Peak Amplitudes per Power"
+    title = ("Stimulated" if stimulated else "Non-Stimulated") + (
+        " Mean Amplitudes ± StD"
+        if std
+        else " Mean Amplitudes ± SEM"
+        if sem
+        else " Mean Amplitudes"
+    )
+    title += "\n("
+    title += "Per LED Intensity - "
     if pulse:
-        title += f" ({pulse} ms pulses)"
-    title += "\n(Normalized Deconvolved dF/F)"
+        title += f"{pulse} ms pulses - "
+    title += "Deconvolved dF/F)"
     ax.set_title(title)
     widget.figure.tight_layout()
     widget.canvas.draw()
@@ -352,10 +383,13 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     else:
         p1, p2 = 0.0, 1.0
 
+    stmulations_frames_and_powers: dict[str, list[float]] = {}
     # plot each ROI trace with normalized and vertically offset values
     for count, (roi_key, roi_data) in enumerate(sorted_items):
         if roi_data.dec_dff is None:
             continue
+        if not stmulations_frames_and_powers:
+            stmulations_frames_and_powers = roi_data.stmulations_frames_and_powers or {}
         trace = _normalize_trace_percentile(roi_data.dec_dff, p1, p2)
         offset = count * 1.1
         trace_offset = np.array(trace) + offset
@@ -375,6 +409,10 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
                 color="k",
             )
 
+    # plot the stimulation frames as vertical lines
+    for frame in stmulations_frames_and_powers:
+        ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.5)
+
     ax.set_title(
         "Stimulated vs Non-Stimulated ROIs Traces \n(Normalized Deconvolved dF/F)"
     )
@@ -385,6 +423,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     legend_patches = [
         Patch(facecolor=STIMULATED_COLOR, label="Stimulated ROIs"),
         Patch(facecolor=NON_STIMULATED_COLOR, label="Non-Stimulated ROIs"),
+        Patch(facecolor="blue", label="Stimulation Pulse"),
     ]
     ax.legend(
         handles=legend_patches,
@@ -442,7 +481,7 @@ def _add_hover_functionality_stim_vs_non_stim(
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if (lbl:=sel.artist.get_label()) and "ROI" in lbl:
+        if (lbl := sel.artist.get_label()) and "ROI" in lbl:
             roi = cast(str, sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)

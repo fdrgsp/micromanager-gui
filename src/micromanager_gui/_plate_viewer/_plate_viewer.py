@@ -235,19 +235,10 @@ class PlateViewer(QMainWindow):
 
         self._multi_well_graph_wdg_1 = _MultilWellGraphWidget(self)
         self._multi_well_graph_wdg_2 = _MultilWellGraphWidget(self)
-        self._multi_well_graph_wdg_3 = _MultilWellGraphWidget(self)
-        self._multi_well_graph_wdg_4 = _MultilWellGraphWidget(self)
         multi_well_layout.addWidget(self._multi_well_graph_wdg_1, 0, 0)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 0, 1)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_3, 1, 0)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_4, 1, 1)
+        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 1, 0)
 
-        self.MW_GRAPHS = [
-            self._multi_well_graph_wdg_1,
-            self._multi_well_graph_wdg_2,
-            self._multi_well_graph_wdg_3,
-            self._multi_well_graph_wdg_4,
-        ]
+        self.MW_GRAPHS = [self._multi_well_graph_wdg_1, self._multi_well_graph_wdg_2]
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
@@ -272,7 +263,7 @@ class PlateViewer(QMainWindow):
         # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-        # _____________________________________________________________________________
+        # ____________________________________________________________________________
 
     @property
     def data(self) -> TensorstoreZarrReader | OMEZarrReader | None:
@@ -417,6 +408,7 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_data.clear()
         self._analysis_wdg.labels_path = None
         self._analysis_wdg.analysis_path = None
+        self._analysis_wdg.stimulation_area_path = None
 
     def _load_and_set_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
@@ -546,6 +538,12 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_data = self._pv_analysis_data
         self._analysis_wdg.labels_path = self._pv_labels_path
         self._analysis_wdg.analysis_path = self._pv_analysis_path
+        # set the stimulation mask if it exists
+        if self._analysis_wdg.analysis_path:
+            # if a file namend "stimulation_mask.tif" exists in the analysis path
+            stim_mask = Path(self._analysis_wdg.analysis_path) / "stimulation_mask.tif"
+            if stim_mask.exists():
+                self._analysis_wdg.stimulation_area_path = str(stim_mask)
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None

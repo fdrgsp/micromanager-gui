@@ -364,7 +364,7 @@ class ArduinoLedControl(QDialog):
         for _ in range(self._num_pulses_spin.value()):
             self._led_on_frames.append(fr)
             # Add 1 to account for the duration of the pulse
-            fr += self._interval_spin.value() + 1
+            fr += self._interval_spin.value()
 
         pulse_on_timepoint = [str(f) for f in self._led_on_frames]
         self._timepoints.setToolTip(f"Pulse On Timepoint: {pulse_on_timepoint}")

@@ -73,12 +73,16 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-ELAPSED_TIME_KEY = "ElapsedTime-ms"
+# ELAPSED_TIME_KEY = "ElapsedTime-ms"
+# using this instead of "ElapsedTime-ms" because I think there is a bug in the
+# metadata where getting the "ElapsedTime-ms"
+ELAPSED_TIME_KEY = "runner_time_ms"
 CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
+MAX_FRAMES_AFTER_STIMULATION = 5
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -308,6 +312,14 @@ class _AnalyseCalciumTraces(QWidget):
     @analysis_path.setter
     def analysis_path(self, analysis_path: str | None) -> None:
         self._analysis_path.setValue(analysis_path or "")
+
+    @property
+    def stimulation_area_path(self) -> str | None:
+        return self._stimulation_area_path.value()
+
+    @stimulation_area_path.setter
+    def stimulation_area_path(self, stim_area_path: str | None) -> None:
+        self._stimulation_area_path.setValue(stim_area_path or "")
 
     # PUBLIC METHODS ---------------------------------------------------------------
 
@@ -708,11 +720,11 @@ class _AnalyseCalciumTraces(QWidget):
                 et = m[cam_key].get(ELAPSED_TIME_KEY)
                 if et is not None:
                     elapsed_time_list.append(float(et))
-        else:  # old metadata format
-            for m in meta:
-                et = m.get(ELAPSED_TIME_KEY)
-                if et is not None:
-                    elapsed_time_list.append(float(et))
+        # else:  # old metadata format
+        #     for m in meta:
+        #         et = m.get(ELAPSED_TIME_KEY)
+        #         if et is not None:
+        #             elapsed_time_list.append(float(et))
         return elapsed_time_list
 
     def _calculate_total_time(
@@ -817,10 +829,12 @@ class _AnalyseCalciumTraces(QWidget):
         # if the experiment is evoked, get the amplitudes of the stimulated peaks
         if evoked_exp and evoked_meta is not None and len(peaks_dec_dff) > 0:
             # get the stimulation info from the metadata (if any)
-            amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks = (
-                self._update_stim_vs_non_stim(
-                    evoked_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
-                )
+            (
+                amplitudes_stimulated_peaks,
+                amplitudes_non_stimulated_peaks,
+                stimulation_frames_and_powers,
+            ) = self._update_stim_vs_non_stim(
+                evoked_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
             )
 
         # calculate the frequency of the peaks in the dec_dff trace
@@ -871,6 +885,7 @@ class _AnalyseCalciumTraces(QWidget):
             stimulated=is_roi_stimulated,
             amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
             amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
+            stmulations_frames_and_powers=stimulation_frames_and_powers or None,
         )
 
     def _update_stim_vs_non_stim(
@@ -879,17 +894,19 @@ class _AnalyseCalciumTraces(QWidget):
         dec_dff: np.ndarray,
         peaks_dec_dff: np.ndarray,
         is_roi_stimulated: bool,
-    ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+    ) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, Any]]:
         """Update the stimulated and non-stimulated peaks amplitude dict."""
         # to store the amplitudes as dict: {power_pulselength: [amplitude]}
         amplitudes_stimulated_peaks: dict[str, list[float]] = {}
         amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
 
-        frames_and_powers = evoked_experiment_meta.get("pulse_on_frame", {})
+        pulse_on_frames_and_powers = cast(
+            dict, evoked_experiment_meta.get("pulse_on_frame", {})
+        )
         sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
 
-        for frame, power in frames_and_powers.items():
-            stim_frame = int(frame) + 1
+        for frame, power in pulse_on_frames_and_powers.items():
+            stim_frame = int(frame)
             # find index of first peak >= stim_frame.
             i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
             # Note that if the frame is not found, bisect_left returns the index
@@ -899,7 +916,10 @@ class _AnalyseCalciumTraces(QWidget):
                 continue
             peak_idx = sorted_peaks_dec_dff[i]
             # check if the peak is on the stimulation frame or in the next 5 frames
-            if peak_idx >= stim_frame and peak_idx <= stim_frame + 5:
+            if (
+                peak_idx >= stim_frame
+                and peak_idx <= stim_frame + MAX_FRAMES_AFTER_STIMULATION
+            ):
                 amplitude = dec_dff[peak_idx]
                 pulse_len = evoked_experiment_meta.get("led_pulse_duration", "unknown")
                 if self._led_power_equation is not None:
@@ -912,7 +932,11 @@ class _AnalyseCalciumTraces(QWidget):
                     amplitudes_non_stimulated_peaks.setdefault(col, []).append(
                         amplitude
                     )
-        return amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks
+        return (
+            amplitudes_stimulated_peaks,
+            amplitudes_non_stimulated_peaks,
+            pulse_on_frames_and_powers,
+        )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
         """Get the conditions for the well if any."""
