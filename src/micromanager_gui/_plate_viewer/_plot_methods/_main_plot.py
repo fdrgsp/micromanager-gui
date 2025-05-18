@@ -29,6 +29,7 @@ from micromanager_gui._plate_viewer._util import (
     RASTER_PLOT_AMP,
     RASTER_PLOT_AMP_WITH_COLORBAR,
     RAW_TRACES,
+    SINGLE_WELL_COMBO_OPTIONS_DICT,
     STIMULATED_AREA,
     STIMULATED_PEAKS_AMP,
     STIMULATED_PEAKS_AMP_SEM,
@@ -118,7 +119,7 @@ def plot_single_well_data(
     rois: list[int] | None = None,
 ) -> None:
     """Plot traces based on the text."""
-    if not text or text == "None":
+    if not text or text == "None" or text in SINGLE_WELL_COMBO_OPTIONS_DICT.keys():
         return
 
     # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary

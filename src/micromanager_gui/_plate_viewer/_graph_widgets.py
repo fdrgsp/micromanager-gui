@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
-from qtpy.QtCore import Signal
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtGui import QStandardItem, QStandardItemModel
 from qtpy.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -21,13 +22,14 @@ from qtpy.QtWidgets import (
 )
 
 from ._plot_methods import plot_multi_well_data, plot_single_well_data
-from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS, ROIData
+from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS_DICT, ROIData
 
 if TYPE_CHECKING:
     from ._fov_table import WellInfo
     from ._plate_viewer import PlateViewer
 
 RED = "#C33"
+SECTION_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 def _get_fov_data(
@@ -39,7 +41,7 @@ def _get_fov_data(
     # the data (without the position index. e.g. "_p0")
     if fov_name not in analysis_data:
         fov_name = str(table_data.fov.name)
-    return analysis_data.get(fov_name, None)
+    return analysis_data.get(fov_name)
 
 
 class _DisplaySingleWellTraces(QGroupBox):
@@ -145,7 +147,22 @@ class _SingleWellGraphWidget(QWidget):
         self._fov: str = ""
 
         self._combo = QComboBox(self)
-        self._combo.addItems(["None", *SINGLE_WELL_COMBO_OPTIONS])
+        model = QStandardItemModel()
+        self._combo.setModel(model)
+
+        # add the "None" selectable option to the combo box
+        none_item = QStandardItem("None")
+        # none_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.)
+        model.appendRow(none_item)
+
+        for key, value in SINGLE_WELL_COMBO_OPTIONS_DICT.items():
+            section = QStandardItem(key)
+            section.setFlags(Qt.ItemFlag.NoItemFlags)
+            section.setData(True, SECTION_ROLE)
+            model.appendRow(section)
+            for item in value:
+                model.appendRow(QStandardItem(item))
+
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         self._save_btn = QPushButton("Save", self)
