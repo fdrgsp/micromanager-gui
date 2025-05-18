@@ -56,12 +56,9 @@ def _plot_single_well_data(
 
     rois_rec_time: list[float] = []
     count = 0
-    roi_x_labels: list[str] = []
     for roi_key, roi_data in data.items():
         if rois is not None and int(roi_key) not in rois:
             continue
-
-        roi_x_labels.append(roi_key)
 
         trace = _get_trace(roi_data, dff, dec)
         if trace is None:
@@ -90,7 +87,7 @@ def _plot_single_well_data(
             count += COUNT_INCREMENT
 
     _set_graph_title_and_labels(
-        ax, amp, freq, iei, dff, dec, normalize, with_peaks, std, sem, roi_x_labels
+        ax, amp, freq, iei, dff, dec, normalize, with_peaks, std, sem
     )
     if not (amp or freq or iei):
         _update_time_axis(ax, rois_rec_time, trace)
@@ -255,34 +252,29 @@ def _set_graph_title_and_labels(
     with_peaks: bool,
     std: bool,
     sem: bool,
-    roi_x_labels: list[str],
 ) -> None:
     """Set axis labels based on the plotted data."""
     x_lbl: str | None = None
     if amp and freq:
         if std:
             title = "ROIs Mean Amplitude ± StD vs Frequency"
-            x_lbl = "Mean Amplitude ± StD"
         elif sem:
             title = "ROIs Mean Amplitude ± SEM vs Frequency"
-            x_lbl = "Mean Amplitude ± SEM"
         else:
             title = "ROIs Amplitude vs Frequency"
-            x_lbl = "Amplitude"
         title += " (Deconvolved dF/F)" if dec else ""
+        x_lbl = "Amplitude"
         y_lbl = "Frequency (Hz)"
     elif amp:
         if std:
             title = "Mean Amplitude ± StD"
-            y_lbl = "Mean Amplitude ± StD"
         elif sem:
             title = "Mean Amplitude ± SEM"
-            y_lbl = "Mean Amplitude ± SEM"
         else:
             title = "Amplitude"
-            y_lbl = "Amplitude"
         title += " (Deconvolved dF/F)" if dec else ""
         x_lbl = "ROIs"
+        y_lbl = "Amplitude"
     elif freq:
         title = "Frequency (Deconvolved dF/F)" if dec else "Frequency"
         x_lbl = "ROIs"
@@ -290,14 +282,12 @@ def _set_graph_title_and_labels(
     elif iei:
         if std:
             title = "Inter-event intervals (Sec - Mean ± StD"
-            y_lbl = "Inter-event intervals ± StD (Sec)"
         elif sem:
             title = "Inter-event intervals (Sec - Mean ± SEM"
-            y_lbl = "Inter-event intervals ± SEM (Sec)"
         else:
             title = "Inter-event intervals (Sec"
-            y_lbl = "Inter-event intervals (Sec)"
         title += " - (Deconvolved dF/F)" if dec else ")"
+        y_lbl = "Inter-event intervals (Sec)"
         x_lbl = "ROIs"
     else:
         if dff:
@@ -320,9 +310,9 @@ def _set_graph_title_and_labels(
     ax.set_ylabel(y_lbl)
     if x_lbl is not None:
         ax.set_xlabel(x_lbl)
-    if x_lbl == "ROIs" and roi_x_labels:
-        ax.set_xticks([int(i) for i in roi_x_labels])
-        ax.set_xticklabels(roi_x_labels)
+    if x_lbl == "ROIs":
+        ax.set_xticks([])
+        ax.set_xticklabels([])
 
 
 def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
