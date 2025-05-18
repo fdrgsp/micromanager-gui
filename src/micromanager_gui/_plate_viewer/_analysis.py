@@ -37,7 +37,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
-from ._to_csv import _save_to_csv
+from ._to_csv import save_to_csv
 from ._util import (
     COND1,
     COND2,
@@ -971,7 +971,7 @@ class _AnalyseCalciumTraces(QWidget):
                     mgh._on_combo_changed(mgh._combo.currentText())
 
         # save the analysis data to a JSON file
-        _save_to_csv(self._analysis_path.value(), self._analysis_data)
+        save_to_csv(self._analysis_path.value(), self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:

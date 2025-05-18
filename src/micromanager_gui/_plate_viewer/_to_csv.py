@@ -38,7 +38,7 @@ NESTED = ["peaks_amplitudes_dec_dff", "dec_dff_frequency", "iei", "cell_size"]
 SINGLE_VALUES = ["percentage_active", "synchrony"]
 
 
-def _save_to_csv(
+def save_to_csv(
     path: str | Path,
     analysis_data: dict[str, dict[str, ROIData]] | None,
 ) -> None:
@@ -121,6 +121,52 @@ def _rearrange_fov_by_conditions(
                     ] = roi_data
 
     return conds, evoked_conds
+
+
+def _rearrange_by_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+    parameter: str,
+) -> dict[str, dict[str, list[Any]]]:
+    """Create a dict grouped by the specified parameter per condition."""
+    if parameter == PERCENTAGE_ACTIVE:
+        try:
+            return _get_percentage_active_parameter(data)
+        except Exception as e:
+            print(f"Error calculating percentage active: {e}")
+            return {}
+    if parameter == SYNCHRONY:
+        try:
+            return _get_synchrony_parameter(data)
+        except Exception as e:
+            print(f"Error calculating synchrony: {e}")
+            return {}
+    try:
+        return _get_parameter(data, parameter)
+    except Exception as e:
+        print(f"Error calculating parameter '{parameter}': {e}")
+        return {}
+
+
+def _rearrange_by_parameter_evk(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+    parameter: str,
+) -> dict[str, dict[str, dict[str, list[Any]]]]:
+    """Create a dict grouped by the specified parameter per condition."""
+    if parameter == AMP_STIMULATED_PEAKS:
+        try:
+            return _get_amplitude_stim_or_non_stim_peaks_parameter(data)
+        except Exception as e:
+            print(f"Error calculating stimulated peaks: {e}")
+            return {}
+    if parameter == AMP_NON_STIMULATED_PEAKS:
+        try:
+            return _get_amplitude_stim_or_non_stim_peaks_parameter(
+                data, stimulated=False
+            )
+        except Exception as e:
+            print(f"Error calculating non-stimulated peaks: {e}")
+            return {}
+    return {}
 
 
 def _export_raw_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> None:
@@ -341,52 +387,6 @@ def _export_to_csv_mean_values_evk_parameters(
         df = pd.DataFrame(output_rows)
         csv_path = folder / f"{exp_name}_{parameter}.csv"
         df.to_csv(csv_path, index=False)
-
-
-def _rearrange_by_parameter(
-    data: dict[str, dict[str, dict[str, ROIData]]],
-    parameter: str,
-) -> dict[str, dict[str, list[Any]]]:
-    """Create a dict grouped by the specified parameter per condition."""
-    if parameter == PERCENTAGE_ACTIVE:
-        try:
-            return _get_percentage_active_parameter(data)
-        except Exception as e:
-            print(f"Error calculating percentage active: {e}")
-            return {}
-    if parameter == SYNCHRONY:
-        try:
-            return _get_synchrony_parameter(data)
-        except Exception as e:
-            print(f"Error calculating synchrony: {e}")
-            return {}
-    try:
-        return _get_parameter(data, parameter)
-    except Exception as e:
-        print(f"Error calculating parameter '{parameter}': {e}")
-        return {}
-
-
-def _rearrange_by_parameter_evk(
-    data: dict[str, dict[str, dict[str, ROIData]]],
-    parameter: str,
-) -> dict[str, dict[str, dict[str, list[Any]]]]:
-    """Create a dict grouped by the specified parameter per condition."""
-    if parameter == AMP_STIMULATED_PEAKS:
-        try:
-            return _get_amplitude_stim_or_non_stim_peaks_parameter(data)
-        except Exception as e:
-            print(f"Error calculating stimulated peaks: {e}")
-            return {}
-    if parameter == AMP_NON_STIMULATED_PEAKS:
-        try:
-            return _get_amplitude_stim_or_non_stim_peaks_parameter(
-                data, stimulated=False
-            )
-        except Exception as e:
-            print(f"Error calculating non-stimulated peaks: {e}")
-            return {}
-    return {}
 
 
 def _get_percentage_active_parameter(
