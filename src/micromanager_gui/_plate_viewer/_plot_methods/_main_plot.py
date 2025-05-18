@@ -37,6 +37,7 @@ from micromanager_gui._plate_viewer._util import (
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
+    SINGLE_WELL_COMBO_OPTIONS_DICT
 )
 
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
@@ -118,7 +119,7 @@ def plot_single_well_data(
     rois: list[int] | None = None,
 ) -> None:
     """Plot traces based on the text."""
-    if not text or text == "None":
+    if not text or text == "None" or text in SINGLE_WELL_COMBO_OPTIONS_DICT.keys():
         return
 
     # get the options for the text using the SINGLE_WELL_GRAPHS_OPTIONS dictionary
