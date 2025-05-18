@@ -653,8 +653,6 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
     # calculate the difference in time between two consecutive peaks
     iei_ms = np.diff(np.array(peaks_time_stamps))  # ms
 
-    print(f"iei_ms: {iei_ms}")
-
     return [float(iei_peak / 1000) for iei_peak in iei_ms]
 
 
