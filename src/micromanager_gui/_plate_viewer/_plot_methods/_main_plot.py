@@ -181,6 +181,7 @@ def plot_single_well_data(
             STIMULATED_ROIS_WITH_STIMULATED_AREA,
         }:
             return _visualize_stimulated_area(widget, data, rois, **EVOKED_GROUP[text])
+
         elif text in {
             STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
             STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
@@ -188,6 +189,7 @@ def plot_single_well_data(
             return _plot_stimulated_vs_non_stimulated_roi_amp(
                 widget, data, rois, **EVOKED_GROUP[text]
             )
+
         elif text in {
             STIMULATED_PEAKS_AMP,
             NON_STIMULATED_PEAKS_AMP,
