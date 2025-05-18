@@ -20,8 +20,8 @@ from qtpy.QtWidgets import (
 from micromanager_gui.readers import TensorstoreZarrReader
 
 from ._core_link import CoreViewersLink
+from ._engine import ArduinoEngine
 from ._menubar._menubar import _MenuBar
-from ._mmcore_engine._engine import ArduinoEngine
 from ._realtime_cellpose_segmentation import RealTimeCellposeSegmentation
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar

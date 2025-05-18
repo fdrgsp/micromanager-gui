@@ -33,7 +33,7 @@ from ._save_widget import (
 )
 
 if TYPE_CHECKING:
-    from micromanager_gui._mmcore_engine._engine import ArduinoEngine
+    from micromanager_gui._engine import ArduinoEngine
 
 NUM_SPLIT = re.compile(r"(.*?)(?:_(\d{3,}))?$")
 OME_TIFFS = tuple(WRITERS[OME_TIFF])
