@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 COUNT_INCREMENT = 1
 P1 = 5
-P2 = 99
+P2 = 100
 
 
 def _plot_traces_data(
@@ -41,7 +41,7 @@ def _plot_traces_data(
             if rois is not None and int(roi_key) not in rois:
                 continue
             trace = _get_trace(roi_data, dff, dec)
-            if trace is not None:
+            if trace:
                 all_values.extend(trace)
         if all_values:
             percentiles = np.percentile(all_values, [P1, P2])
@@ -52,11 +52,9 @@ def _plot_traces_data(
     count = 0
     rois_rec_time: list[float] = []
     for roi_key, roi_data in data.items():
-        if rois is not None and int(roi_key) not in rois:
-            continue
-
         trace = _get_trace(roi_data, dff, dec)
-        if trace is None:
+
+        if (rois is not None and int(roi_key) not in rois) or not trace:
             continue
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
@@ -81,11 +79,8 @@ def _plot_traces_data(
 
 def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     """Get the appropriate trace based on the flags."""
-    if dff and dec:
-        return None
-    if dff:
-        return roi_data.dff
-    return roi_data.dec_dff if dec else roi_data.raw_trace
+    data = roi_data.dff if dff else roi_data.dec_dff if dec else roi_data.raw_trace
+    return data or None
 
 
 def _plot_trace(

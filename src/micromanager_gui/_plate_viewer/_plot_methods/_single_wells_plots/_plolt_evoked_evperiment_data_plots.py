@@ -26,7 +26,7 @@ DEFAULT_COLOR = "gray"
 STIMULATED_COLOR = "green"
 NON_STIMULATED_COLOR = "magenta"
 P1 = 5
-P2 = 99
+P2 = 100
 
 
 def _plot_evoked_experiment_data(
@@ -457,7 +457,9 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     )
 
     _update_time_axis(ax, rois_rec_time, trace)
+
     _add_hover_functionality_stim_vs_non_stim(ax, widget)
+
     widget.figure.tight_layout()
     widget.canvas.draw()
 

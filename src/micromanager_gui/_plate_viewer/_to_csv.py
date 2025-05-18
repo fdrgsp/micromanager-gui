@@ -74,7 +74,7 @@ def save_to_csv(
     except Exception as e:
         print(f"Error exporting data to CSV: {e}")
         return
-    print(f"Successfully exported data as CSV files to `{path}`.")
+    print("DONE!")
     # fmt: on
 
 
@@ -188,6 +188,9 @@ def _export_raw_data(path: Path | str, data: dict[str, dict[str, ROIData]]) -> N
             row_name = f"{well_fov}_{roi_key}"
             rows[row_name] = roi_data.raw_trace
 
+    if not rows:
+        return
+
     # convert to DataFrame (handles unequal lengths by filling with NaN)
     df = pd.DataFrame.from_dict(rows, orient="index")
 
@@ -279,7 +282,8 @@ def _export_to_csv_mean_values_grouped_by_condition(
 
         for fov in sorted(fov_names):
             row: dict[str, Any] = {"FOV": fov}
-            for cond, fovs in condition_dict.items():
+            for cond in sorted(condition_dict):
+                fovs = condition_dict[cond]
                 values = fovs.get(fov)
 
                 if values is None:
@@ -294,6 +298,13 @@ def _export_to_csv_mean_values_grouped_by_condition(
                     flat_values = [v for roi in values for v in roi]
                 else:
                     flat_values = values
+
+                if len(flat_values) == 0:
+                    row[f"{cond}_Mean"] = ""
+                    row[f"{cond}_SEM"] = ""
+                    row[f"{cond}_N"] = ""
+                    continue
+
                 mean_val = np.mean(flat_values)
                 n_val = len(flat_values)
                 sem_val = (
@@ -316,7 +327,9 @@ def _export_to_csv_single_values(
     """Export single-value data to CSV."""
     columns = {}
     max_len = 0
-    for condition, fovs in data.items():
+
+    for condition in sorted(data):
+        fovs = data[condition]
         values = []
         for _, value in fovs.items():
             for e in value:
@@ -366,8 +379,8 @@ def _export_to_csv_mean_values_evk_parameters(
         for fov, stim in sorted(fov_stim_keys):
             row_key = f"{fov}_{stim}"
             row = {"FOV": row_key}
-
-            for cond, fovs in condition_dict.items():
+            for cond in sorted(condition_dict):
+                fovs = condition_dict[cond]
                 if stim_values := fovs.get(fov, {}).get(stim):
                     mean_val = np.mean(stim_values)
                     n_val = len(stim_values)
@@ -394,7 +407,9 @@ def _get_percentage_active_parameter(
 ) -> dict[str, dict[str, list[Any]]]:
     """Group the data by the percentage of active cells."""
     percentage_active_dict: dict[str, dict[str, list[float]]] = {}
-    for condition, well_fov_dict in data.items():
+
+    for condition in sorted(data):
+        well_fov_dict = data[condition]
         for well_fov, roi_dict in well_fov_dict.items():
             actives = 0
             for roi_data in roi_dict.values():
@@ -413,7 +428,8 @@ def _get_synchrony_parameter(
 ) -> dict[str, dict[str, list[Any]]]:
     """Group the data by the synchrony."""
     synchrony_dict: dict[str, dict[str, list[Any]]] = {}
-    for condition, key_dict in data.items():
+    for condition in sorted(data):
+        key_dict = data[condition]
         for well_fov, roi_dict in key_dict.items():
             instantaneous_phase_dict: dict[str, list[float]] = {
                 roi_key: roi_data.instantaneous_phase
@@ -447,7 +463,8 @@ def _get_parameter(
 ) -> dict[str, dict[str, list[Any]]]:
     """Group the data by the specified parameter."""
     parameter_dict: dict[str, dict[str, list[Any]]] = {}
-    for condition, well_fov_dict in data.items():
+    for condition in sorted(data):
+        well_fov_dict = data[condition]
         for well_fov, roi_dict in well_fov_dict.items():
             for roi_data in roi_dict.values():
                 if not hasattr(roi_data, parameter):
@@ -469,7 +486,8 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
 ) -> dict[str, dict[str, dict[str, list[Any]]]]:
     """Group the data by condition → FOV → power_pulse (matching the condition name)."""
     amps_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
-    for condition, fov_dict in data.items():
+    for condition in sorted(data):
+        fov_dict = data[condition]
         if stimulated and "evk_stim_" in condition:
             target_power_pulse = condition.split("evk_stim_")[-1]
         elif not stimulated and "evk_non_stim_" in condition:

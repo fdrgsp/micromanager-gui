@@ -14,11 +14,6 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._util import ROIData
 
 
-COUNT_INCREMENT = 1
-P1 = 5
-P2 = 99
-
-
 def _plot_iei_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],

@@ -535,22 +535,13 @@ class _AnalyseCalciumTraces(QWidget):
 
         cpu_count = os.cpu_count() or 1
         cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
-        pos = len(positions)
-        chunk_size = max(1, pos // cpu_count)
-
         LOGGER.info("CPU count: %s", cpu_count)
-        LOGGER.info("Chunk size: %s", chunk_size)
 
         try:
             with ThreadPoolExecutor(max_workers=cpu_count) as executor:
                 futures = [
-                    executor.submit(
-                        self._extract_trace_data_for_chunk,
-                        positions,
-                        start,
-                        min(start + chunk_size, pos),
-                    )
-                    for start in range(0, pos, chunk_size)
+                    executor.submit(self._extract_trace_data_per_position, p)
+                    for p in positions
                 ]
 
                 for idx, future in enumerate(as_completed(futures)):
@@ -561,12 +552,12 @@ class _AnalyseCalciumTraces(QWidget):
                         break
                     try:
                         future.result()
-                        LOGGER.info(f"Chunk {idx + 1} completed.")
+                        LOGGER.info(f"Position {positions[idx]} completed.")
                     except Exception as e:
-                        yield f"An error occurred in a chunk: {e}"
+                        yield f"An error occurred in a position: {e}"
                         break
 
-            LOGGER.info("All tasks completed.")
+            LOGGER.info("All positions processed.")
 
         except Exception as e:
             yield f"An error occurred: {e}"
@@ -602,15 +593,6 @@ class _AnalyseCalciumTraces(QWidget):
                 self._plate_map_data[data.name][COND2] = data.condition[0]
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
-
-    def _extract_trace_data_for_chunk(
-        self, positions: list[int], start: int, end: int
-    ) -> None:
-        """Extract the roi traces for the given chunk."""
-        for p in range(start, end):
-            if self._check_for_abort_requested():
-                break
-            self._extract_trace_data_per_position(positions[p])
 
     def _extract_trace_data_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
