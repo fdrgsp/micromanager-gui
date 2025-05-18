@@ -56,10 +56,12 @@ def _plot_single_well_data(
 
     rois_rec_time: list[float] = []
     count = 0
-
+    roi_x_labels: list[str] = []
     for roi_key, roi_data in data.items():
         if rois is not None and int(roi_key) not in rois:
             continue
+
+        roi_x_labels.append(roi_key)
 
         trace = _get_trace(roi_data, dff, dec)
         if trace is None:
@@ -88,7 +90,7 @@ def _plot_single_well_data(
             count += COUNT_INCREMENT
 
     _set_graph_title_and_labels(
-        ax, amp, freq, iei, dff, dec, normalize, with_peaks, std, sem
+        ax, amp, freq, iei, dff, dec, normalize, with_peaks, std, sem, roi_x_labels
     )
     if not (amp or freq or iei):
         _update_time_axis(ax, rois_rec_time, trace)
@@ -182,37 +184,37 @@ def _plot_metrics(
             return
         ax.plot(int(roi_key), roi_data.dec_dff_frequency, "o", label=f"ROI {roi_key}")
     elif iei and roi_data.iei:
-        # # plot mean inter-event intervals +- std of each ROI
-        # if std:
-        #     mean_iei = np.mean(roi_data.iei)
-        #     std_iei = np.std(roi_data.iei)
-        #     ax.errorbar(
-        #         [int(roi_key)],
-        #         mean_iei,
-        #         yerr=std_iei,
-        #         fmt="o",
-        #         label=f"ROI {roi_key}",
-        #         capsize=5,
-        #     )
-        # # plot mean inter-event intervals +- sem of each ROI
-        # elif sem:
-        #     mean_iei = np.mean(roi_data.iei)
-        #     sem_iei = mean_iei / np.sqrt(len(roi_data.iei))
-        #     ax.errorbar(
-        #         [int(roi_key)],
-        #         mean_iei,
-        #         yerr=sem_iei,
-        #         fmt="o",
-        #         label=f"ROI {roi_key}",
-        #         capsize=5,
-        #     )
-        # else:
-        ax.plot(
-            [int(roi_key)] * len(roi_data.iei),
-            roi_data.iei,
-            "o",
-            label=f"ROI {roi_key}",
-        )
+        # plot mean inter-event intervals +- std of each ROI
+        if std:
+            mean_iei = np.mean(roi_data.iei)
+            std_iei = np.std(roi_data.iei)
+            ax.errorbar(
+                [int(roi_key)],
+                mean_iei,
+                yerr=std_iei,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        # plot mean inter-event intervals +- sem of each ROI
+        elif sem:
+            mean_iei = np.mean(roi_data.iei)
+            sem_iei = mean_iei / np.sqrt(len(roi_data.iei))
+            ax.errorbar(
+                [int(roi_key)],
+                mean_iei,
+                yerr=sem_iei,
+                fmt="o",
+                label=f"ROI {roi_key}",
+                capsize=5,
+            )
+        else:
+            ax.plot(
+                [int(roi_key)] * len(roi_data.iei),
+                roi_data.iei,
+                "o",
+                label=f"ROI {roi_key}",
+            )
 
 
 def _plot_trace(
@@ -253,6 +255,7 @@ def _set_graph_title_and_labels(
     with_peaks: bool,
     std: bool,
     sem: bool,
+    roi_x_labels: list[str],
 ) -> None:
     """Set axis labels based on the plotted data."""
     x_lbl: str | None = None
@@ -317,6 +320,9 @@ def _set_graph_title_and_labels(
     ax.set_ylabel(y_lbl)
     if x_lbl is not None:
         ax.set_xlabel(x_lbl)
+    if x_lbl == "ROIs" and roi_x_labels:
+        ax.set_xticks([int(i) for i in roi_x_labels])
+        ax.set_xticklabels(roi_x_labels)
 
 
 def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
