@@ -29,6 +29,28 @@ P1 = 5
 P2 = 99
 
 
+def _plot_evoked_experiment_data(
+    widget: _SingleWellGraphWidget,
+    data: dict[str, ROIData],
+    rois: list[int] | None = None,
+    stimulated_area: bool = False,
+    with_rois: bool = False,
+    stimulated: bool = False,
+    with_peaks: bool = False,
+    std: bool = False,
+    sem: bool = False,
+) -> None:
+    """Plot evoked experiment data."""
+    if stimulated_area or with_rois:
+        _visualize_stimulated_area(widget, data, rois, with_rois, stimulated_area)
+
+    if with_peaks:
+        _plot_stimulated_vs_non_stimulated_roi_amp(widget, data, rois, with_peaks)
+
+    else:
+        _plot_stim_or_not_stim_peaks_amplitude(widget, data, rois, stimulated, std, sem)
+
+
 def _plot_stim_or_not_stim_peaks_amplitude(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],

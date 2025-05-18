@@ -22,11 +22,15 @@ from qtpy.QtWidgets import (
 )
 
 from ._plot_methods import plot_multi_well_data, plot_single_well_data
-from ._util import MULTI_WELL_COMBO_OPTIONS, SINGLE_WELL_COMBO_OPTIONS_DICT, ROIData
+from ._plot_methods._main_plot import (
+    MULTI_WELL_COMBO_OPTIONS,
+    SINGLE_WELL_COMBO_OPTIONS_DICT,
+)
 
 if TYPE_CHECKING:
     from ._fov_table import WellInfo
     from ._plate_viewer import PlateViewer
+    from ._util import ROIData
 
 RED = "#C33"
 SECTION_ROLE = Qt.ItemDataRole.UserRole + 1

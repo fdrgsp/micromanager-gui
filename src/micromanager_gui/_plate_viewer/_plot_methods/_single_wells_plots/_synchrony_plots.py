@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._util import ROIData
 
 
-def _plot_synchrony(
+def _plot_synchrony_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
