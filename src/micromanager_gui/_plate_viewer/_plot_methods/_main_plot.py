@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
 from ._single_wells_plots._plolt_evoked_evperiment_data_plots import (
     _plot_stim_or_not_stim_peaks_amplitude,
     _plot_stimulated_vs_non_stimulated_roi_amp,
@@ -120,6 +121,8 @@ EVOKED_GROUP = {
 }
 
 
+# SINGLE WELLS PLOTS ------------------------------------------------------------------
+
 # Dictionary to group the options in the graph widgets combobox
 # The keys are sections that wont be selectable but are used as dividers
 SINGLE_WELL_COMBO_OPTIONS_DICT = {
@@ -131,15 +134,6 @@ SINGLE_WELL_COMBO_OPTIONS_DICT = {
     "------------Others---------------------------": OTHERS_GROUP.keys(),
     "------------Evoked Experiment----------------": EVOKED_GROUP.keys(),
 }
-
-
-MULTI_WELL_COMBO_OPTIONS = [
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
-    DEC_DFF_AMPLITUDE,
-    DEC_DFF_FREQUENCY,
-    DEC_DFF_IEI,
-]
-# ------------------------------------------------------------------------------------
 
 
 def plot_single_well_data(
@@ -213,6 +207,23 @@ def plot_single_well_data(
             return _plot_iei_data(widget, data, rois, **OTHERS_GROUP[text])
 
 
+# MULTI WELLS PLOTS -------------------------------------------------------------------
+
+MULTI_WELL_COMBO_OPTIONS = [
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE,
+    DEC_DFF_FREQUENCY,
+    DEC_DFF_IEI,
+]
+
+MULTI_WELL_GRAPHS_OPTIONS = {
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
+    DEC_DFF_AMPLITUDE: {"amp": True},
+    DEC_DFF_FREQUENCY: {"freq": True},
+    DEC_DFF_IEI: {"iei": True},
+}
+
+
 def plot_multi_well_data(
     widget: _MultilWellGraphWidget,
     text: str,
@@ -225,6 +236,6 @@ def plot_multi_well_data(
 
     # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
     # maps the text to the options
-    # return _plot_multi_well_data(
-    #     widget, data, positions, **MULTI_WELL_GRAPHS_OPTIONS[text]
-    # )
+    return _plot_multi_well_data(
+        widget, data, positions, **MULTI_WELL_GRAPHS_OPTIONS[text]
+    )

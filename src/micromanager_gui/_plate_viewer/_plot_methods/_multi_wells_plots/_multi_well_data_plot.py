@@ -9,12 +9,6 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._util import ROIData
 
 
-COUNT_INCREMENT = 1
-DEFAULT_COLOR = "gray"
-STIMULATED_COLOR = "green"
-NON_STIMULATED_COLOR = "magenta"
-
-
 def _plot_multi_well_data(
     widget: _MultilWellGraphWidget,
     data: dict[str, dict[str, ROIData]],
