@@ -222,29 +222,28 @@ class MDAWidget_(MDAWidget):
 
         pulse_on_frame = arduino_settings.get("pulse_on_frame", {})
         duration = arduino_settings.get("led_pulse_duration")
-        initial_delay = arduino_settings.get("initial_delay", 0)
 
         pos_lists = self._group_by_position(list(value))
-        for idx, pos_list in enumerate(pos_lists):
-            # copy the first event of the position list. If we have an initial delay,
-            # copy the event at the index of the delay
-            stim_event = pos_list[initial_delay if idx == 0 else 0].model_copy()
-            # get if the first event is an autofocus event
-            has_af = stim_event.action.type == "hardware_autofocus"
-            for pulse_on, power in pulse_on_frame.items():
+        # get if the first event is an autofocus event. if the first one has it,
+        # every position will have it.
+        has_af = pos_lists[0][0].action.type == "hardware_autofocus"
+        for pos_list in pos_lists:
+            count = 1 if has_af else 0
+            # get the position index
+            for pulse_before, power in pulse_on_frame.items():
+                t_idx = pulse_before + count
+                stim_event = pos_list[t_idx].model_copy()
+                index = dict(stim_event.index)
+                index["t"] = pulse_before
                 stim_event = stim_event.replace(
                     action=CustomAction(
                         name="arduino_stimulation",
                         data={"led_power": power, "led_pulse_duration": duration},
                     ),
+                    index=index,
                 )
-                # if the first event is an autofocus event, insert the stimulation event
-                # after the autofocus event. we are also considering the initial delay
-                if initial_delay:
-                    i = pulse_on + 2 if has_af else pulse_on + 1
-                else:
-                    i = pulse_on + 1 if has_af else pulse_on
-                pos_list.insert(i, stim_event)
+                pos_list.insert(pulse_before + count, stim_event)
+                count += 1
 
         # concatenate the list of lists into a single list
         val_with_stim.add_events(

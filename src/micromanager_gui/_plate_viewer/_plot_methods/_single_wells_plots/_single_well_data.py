@@ -110,10 +110,7 @@ def _plot_metrics(
 ) -> None:
     """Plot amplitude, frequency, or inter-event intervals."""
     if amp and freq:
-        if (
-            roi_data.peaks_amplitudes_dec_dff is None
-            or roi_data.dec_dff_frequency is None
-        ):
+        if not roi_data.peaks_amplitudes_dec_dff or roi_data.dec_dff_frequency is None:
             return
         # plot mean amplitude +- std of each ROI vs frequency
         if std:
@@ -147,14 +144,12 @@ def _plot_metrics(
                 label=f"ROI {roi_key}",
             )
     elif amp:
-        if roi_data.peaks_amplitudes_dec_dff is None:
+        if not roi_data.peaks_amplitudes_dec_dff:
             return
         # plot mean amplitude +- std of each ROI
         if std:
             mean_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
             std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
-            if int(roi_key) in {5, 36}:
-                print(f"roi_key: {roi_key}, mean_amp: {mean_amp}, std_amp: {std_amp}")
             ax.errorbar(
                 [int(roi_key)],
                 mean_amp,
@@ -187,6 +182,31 @@ def _plot_metrics(
             return
         ax.plot(int(roi_key), roi_data.dec_dff_frequency, "o", label=f"ROI {roi_key}")
     elif iei and roi_data.iei:
+        # # plot mean inter-event intervals +- std of each ROI
+        # if std:
+        #     mean_iei = np.mean(roi_data.iei)
+        #     std_iei = np.std(roi_data.iei)
+        #     ax.errorbar(
+        #         [int(roi_key)],
+        #         mean_iei,
+        #         yerr=std_iei,
+        #         fmt="o",
+        #         label=f"ROI {roi_key}",
+        #         capsize=5,
+        #     )
+        # # plot mean inter-event intervals +- sem of each ROI
+        # elif sem:
+        #     mean_iei = np.mean(roi_data.iei)
+        #     sem_iei = mean_iei / np.sqrt(len(roi_data.iei))
+        #     ax.errorbar(
+        #         [int(roi_key)],
+        #         mean_iei,
+        #         yerr=sem_iei,
+        #         fmt="o",
+        #         label=f"ROI {roi_key}",
+        #         capsize=5,
+        #     )
+        # else:
         ax.plot(
             [int(roi_key)] * len(roi_data.iei),
             roi_data.iei,
@@ -265,13 +285,17 @@ def _set_graph_title_and_labels(
         x_lbl = "ROIs"
         y_lbl = "Frequency (Hz)"
     elif iei:
-        title = (
-            "Inter-event intervals (dF/F)"
-            if dff
-            else "Inter-event intervals (Deconvolved dF/F)"
-        )
+        if std:
+            title = "Inter-event intervals (Sec - Mean ± StD"
+            y_lbl = "Inter-event intervals ± StD (Sec)"
+        elif sem:
+            title = "Inter-event intervals (Sec - Mean ± SEM"
+            y_lbl = "Inter-event intervals ± SEM (Sec)"
+        else:
+            title = "Inter-event intervals (Sec"
+            y_lbl = "Inter-event intervals (Sec)"
+        title += " - (Deconvolved dF/F)" if dec else ")"
         x_lbl = "ROIs"
-        y_lbl = "Inter-event intervals (sec)"
     else:
         if dff:
             title = "Normalized Traces (dF/F)" if normalize else "Traces (dF/F)"

@@ -408,6 +408,7 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_data.clear()
         self._analysis_wdg.labels_path = None
         self._analysis_wdg.analysis_path = None
+        self._analysis_wdg.stimulation_area_path = None
 
     def _load_and_set_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
@@ -537,6 +538,12 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_data = self._pv_analysis_data
         self._analysis_wdg.labels_path = self._pv_labels_path
         self._analysis_wdg.analysis_path = self._pv_analysis_path
+        # set the stimulation mask if it exists
+        if self._analysis_wdg.analysis_path:
+            # if a file namend "stimulation_mask.tif" exists in the analysis path
+            stim_mask = Path(self._analysis_wdg.analysis_path) / "stimulation_mask.tif"
+            if stim_mask.exists():
+                self._analysis_wdg.stimulation_area_path = str(stim_mask)
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None

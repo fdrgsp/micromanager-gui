@@ -51,33 +51,29 @@ DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
 DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
 DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"
 DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
-DEC_DFF_AMPLITUDE_STD = "Deconvolved DeltaF/F0 Amplitudes (Mean ± Std)"
+DEC_DFF_AMPLITUDE_STD = "Deconvolved DeltaF/F0 Amplitudes (Mean ± StD)"
 DEC_DFF_AMPLITUDE_SEM = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM)"
 DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
-DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY = "Deconvolved DeltaF/F0 Mean Amplitudes (Mean ± Std) vs Frequencies"  # noqa: E501
-DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY = "Deconvolved DeltaF/F0 Mean Amplitudes (Mean ± SEM) vs Frequencies"  # noqa: E501
+DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes (Mean ± StD) vs Frequencies"  # noqa: E501
+DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM) vs Frequencies"  # noqa: E501
 DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
-DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
-DEC_DFF_AMPLITUDE_ALL = "Deconvolved DeltaF/F0 Amplitudes"
-DEC_DFF_FREQUENCY_ALL = "Deconvolved DeltaF/F0 Frequencies"
+DEC_DFF_IEI_STD = "Deconvolved DeltaF/F0 Inter-event Interval (Mean ± StD)"
+DEC_DFF_IEI_SEM = "Deconvolved DeltaF/F0 Inter-event Interval (Mean ± SEM)"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
-DEC_DFF_IEI_ALL = "Deconvolved DeltaF/F0 Inter-event Interval"
 STIMULATED_AREA = "Stimulated Area"
 STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
-STIMULATED_ROIS_WITH_STIMULATED_AREA = (
-    "Stimulated vs Non-Stimulated ROIs with Stimulated Area"
-)
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = (
-    "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"
-)
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = (
-    "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"
-)
+STIMULATED_ROIS_WITH_STIMULATED_AREA = "Stimulated vs Non-Stimulated ROIs with Stimulated Area"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"  # noqa: E501
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
+STIMULATED_PEAKS_AMP_STD = "Stimulated Peaks Amplitudes (Mean ± StD)"
+STIMULATED_PEAKS_AMP_SEM = "Stimulated Peaks Amplitudes (Mean ± SEM)"
 NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
+NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
+NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 GLOBAL_SYNCHRONY_P_VALUE = "Global Synchrony (with p-value)"
 # fmt: on
@@ -99,6 +95,8 @@ SINGLE_WELL_COMBO_OPTIONS = [
     DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY,
     DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY,
     DEC_DFF_IEI,
+    DEC_DFF_IEI_STD,
+    DEC_DFF_IEI_SEM,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
     RASTER_PLOT_AMP_WITH_COLORBAR,
@@ -108,16 +106,20 @@ SINGLE_WELL_COMBO_OPTIONS = [
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS,
     STIMULATED_PEAKS_AMP,
+    STIMULATED_PEAKS_AMP_STD,
+    STIMULATED_PEAKS_AMP_SEM,
     NON_STIMULATED_PEAKS_AMP,
+    NON_STIMULATED_PEAKS_AMP_STD,
+    NON_STIMULATED_PEAKS_AMP_SEM,
     GLOBAL_SYNCHRONY,
     GLOBAL_SYNCHRONY_P_VALUE,
 ]
 
 MULTI_WELL_COMBO_OPTIONS = [
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY_ALL,
-    DEC_DFF_AMPLITUDE_ALL,
-    DEC_DFF_FREQUENCY_ALL,
-    DEC_DFF_IEI_ALL,
+    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
+    DEC_DFF_AMPLITUDE,
+    DEC_DFF_FREQUENCY,
+    DEC_DFF_IEI,
 ]
 # ------------------------------------------------------------------------------------
 
@@ -159,6 +161,7 @@ class ROIData(BaseClass):
     # this is the amp of the peaks of the roi that happens at the stimulation event
     # but are not due to direct light stimulation
     amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
+    stmulations_frames_and_powers: dict[str, list[float]] | None = None
     # ... add whatever other data we need
 
 
@@ -630,6 +633,8 @@ def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | N
 
     # calculate the difference in time between two consecutive peaks
     iei_ms = np.diff(np.array(peaks_time_stamps))  # ms
+
+    print(f"iei_ms: {iei_ms}")
 
     return [float(iei_peak / 1000) for iei_peak in iei_ms]
 

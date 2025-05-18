@@ -12,6 +12,8 @@ from micromanager_gui._plate_viewer._util import (
     DEC_DFF_AMPLITUDE_VS_FREQUENCY,
     DEC_DFF_FREQUENCY,
     DEC_DFF_IEI,
+    DEC_DFF_IEI_SEM,
+    DEC_DFF_IEI_STD,
     DEC_DFF_NORMALIZED,
     DEC_DFF_NORMALIZED_WITH_PEAKS,
     DEC_DFF_WITH_PEAKS,
@@ -20,6 +22,8 @@ from micromanager_gui._plate_viewer._util import (
     GLOBAL_SYNCHRONY,
     GLOBAL_SYNCHRONY_P_VALUE,
     NON_STIMULATED_PEAKS_AMP,
+    NON_STIMULATED_PEAKS_AMP_SEM,
+    NON_STIMULATED_PEAKS_AMP_STD,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RASTER_PLOT_AMP,
@@ -27,6 +31,8 @@ from micromanager_gui._plate_viewer._util import (
     RAW_TRACES,
     STIMULATED_AREA,
     STIMULATED_PEAKS_AMP,
+    STIMULATED_PEAKS_AMP_SEM,
+    STIMULATED_PEAKS_AMP_STD,
     STIMULATED_ROIS,
     STIMULATED_ROIS_WITH_STIMULATED_AREA,
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED,
@@ -71,13 +77,19 @@ SINGLE_WELL_GRAPHS_OPTIONS: dict[str, dict[str, bool]] = {
     RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
     DEC_DFF_IEI: {"dec": True, "iei": True},
+    DEC_DFF_IEI_STD: {"dec": True, "iei": True, "std": True},
+    DEC_DFF_IEI_SEM: {"dec": True, "iei": True, "sem": True},
     STIMULATED_AREA: {"with_rois": False, "stimulated_area": False},
     STIMULATED_ROIS: {"with_rois": True, "stimulated_area": False},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {"with_peaks": False},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
     STIMULATED_PEAKS_AMP: {"stimulated": True},
+    STIMULATED_PEAKS_AMP_STD: {"stimulated": True, "std": True},
+    STIMULATED_PEAKS_AMP_SEM: {"stimulated": True, "sem": True},
     NON_STIMULATED_PEAKS_AMP: {"stimulated": False},
+    NON_STIMULATED_PEAKS_AMP_STD: {"stimulated": False, "std": True},
+    NON_STIMULATED_PEAKS_AMP_SEM: {"stimulated": False, "sem": True},
     GLOBAL_SYNCHRONY: {"with_p_value": False},
     GLOBAL_SYNCHRONY_P_VALUE: {"with_p_value": True},
 }
@@ -119,7 +131,14 @@ def plot_single_well_data(
         )
 
     # plot stimulated peaks amplitude
-    if text in {STIMULATED_PEAKS_AMP, NON_STIMULATED_PEAKS_AMP}:
+    if text in {
+        STIMULATED_PEAKS_AMP,
+        NON_STIMULATED_PEAKS_AMP,
+        STIMULATED_PEAKS_AMP_STD,
+        NON_STIMULATED_PEAKS_AMP_STD,
+        STIMULATED_PEAKS_AMP_SEM,
+        NON_STIMULATED_PEAKS_AMP_SEM,
+    }:
         return _plot_stim_or_not_stim_peaks_amplitude(
             widget, data, rois, **SINGLE_WELL_GRAPHS_OPTIONS[text]
         )
