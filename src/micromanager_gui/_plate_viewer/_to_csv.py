@@ -43,7 +43,7 @@ def save_to_csv(
     analysis_data: dict[str, dict[str, ROIData]] | None,
 ) -> None:
     """Save the analysis data as CSV files."""
-    if analysis_data is None:
+    if not analysis_data:
         return
     if isinstance(path, str):
         path = Path(path)
