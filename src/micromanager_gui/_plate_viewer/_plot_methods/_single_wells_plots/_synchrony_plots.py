@@ -7,12 +7,7 @@ import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
-from micromanager_gui._plate_viewer._util import (
-    _get_synchrony,
-    _get_synchrony_matrix,
-    compute_null_distribution,
-    compute_z_score,
-)
+from micromanager_gui._plate_viewer._util import _get_synchrony_matrix, get_synchrony
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -27,7 +22,6 @@ def _plot_synchrony_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    with_p_value: bool = False,
 ) -> None:
     """Plot global synchrony."""
     widget.figure.clear()
@@ -42,20 +36,9 @@ def _plot_synchrony_data(
     if synchrony_matrix is None:
         return None
 
-    linear_synchrony = _get_synchrony(synchrony_matrix)
+    linear_synchrony = get_synchrony(synchrony_matrix)
 
     title = f"Global Synchrony: {linear_synchrony:0.4f}"
-
-    if with_p_value and linear_synchrony is not None:
-        null_scores = compute_null_distribution(phase_dict, 1000)
-        z_score = compute_z_score(linear_synchrony, null_scores)
-
-        # “Empirical p-values were computed using 1000 surrogate shuffles of the
-        # data, comparing the observed synchrony score to the distribution of
-        # scores from randomly permuted phase traces (using a +1 correction).”
-        # Standard practice in permutation testing (called pseudocount correction):
-        p_value = (np.sum(null_scores >= linear_synchrony) + 1) / (len(null_scores) + 1)
-        title += f" (p-value: {p_value:0.4f}, Z-score: {z_score:0.4f})"
 
     ax.imshow(synchrony_matrix, cmap="viridis", aspect="auto", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(

@@ -389,67 +389,6 @@ def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     return phase
 
 
-# def _get_synchrony_matrix(phase_dict: dict[str, list[float]]) -> np.ndarray | None:
-#     """Calculate global synchrony (as in the FluoroSNNAP software)."""
-#     active_rois = list(phase_dict.keys())
-#     if len(active_rois) < 2:
-#         return None
-
-#     # convert phase_dict values into a NumPy array of shape (#ROIs, #Timepoints)
-#     phase_array = np.array([phase_dict[roi] for roi in active_rois])
-
-#     # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-#     phase_diff = np.expand_dims(phase_array, axis=1) - np.expand_dims(
-#         phase_array, axis=0
-#     )
-
-#     # ensure phase difference is within valid range [0, 2π]
-#     phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-
-#     # compute cosine and sine of the phase differences
-#     cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
-#     sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
-
-#     return np.array(np.sqrt(cos_mean**2 + sin_mean**2))
-
-
-# def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
-#     """Calculate the connection matrix."""
-#     if synchrony_matrix is None or synchrony_matrix.size == 0:
-#         return None
-
-#     # ensure the matrix is at least 2x2 and square
-#     if synchrony_matrix.shape[0] < 2 or (
-#         synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
-#     ):
-#         return None
-
-#     return float(
-#         np.median(np.sum(synchrony_matrix, axis=0) - 1)
-#         / (synchrony_matrix.shape[0] - 1)
-#     )
-
-
-# def compute_null_distribution(phase_dict, num_shuffles=100):
-#     null_scores = []
-#     rois = list(phase_dict.keys())
-#     for _ in range(num_shuffles):
-#         shuffled_phase_dict = {
-#             roi: np.random.permutation(phase_dict[roi]) for roi in rois
-#         }
-#         matrix = _get_synchrony_matrix(shuffled_phase_dict)
-#         score = _get_synchrony(matrix)
-#         if score is not None:
-#             null_scores.append(score)
-#     return np.array(null_scores)
-
-
-# def compute_z_score(real_score, null_scores):
-#     mean = np.mean(null_scores)
-#     std = np.std(null_scores)
-#     return (real_score - mean) / std if std > 0 else None
-
-
 def _get_synchrony_matrix(
     phase_input: dict[str, list[float]] | np.ndarray,
 ) -> np.ndarray | None:
@@ -459,80 +398,43 @@ def _get_synchrony_matrix(
         if len(active_rois) < 2:
             return None
         try:
+            # convert phase_dict values into a NumPy array of shape (#ROIs, #Timepoints)
             phase_array = np.array(
                 [phase_input[roi] for roi in active_rois], dtype=np.float32
             )
         except ValueError:
             return None
     else:
+        # if phase_input is a NumPy array, ensure it is of type float32
         phase_array = np.asarray(phase_input, dtype=np.float32)
         if phase_array.shape[0] < 2:
             return None
 
+    # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
     phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
+    # ensure phase difference is within valid range [0, 2π]
     phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-    cos_mean = np.mean(np.cos(phase_diff), axis=2)
-    sin_mean = np.mean(np.sin(phase_diff), axis=2)
+    # compute cosine and sine of the phase differences
+    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
+    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
 
     return np.sqrt(cos_mean**2 + sin_mean**2)  # type: ignore
 
 
-def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
+def get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
     """Calculate global synchrony score from a synchrony matrix."""
     if synchrony_matrix is None or synchrony_matrix.size == 0:
         return None
+    # ensure the matrix is at least 2x2 and square
     if (
         synchrony_matrix.shape[0] < 2
         or synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
     ):
         return None
 
-    # subtract self-correlation (diagonal = 1)
+    # calculate the sum of each row, excluding the diagonal
     row_sum = np.sum(synchrony_matrix, axis=1) - 1
     return float(np.median(row_sum) / (synchrony_matrix.shape[0] - 1))
-
-
-def compute_null_distribution(
-    phase_dict: dict[str, list[float]], num_shuffles: int = 100
-) -> np.ndarray:
-    """Efficiently compute null synchrony scores by shuffling phase traces."""
-    rois = list(phase_dict.keys())
-    phase_array = np.array([phase_dict[roi] for roi in rois])
-    n_rois, n_frames = phase_array.shape
-
-    null_scores = np.empty(num_shuffles)
-
-    for i in range(num_shuffles):
-        shuffled = np.apply_along_axis(np.random.permutation, 1, phase_array)
-        matrix = _get_synchrony_matrix(shuffled)
-        score = _get_synchrony(matrix)
-        null_scores[i] = (
-            score if score is not None else np.nan
-        )  # store NaN to preserve length
-
-    return null_scores[~np.isnan(null_scores)]  # type: ignore
-
-
-def compute_z_score(real_score: float, null_scores: np.ndarray) -> float | None:
-    """Compute z-score of the real synchrony vs. null distribution."""
-    if null_scores.size == 0:
-        return None
-    mean = np.mean(null_scores)
-    std = np.std(null_scores)
-    return (real_score - mean) / std if std > 0 else None
-
-
-# def plot_synchrony_analysis(real_score, null_scores, z_score):
-#     plt.figure(figsize=(8, 5))
-#     plt.hist(null_scores, bins=20, alpha=0.6, label='Null Distribution')
-#     plt.axvline(
-#     real_score, color='red', linestyle='--', label=f'Real Score = {real_score:.3f}')
-#     plt.title(f'Synchrony Z-Score: {z_score:.2f}')
-#     plt.xlabel('Synchrony Score')
-#     plt.ylabel('Frequency')
-#     plt.legend()
-#     plt.tight_layout()
-#     plt.show()
 
 
 def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:

@@ -60,7 +60,6 @@ NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
 NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
 NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
-GLOBAL_SYNCHRONY_P_VALUE = "Global Synchrony (with p-value)"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -104,7 +103,6 @@ OTHERS_GROUP = {
     DEC_DFF_IEI_STD: {"std": True},
     DEC_DFF_IEI_SEM: {"sem": True},
     GLOBAL_SYNCHRONY: {},
-    # GLOBAL_SYNCHRONY_P_VALUE: {"with_p_value": True},
 }
 
 EVOKED_GROUP = {
@@ -204,7 +202,7 @@ def plot_single_well_data(
 
     # OTHERS GROUP
     if text in OTHERS_GROUP:
-        if text in {GLOBAL_SYNCHRONY, GLOBAL_SYNCHRONY_P_VALUE}:
+        if text in {GLOBAL_SYNCHRONY}:
             return _plot_synchrony_data(widget, data, rois, **OTHERS_GROUP[text])
         elif text in {DEC_DFF_IEI, DEC_DFF_IEI_STD, DEC_DFF_IEI_SEM}:
             return _plot_iei_data(widget, data, rois, **OTHERS_GROUP[text])

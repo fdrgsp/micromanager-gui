@@ -9,8 +9,8 @@ import pandas as pd
 
 from ._util import (
     ROIData,
-    _get_synchrony,
     _get_synchrony_matrix,
+    get_synchrony,
 )
 
 PERCENTAGE_ACTIVE = "percentage_active"
@@ -438,19 +438,7 @@ def _get_synchrony_parameter(
             }
             synchrony_matrix = _get_synchrony_matrix(instantaneous_phase_dict)
 
-            linear_synchrony = _get_synchrony(synchrony_matrix)
-
-            # null_scores = compute_null_distribution(
-            #     instantaneous_phase_dict, num_shuffles=1000
-            # )
-            # z_score = compute_z_score(linear_synchrony, null_scores)
-            # “Empirical p-values were computed using 1000 surrogate shuffles of the
-            # data, comparing the observed synchrony score to the distribution of
-            # scores from randomly permuted phase traces (using a +1 correction).”
-            # Standard practice in permutation testing (called pseudocount correction):
-            # p_value = (
-            #     np.sum(null_scores >= linear_synchrony) + 1) / (len(null_scores) + 1
-            # )
+            linear_synchrony = get_synchrony(synchrony_matrix)
 
             synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
                 (linear_synchrony, 0.0, 0.0)
