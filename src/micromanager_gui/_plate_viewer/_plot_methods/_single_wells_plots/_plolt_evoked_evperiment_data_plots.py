@@ -355,7 +355,7 @@ def _add_hover_functionality_plot_stim_roi(
         x, y = int(sel.target[0]), int(sel.target[1])
         if 0 <= y < stim_mask.shape[0] and 0 <= x < stim_mask.shape[1]:
             roi_val = str(labels[y, x]) if labels[y, x] > 0 else None
-        if roi_val:
+        if roi_val and "ROI" in roi_val:
             sel.annotation.set(text=f"ROI {roi_val}", fontsize=8, color="yellow")
             sel.annotation.arrow_patch.set_color("yellow")
             sel.annotation.arrow_patch.set_alpha(1)  # arrow is visible
