@@ -73,9 +73,11 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-# ELAPSED_TIME_KEY = "ElapsedTime-ms"
 # using this instead of "ElapsedTime-ms" because I think there is a bug in the
-# metadata where getting the "ElapsedTime-ms"
+# metadata where getting the "ElapsedTime-ms" since in the stimulated experiment
+# the elapsed time is resetting because the stimulation even is in a new sequenced
+# event list.
+# ELAPSED_TIME_KEY = "ElapsedTime-ms"
 ELAPSED_TIME_KEY = "runner_time_ms"
 CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
