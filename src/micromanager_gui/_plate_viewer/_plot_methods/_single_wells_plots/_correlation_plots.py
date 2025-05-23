@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def _calculate_cross_correlation(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-) -> tuple[np.ndarray, list[int]]:
+) -> tuple[np.ndarray | None, list[int] | None]:
     """Calculate the cross-correlation matrix for the active ROIs."""
     traces: list[list[float]] = []
     rois_idxs: list[int] = []
@@ -37,6 +37,9 @@ def _calculate_cross_correlation(
             continue
         rois_idxs.append(int(roi_key))
         traces.append(roi_data.dec_dff)
+
+    if len(rois_idxs) <= 1:
+        return None, None
 
     traces_array = np.array(traces)  # shape (n_rois, n_frames)
 
@@ -62,6 +65,9 @@ def _plot_cross_correlation_data(
     ax = widget.figure.add_subplot(111)
 
     correlation_matrix, rois_idxs = _calculate_cross_correlation(data, rois)
+
+    if correlation_matrix is None or rois_idxs is None:
+        return
 
     ax.set_title("Pairwise Cross-Correlation Matrix")
     ax.set_xlabel("ROI")
@@ -119,6 +125,9 @@ def _plot_hierarchical_clustering_data(
     ax = widget.figure.add_subplot(111)
 
     correlation_matrix, rois_idxs = _calculate_cross_correlation(data, rois)
+
+    if correlation_matrix is None or rois_idxs is None:
+        return
 
     if use_dendrogram:
         _plot_hierarchical_clustering_dendrogram(ax, correlation_matrix, rois_idxs)
