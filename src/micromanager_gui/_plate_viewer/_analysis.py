@@ -848,8 +848,8 @@ class _AnalyseCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            raw_trace=roi_trace.tolist(),
-            dff=dff.tolist(),
+            raw_trace=cast(list[float], roi_trace.tolist()),
+            dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,

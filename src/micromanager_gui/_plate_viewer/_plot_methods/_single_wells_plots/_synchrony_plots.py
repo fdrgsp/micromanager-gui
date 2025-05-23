@@ -10,7 +10,7 @@ import numpy as np
 from micromanager_gui._plate_viewer._util import _get_synchrony_matrix, get_synchrony
 
 if TYPE_CHECKING:
-    from matplotlib.axes import Axes
+    from matplotlib.image import AxesImage
 
     from micromanager_gui._plate_viewer._graph_widgets import (
         _SingleWellGraphWidget,
@@ -40,7 +40,7 @@ def _plot_synchrony_data(
 
     title = f"Global Synchrony: {linear_synchrony:0.4f}"
 
-    ax.imshow(synchrony_matrix, cmap="viridis", aspect="auto", vmin=0, vmax=1)
+    img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(
         cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
         ax=ax,
@@ -49,18 +49,18 @@ def _plot_synchrony_data(
 
     ax.set_title(title)
 
-    ax.set_ylabel("ROIs")
+    ax.set_ylabel("ROI")
     ax.set_yticklabels([])
     ax.set_yticks([])
 
-    ax.set_xlabel("ROIs")
+    ax.set_xlabel("ROI")
     ax.set_xticklabels([])
     ax.set_xticks([])
 
     ax.set_box_aspect(1)
 
     active_rois = list(phase_dict.keys())
-    _add_hover_functionality(ax, widget, active_rois, synchrony_matrix)
+    _add_hover_functionality(img, widget, active_rois, synchrony_matrix)
     widget.figure.tight_layout()
     widget.canvas.draw()
 
@@ -88,13 +88,12 @@ def _get_phase_dict_from_rois(
 
 
 def _add_hover_functionality(
-    ax: Axes,
+    image: AxesImage,
     widget: _SingleWellGraphWidget,
     rois: list[str],
     synchrony_matrix: np.ndarray,
 ) -> None:
     """Add hover functionality using mplcursors."""
-    image = ax.images[0]
     cursor = mplcursors.cursor(image, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]

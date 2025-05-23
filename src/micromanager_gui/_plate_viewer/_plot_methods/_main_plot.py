@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
+from ._single_wells_plots._correlation_plots import (
+    _plot_cross_correlation_data,
+    _plot_hierarchical_clustering_data,
+)
 from ._single_wells_plots._plolt_evoked_evperiment_data_plots import (
     _plot_stim_or_not_stim_peaks_amplitude,
     _plot_stimulated_vs_non_stimulated_roi_amp,
@@ -60,6 +64,9 @@ NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
 NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
 NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 GLOBAL_SYNCHRONY = "Global Synchrony"
+CROSS_CORRELATION = "Cross-Correlation"
+CLUSTERING = "Hierarchical Clustering"
+CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -98,12 +105,18 @@ RASTER_PLOT_GROUP = {
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
 }
 
-OTHERS_GROUP = {
+INTEREVENT_INTERVAL = {
     DEC_DFF_IEI: {},
     DEC_DFF_IEI_STD: {"std": True},
     DEC_DFF_IEI_SEM: {"sem": True},
-    GLOBAL_SYNCHRONY: {},
 }
+
+CORRELATION_GROUP = {
+    GLOBAL_SYNCHRONY: {},
+    CROSS_CORRELATION: {},
+    CLUSTERING: {},
+    CLUSTERING_DENDOGRAM: {"use_dendrogram": True},
+    }
 
 EVOKED_GROUP = {
     STIMULATED_AREA: {"stimulated_area": False},
@@ -130,7 +143,8 @@ SINGLE_WELL_COMBO_OPTIONS_DICT = {
     "------------Frequency------------------------": FREQUENCY_GROUP.keys(),
     "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
     "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
-    "------------Others---------------------------": OTHERS_GROUP.keys(),
+    "------------Interevent Interval--------------": INTEREVENT_INTERVAL.keys(),
+    "------------Correlation----------------------": CORRELATION_GROUP.keys(),
     "------------Evoked Experiment----------------": EVOKED_GROUP.keys(),
 }
 
@@ -200,12 +214,25 @@ def plot_single_well_data(
                 widget, data, rois, **EVOKED_GROUP[text]
             )
 
-    # OTHERS GROUP
-    if text in OTHERS_GROUP:
+    # INTEREVENT_INTERVAL GROUP
+    if text in INTEREVENT_INTERVAL:
         if text in {GLOBAL_SYNCHRONY}:
-            return _plot_synchrony_data(widget, data, rois, **OTHERS_GROUP[text])
+            return _plot_synchrony_data(widget, data, rois, **INTEREVENT_INTERVAL[text])
         elif text in {DEC_DFF_IEI, DEC_DFF_IEI_STD, DEC_DFF_IEI_SEM}:
-            return _plot_iei_data(widget, data, rois, **OTHERS_GROUP[text])
+            return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL[text])
+
+    # CORRELATION GROUP
+    if text in CORRELATION_GROUP:
+        if text == GLOBAL_SYNCHRONY:
+            return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
+        elif text == CROSS_CORRELATION:
+            return _plot_cross_correlation_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text in {CLUSTERING, CLUSTERING_DENDOGRAM}:
+            return _plot_hierarchical_clustering_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
 
 
 # MULTI WELLS PLOTS -------------------------------------------------------------------
