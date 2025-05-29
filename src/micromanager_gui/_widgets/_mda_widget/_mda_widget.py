@@ -215,6 +215,7 @@ class MDAWidget_(MDAWidget):
         """Update the MDA sequence with the Arduino LED stimulation settings."""
         meta = value.metadata.get(PYMMCW_METADATA_KEY, {})
         meta[STIMULATION] = arduino_settings
+
         val_with_stim = CustomMDASequence(**value.model_dump())
 
         # TODO: if stimulation is selected and there are multiple positions but the

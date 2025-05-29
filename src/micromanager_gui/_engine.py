@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import defaultdict
 from itertools import product
 from typing import (
     TYPE_CHECKING,
@@ -8,15 +9,17 @@ from typing import (
     cast,
 )
 
+import useq
 from pyfirmata2 import Arduino
 from pyfirmata2.pyfirmata2 import Pin
 from pymmcore_plus._logger import logger
-from pymmcore_plus.core._sequencing import SequencedEvent
+from pymmcore_plus.core._constants import Keyword
+from pymmcore_plus.core._sequencing import EventCombiner, SequencedEvent
 from pymmcore_plus.mda import MDAEngine
 from useq import AcquireImage, CustomAction, HardwareAutofocus, MDAEvent, MDASequence
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda._protocol import PImagePayload
@@ -26,6 +29,227 @@ if TYPE_CHECKING:
 
 WARNING_EMOJI = ":warning:"
 ALARM_EMOJI = ":rotating_light:"
+
+
+def iter_custom_sequenced_events(
+    core: CMMCorePlus, events: Iterable[MDAEvent]
+) -> Iterator[MDAEvent | SequencedEvent]:
+    """Iterate over a sequence of MDAEvents, yielding SequencedEvents when possible.
+
+    Parameters
+    ----------
+    core : CMMCorePlus
+        The core object to use for determining sequenceable properties.
+    events : Iterable[MDAEvent]
+        The events to iterate over.
+
+    Returns
+    -------
+    Iterator[MDAEvent | SequencedEvent]
+        A new iterator that will combine multiple MDAEvents into a single SequencedEvent
+        when possible, based on the sequenceable properties of the core object.
+        Note that `SequencedEvent` itself is a subclass of `MDAEvent`, but it's up to
+        the engine to check `isinstance(event, SequencedEvent)` in order to handle
+        SequencedEvents differently.
+    """
+    combiner = CustomEventCombiner(core)
+    for e in events:
+        if (flushed := combiner.feed_event(e)) is not None:
+            yield flushed
+
+    if (leftover := combiner.flush()) is not None:
+        yield leftover
+
+
+class CustomEventCombiner(EventCombiner):
+    """Custom event combiner to handle custom actions.
+
+    This combiner treats the `CustomAction` with the name
+    "arduino_stimulation" as a special case, allowing it to be sequenced.
+    """
+
+    def __init__(self, core: CMMCorePlus) -> None:
+        super().__init__(core)
+
+    def can_extend(self, event: MDAEvent) -> bool:
+        """Return True if the new event can be added to the current batch."""
+        # cannot add pre-existing SequencedEvents to the sequence
+        if not self.event_batch:
+            return True
+
+        e0 = self.event_batch[0]
+
+        # cannot sequence on top of SequencedEvents
+        if isinstance(e0, SequencedEvent) or isinstance(event, SequencedEvent):
+            return False
+
+        # Check if actions are sequenceable
+        def is_sequenceable_action(action: useq.Action) -> bool:
+            # Allow AcquireImage, None, or arduino_stimulation CustomAction
+            if isinstance(action, (AcquireImage, type(None))):
+                return True
+            return (
+                isinstance(action, CustomAction)
+                and action.name == "arduino_stimulation"
+            )
+
+        if not is_sequenceable_action(e0.action) or not is_sequenceable_action(
+            event.action
+        ):
+            return False
+
+        # Special logic for stimulation events:
+        # Every stimulation event should start a NEW sequence
+        # This ensures each stimulation gets its own SequencedEvent
+        if (
+            isinstance(event.action, CustomAction)
+            and event.action.name == "arduino_stimulation"
+        ):
+            # Never extend when encountering a stimulation event
+            # This forces a new sequence to start
+            return False
+
+        new_chunk_len = len(self.event_batch) + 1
+
+        # NOTE: these should be ordered from "fastest to check / most likely to fail",
+        # to "slowest to check / most likely to pass"
+
+        # If it's a new timepoint, and they have a different start time
+        # we don't (yet) support sequencing.
+        if (
+            event.index.get("t") != e0.index.get("t")
+            and event.min_start_time != e0.min_start_time
+        ):
+            return False
+
+        # Exposure
+        if event.exposure != e0.exposure:
+            if new_chunk_len > self.max_lengths[Keyword.CoreCamera]:
+                return False
+            self.attribute_changes[Keyword.CoreCamera] = True
+
+        # XY
+        if event.x_pos != e0.x_pos or event.y_pos != e0.y_pos:
+            if new_chunk_len > self.max_lengths[Keyword.CoreXYStage]:
+                return False
+            self.attribute_changes[Keyword.CoreXYStage] = True
+
+        # Z
+        if event.z_pos != e0.z_pos:
+            if new_chunk_len > self.max_lengths[Keyword.CoreFocus]:
+                return False
+            self.attribute_changes[Keyword.CoreFocus] = True
+
+        # SLM
+        if event.slm_image != e0.slm_image:
+            if new_chunk_len > self.max_lengths[Keyword.CoreSLM]:
+                return False
+            self.attribute_changes[Keyword.CoreSLM] = True
+
+        # properties
+        event_props = self._event_properties(event)
+        all_props = event_props.keys() | self.first_event_props.keys()
+        for dev_prop in all_props:
+            new_val = event_props.get(dev_prop)
+            old_val = self.first_event_props.get(dev_prop)
+            if new_val != old_val:
+                # if the property has changed, (or is missing in one dict)
+                if new_chunk_len > self._get_property_max_length(dev_prop):
+                    return False
+                self.attribute_changes[dev_prop] = True
+
+        return True
+
+    def _create_sequenced_event(self) -> MDAEvent | SequencedEvent:
+        """Convert self.event_batch into a SequencedEvent.
+
+        If the batch contains only a single event, that event is returned directly.
+
+        Overriding because we add to the metadata a "stimulation" info to perform
+        the LED stimulation event in the engine.
+        """
+        if not self.event_batch:
+            raise RuntimeError("Cannot flush an empty chunk")
+
+        first_event = self.event_batch[0]
+
+        if (num_events := len(self.event_batch)) == 1:
+            return first_event
+
+        exposures: list[float | None] = []
+        x_positions: list[float | None] = []
+        y_positions: list[float | None] = []
+        z_positions: list[float | None] = []
+        slm_images: list[Any] = []
+        property_sequences: defaultdict[tuple[str, str], list[Any]] = defaultdict(list)
+        static_props: list[tuple[str, str, Any]] = []
+
+        # Single pass
+        for e in self.event_batch:
+            exposures.append(e.exposure)
+            x_positions.append(e.x_pos)
+            y_positions.append(e.y_pos)
+            z_positions.append(e.z_pos)
+            slm_images.append(e.slm_image)
+            for dev_prop, val in self._event_properties(e).items():
+                property_sequences[dev_prop].append(val)
+
+        # remove any property sequences that are static
+        for key, prop_seq in list(property_sequences.items()):
+            if not self.attribute_changes.get(key):
+                static_props.append((*key, prop_seq[0]))
+                property_sequences.pop(key)
+            elif len(prop_seq) != num_events:
+                raise RuntimeError(
+                    "Property sequence length mismatch. "
+                    "Please report this with an example."
+                )
+
+        exp_changed = self.attribute_changes.get(Keyword.CoreCamera)
+        xy_changed = self.attribute_changes.get(Keyword.CoreXYStage)
+        z_changed = self.attribute_changes.get(Keyword.CoreFocus)
+        slm_changed = self.attribute_changes.get(Keyword.CoreSLM)
+
+        exp_seq = tuple(exposures) if exp_changed else ()
+        x_seq = tuple(x_positions) if xy_changed else ()
+        y_seq = tuple(y_positions) if xy_changed else ()
+        z_seq = tuple(z_positions) if z_changed else ()
+        slm_seq = tuple(slm_images) if slm_changed else ()
+
+        # Extract stimulation information for metadata
+        stimulation_info: dict[str, Any] | None = None
+        for e in self.event_batch:
+            if (
+                isinstance(e.action, CustomAction)
+                and e.action.name == "arduino_stimulation"
+                and e.action.data
+            ):
+                stimulation_info = e.action.data
+                break
+
+        # Create metadata with stimulation info if present
+        metadata = {}
+        if stimulation_info:
+            metadata["stimulation"] = stimulation_info
+
+        return SequencedEvent(
+            events=tuple(self.event_batch),
+            exposure_sequence=exp_seq,
+            x_sequence=x_seq,
+            y_sequence=y_seq,
+            z_sequence=z_seq,
+            slm_sequence=slm_seq,
+            property_sequences=property_sequences,
+            properties=static_props,
+            metadata=metadata,
+            # all other "standard" MDAEvent fields are derived from the first event
+            # the engine will use these values if the corresponding sequence is empty
+            x_pos=first_event.x_pos,
+            y_pos=first_event.y_pos,
+            z_pos=first_event.z_pos,
+            exposure=first_event.exposure,
+            channel=first_event.channel,
+        )
 
 
 class ArduinoEngine(MDAEngine):
@@ -60,6 +284,19 @@ class ArduinoEngine(MDAEngine):
             self._arduino_led_pin = cast(Pin, self._arduino_led_pin)
             self._arduino_led_pin.write(0.0)
         return super().setup_sequence(sequence)
+
+    def event_iterator(self, events: Iterable[MDAEvent]) -> Iterator[MDAEvent]:
+        """Event iterator that merges events for hardware sequencing if possible.
+
+        This wraps `for event in events: ...` inside `MDARunner.run()` and combines
+        sequenceable events into an instance of `SequencedEvent` if
+        `self.use_hardware_sequencing` is `True`.
+        """
+        if not self.use_hardware_sequencing:
+            yield from events
+            return
+
+        yield from iter_custom_sequenced_events(self._mmc, events)
 
     def exec_event(self, event: MDAEvent) -> Iterable[PImagePayload]:
         """Execute an individual event and return the image data."""
@@ -98,19 +335,13 @@ class ArduinoEngine(MDAEngine):
         # to handle.  But may include other actions in the future, and this ensures
         # backwards compatibility.
         if not isinstance(action, (AcquireImage, type(None))):
-            if (
-                isinstance(action, CustomAction)
-                and action.type == "custom"
-                and action.name == "arduino_stimulation"
-                and action.data
-            ):
-                self._exec_led_stimulation(action.data)
             return
 
         # if the autofocus was engaged at the start of the sequence AND autofocus action
         # did not fail, re-engage it. NOTE: we need to do that AFTER the runner calls
         # `setup_event`, so we can't do it inside the exec_event autofocus action above.
-        if self._arduino_board is None and self._af_was_engaged and self._af_succeeded:
+        if self._af_was_engaged and self._af_succeeded:
+            # if self._arduino_board is None and...
             self._mmc.enableContinuousFocus(True)
 
         # open the shutter for x sec before starting the acquisition when using GCaMP6
@@ -156,6 +387,10 @@ class ArduinoEngine(MDAEngine):
 
         if event.slm_image is not None:
             self._exec_event_slm_image(event.slm_image)
+
+        # check for stimulation event in the metadata and execute it if present
+        if (stim_meta := event.metadata.get("stimulation")) is not None:
+            self._exec_led_stimulation(stim_meta)
 
         # Start sequence
         # Note that the overload of startSequenceAcquisition that takes a camera
