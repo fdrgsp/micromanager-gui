@@ -378,7 +378,8 @@ class ArduinoEngine(MDAEngine):
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
         """
-        # NOTE: only overriding because of the "Buffer Overflowed" slakbot message
+        # NOTE: overriding because of the "Buffer Overflowed" slakbot message and for
+        # the stimulation event handling.
 
         n_events = len(event.events)
 
