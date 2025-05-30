@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from pymmcore_plus import CMMCorePlus
@@ -61,7 +62,12 @@ PREVIEW = "preview"
 CUSTOM = "custom"
 CYTO3 = "cyto3"
 MODELS = [CYTO3, CUSTOM]
-CUSTOM_MODEL_PATH = "cellpose_models/cp3_img8_epoch7000_py"
+CUSTOM_MODEL_PATH = (
+    Path(__file__).parent.parent
+    / "_cellpose"
+    / "cellpose_models"
+    / "cp3_img8_epoch7000_py"
+)
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
