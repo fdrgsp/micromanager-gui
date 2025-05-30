@@ -73,11 +73,6 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-# using this instead of "ElapsedTime-ms" because I think there is a bug in the
-# metadata where getting the "ElapsedTime-ms" since in the stimulated experiment
-# the elapsed time is resetting because the stimulation even is in a new sequenced
-# event list.
-# ELAPSED_TIME_KEY = "ElapsedTime-ms"
 ELAPSED_TIME_KEY = "runner_time_ms"
 CAMERA_KEY = "camera_metadata"
 SPONTANEOUS = "Spontaneous Activity"
@@ -704,11 +699,6 @@ class _AnalyseCalciumTraces(QWidget):
                 et = m[cam_key].get(ELAPSED_TIME_KEY)
                 if et is not None:
                     elapsed_time_list.append(float(et))
-        # else:  # old metadata format
-        #     for m in meta:
-        #         et = m.get(ELAPSED_TIME_KEY)
-        #         if et is not None:
-        #             elapsed_time_list.append(float(et))
         return elapsed_time_list
 
     def _calculate_total_time(
