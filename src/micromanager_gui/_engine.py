@@ -234,13 +234,13 @@ class CustomEventCombiner(EventCombiner):
 
         return SequencedEvent(
             events=tuple(self.event_batch),
-            exposure_sequence=exp_seq,
-            x_sequence=x_seq,
-            y_sequence=y_seq,
-            z_sequence=z_seq,
+            exposure_sequence=exp_seq,  # type: ignore
+            x_sequence=x_seq,  # type: ignore
+            y_sequence=y_seq,  # type: ignore
+            z_sequence=z_seq,  # type: ignore
             slm_sequence=slm_seq,
             property_sequences=property_sequences,
-            properties=static_props,
+            properties=static_props,  # type: ignore
             metadata=metadata,
             # all other "standard" MDAEvent fields are derived from the first event
             # the engine will use these values if the corresponding sequence is empty

@@ -67,7 +67,6 @@ dev = [
     "pytest",
     "rich",
     "ruff",
-    "scikit-image",
 ]
 
 [project.urls]
@@ -97,6 +96,8 @@ sources = ["src"]
 line-length = 88
 target-version = "py39"
 src = ["src", "tests"]
+fix = true
+unsafe-fixes = true
 
 [tool.ruff.lint]
 select = [
@@ -148,9 +149,11 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@overload",
     "except ImportError",
-    "\\.\\.\\.",
-    "raise NotImplementedError()",
+    "raise AssertionError",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
 ]
+show_missing = true
 [tool.coverage.run]
 source = ["micromanager_gui"]
 
