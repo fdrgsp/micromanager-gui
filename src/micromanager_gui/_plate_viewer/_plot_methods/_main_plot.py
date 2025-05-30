@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._multi_wells_plots._csv_violin_plot import load_and_plot_csv_violin
 from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
 from ._single_wells_plots._correlation_plots import (
     _plot_cross_correlation_data,
@@ -67,6 +68,7 @@ GLOBAL_SYNCHRONY = "Global Synchrony"
 CROSS_CORRELATION = "Cross-Correlation"
 CLUSTERING = "Hierarchical Clustering"
 CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
+CSV_VIOLIN_PLOT = "CSV Violin Plot"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -242,6 +244,7 @@ MULTI_WELL_COMBO_OPTIONS = [
     DEC_DFF_AMPLITUDE,
     DEC_DFF_FREQUENCY,
     DEC_DFF_IEI,
+    CSV_VIOLIN_PLOT,
 ]
 
 MULTI_WELL_GRAPHS_OPTIONS = {
@@ -249,6 +252,7 @@ MULTI_WELL_GRAPHS_OPTIONS = {
     DEC_DFF_AMPLITUDE: {"amp": True},
     DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_IEI: {"iei": True},
+    CSV_VIOLIN_PLOT: {},
 }
 
 
@@ -261,6 +265,10 @@ def plot_multi_well_data(
     """Plot the multi-well data."""
     if not text or text == "None" or not data:
         return
+
+    # Handle CSV violin plot separately since it doesn't use the standard data flow
+    if text == CSV_VIOLIN_PLOT:
+        return load_and_plot_csv_violin(widget)
 
     # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
     # maps the text to the options
