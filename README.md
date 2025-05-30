@@ -123,6 +123,10 @@ settings:
 
 ## Run the Plate Viewer GUI
 
+To explore the calcium imaging data, you can use the `Plate Viewer` GUI. This GUI allows you to visualize, segment (using [Cellpose3](https://www.cellpose.org)) and analyze the calcium imaging data acquired with the `Micro-Manager GUI`.
+
+To run the `Plate Viewer` GUI, you can use:
+
 ```bash
 pv
 ```
