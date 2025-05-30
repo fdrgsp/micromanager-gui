@@ -36,14 +36,13 @@ dependencies = [
     "tqdm",
     "pyyaml",
     "cmap",
-    "cellpose==3.1.1.2",
+    "cellpose<4",
     "pyconify",
     "slack_bolt",
     "python-dotenv",
     "rich",
     "matplotlib",
     "mplcursors",
-    "cellpose",
     "ndv[vispy]==0.0.4",
     "qtconsole",
     "pyfirmata2",
@@ -81,10 +80,6 @@ mmgui = "micromanager_gui.__main__:main"
 pv = "micromanager_gui.__main__:plate_viewer"
 bcp = "micromanager_gui.__main__:batch_cellpose"
 
-# Entry points
-# https://peps.python.org/pep-0621/#entry-points
-# [project.entry-points."spam.magical"]
-# tomatoes = "spam:main_tomatoes"
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
@@ -93,21 +88,17 @@ source = "vcs"
 [tool.hatch.metadata]
 allow-direct-references = true
 
-# https://hatch.pypa.io/latest/config/build/#file-selection
-# [tool.hatch.build.targets.sdist]
-# include = ["/src", "/tests"]
-
 [tool.hatch.build.targets.wheel]
 only-include = ["src"]
 sources = ["src"]
 
-# https://beta.ruff.rs/docs/rules/
+# https://docs.astral.sh/ruff/configuration/
 [tool.ruff]
 line-length = 88
 target-version = "py39"
 src = ["src", "tests"]
+
 [tool.ruff.lint]
-pydocstyle = { convention = "numpy" }
 select = [
     "E",    # style errors
     "F",    # flakes
@@ -128,9 +119,8 @@ ignore = [
     "D100", # Missing docstring in public module
     "D401", # First line should be in imperative mood
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["D", "SLF"]
+pydocstyle.convention = "numpy"
+per-file-ignores."tests/*.py" = ["D", "SLF"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -149,11 +139,6 @@ disallow_any_generics = false
 disallow_subclassing_any = false
 show_error_codes = true
 pretty = true
-
-# # module specific overrides
-# [[tool.mypy.overrides]]
-# module = ["numpy.*",]
-# ignore_errors = true
 
 
 # https://coverage.readthedocs.io/en/6.4/config.html
@@ -177,18 +162,6 @@ ignore = [
     ".ruff_cache/**/*",
     "tests/**/*",
 ]
-
-# # for things that require compilation
-# # https://cibuildwheel.readthedocs.io/en/stable/options/
-# [tool.cibuildwheel]
-# # Skip 32-bit builds & PyPy wheels on all platforms
-# skip = ["*-manylinux_i686", "*-musllinux_i686", "*-win32", "pp*"]
-# test-extras = ["test"]
-# test-command = "pytest {project}/tests -v"
-# test-skip = "*-musllinux*"
-
-# [tool.cibuildwheel.environment]
-# HATCH_BUILD_HOOKS_ENABLE = "1"
 
 [tool.typos.default] 
 extend-ignore-identifiers-re = ["(?i)nd2?.*", "(?i)ome"]
