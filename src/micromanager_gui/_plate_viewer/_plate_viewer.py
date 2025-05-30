@@ -262,10 +262,7 @@ class PlateViewer(QMainWindow):
         # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
         # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
-        data = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"
-        self._pv_labels_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_labels"
-        self._pv_analysis_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_analysis"
-        self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
         # ____________________________________________________________________________
 
     @property
