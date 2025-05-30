@@ -60,6 +60,7 @@ CUSTOM_MODEL_PATH = (
     / "cp3_img8_epoch7000_py"
 )
 
+
 class _SelectModelPath(_BrowseWidget):
     def __init__(
         self,
