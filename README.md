@@ -10,7 +10,7 @@ A Micro-Manager GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/
 
 It has been designed to record calcium imaging experimets with or without optical stimulation using [Arduino](https://www.arduino.cc) and [Thorlabs](https://www.thorlabs.com) Components (paper in press...).
 
-<img width="2560" alt="Screenshot 2025-05-30 at 4 18 27 PM" src="https://github.com/user-attachments/assets/e5576f60-7825-42cd-b9c3-036d57167345" />
+<img width="2560" alt="Screenshot 2025-05-30 at 4 21 46 PM" src="https://github.com/user-attachments/assets/6467c93a-09f6-4c58-919a-1e55353028fd" />
 
 ## Table of Contents
 
