@@ -95,6 +95,7 @@ def dummy_data_loader():
         yield
 
 
+@pytest.mark.skip(reason="Test data to be acquired")
 def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     pv = PlateViewer()
     qtbot.addWidget(pv)
@@ -138,6 +139,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert pv._image_viewer._viewer.contours_image.visible  # Contours visible
 
 
+@pytest.mark.skip(reason="Test data to be acquired")
 @pytest.mark.filterwarnings("ignore:.*multidimensional input.*:FutureWarning")  # oasis
 def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     pv = PlateViewer()
