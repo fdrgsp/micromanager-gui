@@ -85,8 +85,8 @@ def _load_and_set_data_from_json(path: Path) -> dict[str, dict[str, ROIData]]:
     return _pv_analysis_data
 
 
-datastore_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"
-analysis_path = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s_analysis"
+datastore_path = "..."
+analysis_path = "..."
 
 data = TensorstoreZarrReader(datastore_path)
 
