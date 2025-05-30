@@ -6,17 +6,23 @@
 [![CI](https://github.com/fdrgsp/micromanager-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/fdrgsp/micromanager-gui/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/fdrgsp/micromanager-gui/branch/main/graph/badge.svg)](https://codecov.io/gh/fdrgsp/micromanager-gui)
 
-A Micro-Manager minimal GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/pymmcore-widgets/) and [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/).
+A Micro-Manager GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/pymmcore-widgets/) and [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/).
 
+It has been designed to record calcium imaging experimets with or without optical stimulation using [Arduino](https://www.arduino.cc) and [Thorlabs](https://www.thorlabs.com) Components (paper in press...).
 
 <img width="2672" alt="Screenshot 2025-05-30 at 12 45 31 PM" src="https://github.com/user-attachments/assets/9e6c95a0-5a61-4fbf-b408-4221b8e6092f" />
 
+## Table of Contents
 
-## Python version
-
-The package is tested on Python 3.10 and 3.11.
+- [Installation](#installation)
+- [Run the Micro-Manger GUI](#run-the-micro-manger-gui)
+- [Run the Micro-Manger GUI with SlackBot](#run-the-micro-manger-gui-with-slackbot)
+  - [SlackBot App Manifest example](#slackbot-app-manifest-example)
+- [Run the Plate Viewer GUI](#run-the-plate-viewer-gui)
 
 ## Installation
+
+Create a virtual environment and install the package using `pip` or `uv pip` (if you are using [uv](https://docs.astral.sh/uv/)).
 
 ```bash
 pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calcium
@@ -28,7 +34,7 @@ Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) libra
 
 You also need to install the `Micro-Manager` device adapters and C++ core provided by [mmCoreAndDevices](https://github.com/micro-manager/mmCoreAndDevices#mmcoreanddevices). This can be done by following the steps described in the `pymmcore-plus` [documentation page](https://pymmcore-plus.github.io/pymmcore-plus/install/#installing-micro-manager-device-adapters).
 
-## To run the Micro-Manger GUI
+## Run the Micro-Manger GUI
 
 ```bash
 mmgui
@@ -40,7 +46,7 @@ By passing the `-c` or `-config` flag, you can specify the path of a micromanage
 mmgui -c path/to/config.cfg
 ```
 
-## To run the Micro-Manger GUI with SlackBot
+## Run the Micro-Manger GUI with SlackBot
 
 By passing the `-s` or `-slack` boolean flag, you will be able to use a `SlackBot` to control the microscope. In particular, you will be able to start and stop the acquisition and to get the progress of the acquisition.
 
@@ -72,14 +78,6 @@ Now that you have your `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`, you can either c
 The last step is to grant access to the desired `Slack channel` to the `Slack App`. This can be done by inviting the `Slack App` to the desired `Slack channel`: right-click on the channel name, select `View channel details`, select the `Integrations` tab and `Add Apps`. You now need to add to the `.env` file (or as global environment) a variable named `CHANNEL_ID` containing the `Slack channel` ID.
 
 After that, you can run the GUI with the `-s` or `-slack` flag set to `True` and start using the `Slack commands` to interact with the microscope.
-
-## To run the Plate Viewer GUI
-
-```bash
-pv
-```
-
-<img width="1728" alt="Screenshot 2024-07-17 at 10 21 24 PM" src="https://github.com/user-attachments/assets/b81d0ad3-a6d4-4ada-97b5-b4734c7d8eea">
 
 #### SlackBot App Manifest example
 
@@ -122,3 +120,11 @@ settings:
   socket_mode_enabled: true
   token_rotation_enabled: false
 ```
+
+## Run the Plate Viewer GUI
+
+```bash
+pv
+```
+
+<img width="1728" alt="Screenshot 2024-07-17 at 10 21 24 PM" src="https://github.com/user-attachments/assets/b81d0ad3-a6d4-4ada-97b5-b4734c7d8eea">
