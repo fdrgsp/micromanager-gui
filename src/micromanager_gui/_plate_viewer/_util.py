@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +22,9 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from skimage import filters, morphology
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Define a type variable for the BaseClass
 T = TypeVar("T", bound="BaseClass")
@@ -127,8 +130,8 @@ class _BrowseWidget(QWidget):
     def value(self) -> str:
         return self._path.text()  # type: ignore
 
-    def setValue(self, path: str) -> None:
-        self._path.setText(path)
+    def setValue(self, path: str | Path) -> None:
+        self._path.setText(str(path))
 
     def _on_browse(self) -> None:
         if self._is_dir:
