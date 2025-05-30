@@ -2,8 +2,6 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from sympy import im
-
 try:
     __version__ = version("micromanager-gui")
 except PackageNotFoundError:
