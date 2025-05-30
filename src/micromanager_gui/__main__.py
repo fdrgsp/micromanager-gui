@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
-from micromanager_gui import CellposeBatchSegmentationMP, MicroManagerGUI, PlateViewer
+from micromanager_gui import CellposeBatchSegmentationMP
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
