@@ -41,6 +41,12 @@ def plot_csv_violin_plot(
     add_to_title = info.get("add_to_title", "")
     units = info.get("units", "")
 
+    evk: bool = False
+    pulse_length: str | None = None
+
+    if parameter in {"Stimulated Amplitude", "Non-Stimulated Amplitude"}:
+        evk = True
+
     if not csv_path:
         return
 
@@ -67,8 +73,14 @@ def plot_csv_violin_plot(
             values = df[col].dropna().values
             if len(values) > 0:
                 plot_data.append(values)
-                # clean up condition name (remove "_Mean" suffix)
+                # clean up condition name
                 condition_name = col.replace("_Mean", "")
+                if evk:
+                    condition_name = condition_name.replace("_evk_stim", "")
+                    condition_name = condition_name.replace("_evk_non_stim", "")
+                    condition_name_split = condition_name.split("_")
+                    pulse_length = str(condition_name_split[-1])
+                    condition_name = "_".join(condition_name_split[:-1])
                 condition_labels.append(condition_name)
 
     else:
@@ -109,6 +121,9 @@ def plot_csv_violin_plot(
     ax.set_xlabel("Conditions")
     units = f"({units})" if units else ""
     ax.set_ylabel(f"{parameter} {units}")
+    if pulse_length is not None:
+        add_to_title = add_to_title[:-1]
+        add_to_title += f" - {pulse_length} ms Pulse)"
     ax.set_title(f"{parameter} per Conditions {add_to_title}")
 
     ax.grid(True, alpha=0.3)
