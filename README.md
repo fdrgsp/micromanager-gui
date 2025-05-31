@@ -18,7 +18,7 @@ It has been designed to record calcium imaging experiments with or without optic
 
 ## Installation
 
-Create a virtual environment and install the package using `pip` or `uv pip` (if you are using [uv](https://docs.astral.sh/uv/)).
+Create a virtual environment and install the package using `pip`:
 
 ```bash
 pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calcium
