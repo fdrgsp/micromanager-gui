@@ -560,6 +560,7 @@ class PlateViewer(QMainWindow):
                 # TODO: add here the creation of a mock plate plan based on the
                 # number of positions in the sequence so we can use the plate viewer
                 # also with manually selected positions (and not only with HCS widget)
+                # matbe use "coverslip-18mm-square" as default plate.
                 return None
 
         plate = plate_plan.plate
