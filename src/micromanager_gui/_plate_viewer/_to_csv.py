@@ -368,7 +368,6 @@ def numeric_intensity(full_key: str, index: int) -> float:
 
 def condition_tag(full_key: str) -> str:
     """Return the condition tag from the full key."""
-    print("---------------", full_key)
     condition = full_key.split("_")
     return "_".join(condition[:-2])
 
