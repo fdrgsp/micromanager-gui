@@ -41,14 +41,8 @@ def plot_csv_violin_plot(
     add_to_title = info.get("add_to_title", "")
     units = info.get("units", "")
 
-    evk: bool = False
+    evk = parameter in {"Stimulated Amplitude", "Non-Stimulated Amplitude"}
     pulse_length: str | None = None
-
-    if parameter in {"Stimulated Amplitude", "Non-Stimulated Amplitude"}:
-        evk = True
-
-    if not csv_path:
-        return
 
     # load the CSV file
     try:
