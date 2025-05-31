@@ -90,11 +90,11 @@ def _set_graph_title_and_labels(
 ) -> None:
     """Set axis labels based on the plotted data."""
     if std:
-        title = "Inter-event intervals (Sec - Mean ± StD - Deconvolved dF/F)"
+        title = "Inter-event intervals (Sec - Mean ± StD - Deconvolved ΔF/F)"
     elif sem:
-        title = "Inter-event intervals (Sec - Mean ± SEM - Deconvolved dF/F)"
+        title = "Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
     else:
-        title = "Inter-event intervals (Sec - Deconvolved dF/F)"
+        title = "Inter-event intervals (Sec - Deconvolved ΔF/F)"
     x_lbl = "ROIs"
 
     ax.set_title(title)

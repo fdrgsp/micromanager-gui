@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from ._util import (
     get_synchrony,
 )
 
+NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
@@ -352,6 +354,25 @@ def _export_to_csv_single_values(
     df.to_csv(csv_path, index=False)
 
 
+def numeric_intensity(full_key: str, index: int) -> float:
+    """
+    Return the stimulus intensity.
+
+    ...encoded in …_###.###mW/cm²_…_Mean or just …_###_…_Mean.
+    If no number is found, fall back to +inf so those keys end up last.
+    """
+    parts = full_key.split("_")[index]
+    m = NUMBER_RE.search(parts)
+    return float(m.group()) if m else float("inf")
+
+
+def condition_tag(full_key: str) -> str:
+    """Return the condition tag from the full key."""
+    print("---------------", full_key)
+    condition = full_key.split("_")
+    return "_".join(condition[:-2])
+
+
 def _export_to_csv_mean_values_evk_parameters(
     path: Path | str, data: dict[str, dict[str, dict[str, dict[str, list[Any]]]]]
 ) -> None:
@@ -376,10 +397,19 @@ def _export_to_csv_mean_values_evk_parameters(
                     fov_stim_keys.add((fov, stim))
 
         # Create rows per (FOV, stimulus)
-        for fov, stim in sorted(fov_stim_keys):
+        sorted_keys = sorted(
+            fov_stim_keys, key=lambda t: (t[0], numeric_intensity(t[1], 0))
+        )
+        for fov, stim in sorted_keys:
             row_key = f"{fov}_{stim}"
             row = {"FOV": row_key}
-            for cond in sorted(condition_dict):
+
+            sorted_cond_keys = sorted(
+                condition_dict,
+                key=lambda k: (condition_tag(k), numeric_intensity(k, -2)),
+            )
+
+            for cond in sorted_cond_keys:
                 fovs = condition_dict[cond]
                 if stim_values := fovs.get(fov, {}).get(stim):
                     mean_val = np.mean(stim_values)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ._multi_wells_plots._multi_well_data_plot import _plot_multi_well_data
+from ._multi_wells_plots._csv_violin_plot import plot_csv_violin_plot
 from ._single_wells_plots._correlation_plots import (
     _plot_cross_correlation_data,
     _plot_hierarchical_clustering_data,
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
         _MultilWellGraphWidget,
         _SingleWellGraphWidget,
     )
-    from micromanager_gui._plate_viewer._util import ROIData
 
 
 # TITLES FOR THE PLOTS THAT WILL BE SHOWN IN THE COMBOBOX
@@ -67,6 +67,14 @@ GLOBAL_SYNCHRONY = "Global Synchrony"
 CROSS_CORRELATION = "Cross-Correlation"
 CLUSTERING = "Hierarchical Clustering"
 CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
+CSV_VIOLIN_PLOT_AMPLITUDE = "Amplitude Violin Plot"
+CSV_VIOLIN_PLOT_FREQUENCY = "Frequency Violin Plot"
+CSV_VIOLIN_PLOT_IEI = "Inter-event Interval Violin Plot"
+CSV_VIOLIN_PLOT_CELL_SIZE = "Cell Size Violin Plot"
+CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Violin Plot"
+CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
+CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Violin Plot"
+CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Violin Plot"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -237,33 +245,67 @@ def plot_single_well_data(
 
 # MULTI WELLS PLOTS -------------------------------------------------------------------
 
+# fmt: off
 MULTI_WELL_COMBO_OPTIONS = [
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY,
-    DEC_DFF_AMPLITUDE,
-    DEC_DFF_FREQUENCY,
-    DEC_DFF_IEI,
+    CSV_VIOLIN_PLOT_AMPLITUDE,
+    CSV_VIOLIN_PLOT_FREQUENCY,
+    CSV_VIOLIN_PLOT_IEI,
+    CSV_VIOLIN_PLOT_CELL_SIZE,
+    CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY,
+    CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS,
+    CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE,
+    CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE
 ]
 
 MULTI_WELL_GRAPHS_OPTIONS = {
-    DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
-    DEC_DFF_AMPLITUDE: {"amp": True},
-    DEC_DFF_FREQUENCY: {"freq": True},
-    DEC_DFF_IEI: {"iei": True},
+    CSV_VIOLIN_PLOT_AMPLITUDE: {"parameter": "Amplitude", "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_VIOLIN_PLOT_FREQUENCY: {"parameter": "Frequency", "suffix": "frequency", "add_to_title": " (Deconvolved ΔF/F)", "units": "Hz"},  # noqa: E501
+    CSV_VIOLIN_PLOT_IEI: {"parameter": "Inter-Event Interval", "suffix": "iei", "add_to_title": " (Deconvolved ΔF/F)", "units": "Sec"},  # noqa: E501
+    CSV_VIOLIN_PLOT_CELL_SIZE: {"parameter": "Cell Size", "suffix": "cell_size", "units": "μm²"},  # noqa: E501
+    CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Global Synchrony", "suffix": "synchrony", "add_to_title": "(Median)", "units": "Index"},  # noqa: E501
+    CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active"},  # noqa: E501
+    CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE: {"parameter": "Stimulated Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE: {"parameter": "Non-Stimulated Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
 }
+# fmt: on
 
 
 def plot_multi_well_data(
     widget: _MultilWellGraphWidget,
     text: str,
-    data: dict[str, dict[str, ROIData]],
-    positions: list[int] | None = None,
+    analysis_path: str | None,
 ) -> None:
     """Plot the multi-well data."""
-    if not text or text == "None" or not data:
+    widget.figure.clear()
+
+    if not text or text == "None" or not analysis_path:
         return
 
-    # get the options for the text using the MULTI_WELL_GRAPHS_OPTIONS dictionary that
-    # maps the text to the options
-    return _plot_multi_well_data(
-        widget, data, positions, **MULTI_WELL_GRAPHS_OPTIONS[text]
-    )
+    suffix = MULTI_WELL_GRAPHS_OPTIONS[text].get("suffix")
+    if not suffix:
+        print(f"No parameter found for {text}.")
+        return
+
+    if "stimulated" in suffix:
+        csv_path = Path(analysis_path) / "grouped_evk"
+    else:
+        csv_path = Path(analysis_path) / "grouped"
+    if not csv_path.exists():
+        print(f"CSV path {csv_path} does not exist.")
+        return
+
+    csv_file: Path | None = None
+    for f in csv_path.glob("*.csv"):
+        if f.name.endswith(f"_{suffix}.csv"):
+            csv_file = f
+            break
+
+    if not csv_file:
+        return
+
+    if suffix in {"synchrony", "percentage_active"}:
+        return plot_csv_violin_plot(
+            widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text], mean_n_sem=False
+        )
+
+    return plot_csv_violin_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])

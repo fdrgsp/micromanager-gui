@@ -353,9 +353,7 @@ class _MultilWellGraphWidget(QWidget):
         if text == "None":
             return
 
-        plot_multi_well_data(
-            self, text, self._plate_viewer._pv_analysis_data, positions=None
-        )
+        plot_multi_well_data(self, text, self._plate_viewer._pv_analysis_path)
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""

@@ -172,7 +172,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     title += "Per LED Intensity - "
     if pulse:
         title += f"{pulse} ms pulses - "
-    title += "Deconvolved dF/F)"
+    title += "Deconvolved ΔF/F)"
     ax.set_title(title)
     widget.figure.tight_layout()
     widget.canvas.draw()
@@ -372,7 +372,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     rois: list[int] | None = None,
     with_peaks: bool = False,
 ) -> None:
-    """Plot dec dF/F traces with global percentile normalization (5th-100th)."""
+    """Plot dec ΔF/F traces with global percentile normalization (5th-100th)."""
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
@@ -436,7 +436,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
         ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.5)
 
     ax.set_title(
-        "Stimulated vs Non-Stimulated ROIs Traces \n(Normalized Deconvolved dF/F)"
+        "Stimulated vs Non-Stimulated ROIs Traces \n(Normalized Deconvolved ΔF/F)"
     )
     ax.set_yticklabels([])
     ax.set_yticks([])
