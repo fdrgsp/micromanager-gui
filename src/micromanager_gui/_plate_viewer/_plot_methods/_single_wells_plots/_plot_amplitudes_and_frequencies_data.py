@@ -118,6 +118,7 @@ def _set_graph_title_and_labels(
     sem: bool,
 ) -> None:
     """Set axis labels based on the plotted data."""
+    title = x_lbl = y_lbl = ""
     if amp and freq:
         if std:
             title = "ROIs Mean Amplitude ± StD vs Frequency"
@@ -125,7 +126,7 @@ def _set_graph_title_and_labels(
             title = "ROIs Mean Amplitude ± SEM vs Frequency"
         else:
             title = "ROIs Amplitude vs Frequency"
-        title += " (Deconvolved dF/F)"
+        title += " (Deconvolved ΔF/F)"
         x_lbl = "Amplitude"
         y_lbl = "Frequency (Hz)"
     elif amp:
@@ -135,11 +136,11 @@ def _set_graph_title_and_labels(
             title = "Mean Amplitude ± SEM"
         else:
             title = "Amplitude"
-        title += " (Deconvolved dF/F)"
+        title += " (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
         y_lbl = "Amplitude"
     elif freq:
-        title = "Frequency (Deconvolved dF/F)"
+        title = "Frequency (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
         y_lbl = "Frequency (Hz)"
 

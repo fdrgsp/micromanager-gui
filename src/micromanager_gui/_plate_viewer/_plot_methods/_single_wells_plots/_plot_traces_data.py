@@ -132,15 +132,15 @@ def _set_graph_title_and_labels(
 ) -> None:
     """Set axis labels based on the plotted data."""
     if dff:
-        title = "Normalized Traces (dF/F)" if normalize else "Traces (dF/F)"
-        y_lbl = "ROIs" if normalize else "dF/F"
+        title = "Normalized Traces (ΔF/F)" if normalize else "Traces (ΔF/F)"
+        y_lbl = "ROIs" if normalize else "ΔF/F"
     elif dec:
         title = (
-            "Normalized Traces (Deconvolved dF/F)"
+            "Normalized Traces (Deconvolved ΔF/F)"
             if normalize
-            else "Traces (Deconvolved dF/F)"
+            else "Traces (Deconvolved ΔF/F)"
         )
-        y_lbl = "ROIs" if normalize else "Deconvolved dF/F"
+        y_lbl = "ROIs" if normalize else "Deconvolved ΔF/F"
     else:
         title = "Normalized Traces" if normalize else "Raw Traces"
         y_lbl = "ROIs" if normalize else "Fluorescence Intensity"

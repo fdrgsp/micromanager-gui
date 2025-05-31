@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import mplcursors
-import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -13,7 +11,10 @@ if TYPE_CHECKING:
 
 
 def plot_csv_violin_plot(
-    widget: _MultilWellGraphWidget, csv_path: str | Path = ""
+    widget: _MultilWellGraphWidget,
+    csv_path: str | Path,
+    info: dict[str, str],
+    mean_n_sem: bool = True,
 ) -> None:
     """Load a CSV file and create violin plots with conditions on the x-axis.
 
@@ -22,31 +23,39 @@ def plot_csv_violin_plot(
     widget : _MultilWellGraphWidget
         The widget to plot on.
     csv_path : str | Path | None
-        Path to the CSV file. If None, opens a file dialog.
+        Path to the CSV file.
+    info : dict[str, str]
+        Additional information, not used in this function.
+    mean_n_sem : bool, optional
+        If True, means that the CSV file contains for each condition 3 columns,
+        the mean, the number of samples, and the standard error of the mean (SEM).
+        By default True.
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
+    parameter = info.get("parameter")
+    if not parameter:
+        return
+
+    add_to_title = info.get("add_to_title", "")
+    units = info.get("units", "")
+
     if not csv_path:
         return
 
+    # load the CSV file
     try:
-        # Load the CSV file
         df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
 
-        # Extract all condition columns (those ending with "_Mean")
+    if mean_n_sem:
+        # extract all condition columns (those ending with "_Mean")
         mean_columns = [col for col in df.columns if col.endswith("_Mean")]
 
         if not mean_columns:
-            ax.text(
-                0.5,
-                0.5,
-                'No "_Mean" columns found in CSV',
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            widget.canvas.draw()
             return
 
         # Prepare data for violin plot
@@ -54,114 +63,56 @@ def plot_csv_violin_plot(
         condition_labels = []
 
         for col in mean_columns:
-            # Get the data for this condition (remove NaN values)
+            # get the data for this condition (remove NaN values)
             values = df[col].dropna().values
             if len(values) > 0:
                 plot_data.append(values)
-                # Clean up condition name (remove "_Mean" suffix)
+                # clean up condition name (remove "_Mean" suffix)
                 condition_name = col.replace("_Mean", "")
                 condition_labels.append(condition_name)
 
-        if not plot_data:
-            ax.text(
-                0.5,
-                0.5,
-                "No valid data found in CSV",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            widget.canvas.draw()
-            return
+    else:
+        plot_data = [df[col].dropna().values for col in df.columns]
+        condition_labels = list(df.columns)
 
-        # Create violin plot
-        violin_parts = ax.violinplot(
-            plot_data,
-            positions=range(1, len(plot_data) + 1),
-            showmeans=True,
-            showmedians=True,
-        )
+    if not plot_data:
+        return
 
-        # Customize appearance
-        for pc in violin_parts["bodies"]:
-            pc.set_facecolor("lightblue")
-            pc.set_alpha(0.7)
+    # create violin plot
+    parts = ax.violinplot(
+        plot_data,
+        positions=range(1, len(plot_data) + 1),
+        showmeans=True,
+        showmedians=True,
+        showextrema=False,
+        side="both",
+    )
 
-        # Set labels and title
-        ax.set_xticks(range(1, len(condition_labels) + 1))
-        ax.set_xticklabels(condition_labels, rotation=45, ha="right")
-        ax.set_xlabel("Conditions")
-        ax.set_ylabel("Amplitude")
-        ax.set_title("Violin Plot of Conditions")
+    for body in parts.get("bodies", []):
+        body.set_facecolor("lightgray")
+        body.set_edgecolor("black")
+        body.set_alpha(0.5)
 
-        # Add grid for better readability
-        ax.grid(True, alpha=0.3)
+    lines = {"cmeans": "green", "cmedians": "magenta"}
+    for key, color in lines.items():
+        parts[key].set_color(color)
+        parts[key].set_linewidth(1.3)
 
-        # Add statistics text
-        stats_text = []
-        for data, label in zip(plot_data, condition_labels):
-            n = len(data)
-            mean = np.mean(data)
-            std = np.std(data)
-            stats_text.append(f"{label}: n={n}, μ={mean:.3f}, std={std:.3f}")
+    # add mean and median legend
+    ax.plot([], [], color="green", label="Mean", linewidth=1.3)
+    ax.plot([], [], color="magenta", label="Median", linewidth=1.3)
+    ax.legend(loc="upper left", frameon=True)
 
-        # Add statistics as text box
-        stats_str = "\n".join(stats_text)
-        ax.text(
-            0.02,
-            0.98,
-            stats_str,
-            transform=ax.transAxes,
-            verticalalignment="top",
-            fontsize=8,
-            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-        )
+    # labels and title
+    ax.set_xticks(range(1, len(condition_labels) + 1))
+    ax.set_xticklabels(condition_labels, rotation=45, ha="right")
+    ax.set_xlabel("Conditions")
+    units = f"({units})" if units else ""
+    ax.set_ylabel(f"{parameter} {units}")
+    ax.set_title(f"{parameter} per Conditions {add_to_title}")
 
-    except Exception as e:
-        ax.text(
-            0.5,
-            0.5,
-            f"Error loading CSV: {e!s}",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-        )
+    ax.grid(True, alpha=0.3)
 
     widget.figure.tight_layout()
 
-    # Add hover functionality to display condition info
-    cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        # Get the x position to determine which condition
-        x_pos = sel.target[0]
-        condition_idx = round(x_pos) - 1
-
-        if 0 <= condition_idx < len(condition_labels):
-            condition = condition_labels[condition_idx]
-            data = plot_data[condition_idx]
-            y_val = sel.target[1]
-
-            # Find closest data point
-            closest_idx = np.argmin(np.abs(data - y_val))
-            actual_val = data[closest_idx]
-
-            sel.annotation.set(
-                text=f"{condition}\nValue: {actual_val:.3f}\nn={len(data)}",
-                fontsize=8,
-                color="black",
-            )
-
     widget.canvas.draw()
-
-
-def load_and_plot_csv_violin(widget: _MultilWellGraphWidget) -> None:
-    """Load and plot CSV violin plot with file dialog.
-
-    Parameters
-    ----------
-    widget : _MultilWellGraphWidget
-        The widget to plot on.
-    """
-    plot_csv_violin_plot(widget)

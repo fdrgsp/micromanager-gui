@@ -38,7 +38,7 @@ def _plot_synchrony_data(
 
     linear_synchrony = get_synchrony(synchrony_matrix)
 
-    title = f"Global Synchrony: {linear_synchrony:0.4f}"
+    title = f"Median Global Synchrony: {linear_synchrony:0.4f}"
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(
