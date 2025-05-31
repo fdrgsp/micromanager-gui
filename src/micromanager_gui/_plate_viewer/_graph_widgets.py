@@ -9,12 +9,14 @@ from matplotlib.figure import Figure
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QStandardItem, QStandardItemModel
 from qtpy.QtWidgets import (
+    QAction,
     QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -296,9 +298,15 @@ class _MultilWellGraphWidget(QWidget):
 
         self._fov: str = ""
 
+        self._conditions: dict[str, bool] = {}
+
         self._combo = QComboBox(self)
         self._combo.addItems(["None", *MULTI_WELL_COMBO_OPTIONS])
         self._combo.currentTextChanged.connect(self._on_combo_changed)
+
+        self._conditions_btn = QPushButton("Conditions...", self)
+        self._conditions_btn.setEnabled(False)
+        self._conditions_btn.clicked.connect(self._show_conditions_menu)
 
         self._save_btn = QPushButton("Save", self)
         self._save_btn.clicked.connect(self._on_save)
@@ -307,6 +315,7 @@ class _MultilWellGraphWidget(QWidget):
         top.setContentsMargins(0, 0, 0, 0)
         top.setSpacing(5)
         top.addWidget(self._combo, 1)
+        top.addWidget(self._conditions_btn, 0)
         top.addWidget(self._save_btn, 0)
 
         # hiding this for now, to be implemented
@@ -334,6 +343,15 @@ class _MultilWellGraphWidget(QWidget):
         self._fov = fov
         self._on_combo_changed(self._combo.currentText())
 
+    @property
+    def conditions(self) -> dict[str, bool]:
+        """Return the list of conditions."""
+        return self._conditions
+
+    @conditions.setter
+    def conditions(self, conditions: dict[str, bool]) -> None:
+        self._conditions = conditions
+
     def clear_plot(self) -> None:
         """Clear the plot."""
         self.figure.clear()
@@ -350,6 +368,7 @@ class _MultilWellGraphWidget(QWidget):
         """Update the graph when the combo box is changed."""
         # clear the plot
         self.clear_plot()
+        self._conditions_btn.setEnabled(text != "None")
         if text == "None":
             return
 
@@ -365,3 +384,31 @@ class _MultilWellGraphWidget(QWidget):
         if not filename:
             return
         self.figure.savefig(filename, dpi=300)
+
+    def _show_conditions_menu(self) -> None:
+        """Show a context menu with condition checkboxes."""
+        # Create the context menu
+        menu = QMenu(self)
+
+        for condition, state in self._conditions.items():
+            action = QAction(condition, self)
+            action.setCheckable(True)
+            action.setChecked(state)
+            action.triggered.connect(
+                lambda checked, text=condition: self._on_condition_toggled(
+                    checked, text
+                )
+            )
+
+            menu.addAction(action)
+
+        # Show the menu at the button position
+        button_pos = self._conditions_btn.mapToGlobal(
+            self._conditions_btn.rect().bottomLeft()
+        )
+        menu.exec(button_pos)
+
+    def _on_condition_toggled(self, checked: bool, condition: str) -> None:
+        """Handle when a condition checkbox is toggled."""
+        self._conditions[condition] = checked
+        self._on_combo_changed(self._combo.currentText())
