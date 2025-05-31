@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import re
 from collections import defaultdict
-from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from pyfirmata2 import Arduino, Pin
-from pymmcore_plus import CMMCorePlus
 from pymmcore_plus.mda.handlers import (
     ImageSequenceWriter,
     OMETiffWriter,
@@ -17,9 +16,6 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtWidgets import QBoxLayout, QMessageBox, QWidget
 from useq import CustomAction, MDAEvent, MDASequence
 
-from micromanager_gui._widgets._mda_widget._arduino._arduino_led_dialog import (
-    StimulationValues,
-)
 from micromanager_gui._writers import _OMETiffWriter, _TiffSequenceWriter
 
 from ._arduino import ArduinoLedWidget
@@ -33,7 +29,15 @@ from ._save_widget import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from pyfirmata2 import Arduino, Pin
+    from pymmcore_plus import CMMCorePlus
+
     from micromanager_gui._engine import ArduinoEngine
+    from micromanager_gui._widgets._mda_widget._arduino._arduino_led_dialog import (
+        StimulationValues,
+    )
 
 NUM_SPLIT = re.compile(r"(.*?)(?:_(\d{3,}))?$")
 OME_TIFFS = tuple(WRITERS[OME_TIFF])
