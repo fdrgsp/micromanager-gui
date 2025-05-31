@@ -38,6 +38,8 @@ def plot_csv_violin_plot(
     if not parameter:
         return
 
+    cond_list: dict[str, bool] = widget.conditions
+
     add_to_title = info.get("add_to_title", "")
     units = info.get("units", "")
 
@@ -81,6 +83,21 @@ def plot_csv_violin_plot(
         plot_data = [df[col].dropna().values for col in df.columns]
         condition_labels = list(df.columns)
 
+    if not cond_list or len(cond_list) != len(condition_labels):
+        cond_list = {label: True for label in condition_labels}
+        widget.conditions = cond_list
+
+    # filter plot_data and condition_labels to only include selected conditions
+    plot_data = [
+        data
+        for label, data in zip(condition_labels, plot_data)
+        if label in cond_list and cond_list[label] is True
+    ]
+    condition_labels = [
+        label
+        for label in condition_labels
+        if label in cond_list and cond_list[label] is True
+    ]
     if not plot_data:
         return
 
