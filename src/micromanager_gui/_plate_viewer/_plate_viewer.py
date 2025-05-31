@@ -557,6 +557,9 @@ class PlateViewer(QMainWindow):
         if not isinstance(plate_plan, useq.WellPlatePlan):
             plate_plan = self._retrieve_plate_plan_from_old_maradata()
             if plate_plan is None:
+                # TODO: add here the creation of a mock plate plan based on the
+                # number of positions in the sequence so we can use the plate viewer
+                # also with manually selected positions (and not only with HCS widget)
                 return None
 
         plate = plate_plan.plate
@@ -586,6 +589,8 @@ class PlateViewer(QMainWindow):
             return None
 
         meta = cast(dict, self._data.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+
+        plate_plan: useq.WellPlatePlan | None = None
 
         try:
             # in the old version the HCS metadata was in the root of the metadata
