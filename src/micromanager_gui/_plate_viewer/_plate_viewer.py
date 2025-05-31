@@ -234,11 +234,9 @@ class PlateViewer(QMainWindow):
         multi_well_layout.setSpacing(5)
 
         self._multi_well_graph_wdg_1 = _MultilWellGraphWidget(self)
-        self._multi_well_graph_wdg_2 = _MultilWellGraphWidget(self)
         multi_well_layout.addWidget(self._multi_well_graph_wdg_1, 0, 0)
-        multi_well_layout.addWidget(self._multi_well_graph_wdg_2, 1, 0)
 
-        self.MW_GRAPHS = [self._multi_well_graph_wdg_1, self._multi_well_graph_wdg_2]
+        self.MW_GRAPHS = [self._multi_well_graph_wdg_1]
 
         # splitter between the plate map/fov table/image viewer and the graphs
         self.main_splitter = QSplitter(self)
