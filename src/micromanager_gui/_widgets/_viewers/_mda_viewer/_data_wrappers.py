@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any
 
 from ndv import DataWrapper
 from pymmcore_plus.mda.handlers import OMEZarrWriter, TensorStoreHandler
+from typing_extensions import TypeGuard
 
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
