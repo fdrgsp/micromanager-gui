@@ -1,7 +1,11 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from pymmcore_widgets import InstallWidget
-from qtpy.QtWidgets import QWidget
+
+if TYPE_CHECKING:
+    from qtpy.QtWidgets import QWidget
 
 
 class _InstallWidget(InstallWidget):
