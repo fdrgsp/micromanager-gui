@@ -68,11 +68,13 @@ CROSS_CORRELATION = "Cross-Correlation"
 CLUSTERING = "Hierarchical Clustering"
 CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
 CSV_VIOLIN_PLOT_AMPLITUDE = "Amplitude Violin Plot"
-CSV_FREQUENCY_VIOLIN_PLOT = "Frequency Violin Plot"
-CSV_IEI_VIOLIN_PLOT = "Inter-event Interval Violin Plot"
-CSV_CELL_SIZE_VIOLIN_PLOT = "Cell Size Violin Plot"
-CSV_GLOBAL_SYNCHRONY_PLOT = "Global Synchrony Violin Plot"
-CSV_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
+CSV_VIOLIN_PLOT_FREQUENCY = "Frequency Violin Plot"
+CSV_VIOLIN_PLOT_IEI = "Inter-event Interval Violin Plot"
+CSV_VIOLIN_PLOT_CELL_SIZE = "Cell Size Violin Plot"
+CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Violin Plot"
+CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
+CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Violin Plot"
+CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Violin Plot"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -246,20 +248,24 @@ def plot_single_well_data(
 # fmt: off
 MULTI_WELL_COMBO_OPTIONS = [
     CSV_VIOLIN_PLOT_AMPLITUDE,
-    CSV_FREQUENCY_VIOLIN_PLOT,
-    CSV_IEI_VIOLIN_PLOT,
-    CSV_CELL_SIZE_VIOLIN_PLOT,
-    CSV_GLOBAL_SYNCHRONY_PLOT,
-    CSV_PERCENTAGE_ACTIVE_CELLS
+    CSV_VIOLIN_PLOT_FREQUENCY,
+    CSV_VIOLIN_PLOT_IEI,
+    CSV_VIOLIN_PLOT_CELL_SIZE,
+    CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY,
+    CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS,
+    CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE,
+    CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE
 ]
 
 MULTI_WELL_GRAPHS_OPTIONS = {
     CSV_VIOLIN_PLOT_AMPLITUDE: {"parameter": "Amplitude", "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_FREQUENCY_VIOLIN_PLOT: {"parameter": "Frequency", "suffix": "frequency", "add_to_title": " (Deconvolved ΔF/F)", "units": "Hz"},  # noqa: E501
-    CSV_IEI_VIOLIN_PLOT: {"parameter": "Inter-Event Interval", "suffix": "iei", "add_to_title": " (Deconvolved ΔF/F)", "units": "Sec"},  # noqa: E501
-    CSV_CELL_SIZE_VIOLIN_PLOT: {"parameter": "Cell Size", "suffix": "cell_size", "units": "μm²"},  # noqa: E501
-    CSV_GLOBAL_SYNCHRONY_PLOT: {"parameter": "Global Synchrony", "suffix": "synchrony", "add_to_title": "(Median)", "units": "Index"},  # noqa: E501
-    CSV_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active"},  # noqa: E501
+    CSV_VIOLIN_PLOT_FREQUENCY: {"parameter": "Frequency", "suffix": "frequency", "add_to_title": " (Deconvolved ΔF/F)", "units": "Hz"},  # noqa: E501
+    CSV_VIOLIN_PLOT_IEI: {"parameter": "Inter-Event Interval", "suffix": "iei", "add_to_title": " (Deconvolved ΔF/F)", "units": "Sec"},  # noqa: E501
+    CSV_VIOLIN_PLOT_CELL_SIZE: {"parameter": "Cell Size", "suffix": "cell_size", "units": "μm²"},  # noqa: E501
+    CSV_VIOLIN_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Global Synchrony", "suffix": "synchrony", "add_to_title": "(Median)", "units": "Index"},  # noqa: E501
+    CSV_VIOLIN_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active"},  # noqa: E501
+    CSV_VIOLIN_PLOT_STIMULATED_AMPLITUDE: {"parameter": "Stimulated Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_VIOLIN_PLOT_NON_STIMULATED_AMPLITUDE: {"parameter": "Non-Stimulated Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
 }
 # fmt: on
 
@@ -275,14 +281,17 @@ def plot_multi_well_data(
     if not text or text == "None" or not analysis_path:
         return
 
-    csv_path = Path(analysis_path) / "grouped"
-    if not csv_path.exists():
-        print(f"CSV path {csv_path} does not exist.")
-        return
-
     suffix = MULTI_WELL_GRAPHS_OPTIONS[text].get("suffix")
     if not suffix:
         print(f"No parameter found for {text}.")
+        return
+
+    if "stimulated" in suffix:
+        csv_path = Path(analysis_path) / "grouped_evk"
+    else:
+        csv_path = Path(analysis_path) / "grouped"
+    if not csv_path.exists():
+        print(f"CSV path {csv_path} does not exist.")
         return
 
     csv_file: Path | None = None
@@ -294,10 +303,9 @@ def plot_multi_well_data(
     if not csv_file:
         return
 
-    if suffix in {"amplitude", "frequency", "iei", "cell_size"}:
-        return plot_csv_violin_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])
-
     if suffix in {"synchrony", "percentage_active"}:
         return plot_csv_violin_plot(
             widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text], mean_n_sem=False
         )
+
+    return plot_csv_violin_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])
