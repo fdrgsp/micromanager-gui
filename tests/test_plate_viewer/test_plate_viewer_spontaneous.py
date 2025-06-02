@@ -17,11 +17,13 @@ if TYPE_CHECKING:
 
 
 # TO CHANGE
-TEST_DATA_PATH = "/Volumes/T7 Shield/neurons/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s/SSADH_Fam005_CC240711_IG_NC_PlateC_240925_GCaMP6s.tensorstore.zarr"  # noqa: E501
+TEST_DATA_PATH = (
+    Path(__file__).parent / "data" / "spontaneous" / "spont.tensorstore.zarr"
+)
 
 # CHANGE CONTENT IN data/spontaneous/...
-TEST_LABELS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "labels")
-TEST_ANALYSIS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "analysis")
+TEST_LABELS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "spont_labels")
+TEST_ANALYSIS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "spont_analysis")
 
 # TO CHANGE
 G_MAP = [
@@ -100,7 +102,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     pv = PlateViewer()
     qtbot.addWidget(pv)
 
-    pv.initialize_widget(TEST_DATA_PATH, TEST_LABELS_PATH, TEST_ANALYSIS_PATH)
+    pv.initialize_widget(str(TEST_DATA_PATH), TEST_LABELS_PATH, TEST_ANALYSIS_PATH)
 
     # data
     assert pv.data is not None
