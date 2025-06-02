@@ -10,6 +10,7 @@ import tifffile
 import useq
 from fonticon_mdi6 import MDI6
 from ndv import NDViewer
+from pydantic import ValidationError
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from pymmcore_widgets.useq_widgets._well_plate_widget import (
     DATA_POSITION,
@@ -69,6 +70,11 @@ HCS = "hcs"
 UNSELECTABLE_COLOR = "#404040"
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
+DEFAULT_PLATE_PLAN = useq.WellPlatePlan(
+    plate=useq.WellPlate.from_str("coverslip-18mm-square"),
+    a1_center_xy=(0.0, 0.0),
+    selected_wells=((0,), (0,)),
+)
 
 
 class PlateViewer(QMainWindow):
@@ -100,7 +106,7 @@ class PlateViewer(QMainWindow):
 
         self._plate_plan_wizard = PlatePlanWizard(self)
         self._plate_plan_wizard.hide()
-        self._no_plate: bool = False
+        self._default_plate_plan: bool = False
 
         # add menu bar
         self.menu_bar = QMenuBar(self)
@@ -413,7 +419,7 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_path = None
         self._analysis_wdg.stimulation_area_path = None
         # no plate flag
-        self._no_plate = False
+        self._default_plate_plan = False
 
     def _load_and_set_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
@@ -557,42 +563,92 @@ class PlateViewer(QMainWindow):
         if self._data is None or plate_plan is None:
             return None
 
-        plate: useq.WellPlate | None = None
+        # if already a WellPlatePlan, use it directly
+        if isinstance(plate_plan, useq.WellPlatePlan):
+            final_plate_plan = plate_plan
+        else:
+            # try to load from various sources
+            final_plate_plan = self._resolve_plate_plan()
+            # if is the default plate plan, set the no_plate flag
+            if final_plate_plan == DEFAULT_PLATE_PLAN:
+                self._default_plate_plan = True
 
-        if not isinstance(plate_plan, useq.WellPlatePlan):
-            plate_plan = self._retrieve_plate_plan_from_old_maradata()
-            if plate_plan is None:
-                if self._plate_plan_wizard.exec():
-                    if (plate_plan := self._plate_plan_wizard.value()) is None:
-                        return None
-                else:
-                    # if no HCSWizard was used but single position list was created,
-                    # use a default square coverslip plate plan
-                    plate_plan = useq.WellPlatePlan(
-                        plate=useq.WellPlate.from_str("coverslip-18mm-square"),
-                        a1_center_xy=(0.0, 0.0),
-                    )
-                    self._no_plate = True
+            # save the resolved plate plan if we have an analysis path
+            if final_plate_plan and self._pv_analysis_path:
+                self._save_plate_plan_json(final_plate_plan)
 
-        plate = plate_plan.plate
+        if final_plate_plan is None:
+            return None
 
-        # draw plate
-        self._plate_view.drawPlate(plate)
-
-        # disable non-acquired wells
-        wells: dict[tuple[int, int], QAbstractGraphicsShapeItem] = (
-            self._plate_view._well_items
-        )
-        selected = [
-            tuple(plate_plan.selected_well_indices[i])
-            for i in range(len(plate_plan.selected_well_indices))
-        ]
-        for r, c in wells.keys():
-            if (r, c) not in selected:
-                self._plate_view.setWellColor(r, c, UNSELECTABLE_COLOR)
+        plate = final_plate_plan.plate
+        self._draw_plate_with_selection(plate, final_plate_plan)
         return plate
 
-    def _retrieve_plate_plan_from_old_maradata(self) -> useq.WellPlatePlan | None:
+    def _resolve_plate_plan(self) -> useq.WellPlatePlan | None:
+        """Resolve plate plan from various sources in order of preference."""
+        # try loading from JSON file
+        plate_plan = self._load_plate_plan_from_json()
+        if plate_plan:
+            return plate_plan
+
+        # try loading from old metadata
+        plate_plan = self._retrieve_plate_plan_from_old_metadata()
+        if plate_plan:
+            return plate_plan
+
+        # try using the wizard
+        if self._plate_plan_wizard.exec():
+            return self._plate_plan_wizard.value()
+
+        # if no HCSWizard was used but single position list was created,
+        # fallback to a default square coverslip plate plan
+        self._default_plate_plan = True
+        return DEFAULT_PLATE_PLAN
+
+    def _load_plate_plan_from_json(self) -> useq.WellPlatePlan | None:
+        """Load plate plan from JSON file if it exists."""
+        if not self._pv_analysis_path:
+            return None
+
+        pp_path = Path(self._pv_analysis_path) / "plate_plan.json"
+        if not pp_path.exists():
+            return None
+
+        try:
+            with open(pp_path) as f:
+                return useq.WellPlatePlan.model_validate_json(f.read())
+        except (json.JSONDecodeError, ValidationError) as e:
+            LOGGER.warning(f"Failed to load plate plan from {pp_path}: {e}")
+            return None
+
+    def _save_plate_plan_json(self, plate_plan: useq.WellPlatePlan) -> None:
+        """Save plate plan to JSON file."""
+        if not self._pv_analysis_path:
+            return
+        try:
+            plate_plan_path = Path(self._pv_analysis_path) / "plate_plan.json"
+            with open(plate_plan_path, "w") as f:
+                json.dump(plate_plan.model_dump(), f, indent=4)
+        except OSError as e:
+            LOGGER.error(f"Failed to save plate plan: {e}")
+
+    def _draw_plate_with_selection(
+        self, plate: useq.WellPlate, plate_plan: useq.WellPlatePlan
+    ) -> None:
+        """Draw the plate and disable non-selected wells."""
+        self._plate_view.drawPlate(plate)
+
+        wells = self._plate_view._well_items
+        selected_indices = {
+            tuple(plate_plan.selected_well_indices[i])
+            for i in range(len(plate_plan.selected_well_indices))
+        }
+
+        for r, c in wells.keys():
+            if (r, c) not in selected_indices:
+                self._plate_view.setWellColor(r, c, UNSELECTABLE_COLOR)
+
+    def _retrieve_plate_plan_from_old_metadata(self) -> useq.WellPlatePlan | None:
         """Retrieve the plate plan from the old metadata version."""
         if self._data is None:
             return None
@@ -850,7 +906,7 @@ class PlateViewer(QMainWindow):
 
         # add the fov per position to the table
         for idx, pos in enumerate(self._data.sequence.stage_positions):
-            if self._no_plate:
+            if self._default_plate_plan:
                 self._fov_table.add_position(WellInfo(idx, pos))
             elif pos.name and well_name in pos.name:
                 self._fov_table.add_position(WellInfo(idx, pos))
