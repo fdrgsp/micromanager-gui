@@ -272,6 +272,7 @@ class PlateViewer(QMainWindow):
         # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
         # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+
         # ____________________________________________________________________________
 
     @property
