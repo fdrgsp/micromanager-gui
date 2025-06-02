@@ -145,7 +145,7 @@ class SlackBot:
         # if the message was serialized from a dictionary
         # (e.g. {"icon_emoji": ":smile:", "text": "Hello!"})
         try:
-            message_data = cast(dict, json.loads(message))
+            message_data = cast("dict", json.loads(message))
             icon_emoji = message_data.get("icon_emoji", "")
             text = message_data.get("text", "")
         except json.JSONDecodeError:

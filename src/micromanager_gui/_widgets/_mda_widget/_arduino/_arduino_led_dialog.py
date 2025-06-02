@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from fonticon_mdi6 import MDI6
 from pyfirmata2 import Arduino
-from pyfirmata2.pyfirmata2 import Pin
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QPainter, QPaintEvent, QPen
 from qtpy.QtWidgets import (
@@ -22,6 +21,9 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from superqt.fonticon import icon
+
+if TYPE_CHECKING:
+    from pyfirmata2.pyfirmata2 import Pin
 
 
 class StimulationValues(TypedDict):
@@ -319,7 +321,7 @@ class ArduinoLedControl(QDialog):
         # make sure the led pin is available
         try:
             self._led_pin = cast(
-                Pin, self._arduino_board.get_pin(self._led_pin_info.text())
+                "Pin", self._arduino_board.get_pin(self._led_pin_info.text())
             )
         except Exception:
             return self._show_critical_messagebox(

@@ -84,7 +84,7 @@ def plot_csv_violin_plot(
         condition_labels = list(df.columns)
 
     if not cond_list or len(cond_list) != len(condition_labels):
-        cond_list = {label: True for label in condition_labels}
+        cond_list = dict.fromkeys(condition_labels, True)
         widget.conditions = cond_list
 
     # filter plot_data and condition_labels to only include selected conditions

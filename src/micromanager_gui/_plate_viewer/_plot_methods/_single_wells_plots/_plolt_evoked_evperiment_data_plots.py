@@ -145,7 +145,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
                 [power_pulse_label] * len(amps), amps, label=power_pulse_label
             )
             all_artists.append(scatter)
-            all_metadata.append((rois_, cast(list[float], amps.tolist())))
+            all_metadata.append((rois_, cast("list[float]", amps.tolist())))
 
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
@@ -471,10 +471,10 @@ def _normalize_trace_percentile(
     tr = np.array(trace)
     denom = p2 - p1
     if denom == 0:
-        return cast(list[float], np.zeros_like(tr).tolist())
+        return cast("list[float]", np.zeros_like(tr).tolist())
     normalized = (tr - p1) / denom
     normalized = np.clip(normalized, 0, 1)  # ensure values in [0, 1]
-    return cast(list[float], normalized.tolist())
+    return cast("list[float]", normalized.tolist())
 
 
 def _update_time_axis(
@@ -506,6 +506,6 @@ def _add_hover_functionality_stim_vs_non_stim(
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         if (lbl := sel.artist.get_label()) and "ROI" in lbl:
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            roi = cast("str", sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)

@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
 import useq
 import zarr
 from tifffile import imwrite
@@ -12,6 +11,8 @@ from tqdm import tqdm
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    import numpy as np
 
 try:  # if zarr < 3.0.0
     from zarr.hierarchy import Group
@@ -80,7 +81,7 @@ class OMEZarrReader:
     def sequence(self) -> useq.MDASequence | None:
         """Return the MDASequence if it exists."""
         try:
-            seq = cast(dict, self._store["p0"].attrs["useq_MDASequence"])
+            seq = cast("dict", self._store["p0"].attrs["useq_MDASequence"])
             self._sequence = useq.MDASequence(**seq) if seq is not None else None
         except KeyError:
             self._sequence = None
@@ -136,7 +137,7 @@ class OMEZarrReader:
 
         pos_key = f"p{indexers.get('p', 0)}"
         index = self._get_axis_index(indexers, pos_key)
-        data = cast(np.ndarray, self.store[pos_key][index].squeeze())
+        data = cast("np.ndarray", self.store[pos_key][index].squeeze())
         if metadata:
             meta = self._get_metadata_from_index(indexers, pos_key)
             return data, meta

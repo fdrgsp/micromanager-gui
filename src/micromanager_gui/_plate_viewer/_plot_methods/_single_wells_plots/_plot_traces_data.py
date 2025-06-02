@@ -178,6 +178,6 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         if (lbl := sel.artist.get_label()) and "ROI" in lbl:
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            roi = cast("str", sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)

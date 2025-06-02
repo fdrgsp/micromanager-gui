@@ -45,7 +45,7 @@ class ArduinoLedWidget(QGroupBox):
 
     def isChecked(self) -> bool:
         """Return True if the checkbox is checked."""
-        return cast(bool, self._enable_led.isChecked())
+        return cast("bool", self._enable_led.isChecked())
 
     def board(self) -> Arduino | None:
         """Return the current Arduino board object."""

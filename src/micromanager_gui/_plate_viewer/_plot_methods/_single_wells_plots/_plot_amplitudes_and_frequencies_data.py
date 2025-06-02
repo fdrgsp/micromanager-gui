@@ -58,14 +58,14 @@ def _plot_metrics(
             return
         # plot mean amplitude +- std of each ROI vs frequency
         if std:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+            mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
             std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
             _plot_errorbars(
                 ax, mean_amp, roi_data.dec_dff_frequency, std_amp, f"ROI {roi_key}"
             )
         # plot mean amplitude +- sem of each ROI vs frequency
         elif sem:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+            mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
             sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
             _plot_errorbars(
                 ax, mean_amp, roi_data.dec_dff_frequency, sem_amp, f"ROI {roi_key}"
@@ -82,12 +82,12 @@ def _plot_metrics(
             return
         # plot mean amplitude +- std of each ROI
         if std:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+            mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
             std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
             _plot_errorbars(ax, [int(roi_key)], mean_amp, std_amp, f"ROI {roi_key}")
         # plot mean amplitude +- sem of each ROI
         elif sem:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+            mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
             sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
             _plot_errorbars(ax, [int(roi_key)], mean_amp, sem_amp, f"ROI {roi_key}")
         else:
@@ -160,6 +160,6 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
     def on_add(sel: mplcursors.Selection) -> None:
         sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
         if (lbl := sel.artist.get_label()) and "ROI" in lbl:
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+            roi = cast("str", sel.artist.get_label().split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
