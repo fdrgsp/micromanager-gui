@@ -1,22 +1,21 @@
 name: CI
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
     branches:
       - main
     tags:
       - "v*"
-  pull_request:
+  pull_request: {}
   workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * 0" # every week (for --pre release tests)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-manifest:
+    name: Check Manifest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +63,16 @@ jobs:
       - name: Test
         run: pytest -v --cov=pymmcore_widgets --cov-report=xml --color=yes
 
-      - name: Coverage
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: covreport-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.backend }}
+          path: ./.coverage*
+          include-hidden-files: true
+
+  upload_coverage:
+    if: always()
+    needs: [test]
+    uses: pyapp-kit/workflows/.github/workflows/upload-coverage.yml@v2
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}
