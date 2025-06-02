@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from cvxpy import pos
 import pytest
-import useq
 from rich import print
 
 from micromanager_gui import PlateViewer
