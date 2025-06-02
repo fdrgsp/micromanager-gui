@@ -50,6 +50,7 @@ from ._init_dialog import _InitDialog
 from ._logger import LOGGER
 from ._old_plate_model import OldPlate
 from ._plate_map import PlateMapWidget
+from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._to_csv import save_to_csv
@@ -96,6 +97,10 @@ class PlateViewer(QMainWindow):
         self._pv_analysis_path = analysis_files_path
 
         self._pv_analysis_data: dict[str, dict[str, ROIData]] = {}
+
+        self._plate_plan_wizard = PlatePlanWizard(self)
+        self._plate_plan_wizard.hide()
+        self._no_plate: bool = False
 
         # add menu bar
         self.menu_bar = QMenuBar(self)
@@ -407,6 +412,8 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.labels_path = None
         self._analysis_wdg.analysis_path = None
         self._analysis_wdg.stimulation_area_path = None
+        # no plate flag
+        self._no_plate = False
 
     def _load_and_set_analysis_data(self, path: str | Path) -> None:
         """Load the analysis data from the given JSON file."""
@@ -555,11 +562,17 @@ class PlateViewer(QMainWindow):
         if not isinstance(plate_plan, useq.WellPlatePlan):
             plate_plan = self._retrieve_plate_plan_from_old_maradata()
             if plate_plan is None:
-                # TODO: add here the creation of a mock plate plan based on the
-                # number of positions in the sequence so we can use the plate viewer
-                # also with manually selected positions (and not only with HCS widget)
-                # matbe use "coverslip-18mm-square" as default plate.
-                return None
+                if self._plate_plan_wizard.exec():
+                    if (plate_plan := self._plate_plan_wizard.value()) is None:
+                        return None
+                else:
+                    # if no HCSWizard was used but single position list was created,
+                    # use a default square coverslip plate plan
+                    plate_plan = useq.WellPlatePlan(
+                        plate=useq.WellPlate.from_str("coverslip-18mm-square"),
+                        a1_center_xy=(0.0, 0.0),
+                    )
+                    self._no_plate = True
 
         plate = plate_plan.plate
 
@@ -837,7 +850,9 @@ class PlateViewer(QMainWindow):
 
         # add the fov per position to the table
         for idx, pos in enumerate(self._data.sequence.stage_positions):
-            if pos.name and well_name in pos.name:
+            if self._no_plate:
+                self._fov_table.add_position(WellInfo(idx, pos))
+            elif pos.name and well_name in pos.name:
                 self._fov_table.add_position(WellInfo(idx, pos))
 
         if self._fov_table.rowCount() > 0:
