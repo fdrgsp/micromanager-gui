@@ -1,76 +1,36 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 import useq
+from rich import print
 
 from micromanager_gui import PlateViewer
 from micromanager_gui._plate_viewer._fov_table import WellInfo
 from micromanager_gui._plate_viewer._plate_map import PlateMapData
 from micromanager_gui._plate_viewer._to_csv import save_to_csv
+from micromanager_gui._plate_viewer._util import ROIData
 
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
 
-# TO CHANGE
+# SPONTANEOUS TEST DATA
 TEST_DATA_PATH = (
     Path(__file__).parent / "data" / "spontaneous" / "spont.tensorstore.zarr"
 )
 
-# CHANGE CONTENT IN data/spontaneous/...
 TEST_LABELS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "spont_labels")
-TEST_ANALYSIS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "spont_analysis")
+TEST_ANALYSIS_PATH = str(
+    Path(__file__).parent / "data" / "spontaneous" / "spont_analysis"
+)
 
-# TO CHANGE
-G_MAP = [
-    PlateMapData(name="B7", row_col=(1, 6), condition=("g1", "orchid")),
-    PlateMapData(name="B8", row_col=(1, 7), condition=("g1", "orchid")),
-    PlateMapData(name="B9", row_col=(1, 8), condition=("g1", "orchid")),
-    PlateMapData(name="B10", row_col=(1, 9), condition=("g1", "orchid")),
-    PlateMapData(name="B11", row_col=(1, 10), condition=("g1", "orchid")),
-    PlateMapData(name="C7", row_col=(2, 6), condition=("g1", "orchid")),
-    PlateMapData(name="C8", row_col=(2, 7), condition=("g1", "orchid")),
-    PlateMapData(name="C9", row_col=(2, 8), condition=("g1", "orchid")),
-    PlateMapData(name="C10", row_col=(2, 9), condition=("g1", "orchid")),
-    PlateMapData(name="C11", row_col=(2, 10), condition=("g1", "orchid")),
-    PlateMapData(name="F7", row_col=(5, 6), condition=("g2", "chartreuse")),
-    PlateMapData(name="F8", row_col=(5, 7), condition=("g2", "chartreuse")),
-    PlateMapData(name="F9", row_col=(5, 8), condition=("g2", "chartreuse")),
-    PlateMapData(name="F10", row_col=(5, 9), condition=("g2", "chartreuse")),
-    PlateMapData(name="F11", row_col=(5, 10), condition=("g2", "chartreuse")),
-    PlateMapData(name="G7", row_col=(6, 6), condition=("g2", "chartreuse")),
-    PlateMapData(name="G8", row_col=(6, 7), condition=("g2", "chartreuse")),
-    PlateMapData(name="G9", row_col=(6, 8), condition=("g2", "chartreuse")),
-    PlateMapData(name="G10", row_col=(6, 9), condition=("g2", "chartreuse")),
-    PlateMapData(name="G11", row_col=(6, 10), condition=("g2", "chartreuse")),
-]
-# TO CHANGE
-T_MAP = [
-    PlateMapData(name="B7", row_col=(1, 6), condition=("t1", "darkturquoise")),
-    PlateMapData(name="B8", row_col=(1, 7), condition=("t1", "darkturquoise")),
-    PlateMapData(name="B9", row_col=(1, 8), condition=("t2", "purple")),
-    PlateMapData(name="B10", row_col=(1, 9), condition=("t2", "purple")),
-    PlateMapData(name="B11", row_col=(1, 10), condition=("ctrl", "navy")),
-    PlateMapData(name="C7", row_col=(2, 6), condition=("t1", "darkturquoise")),
-    PlateMapData(name="C8", row_col=(2, 7), condition=("t1", "darkturquoise")),
-    PlateMapData(name="C9", row_col=(2, 8), condition=("t2", "purple")),
-    PlateMapData(name="C10", row_col=(2, 9), condition=("t2", "purple")),
-    PlateMapData(name="C11", row_col=(2, 10), condition=("ctrl", "navy")),
-    PlateMapData(name="F7", row_col=(5, 6), condition=("t1", "darkturquoise")),
-    PlateMapData(name="F8", row_col=(5, 7), condition=("t1", "darkturquoise")),
-    PlateMapData(name="F9", row_col=(5, 8), condition=("t2", "purple")),
-    PlateMapData(name="F10", row_col=(5, 9), condition=("t2", "purple")),
-    PlateMapData(name="F11", row_col=(5, 10), condition=("ctrl", "navy")),
-    PlateMapData(name="G7", row_col=(6, 6), condition=("t1", "darkturquoise")),
-    PlateMapData(name="G8", row_col=(6, 7), condition=("t1", "darkturquoise")),
-    PlateMapData(name="G9", row_col=(6, 8), condition=("t2", "purple")),
-    PlateMapData(name="G10", row_col=(6, 9), condition=("t2", "purple")),
-    PlateMapData(name="G11", row_col=(6, 10), condition=("ctrl", "navy")),
-]
+G_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("c1", "indigo"))]
+T_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("t1", "darkturquoise"))]
 
 SAVE_MAP = {
     "raw_data": ["test_analysis_raw_data.csv"],
@@ -97,7 +57,6 @@ def dummy_data_loader():
         yield
 
 
-@pytest.mark.skip(reason="Test data to be acquired")
 def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     pv = PlateViewer()
     qtbot.addWidget(pv)
@@ -107,7 +66,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     # data
     assert pv.data is not None
     assert pv.data.store is not None
-    assert list(pv.data.store.shape) == [80, 800, 1, 1024, 1024]  # TO CHANGE
+    assert list(pv.data.store.shape) == [1, 153, 1, 256, 256]
     assert list(pv.data.store.domain.labels) == ["p", "t", "c", "y", "x"]
     # labels and analysis paths
     assert pv.pv_labels_path == TEST_LABELS_PATH
@@ -127,10 +86,14 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
 
     # trigger well selection
     with qtbot.wait_signal(pv._plate_view.selectionChanged, timeout=2000):
-        pv._plate_view.setSelectedIndices([(1, 6)])  # B7_0000, TO CHANGE
+        pv._plate_view.setSelectedIndices([(1, 4)])  # B5_0000
 
-    assert pv._fov_table.value() == WellInfo(  # TO CHANGE
-        pos_idx=0, fov=useq.AbsolutePosition(x=4193.99, y=22857.6, name="B7_0000")
+    print(pv._fov_table.value())
+    assert pv._fov_table.value() == WellInfo(
+        pos_idx=0,
+        fov=useq.AbsolutePosition(
+            x=-14549.113644299494, y=21805.047084908154, name="B5_0000"
+        ),
     )
     assert pv._image_viewer._viewer.image is not None  # Image loaded
     assert pv._image_viewer._viewer.labels_image is not None  # Labels image loaded
@@ -141,15 +104,16 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert pv._image_viewer._viewer.contours_image.visible  # Contours visible
 
 
-@pytest.mark.skip(reason="Test data to be acquired")
-@pytest.mark.filterwarnings("ignore:.*multidimensional input.*:FutureWarning")  # oasis
+# ignore futore warnings and userwarning
+@pytest.mark.filterwarnings("ignore::FutureWarning", "ignore::UserWarning")
+@pytest.mark.usefixtures("dummy_data_loader")
 def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     pv = PlateViewer()
     qtbot.addWidget(pv)
     # create temporary analysis path and initialize widget
     tmp_analysis_path = tmp_path / "test_analysis/"
     tmp_analysis_path.mkdir(parents=True, exist_ok=True)
-    pv.initialize_widget(TEST_DATA_PATH, TEST_LABELS_PATH, str(tmp_analysis_path))
+    pv.initialize_widget(str(TEST_DATA_PATH), TEST_LABELS_PATH, str(tmp_analysis_path))
 
     # add plate map
     # fmt: off
@@ -159,8 +123,8 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     assert pv._plate_map_treatment.value() == T_MAP
     # fmt: on
 
-    # autoselect the only 2 positions in the plate map
-    assert pv._analysis_wdg._prepare_for_running() == [0, 1]
+    # autoselect the only 1 position in the plate map
+    assert pv._analysis_wdg._prepare_for_running() == [0]
 
     # save the plate map data
     pv._analysis_wdg._handle_plate_map()
@@ -173,15 +137,16 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]
-    assert files == [
+
+    assert set(files) == {
         "treatment_plate_map.json",
-        "B7_0000_p0.json",
         "genotype_plate_map.json",
-    ]
+        "B5_0000_p0.json",
+    }
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
-    assert subfolders == ["raw_data", "dff_data", "dec_dff_data", "grouped"]
+    assert set(subfolders) == {"raw_data", "dff_data", "dec_dff_data", "grouped"}
     for dir_name in subfolders:
         dir_path = tmp_analysis_path / dir_name
         assert dir_path.iterdir()
@@ -189,5 +154,11 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         assert file_list == SAVE_MAP[dir_name]
 
     # TODO:
-    # - open B7_0000_p0.json as ROIData
+    # - open B5_0000_p0.json as ROIData
+    f = tmp_analysis_path / "B5_0000_p0.json"
+    with open(f) as file:
+        data = json.load(file)
+        roi_data = ROIData(**data["1"])
+        print(roi_data)
+    # - assert that the ROIData object is created successfully
     # - assert that some of the ROIData attributes are as expected
