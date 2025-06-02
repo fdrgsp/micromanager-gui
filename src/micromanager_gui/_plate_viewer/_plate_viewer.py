@@ -268,11 +268,10 @@ class PlateViewer(QMainWindow):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        # self._pv_labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        # self._pv_analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"
+        # data = ""
+        # self._pv_labels_path = ""
+        # self._pv_analysis_path = ""
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-
         # ____________________________________________________________________________
 
     @property
