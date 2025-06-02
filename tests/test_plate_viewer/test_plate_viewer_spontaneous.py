@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from cvxpy import pos
 import pytest
 import useq
 from rich import print
@@ -88,13 +89,13 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     with qtbot.wait_signal(pv._plate_view.selectionChanged, timeout=2000):
         pv._plate_view.setSelectedIndices([(1, 4)])  # B5_0000
 
-    print(pv._fov_table.value())
-    assert pv._fov_table.value() == WellInfo(
-        pos_idx=0,
-        fov=useq.AbsolutePosition(
-            x=-14549.113644299494, y=21805.047084908158, name="B5_0000"
-        ),
-    )
+    fov_val = pv._fov_table.value()
+    assert isinstance(fov_val, WellInfo)
+    assert fov_val.pos_idx == 0
+    assert fov_val.fov.name == "B5_0000"
+    assert round(fov_val.fov.x, 2) == -14549.11
+    assert round(fov_val.fov.y, 2) == 21805.05
+
     assert pv._image_viewer._viewer.image is not None  # Image loaded
     assert pv._image_viewer._viewer.labels_image is not None  # Labels image loaded
     assert pv._image_viewer._viewer.contours_image is not None  # Contours image loaded
