@@ -563,6 +563,7 @@ class PlateViewer(QMainWindow):
         if self._data is None or plate_plan is None:
             return None
 
+        final_plate_plan: useq.WellPlatePlan | None = None
         # if already a WellPlatePlan, use it directly
         if isinstance(plate_plan, useq.WellPlatePlan):
             final_plate_plan = plate_plan
