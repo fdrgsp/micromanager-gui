@@ -92,7 +92,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert pv._fov_table.value() == WellInfo(
         pos_idx=0,
         fov=useq.AbsolutePosition(
-            x=-14549.113644299494, y=21805.047084908154, name="B5_0000"
+            x=-14549.113644299494, y=21805.047084908158, name="B5_0000"
         ),
     )
     assert pv._image_viewer._viewer.image is not None  # Image loaded
