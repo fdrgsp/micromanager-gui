@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 import pytest
-from rich import print
 
 from micromanager_gui import PlateViewer
 from micromanager_gui._plate_viewer._fov_table import WellInfo
@@ -152,12 +151,39 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         file_list = {f.name for f in dir_path.iterdir() if f.is_file()}
         assert file_list == SAVE_MAP[dir_name]
 
-    # TODO:
-    # - open B5_0000_p0.json as ROIData
-    f = tmp_analysis_path / "B5_0000_p0.json"
-    with open(f) as file:
-        data = json.load(file)
-        roi_data = ROIData(**data["1"])
-        print(roi_data)
-    # - assert that the ROIData object is created successfully
-    # - assert that some of the ROIData attributes are as expected
+    # assert that the analysis data is saved correctly compared to the reference data
+    saved_file = tmp_analysis_path / "B5_0000_p0.json"
+    with open(saved_file) as file:
+        data = cast(dict, json.load(file))
+    reference_file = (
+        Path(__file__).parent
+        / "data"
+        / "spontaneous"
+        / "spont_analysis"
+        / "B5_0000_p0.json"
+    )
+    with open(reference_file) as file1:
+        reference_data = cast(dict, json.load(file1))
+
+    # Compare all ROIs in the data
+    assert set(data.keys()) == set(
+        reference_data.keys()
+    ), f"ROI keys mismatch: {set(data.keys())} != {set(reference_data.keys())}"
+
+    for roi_id in data.keys():
+        roi_data = ROIData(**data[roi_id])
+        roi_data1 = ROIData(**reference_data[roi_id])
+
+        # loop through the ROIData attributes and compare them
+        for attr, value in roi_data.__dict__.items():
+            if isinstance(value, list):
+                value = [round(v, 2) for v in value]
+                value1 = [round(v, 2) for v in roi_data1.__dict__[attr]]
+            elif isinstance(value, float):
+                value = round(value, 2)
+                value1 = round(roi_data1.__dict__[attr], 2)
+            else:
+                value1 = roi_data1.__dict__[attr]
+            assert (
+                value == value1
+            ), f"ROI {roi_id} mismatch in {attr}: {value} != {value1}"
