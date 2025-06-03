@@ -25,6 +25,8 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "numpy<2.0.0; platform_system == 'Darwin'",  # Pin numpy to avoid compilation issues on macOS
+    "numpy; platform_system != 'Darwin'",  # No version constraint on other platforms
     "oasis-deconv!=0.2.1",
     "cvxpy",  # to not have the warning in oasis-deconv
     "pymmcore-widgets >=0.8.0",
