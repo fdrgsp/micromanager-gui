@@ -32,17 +32,17 @@ G_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("c1", "indigo"))]
 T_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("t1", "darkturquoise"))]
 
 SAVE_MAP = {
-    "raw_data": ["test_analysis_raw_data.csv"],
-    "dff_data": ["test_analysis_dff_data.csv"],
-    "dec_dff_data": ["test_analysis_dec_dff_data.csv"],
-    "grouped": [
+    "raw_data": {"test_analysis_raw_data.csv"},
+    "dff_data": {"test_analysis_dff_data.csv"},
+    "dec_dff_data": {"test_analysis_dec_dff_data.csv"},
+    "grouped": {
         "test_analysis_amplitude.csv",
         "test_analysis_percentage_active.csv",
         "test_analysis_cell_size.csv",
         "test_analysis_iei.csv",
         "test_analysis_frequency.csv",
         "test_analysis_synchrony.csv",
-    ],
+    },
 }
 
 
@@ -149,7 +149,7 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     for dir_name in subfolders:
         dir_path = tmp_analysis_path / dir_name
         assert dir_path.iterdir()
-        file_list = [f.name for f in dir_path.iterdir() if f.is_file()]
+        file_list = {f.name for f in dir_path.iterdir() if f.is_file()}
         assert file_list == SAVE_MAP[dir_name]
 
     # TODO:
