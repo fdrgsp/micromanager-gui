@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ._multi_wells_plots._csv_violin_plot import plot_csv_violin_plot
+from ._multi_wells_plots._csv_bar_plot import plot_csv_bar_plot
 from ._single_wells_plots._correlation_plots import (
     _plot_cross_correlation_data,
     _plot_hierarchical_clustering_data,
@@ -304,8 +304,8 @@ def plot_multi_well_data(
         return
 
     if suffix in {"synchrony", "percentage_active"}:
-        return plot_csv_violin_plot(
+        return plot_csv_bar_plot(
             widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text], mean_n_sem=False
         )
 
-    return plot_csv_violin_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])
+    return plot_csv_bar_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])

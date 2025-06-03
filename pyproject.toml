@@ -154,6 +154,7 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 show_missing = true
+
 [tool.coverage.run]
 source = ["micromanager_gui"]
 

@@ -39,8 +39,14 @@ def _plot_traces_data(
     if normalize:
         all_values = []
         for roi_key, roi_data in data.items():
-            if rois is not None and int(roi_key) not in rois:
-                continue
+            if rois is not None:
+                try:
+                    roi_id = int(roi_key)
+                    if roi_id not in rois:
+                        continue
+                except ValueError:
+                    # Skip non-numeric ROI keys when rois filter is specified
+                    continue
             trace = _get_trace(roi_data, dff, dec)
             if trace:
                 all_values.extend(trace)
@@ -52,10 +58,21 @@ def _plot_traces_data(
 
     count = 0
     rois_rec_time: list[float] = []
+    last_trace: list[float] | None = None
+
     for roi_key, roi_data in data.items():
         trace = _get_trace(roi_data, dff, dec)
 
-        if (rois is not None and int(roi_key) not in rois) or not trace:
+        if rois is not None:
+            try:
+                roi_id = int(roi_key)
+                if roi_id not in rois:
+                    continue
+            except ValueError:
+                # Skip non-numeric ROI keys when rois filter is specified
+                continue
+
+        if not trace:
             continue
 
         if (ttime := roi_data.total_recording_time_in_sec) is not None:
@@ -66,11 +83,12 @@ def _plot_traces_data(
             continue
 
         _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count, p1, p2)
+        last_trace = trace
         count += COUNT_INCREMENT
 
     _set_graph_title_and_labels(ax, dff, dec, normalize, with_peaks)
 
-    _update_time_axis(ax, rois_rec_time, trace)
+    _update_time_axis(ax, rois_rec_time, last_trace)
 
     _add_hover_functionality(ax, widget)
 
@@ -80,8 +98,12 @@ def _plot_traces_data(
 
 def _get_trace(roi_data: ROIData, dff: bool, dec: bool) -> list[float] | None:
     """Get the appropriate trace based on the flags."""
-    data = roi_data.dff if dff else roi_data.dec_dff if dec else roi_data.raw_trace
-    return data or None
+    try:
+        data = roi_data.dff if dff else roi_data.dec_dff if dec else roi_data.raw_trace
+        return data or None
+    except AttributeError:
+        # Handle case where roi_data is not a proper ROIData object
+        return None
 
 
 def _plot_trace(
