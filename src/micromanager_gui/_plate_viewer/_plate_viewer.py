@@ -43,7 +43,7 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 )
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
-from ._analysis import _AnalyseCalciumTraces
+from ._analysis import EVOKED, _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
@@ -268,11 +268,10 @@ class PlateViewer(QMainWindow):
         self._set_splitter_sizes()
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
-        # data = "/Users/fdrgsp/Desktop/t/ts.tensorstore.zarr"
-        # self._pv_labels_path = "/Users/fdrgsp/Desktop/test/ts_labels"
-        # self._pv_analysis_path = "/Users/fdrgsp/Desktop/test/ts_analysis"
+        # data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
+        # self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
+        # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-
         # ____________________________________________________________________________
 
     @property
@@ -555,6 +554,7 @@ class PlateViewer(QMainWindow):
             # if a file namend "stimulation_mask.tif" exists in the analysis path
             stim_mask = Path(self._analysis_wdg.analysis_path) / "stimulation_mask.tif"
             if stim_mask.exists():
+                self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
                 self._analysis_wdg.stimulation_area_path = str(stim_mask)
 
     def _load_plate_plan(
