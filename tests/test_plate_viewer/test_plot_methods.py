@@ -19,8 +19,8 @@ from micromanager_gui._plate_viewer._plot_methods import (
 )
 from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     AMPLITUDE_GROUP,
-    CSV_VIOLIN_PLOT_AMPLITUDE,
-    CSV_VIOLIN_PLOT_FREQUENCY,
+    CSV_BAR_PLOT_AMPLITUDE,
+    CSV_BAR_PLOT_FREQUENCY,
     DEC_DFF,
     DEC_DFF_AMPLITUDE,
     DEC_DFF_FREQUENCY,
@@ -204,19 +204,19 @@ class TestMultiWellPlotMethods:
         widget.canvas.draw = Mock()
         return widget
 
-    def test_plot_multi_well_amplitude_violin(self, mock_widget):
-        """Test plotting amplitude violin plot."""
+    def test_plot_multi_well_amplitude_bar(self, mock_widget):
+        """Test plotting amplitude bar plot."""
         # This will look for CSV files in the analysis path
         plot_multi_well_data(
-            mock_widget, CSV_VIOLIN_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH
+            mock_widget, CSV_BAR_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH
         )
 
         mock_widget.figure.clear.assert_called_once()
 
-    def test_plot_multi_well_frequency_violin(self, mock_widget):
-        """Test plotting frequency violin plot."""
+    def test_plot_multi_well_frequency_bar(self, mock_widget):
+        """Test plotting frequency bar plot."""
         plot_multi_well_data(
-            mock_widget, CSV_VIOLIN_PLOT_FREQUENCY, SPONT_ANALYSIS_PATH
+            mock_widget, CSV_BAR_PLOT_FREQUENCY, SPONT_ANALYSIS_PATH
         )
 
         mock_widget.figure.clear.assert_called_once()
@@ -236,14 +236,14 @@ class TestMultiWellPlotMethods:
 
     def test_plot_no_analysis_path(self, mock_widget):
         """Test plotting with no analysis path returns early."""
-        plot_multi_well_data(mock_widget, CSV_VIOLIN_PLOT_AMPLITUDE, None)
+        plot_multi_well_data(mock_widget, CSV_BAR_PLOT_AMPLITUDE, None)
 
         mock_widget.figure.clear.assert_called_once()
 
     def test_plot_nonexistent_analysis_path(self, mock_widget):
         """Test plotting with nonexistent analysis path."""
         plot_multi_well_data(
-            mock_widget, CSV_VIOLIN_PLOT_AMPLITUDE, "/nonexistent/path"
+            mock_widget, CSV_BAR_PLOT_AMPLITUDE, "/nonexistent/path"
         )
         mock_widget.figure.clear.assert_called_once()
 
@@ -347,7 +347,7 @@ class TestPlotMethodsWithRealData:
             pytest.skip("Test CSV files not found")
 
         plot_multi_well_data(
-            mock_multi_widget, CSV_VIOLIN_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH
+            mock_multi_widget, CSV_BAR_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH
         )
 
         mock_multi_widget.figure.clear.assert_called_once()
@@ -444,8 +444,8 @@ class TestPlotMethodConstants:
         """Test that multi well combo options are properly structured."""
         assert isinstance(MULTI_WELL_COMBO_OPTIONS, list)
         assert len(MULTI_WELL_COMBO_OPTIONS) > 0
-        assert CSV_VIOLIN_PLOT_AMPLITUDE in MULTI_WELL_COMBO_OPTIONS
-        assert CSV_VIOLIN_PLOT_FREQUENCY in MULTI_WELL_COMBO_OPTIONS
+        assert CSV_BAR_PLOT_AMPLITUDE in MULTI_WELL_COMBO_OPTIONS
+        assert CSV_BAR_PLOT_FREQUENCY in MULTI_WELL_COMBO_OPTIONS
 
 
 class TestPlotMethodEdgeCases:
