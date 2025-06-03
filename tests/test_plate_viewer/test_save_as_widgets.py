@@ -4,8 +4,8 @@ import pytest
 from qtpy.QtWidgets import QApplication
 
 from micromanager_gui._plate_viewer._save_as_widgets import (
-    _SaveAsTiff,
     _SaveAsCSV,
+    _SaveAsTiff,
 )
 
 
@@ -22,18 +22,23 @@ class TestSaveAsWidgets:
         """Test _SaveAsTiff widget initialization."""
         widget = _SaveAsTiff()
         assert widget.windowTitle() == "Save As Tiff"
-        assert hasattr(widget, '_pos_line_edit')
-        assert hasattr(widget, '_browse_widget')
+        assert hasattr(widget, "_pos_line_edit")
+        assert hasattr(widget, "_browse_widget")
 
     def test_save_as_tiff_accept_valid_input(self):
         """Test _SaveAsTiff accept with valid input."""
         # Mock QFileDialog to prevent actual file dialogs from appearing
-        with patch('qtpy.QtWidgets.QFileDialog.getExistingDirectory') as mock_file_dialog, \
-             patch('qtpy.QtWidgets.QFileDialog.getOpenFileName') as mock_open_dialog, \
-             patch('micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text') as mock_parse, \
-             patch('micromanager_gui._plate_viewer._save_as_widgets.Path') as mock_path, \
-             patch('qtpy.QtWidgets.QDialog.accept') as mock_super_accept:
-
+        with (
+            patch(
+                "qtpy.QtWidgets.QFileDialog.getExistingDirectory"
+            ) as mock_file_dialog,
+            patch("qtpy.QtWidgets.QFileDialog.getOpenFileName") as mock_open_dialog,
+            patch(
+                "micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text"
+            ) as mock_parse,
+            patch("micromanager_gui._plate_viewer._save_as_widgets.Path") as mock_path,
+            patch("qtpy.QtWidgets.QDialog.accept") as mock_super_accept,
+        ):
             # Prevent any file dialogs from showing
             mock_file_dialog.return_value = ""
             mock_open_dialog.return_value = ("", "")
@@ -60,11 +65,18 @@ class TestSaveAsWidgets:
 
     def test_save_as_tiff_accept_invalid_path(self):
         """Test _SaveAsTiff accept with invalid path (no directory exists)."""
-        with patch('qtpy.QtWidgets.QFileDialog.getExistingDirectory') as mock_file_dialog, \
-             patch('qtpy.QtWidgets.QFileDialog.getOpenFileName') as mock_open_dialog, \
-             patch('micromanager_gui._plate_viewer._save_as_widgets.show_error_dialog') as mock_error, \
-             patch('micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text') as mock_parse:
-
+        with (
+            patch(
+                "qtpy.QtWidgets.QFileDialog.getExistingDirectory"
+            ) as mock_file_dialog,
+            patch("qtpy.QtWidgets.QFileDialog.getOpenFileName") as mock_open_dialog,
+            patch(
+                "micromanager_gui._plate_viewer._save_as_widgets.show_error_dialog"
+            ) as mock_error,
+            patch(
+                "micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text"
+            ) as mock_parse,
+        ):
             # Prevent any file dialogs from showing
             mock_file_dialog.return_value = ""
             mock_open_dialog.return_value = ("", "")
@@ -87,7 +99,7 @@ class TestSaveAsWidgets:
         widget._browse_widget.setValue("/test/path")
 
         with patch(
-            'micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text'
+            "micromanager_gui._plate_viewer._save_as_widgets.parse_lineedit_text"
         ) as mock_parse:
             mock_parse.return_value = [1, 2, 3]
             widget._pos_line_edit.setText("1-3")
@@ -100,11 +112,11 @@ class TestSaveAsWidgets:
         """Test _SaveAsCSV widget initialization."""
         widget = _SaveAsCSV()
         assert widget.windowTitle() == "Save Analysis As CSV"
-        assert hasattr(widget, '_browse_widget')
+        assert hasattr(widget, "_browse_widget")
 
     def test_save_as_csv_value(self):
         """Test _SaveAsCSV value property."""
         widget = _SaveAsCSV()
         widget._browse_widget.setValue("/test/csv/path")
-        
+
         assert widget.value() == "/test/csv/path"

@@ -35,7 +35,7 @@ class TestEvokedExperimentPlots:
                 active=True,
                 stimulated=False,
                 total_recording_time_in_sec=10.0,
-                stmulations_frames_and_powers={"100": 5}
+                stmulations_frames_and_powers={"100": 5},
             ),
             "2": ROIData(
                 well_fov_position="A2",
@@ -45,7 +45,7 @@ class TestEvokedExperimentPlots:
                 active=True,
                 stimulated=True,
                 total_recording_time_in_sec=10.0,
-                stmulations_frames_and_powers={"100": 5}
+                stmulations_frames_and_powers={"100": 5},
             ),
         }
 
@@ -65,9 +65,7 @@ class TestEvokedExperimentPlots:
         # Should call the basic plotting function
         mock_widget.figure.clear.assert_called()
 
-    def test_plot_evoked_experiment_data_with_peaks(
-        self, mock_widget, sample_roi_data
-    ):
+    def test_plot_evoked_experiment_data_with_peaks(self, mock_widget, sample_roi_data):
         """Test plotting evoked experiment data with peaks."""
         _plot_evoked_experiment_data(
             widget=mock_widget,
@@ -80,9 +78,7 @@ class TestEvokedExperimentPlots:
         # Should call plotting functions
         mock_widget.figure.clear.assert_called()
 
-    def test_plot_stim_or_not_stim_peaks_amplitude(
-        self, mock_widget, sample_roi_data
-    ):
+    def test_plot_stim_or_not_stim_peaks_amplitude(self, mock_widget, sample_roi_data):
         """Test plotting stimulated vs non-stimulated peaks amplitude."""
         # Set up analysis path to avoid early return
         mock_widget._plate_viewer.pv_analysis_path = "/fake/path"
@@ -93,7 +89,7 @@ class TestEvokedExperimentPlots:
                 well_fov_position="A1",
                 active=True,
                 amplitudes_stimulated_peaks={"10_100": [0.5, 0.6]},
-                amplitudes_non_stimulated_peaks={"10_100": [0.3, 0.4]}
+                amplitudes_non_stimulated_peaks={"10_100": [0.3, 0.4]},
             )
         }
 
