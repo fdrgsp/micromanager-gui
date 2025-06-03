@@ -52,15 +52,14 @@ def _round_numeric_values(value, reference_value):
             # Dict with scalar values
             return (
                 {k: round(v, 2) for k, v in value.items()},
-                {k: round(v, 2) for k, v in reference_value.items()}
+                {k: round(v, 2) for k, v in reference_value.items()},
             )
         # Dict with list values
         rounded_value = {
             k: [round(v, 2) for v in v_list] for k, v_list in value.items()
         }
         rounded_ref = {
-            k: [round(v, 2) for v in v_list]
-            for k, v_list in reference_value.items()
+            k: [round(v, 2) for v in v_list] for k, v_list in reference_value.items()
         }
         return rounded_value, rounded_ref
     else:
@@ -117,9 +116,9 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
-    assert set(subfolders) == set(SAVE_MAP.keys()), (
-        f"Expected subfolders not found. Found: {set(subfolders)}"
-    )
+    assert set(subfolders) == set(
+        SAVE_MAP.keys()
+    ), f"Expected subfolders not found. Found: {set(subfolders)}"
     for dir_name in subfolders:
         dir_path = tmp_analysis_path / dir_name
         assert dir_path.iterdir(), f"Directory {dir_name} is empty"
@@ -151,10 +150,10 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         # loop through the ROIData attributes and compare them
         for attr, value in roi_data.__dict__.items():
             reference_value = roi_data1.__dict__[attr]
-            
+
             # Round numeric values for comparison
             value_rounded, ref_rounded = _round_numeric_values(value, reference_value)
-            
-            assert value_rounded == ref_rounded, (
-                f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"
-            )
+
+            assert (
+                value_rounded == ref_rounded
+            ), f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"

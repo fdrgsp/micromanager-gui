@@ -67,5 +67,6 @@ def dummy_data_loader():
     def fake_generator(*args, **kwargs):
         yield 1  # simulate progress update
         return
+
     with patch.object(PlateViewer, "_load_and_set_data_from_json", fake_generator):
         yield
