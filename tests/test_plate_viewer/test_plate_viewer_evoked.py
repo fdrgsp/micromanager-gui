@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 from micromanager_gui import PlateViewer
-from micromanager_gui._plate_viewer._fov_table import WellInfo
+from micromanager_gui._plate_viewer._analysis import EVOKED
 from micromanager_gui._plate_viewer._plate_map import PlateMapData
 from micromanager_gui._plate_viewer._to_csv import save_to_csv
 from micromanager_gui._plate_viewer._util import ROIData
@@ -16,18 +16,14 @@ if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
 
-# SPONTANEOUS TEST DATA
-TEST_DATA_PATH = (
-    Path(__file__).parent / "data" / "spontaneous" / "spont.tensorstore.zarr"
-)
+# EVOKED TEST DATA
+TEST_DATA_PATH = Path(__file__).parent / "data" / "evoked" / "evk.tensorstore.zarr"
 
-TEST_LABELS_PATH = str(Path(__file__).parent / "data" / "spontaneous" / "spont_labels")
-TEST_ANALYSIS_PATH = str(
-    Path(__file__).parent / "data" / "spontaneous" / "spont_analysis"
-)
+TEST_LABELS_PATH = str(Path(__file__).parent / "data" / "evoked" / "evk_labels")
+TEST_ANALYSIS_PATH = str(Path(__file__).parent / "data" / "evoked" / "evk_analysis")
 
-G_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("c1", "indigo"))]
-T_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("t1", "darkturquoise"))]
+G_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("c1", "coral"))]
+T_MAP = [PlateMapData(name="B5", row_col=(1, 4), condition=("t1", "aquamarine"))]
 
 SAVE_MAP = {
     "raw_data": {"test_analysis_raw_data.csv"},
@@ -41,6 +37,7 @@ SAVE_MAP = {
         "test_analysis_frequency.csv",
         "test_analysis_synchrony.csv",
     },
+    "grouped_evk": {"test_analysis_amplitudes_stimulated_peaks.csv"},
 }
 
 
@@ -55,76 +52,31 @@ def _round_numeric_values(value, reference_value):
             # Dict with scalar values
             return (
                 {k: round(v, 2) for k, v in value.items()},
-                {k: round(v, 2) for k, v in reference_value.items()},
+                {k: round(v, 2) for k, v in reference_value.items()}
             )
         # Dict with list values
         rounded_value = {
             k: [round(v, 2) for v in v_list] for k, v_list in value.items()
         }
         rounded_ref = {
-            k: [round(v, 2) for v in v_list] for k, v_list in reference_value.items()
+            k: [round(v, 2) for v in v_list]
+            for k, v_list in reference_value.items()
         }
         return rounded_value, rounded_ref
     else:
         return value, reference_value
 
 
-def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
-    pv = PlateViewer()
-    qtbot.addWidget(pv)
-
-    pv.initialize_widget(str(TEST_DATA_PATH), TEST_LABELS_PATH, TEST_ANALYSIS_PATH)
-
-    # data
-    assert pv.data is not None
-    assert pv.data.store is not None
-    assert list(pv.data.store.shape) == [1, 153, 1, 256, 256]
-    # labels and analysis paths
-    assert pv.pv_labels_path == TEST_LABELS_PATH
-    assert pv.pv_analysis_path == TEST_ANALYSIS_PATH
-    # plate view
-    assert pv._plate_view.selectedIndices() == ()  # No wells selected
-    assert len(pv._plate_view._well_items) == 96  # 96 well plate
-    # fov table
-    assert pv._fov_table.value() is None  # No FOV selected
-    # image viewer
-    assert pv._image_viewer._viewer.image is None  # No image loaded
-    assert pv._image_viewer._viewer.labels_image is None  # No labels image loaded
-    assert pv._image_viewer._viewer.contours_image is None  # No contours image loaded
-    # plate map
-    assert pv._plate_map_genotype.value() == G_MAP
-    assert pv._plate_map_treatment.value() == T_MAP
-
-    # trigger well selection
-    with qtbot.wait_signal(pv._plate_view.selectionChanged, timeout=2000):
-        pv._plate_view.setSelectedIndices([(1, 4)])  # B5_0000
-
-    fov_val = pv._fov_table.value()
-    assert isinstance(fov_val, WellInfo)
-    assert fov_val.pos_idx == 0
-    assert fov_val.fov.name == "B5_0000"
-    assert fov_val.fov.x is not None and round(fov_val.fov.x, 2) == -14549.11
-    assert fov_val.fov.y is not None and round(fov_val.fov.y, 2) == 21805.05
-
-    assert pv._image_viewer._viewer.image is not None  # Image loaded
-    assert pv._image_viewer._viewer.labels_image is not None  # Labels image loaded
-    assert pv._image_viewer._viewer.contours_image is not None  # Contours image loaded
-    assert not pv._image_viewer._viewer.contours_image.visible  # Contours not visible
-    # trigger contours visibility
-    pv._image_viewer._show_labels(True)
-    assert pv._image_viewer._viewer.contours_image.visible  # Contours visible
-
-
 # ignore future warnings and user warnings
 @pytest.mark.filterwarnings("ignore::FutureWarning", "ignore::UserWarning")
 @pytest.mark.usefixtures("dummy_data_loader")
-def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
+def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     pv = PlateViewer()
     qtbot.addWidget(pv)
     # create temporary analysis path and initialize widget
     tmp_analysis_path = tmp_path / "test_analysis/"
     tmp_analysis_path.mkdir(parents=True, exist_ok=True)
-    pv.initialize_widget(str(TEST_DATA_PATH), TEST_LABELS_PATH, str(tmp_analysis_path))
+    pv.initialize_widget(str(TEST_DATA_PATH), TEST_LABELS_PATH, str(TEST_ANALYSIS_PATH))
 
     # add plate map
     # fmt: off
@@ -135,6 +87,11 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     assert pv._plate_map_genotype.value() == G_MAP
     assert pv._plate_map_treatment.value() == T_MAP
     # fmt: on
+
+    assert pv._analysis_wdg._experiment_type_combo.currentText() == EVOKED
+    assert pv._analysis_wdg.stimulation_area_path is not None
+
+    pv._analysis_wdg.analysis_path = str(tmp_analysis_path)
 
     # autoselect the only 1 position in the plate map
     assert pv._analysis_wdg._prepare_for_running() == [0]
@@ -155,13 +112,14 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         "treatment_plate_map.json",
         "genotype_plate_map.json",
         "B5_0000_p0.json",
+        "stimulation_mask.tif",
     }, f"Expected files not found. Found: {set(files)}"
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
-    assert set(subfolders) == set(
-        SAVE_MAP.keys()
-    ), f"Expected subfolders not found. Found: {set(subfolders)}"
+    assert set(subfolders) == set(SAVE_MAP.keys()), (
+        f"Expected subfolders not found. Found: {set(subfolders)}"
+    )
     for dir_name in subfolders:
         dir_path = tmp_analysis_path / dir_name
         assert dir_path.iterdir(), f"Directory {dir_name} is empty"
@@ -176,11 +134,7 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     with open(saved_file) as file:
         data = cast(dict, json.load(file))
     reference_file = (
-        Path(__file__).parent
-        / "data"
-        / "spontaneous"
-        / "spont_analysis"
-        / "B5_0000_p0.json"
+        Path(__file__).parent / "data" / "evoked" / "evk_analysis" / "B5_0000_p0.json"
     )
     with open(reference_file) as file1:
         reference_data = cast(dict, json.load(file1))
@@ -197,10 +151,10 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         # loop through the ROIData attributes and compare them
         for attr, value in roi_data.__dict__.items():
             reference_value = roi_data1.__dict__[attr]
-
+            
             # Round numeric values for comparison
             value_rounded, ref_rounded = _round_numeric_values(value, reference_value)
-
-            assert (
-                value_rounded == ref_rounded
-            ), f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"
+            
+            assert value_rounded == ref_rounded, (
+                f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"
+            )

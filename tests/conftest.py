@@ -18,6 +18,8 @@ import pytest
 from pymmcore_plus import CMMCorePlus
 from pymmcore_plus.core import _mmcore_plus
 
+from micromanager_gui import PlateViewer
+
 if TYPE_CHECKING:
     from pytest import FixtureRequest
     from qtpy.QtWidgets import QApplication
@@ -58,3 +60,12 @@ def _run_after_each_test(request: FixtureRequest, qapp: QApplication):
     if len(remaining) > nbefore:
         test = f"{request.node.path.name}::{request.node.originalname}"
         raise AssertionError(f"topLevelWidgets remaining after {test!r}: {remaining}")
+
+
+@pytest.fixture
+def dummy_data_loader():
+    def fake_generator(*args, **kwargs):
+        yield 1  # simulate progress update
+        return
+    with patch.object(PlateViewer, "_load_and_set_data_from_json", fake_generator):
+        yield
