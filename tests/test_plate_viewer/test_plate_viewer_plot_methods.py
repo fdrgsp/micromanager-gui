@@ -216,17 +216,13 @@ class TestMultiWellPlotMethods:
     def test_plot_multi_well_amplitude_bar(self, mock_widget):
         """Test plotting amplitude bar plot."""
         # This will look for CSV files in the analysis path
-        plot_multi_well_data(
-            mock_widget, CSV_BAR_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH
-        )
+        plot_multi_well_data(mock_widget, CSV_BAR_PLOT_AMPLITUDE, SPONT_ANALYSIS_PATH)
 
         mock_widget.figure.clear.assert_called_once()
 
     def test_plot_multi_well_frequency_bar(self, mock_widget):
         """Test plotting frequency bar plot."""
-        plot_multi_well_data(
-            mock_widget, CSV_BAR_PLOT_FREQUENCY, SPONT_ANALYSIS_PATH
-        )
+        plot_multi_well_data(mock_widget, CSV_BAR_PLOT_FREQUENCY, SPONT_ANALYSIS_PATH)
 
         mock_widget.figure.clear.assert_called_once()
 
