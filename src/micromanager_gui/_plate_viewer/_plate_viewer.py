@@ -595,7 +595,7 @@ class PlateViewer(QMainWindow):
             return plate_plan
 
         # try loading from old metadata
-        if plate_plan:=self._retrieve_plate_plan_from_old_metadata()
+        if plate_plan:=self._retrieve_plate_plan_from_old_metadata():
             return plate_plan
 
         # try using the wizard
