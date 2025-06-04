@@ -70,6 +70,7 @@ HCS = "hcs"
 UNSELECTABLE_COLOR = "#404040"
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
+PLATE_PLAN = "plate_plan.json"
 DEFAULT_PLATE_PLAN = useq.WellPlatePlan(
     plate=useq.WellPlate.from_str("coverslip-18mm-square"),
     a1_center_xy=(0.0, 0.0),
@@ -509,7 +510,7 @@ class PlateViewer(QMainWindow):
 
         # the json file names should be in the form A1_0000.json
         for f in path_list:
-            if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
+            if f.name in {GENOTYPE_MAP, TREATMENT_MAP, PLATE_PLAN}:
                 continue
             # skip hidden files
             if f.name.startswith("."):
@@ -611,7 +612,7 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return None
 
-        pp_path = Path(self._pv_analysis_path) / "plate_plan.json"
+        pp_path = Path(self._pv_analysis_path) / PLATE_PLAN
         if not pp_path.exists():
             return None
 
@@ -627,7 +628,7 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return
         try:
-            plate_plan_path = Path(self._pv_analysis_path) / "plate_plan.json"
+            plate_plan_path = Path(self._pv_analysis_path) / PLATE_PLAN
             with open(plate_plan_path, "w") as f:
                 json.dump(plate_plan.model_dump(), f, indent=4)
         except OSError as e:
