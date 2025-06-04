@@ -96,7 +96,6 @@ def _rearrange_fov_by_conditions(
     evoked_conds: dict[str, dict[str, dict[str, ROIData]]] = {}
     for well_fov, rois in data.items():  # "key1", "key2", ...
         for roi_key, roi_data in rois.items():  #  ("1", ROIData), ("2", ROIData), ...
-            print(roi_key)
             c1 = roi_data.condition_1
             c2 = roi_data.condition_2
             if c1 and c2:
