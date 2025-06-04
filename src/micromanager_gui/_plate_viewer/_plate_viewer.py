@@ -472,6 +472,7 @@ class PlateViewer(QMainWindow):
                 self._pv_analysis_data[well] = {}
                 # open the data for the well
                 with open(f) as file:
+                    data = {}
                     try:
                         data = cast(dict, json.load(file))
                     except json.JSONDecodeError as e:
@@ -589,13 +590,11 @@ class PlateViewer(QMainWindow):
     def _resolve_plate_plan(self) -> useq.WellPlatePlan | None:
         """Resolve plate plan from various sources in order of preference."""
         # try loading from JSON file
-        plate_plan = self._load_plate_plan_from_json()
-        if plate_plan:
+        if plate_plan:=self._load_plate_plan_from_json():
             return plate_plan
 
         # try loading from old metadata
-        plate_plan = self._retrieve_plate_plan_from_old_metadata()
-        if plate_plan:
+        if plate_plan:=self._retrieve_plate_plan_from_old_metadata()
             return plate_plan
 
         # try using the wizard
