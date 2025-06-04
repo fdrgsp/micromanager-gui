@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtGui import QStandardItem, QStandardItemModel
+from qtpy.QtGui import QMouseEvent, QStandardItem, QStandardItemModel
 from qtpy.QtWidgets import (
     QAction,
     QComboBox,
@@ -36,6 +36,27 @@ if TYPE_CHECKING:
 
 RED = "#C33"
 SECTION_ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+class _PersistentMenu(QMenu):
+    """A QMenu that stays open when checkable actions are triggered."""
+
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
+        """Override mouseReleaseEvent to prevent menu closing on checkable actions."""
+        if a0 is None:
+            super().mouseReleaseEvent(a0)
+            return
+
+        action = self.actionAt(a0.pos())
+        if action and action.isCheckable():
+            # Toggle the action state manually
+            action.setChecked(not action.isChecked())
+            # Emit the triggered signal manually
+            action.triggered.emit(action.isChecked())
+            # Don't call the parent implementation to prevent menu closing
+            return
+        # For non-checkable actions, use default behavior (close menu)
+        super().mouseReleaseEvent(a0)
 
 
 def _get_fov_data(
@@ -318,9 +339,6 @@ class _MultilWellGraphWidget(QWidget):
         top.addWidget(self._conditions_btn, 0)
         top.addWidget(self._save_btn, 0)
 
-        # hiding this for now, to be implemented
-        # self._choose_dysplayed_positions = _DisplayMultiWellPositions(self)
-
         # Create a figure and a canvas
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
@@ -329,7 +347,6 @@ class _MultilWellGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(top)
-        # layout.addWidget(self._choose_dysplayed_positions)
         layout.addWidget(self.canvas)
 
         self.set_combo_text_red(True)
@@ -387,8 +404,8 @@ class _MultilWellGraphWidget(QWidget):
 
     def _show_conditions_menu(self) -> None:
         """Show a context menu with condition checkboxes."""
-        # Create the context menu
-        menu = QMenu(self)
+        # Create the persistent context menu
+        menu = _PersistentMenu(self)
 
         for condition, state in self._conditions.items():
             action = QAction(condition, self)

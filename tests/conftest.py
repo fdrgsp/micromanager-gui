@@ -53,10 +53,6 @@ def _run_after_each_test(request: FixtureRequest, qapp: QApplication):
         return
     remaining = qapp.topLevelWidgets()
 
-    print()
-    for r in remaining:
-        print(r, r.parent())
-
     if len(remaining) > nbefore:
         test = f"{request.node.path.name}::{request.node.originalname}"
         raise AssertionError(f"topLevelWidgets remaining after {test!r}: {remaining}")
