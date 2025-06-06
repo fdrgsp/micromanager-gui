@@ -43,8 +43,10 @@ from ._util import (
     COND2,
     GENOTYPE_MAP,
     GREEN,
+    LED_POWER_EQUATION,
     MWCM,
     RED,
+    SETTINGS_PATH,
     STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
@@ -154,7 +156,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._led_power_wdg = QWidget(self)
         self._led_power_wdg.setToolTip(
-            "Insert an equation to convert the LED power to mW. Supported formats:\n"
+            "Insert an equation to convert the LED power to mW.\n"
+            "Supported formats:\n"
             "• Linear: y = m*x + q (e.g., y = 2*x + 3)\n"
             "• Quadratic: y = a*x^2 + b*x + c (e.g., y = 0.5*x^2 + 2*x + 1)\n"
             "• Exponential: y = a*exp(b*x) + c (e.g., y = 2*exp(0.1*x) + 1)\n"
@@ -165,9 +168,9 @@ class _AnalyseCalciumTraces(QWidget):
         led_lbl = QLabel("LED Power Equation:")
         led_lbl.setSizePolicy(*FIXED)
         self._led_power_equation_le = QLineEdit(self)
-        self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
+        # self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
         self._led_power_equation_le.setPlaceholderText(
-            "e.g., y = 2*x + 3 or y = 0.5*x^2 + 2*x + 1 (Leave empty for metadata)"
+            "e.g., y = 2*x + 3 (Leave empty for metadata)"
         )
         led_layout = QHBoxLayout(self._led_power_wdg)
         led_layout.setContentsMargins(0, 0, 0, 0)
@@ -372,6 +375,24 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
+    def update_led_power_equation_form_settings(self) -> None:
+        """Update the LED power equation line edit."""
+        if not self.analysis_path:
+            return None
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+        if not settings_json_file.exists():
+            return None
+
+        try:
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
+                self._led_power_equation_le.setText(pp)
+        except Exception as e:
+            LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
+            return None
+
     # PRIVATE METHODS -----------------------------------------------------------------
 
     # PREPARATION FOR RUNNING ---------------------------------------------------------
@@ -401,9 +422,10 @@ class _AnalyseCalciumTraces(QWidget):
         self._min_peaks_height = self._min_peaks_height_spin.value()
 
         # get the LED power equation from the line edit
-        self._led_power_equation = self.equation_from_str(
-            self._led_power_equation_le.text()
-        )
+        eq = self._led_power_equation_le.text()
+        self._led_power_equation = self.equation_from_str(eq)
+        if self._led_power_equation:
+            self._save_led_equation_as_json(eq)
 
         return self._get_positions_to_analyze()
 
@@ -1064,6 +1086,23 @@ class _AnalyseCalciumTraces(QWidget):
         """Update the analysis path of the plate viewer."""
         if self._plate_viewer is not None:
             self._plate_viewer._pv_analysis_path = path
+
+    def _save_led_equation_as_json(self, eq: str) -> None:
+        """Save the LED power equation to a JSON file."""
+        if not self.analysis_path or not self._led_power_equation:
+            return
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+
+        try:
+            with open(settings_json_file, "w") as f:
+                json.dump(
+                    {LED_POWER_EQUATION: eq},
+                    f,
+                    indent=2,
+                )
+        except Exception as e:
+            LOGGER.error(f"Failed to save LED power equation: {e}")
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulation area path and LED power widgets."""
