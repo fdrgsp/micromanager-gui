@@ -35,21 +35,21 @@ def test_plate_viewer_init_no_hcs(qtbot: QtBot, dummy_data_loader) -> None:
         pv.initialize_widget(str(TEST_DATA_PATH))
 
         # Verify that the default plate plan flag is set to True
-        assert pv._default_plate_plan is True, (
-            "Expected _default_plate_plan to be True when wizard returns False"
-        )
+        assert (
+            pv._default_plate_plan is True
+        ), "Expected _default_plate_plan to be True when wizard returns False"
 
         # Verify that the DEFAULT_PLATE_PLAN (coverslip-18mm-square) is used
         # Check that the plate viewer has well items (indicating plate loaded)
-        assert hasattr(pv._plate_view, "_well_items"), (
-            "Expected plate view to have _well_items"
-        )
+        assert hasattr(
+            pv._plate_view, "_well_items"
+        ), "Expected plate view to have _well_items"
         well_items = pv._plate_view._well_items
 
         # Verify it's a coverslip plate (1x1 well)
-        assert len(well_items) == 1, (
-            f"Expected 1 well for coverslip plate, got {len(well_items)}"
-        )
+        assert (
+            len(well_items) == 1
+        ), f"Expected 1 well for coverslip plate, got {len(well_items)}"
 
         # Verify the well is at position (0, 0) as expected for 1x1 plate
         assert (
