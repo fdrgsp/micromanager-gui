@@ -1,5 +1,6 @@
 """Tests for _InitDialog functionality."""
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -47,9 +48,15 @@ class TestInitDialog:
 
     def test_init_dialog_creation_with_paths(self, dialog_with_paths):
         """Test dialog creation with predefined paths."""
-        assert dialog_with_paths._browse_datastrore.value() == "/path/to/datastore.zarr"
-        assert dialog_with_paths._browse_labels.value() == "/path/to/labels"
-        assert dialog_with_paths._browse_analysis.value() == "/path/to/analysis"
+        assert dialog_with_paths._browse_datastrore.value() == os.path.normpath(
+            "/path/to/datastore.zarr"
+        )
+        assert dialog_with_paths._browse_labels.value() == os.path.normpath(
+            "/path/to/labels"
+        )
+        assert dialog_with_paths._browse_analysis.value() == os.path.normpath(
+            "/path/to/analysis"
+        )
 
     def test_browse_widget_configuration(self, dialog):
         """Test that browse widgets are configured correctly."""
@@ -105,7 +112,12 @@ class TestInitDialog:
         dialog._browse_analysis.setValue("/test/analysis")
 
         result = dialog.value()
-        assert result == ("/test/datastore.zarr", "/test/labels", "/test/analysis")
+        expected = (
+            os.path.normpath("/test/datastore.zarr"),
+            os.path.normpath("/test/labels"),
+            os.path.normpath("/test/analysis"),
+        )
+        assert result == expected
 
     def test_value_method_with_pathlib_paths(self, dialog):
         """Test value method with pathlib.Path objects."""
@@ -115,7 +127,12 @@ class TestInitDialog:
         dialog._browse_analysis.setValue(Path("/test/analysis"))
 
         result = dialog.value()
-        assert result == ("/test/datastore.zarr", "/test/labels", "/test/analysis")
+        expected = (
+            os.path.normpath("/test/datastore.zarr"),
+            os.path.normpath("/test/labels"),
+            os.path.normpath("/test/analysis"),
+        )
+        assert result == expected
 
     @patch("qtpy.QtWidgets.QFileDialog.getExistingDirectory")
     def test_browse_datastore_directory_selection(self, mock_file_dialog, dialog):
@@ -314,7 +331,12 @@ class TestInitDialog:
         )
 
         # Verify initial values
-        assert dialog.value() == (initial_datastore, initial_labels, initial_analysis)
+        expected_initial = (
+            os.path.normpath(initial_datastore),
+            os.path.normpath(initial_labels),
+            os.path.normpath(initial_analysis),
+        )
+        assert dialog.value() == expected_initial
 
         # Modify values
         new_datastore = "/new/datastore.zarr"
@@ -326,7 +348,12 @@ class TestInitDialog:
         dialog._browse_analysis.setValue(new_analysis)
 
         # Verify updated values
-        assert dialog.value() == (new_datastore, new_labels, new_analysis)
+        expected_new = (
+            os.path.normpath(new_datastore),
+            os.path.normpath(new_labels),
+            os.path.normpath(new_analysis),
+        )
+        assert dialog.value() == expected_new
 
         # Test that dialog structure is intact
         assert dialog.windowTitle() == "Select Data Source"
@@ -385,7 +412,12 @@ class TestInitDialog:
         dialog._browse_analysis.setValue("/new/analysis")
 
         result = dialog.value()
-        assert result == ("/new/datastore", "/new/labels", "/new/analysis")
+        expected = (
+            os.path.normpath("/new/datastore"),
+            os.path.normpath("/new/labels"),
+            os.path.normpath("/new/analysis"),
+        )
+        assert result == expected
 
     def test_parent_assignment(self, parent_widget):
         """Test that parent is properly assigned."""
