@@ -159,9 +159,9 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
-    assert set(subfolders) == set(
-        SAVE_MAP.keys()
-    ), f"Expected subfolders not found. Found: {set(subfolders)}"
+    assert set(subfolders) == set(SAVE_MAP.keys()), (
+        f"Expected subfolders not found. Found: {set(subfolders)}"
+    )
     for dir_name in subfolders:
         dir_path = tmp_analysis_path / dir_name
         assert dir_path.iterdir(), f"Directory {dir_name} is empty"
@@ -186,9 +186,9 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         reference_data = cast(dict, json.load(file1))
 
     # Compare all ROIs in the data
-    assert set(data.keys()) == set(
-        reference_data.keys()
-    ), f"ROI keys mismatch: {set(data.keys())} != {set(reference_data.keys())}"
+    assert set(data.keys()) == set(reference_data.keys()), (
+        f"ROI keys mismatch: {set(data.keys())} != {set(reference_data.keys())}"
+    )
 
     for roi_id in data.keys():
         roi_data = ROIData(**data[roi_id])
@@ -201,6 +201,6 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
             # Round numeric values for comparison
             value_rounded, ref_rounded = _round_numeric_values(value, reference_value)
 
-            assert (
-                value_rounded == ref_rounded
-            ), f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"
+            assert value_rounded == ref_rounded, (
+                f"ROI {roi_id} mismatch in {attr}: {value_rounded} != {ref_rounded}"
+            )

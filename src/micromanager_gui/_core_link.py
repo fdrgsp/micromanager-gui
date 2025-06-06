@@ -50,7 +50,7 @@ def _progress_message(event: useq.MDAEvent) -> dict[str, Any]:
     try:
         sizes = event.sequence.sizes
         pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
-        info = (f"{key}{idx+1}/{sizes[key]}" for key, idx in event.index.items())
+        info = (f"{key}{idx + 1}/{sizes[key]}" for key, idx in event.index.items())
         text = f"Status -> `{pos_name} [{', '.join(info)}]`"
         return {"icon_emoji": INFO_EMOJI, "text": text}
     except Exception as e:
