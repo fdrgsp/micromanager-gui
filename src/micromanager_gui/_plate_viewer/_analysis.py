@@ -154,15 +154,20 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._led_power_wdg = QWidget(self)
         self._led_power_wdg.setToolTip(
-            "Insert the linear equation to convert the LED power to mW (in the form of "
-            "y = a * x + b). Leave it empty to use the values from the metadata."
+            "Insert an equation to convert the LED power to mW. Supported formats:\n"
+            "• Linear: y = m*x + q (e.g., y = 2*x + 3)\n"
+            "• Quadratic: y = a*x^2 + b*x + c (e.g., y = 0.5*x^2 + 2*x + 1)\n"
+            "• Exponential: y = a*exp(b*x) + c (e.g., y = 2*exp(0.1*x) + 1)\n"
+            "• Power: y = a*x^b + c (e.g., y = 2*x^0.5 + 1)\n"
+            "• Logarithmic: y = a*log(x) + b (e.g., y = 2*log(x) + 1)\n"
+            "Leave empty to use values from metadata."
         )
         led_lbl = QLabel("LED Power Equation:")
         led_lbl.setSizePolicy(*FIXED)
         self._led_power_equation_le = QLineEdit(self)
         self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
         self._led_power_equation_le.setPlaceholderText(
-            "y= a * x + b ( Leave it empty to use the values from the metadata)."
+            "e.g., y = 2*x + 3 or y = 0.5*x^2 + 2*x + 1 (Leave empty for metadata)"
         )
         led_layout = QHBoxLayout(self._led_power_wdg)
         led_layout.setContentsMargins(0, 0, 0, 0)
@@ -396,7 +401,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._min_peaks_height = self._min_peaks_height_spin.value()
 
         # get the LED power equation from the line edit
-        self._led_power_equation = self.linear_equation_from_str(
+        self._led_power_equation = self.equation_from_str(
             self._led_power_equation_le.text()
         )
 
@@ -466,26 +471,78 @@ class _AnalyseCalciumTraces(QWidget):
         self._show_and_log_error("No Stimulated Area File Provided!")
         return False
 
-    def linear_equation_from_str(self, equation: str) -> Callable | None:
-        # Match format: y = m*x + q (allowing optional spaces and + or - for q)
+    def equation_from_str(self, equation: str) -> Callable | None:
+        """Parse various equation formats and return a callable function.
+
+        Supported formats:
+        - Linear: y = m*x + q  (e.g., "y = 2*x + 3")
+        - Quadratic: y = a*x^2 + b*x + c  (e.g., "y = 0.5*x^2 + 2*x + 1")
+        - Exponential: y = a*exp(b*x) + c  (e.g., "y = 2*exp(0.1*x) + 1")
+        - Power: y = a*x^b + c  (e.g., "y = 2*x^0.5 + 1")
+        - Logarithmic: y = a*log(x) + b  (e.g., "y = 2*log(x) + 1")
+        """
         if not equation:
             return None
 
-        match = re.match(
-            r"y\s*=\s*([+-]?\d*\.?\d+)\s*\*\s*x\s*([+-]\s*\d*\.?\d+)", equation
-        )
-        if not match:
+        # Remove all whitespace for easier parsing
+        eq = equation.replace(" ", "").lower()
+
+        try:
+            if linear_match := re.match(r"y=([+-]?\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq):
+                m = float(linear_match[1])
+                q = float(linear_match[2])
+                return lambda x: m * x + q
+
+            if quad_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*x\^2([+-]\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq
+            ):
+                a = float(quad_match[1])
+                b = float(quad_match[2])
+                c = float(quad_match[3])
+                return lambda x: a * x**2 + b * x + c
+
+            if exp_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*exp\(([+-]?\d*\.?\d+)\*x\)([+-]\d*\.?\d+)",
+                eq,
+            ):
+                a = float(exp_match[1])
+                b = float(exp_match[2])
+                c = float(exp_match[3])
+                return lambda x: a * np.exp(b * x) + c
+
+            if power_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*x\^([+-]?\d*\.?\d+)([+-]\d*\.?\d+)", eq
+            ):
+                a = float(power_match[1])
+                b = float(power_match[2])
+                c = float(power_match[3])
+                return lambda x: a * (x**b) + c
+
+            if log_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*log\(x\)([+-]\d*\.?\d+)", eq
+            ):
+                a = float(log_match[1])
+                b = float(log_match[2])
+                return lambda x: a * np.log(x) + b
+
+            # If no pattern matches, show error
             msg = (
-                "Invalid equation format! Should be in the form: y = m * x + q\n"
-                "Using values from the metadata."
+                "Invalid equation format! Using values from the metadata.\n"
+                "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
+                "are supported."
             )
             LOGGER.error(msg)
             show_error_dialog(self, msg)
             return None
 
-        m = float(match[1])
-        q = float(match[2].replace(" ", ""))
-        return lambda x: m * x + q
+        except ValueError as e:
+            msg = (
+                f"Error parsing equation coefficients: {e}\n"
+                "Using values from the metadata."
+            )
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
+            return None
 
     def _get_positions_to_analyze(self) -> list[int] | None:
         """Get the positions to analyze."""
