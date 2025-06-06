@@ -22,7 +22,7 @@ It has been designed to record calcium imaging experiments with or without optic
 Create a virtual environment and install the package using `pip`:
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui@micromanager-gui-calcium
+pip install git+https://github.com/fdrgsp/micromanager-gui
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.

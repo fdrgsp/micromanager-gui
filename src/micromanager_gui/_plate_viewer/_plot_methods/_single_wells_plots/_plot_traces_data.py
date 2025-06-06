@@ -47,8 +47,7 @@ def _plot_traces_data(
                 except ValueError:
                     # Skip non-numeric ROI keys when rois filter is specified
                     continue
-            trace = _get_trace(roi_data, dff, dec)
-            if trace:
+            if trace := _get_trace(roi_data, dff, dec):
                 all_values.extend(trace)
         if all_values:
             percentiles = np.percentile(all_values, [P1, P2])

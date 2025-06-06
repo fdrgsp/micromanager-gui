@@ -9,6 +9,7 @@ import useq
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 
+from micromanager_gui._engine import ArduinoEngine
 from micromanager_gui.readers._ome_zarr_reader import OMEZarrReader
 from micromanager_gui.readers._tensorstore_zarr_reader import TensorstoreZarrReader
 
@@ -60,6 +61,8 @@ def test_readers(
     files: tuple,
     kwargs: bool,
 ):
+    engine = ArduinoEngine(global_mmcore)
+    global_mmcore.mda.set_engine(engine)
     meta, name, writer, reader = writers
     indexers, expected_files, file_to_check, expected_shape = files
 
