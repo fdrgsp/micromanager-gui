@@ -57,6 +57,8 @@ from ._segmentation import _CellposeSegmentation
 from ._to_csv import save_to_csv
 from ._util import (
     GENOTYPE_MAP,
+    PLATE_PLAN,
+    SETTINGS_PATH,
     TREATMENT_MAP,
     ROIData,
     _ProgressBarWidget,
@@ -70,7 +72,6 @@ HCS = "hcs"
 UNSELECTABLE_COLOR = "#404040"
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
-PLATE_PLAN = "plate_plan.json"
 DEFAULT_PLATE_PLAN = useq.WellPlatePlan(
     plate=useq.WellPlate.from_str("coverslip-18mm-square"),
     a1_center_xy=(0.0, 0.0),
@@ -510,7 +511,12 @@ class PlateViewer(QMainWindow):
 
         # the json file names should be in the form A1_0000.json
         for f in path_list:
-            if f.name in {GENOTYPE_MAP, TREATMENT_MAP, PLATE_PLAN}:
+            if f.name in {
+                GENOTYPE_MAP,
+                TREATMENT_MAP,
+                SETTINGS_PATH,
+                f"{PLATE_PLAN}.json",  # for compatibility with old versions
+            }:
                 continue
             # skip hidden files
             if f.name.startswith("."):
@@ -558,6 +564,7 @@ class PlateViewer(QMainWindow):
             if stim_mask.exists():
                 self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
                 self._analysis_wdg.stimulation_area_path = str(stim_mask)
+            self._analysis_wdg.update_led_power_equation_form_settings()
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None
@@ -612,15 +619,17 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return None
 
-        pp_path = Path(self._pv_analysis_path) / PLATE_PLAN
-        if not pp_path.exists():
+        settings_json_file = Path(self._pv_analysis_path) / SETTINGS_PATH
+        if not settings_json_file.exists():
             return None
 
         try:
-            with open(pp_path) as f:
-                return useq.WellPlatePlan.model_validate_json(f.read())
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                pp = settings.get(PLATE_PLAN)
+                return useq.WellPlatePlan.model_validate(pp) if pp else None
         except (json.JSONDecodeError, ValidationError) as e:
-            LOGGER.warning(f"Failed to load plate plan from {pp_path}: {e}")
+            LOGGER.warning(f"Failed to load plate plan from {settings_json_file}: {e}")
             return None
 
     def _save_plate_plan_json(self, plate_plan: useq.WellPlatePlan) -> None:
@@ -628,9 +637,20 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return
         try:
-            plate_plan_path = Path(self._pv_analysis_path) / PLATE_PLAN
-            with open(plate_plan_path, "w") as f:
-                json.dump(plate_plan.model_dump(), f, indent=4)
+            settings_json_file = Path(self._pv_analysis_path) / SETTINGS_PATH
+
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the plate plan
+            settings[PLATE_PLAN] = plate_plan.model_dump()
+
+            # Write back the complete settings
+            with open(settings_json_file, "w") as f:
+                json.dump(settings, f, indent=4)
         except OSError as e:
             LOGGER.error(f"Failed to save plate plan: {e}")
 

@@ -37,6 +37,9 @@ COND1 = "condition_1"
 COND2 = "condition_2"
 STIMULATION_MASK = "stimulation_mask.tif"
 MWCM = "mW/cm²"
+SETTINGS_PATH = "settings.json"
+PLATE_PLAN = "plate_plan"
+LED_POWER_EQUATION = "led_power_equation"
 
 
 @dataclass
