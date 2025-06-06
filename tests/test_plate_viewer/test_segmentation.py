@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -376,8 +377,10 @@ class TestCellposeSegmentation:
 
         model = widget._initialize_model()
         assert model is mock_model
+        # Use normpath to handle cross-platform path separators
+        expected_path = os.path.normpath("/path/to/model.pt")
         mock_cellpose_model.assert_called_once_with(
-            pretrained_model="/path/to/model.pt", gpu=False
+            pretrained_model=expected_path, gpu=False
         )
 
     def test_initialize_model_custom_no_path(self, qtbot):

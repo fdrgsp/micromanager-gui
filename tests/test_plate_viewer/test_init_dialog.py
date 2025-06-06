@@ -143,7 +143,8 @@ class TestInitDialog:
         dialog._browse_datastrore._browse_btn.click()
 
         # Check that the path was set
-        assert dialog._browse_datastrore.value() == "/selected/datastore/path"
+        expected_path = os.path.normpath("/selected/datastore/path")
+        assert dialog._browse_datastrore.value() == expected_path
 
     @patch("qtpy.QtWidgets.QFileDialog.getExistingDirectory")
     def test_browse_labels_directory_selection(self, mock_file_dialog, dialog):
@@ -154,7 +155,8 @@ class TestInitDialog:
         dialog._browse_labels._browse_btn.click()
 
         # Check that the path was set
-        assert dialog._browse_labels.value() == "/selected/labels/path"
+        expected_path = os.path.normpath("/selected/labels/path")
+        assert dialog._browse_labels.value() == expected_path
 
     @patch("qtpy.QtWidgets.QFileDialog.getExistingDirectory")
     def test_browse_analysis_directory_selection(self, mock_file_dialog, dialog):
@@ -165,7 +167,8 @@ class TestInitDialog:
         dialog._browse_analysis._browse_btn.click()
 
         # Check that the path was set
-        assert dialog._browse_analysis.value() == "/selected/analysis/path"
+        expected_path = os.path.normpath("/selected/analysis/path")
+        assert dialog._browse_analysis.value() == expected_path
 
     @patch("qtpy.QtWidgets.QFileDialog.getExistingDirectory")
     def test_browse_cancel_selection(self, mock_file_dialog, dialog):
@@ -435,7 +438,8 @@ class TestInitDialog:
         """Test handling of both string and Path object inputs."""
         # Test with string paths
         dialog1 = _InitDialog(parent_widget, datastore_path="/string/path")
-        assert dialog1._browse_datastrore.value() == "/string/path"
+        expected_path = os.path.normpath("/string/path")
+        assert dialog1._browse_datastrore.value() == expected_path
 
         # Test with Path objects converted to strings
         path_obj = Path("/path/object")

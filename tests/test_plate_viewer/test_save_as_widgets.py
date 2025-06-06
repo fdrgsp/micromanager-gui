@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -105,7 +106,7 @@ class TestSaveAsWidgets:
             widget._pos_line_edit.setText("1-3")
 
             path, positions = widget.value()
-            assert path == "/test/path"
+            assert path == os.path.normpath("/test/path")
             assert positions == [1, 2, 3]
 
     def test_save_as_csv_init(self):
@@ -119,4 +120,4 @@ class TestSaveAsWidgets:
         widget = _SaveAsCSV()
         widget._browse_widget.setValue("/test/csv/path")
 
-        assert widget.value() == "/test/csv/path"
+        assert widget.value() == os.path.normpath("/test/csv/path")
