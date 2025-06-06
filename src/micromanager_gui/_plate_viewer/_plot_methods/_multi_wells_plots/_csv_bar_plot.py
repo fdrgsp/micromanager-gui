@@ -45,7 +45,7 @@ def plot_csv_bar_plot(  # <- new name, call it however you like
     mean_n_sem: bool = True,
 ) -> None:
     """Load a CSV file and create *bar* plots (mean ± pooled-SEM) per condition."""
-    # Figure clearing is handled by the calling function
+    widget.figure.clear()
     if mean_n_sem:
         _create_bar_plot_mean_and_pooled_sem(widget, csv_path, info)
     else:

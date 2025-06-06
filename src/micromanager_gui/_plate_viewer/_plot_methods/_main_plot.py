@@ -277,13 +277,14 @@ def plot_multi_well_data(
     analysis_path: str | None,
 ) -> None:
     """Plot the multi-well data."""
-    widget.figure.clear()
     if not text or text == "None" or not analysis_path:
+        widget.figure.clear()
         return
 
     suffix = MULTI_WELL_GRAPHS_OPTIONS[text].get("suffix")
     if not suffix:
         print(f"No parameter found for {text}.")
+        widget.figure.clear()
         return
 
     if "stimulated" in suffix:
@@ -292,6 +293,7 @@ def plot_multi_well_data(
         csv_path = Path(analysis_path) / "grouped"
     if not csv_path.exists():
         print(f"CSV path {csv_path} does not exist.")
+        widget.figure.clear()
         return
 
     csv_file: Path | None = None
@@ -301,6 +303,7 @@ def plot_multi_well_data(
             break
 
     if not csv_file:
+        widget.figure.clear()
         return
 
     if suffix in {"synchrony", "percentage_active"}:
