@@ -19,8 +19,8 @@ class TestEquationParser:
         # Create a minimal instance for testing the equation parser
         return _AnalyseCalciumTraces()
 
-    def test_linear_equations(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test parsing of linear equations."""
+    def analysis_widget_equations(self, analysis_widget: _AnalyseCalciumTraces):
+        """Test parsing of equations."""
         # Standard linear equation
         func = analysis_widget.equation_from_str("y = 2*x + 3")
         assert func is not None
@@ -41,8 +41,6 @@ class TestEquationParser:
         assert func is not None
         assert func(5) == 13
 
-    def test_quadratic_equations(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test parsing of quadratic equations."""
         # Standard quadratic equation
         func = analysis_widget.equation_from_str("y = 1*x^2 + 2*x + 1")
         assert func is not None
@@ -58,8 +56,6 @@ class TestEquationParser:
         assert func is not None
         assert func(3) == 16
 
-    def test_exponential_equations(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test parsing of exponential equations."""
         # Simple exponential
         func = analysis_widget.equation_from_str("y = 2*exp(0*x) + 1")
         assert func is not None
@@ -76,8 +72,6 @@ class TestEquationParser:
         assert func is not None
         assert abs(func(5) - 3) < 0.01
 
-    def test_power_equations(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test parsing of power equations."""
         # Square root
         func = analysis_widget.equation_from_str("y = 2*x^0.5 + 1")
         assert func is not None
@@ -98,8 +92,6 @@ class TestEquationParser:
         assert func is not None
         assert func(4) == 5
 
-    def test_logarithmic_equations(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test parsing of logarithmic equations."""
         # Natural logarithm
         func = analysis_widget.equation_from_str("y = 1*log(x) + 0")
         assert func is not None
@@ -118,8 +110,6 @@ class TestEquationParser:
         result = func(np.e)
         assert abs(result - 1) < 0.01
 
-    def test_empty_equation(self, analysis_widget: _AnalyseCalciumTraces):
-        """Test that empty equation returns None."""
         func = analysis_widget.equation_from_str("")
         assert func is None
 
