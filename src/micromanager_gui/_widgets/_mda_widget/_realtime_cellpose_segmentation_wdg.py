@@ -75,7 +75,7 @@ class RealTimeCellposeSegmentationWidget(QGroupBox):
 
     def is_segmentation_enabled(self) -> bool:
         """Return True if the checkbox is checked."""
-        return cast(bool, self._enable_segmentation_checkbox.isChecked())
+        return cast("bool", self._enable_segmentation_checkbox.isChecked())
 
     def value(self) -> SegmentationParameters | None:
         """Return the current value of the widget."""

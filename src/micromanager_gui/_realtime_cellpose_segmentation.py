@@ -133,9 +133,9 @@ def _segment_image(
 ) -> None:
     """Segment the image."""
     # get saving metadata from the sequence
-    meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
-    save_dir = cast(str, meta.get("save_dir", ""))
-    save_name = cast(str, meta.get("save_name", ""))
+    meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+    save_dir = cast("str", meta.get("save_dir", ""))
+    save_name = cast("str", meta.get("save_name", ""))
 
     if not save_dir or not save_name:
         logger.warning(
@@ -163,7 +163,7 @@ def _segment_image(
         label_name = f"p{p_idx}.tif"
 
     # set the cellpose model and parameters
-    model_info = cast(dict, meta.get(SEGMENTATION, {}))
+    model_info = cast("dict", meta.get(SEGMENTATION, {}))
     model_type: str = model_info.get("model_type", "")
     model_path: str = model_info.get("model_path", "")
 

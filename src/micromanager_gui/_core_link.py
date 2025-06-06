@@ -50,7 +50,7 @@ def _progress_message(event: useq.MDAEvent) -> dict[str, Any]:
     try:
         sizes = event.sequence.sizes
         pos_name = event.pos_name or f"p{event.index.get('p', 0)}"
-        info = (f"{key}{idx+1}/{sizes[key]}" for key, idx in event.index.items())
+        info = (f"{key}{idx + 1}/{sizes[key]}" for key, idx in event.index.items())
         text = f"Status -> `{pos_name} [{', '.join(info)}]`"
         return {"icon_emoji": INFO_EMOJI, "text": text}
     except Exception as e:
@@ -230,7 +230,7 @@ class CoreViewersLink(QObject):
         self._current_viewer = MDAViewer(parent=self._main_window, data=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
-        _meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        _meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         viewer_name = self._get_viewer_name(_meta.get("save_name"))
         self._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._viewer_tab.setCurrentWidget(self._current_viewer)
@@ -293,7 +293,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is None:
             return
 
-        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         file_name = meta.get("save_name", "")
         if file_name:
             file_name = f" (file: `{file_name}`)"

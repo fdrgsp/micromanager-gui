@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
 import tifffile
-import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -63,6 +62,7 @@ from ._util import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import useq
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
@@ -616,7 +616,7 @@ class _AnalyseCalciumTraces(QWidget):
         # open the labels file and create masks for each label
         labels = tifffile.imread(labels_path)
         labels_masks = self._create_label_masks_dict(labels)
-        sequence = cast(useq.MDASequence, self._data.sequence)
+        sequence = cast("useq.MDASequence", self._data.sequence)
 
         # get the elapsed time from the metadata to calculate the total time in seconds
         elapsed_time_list = self.get_elapsed_time_list(meta)
@@ -638,7 +638,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
         if evoked_experiment and (seq := self._data.sequence) is not None:
-            metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
+            metadata = cast("dict", seq.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
         msg = f"Extracting Traces Data from Well {fov_name}."
@@ -840,8 +840,8 @@ class _AnalyseCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            raw_trace=cast(list[float], roi_trace.tolist()),
-            dff=cast(list[float], dff.tolist()),
+            raw_trace=cast("list[float]", roi_trace.tolist()),
+            dff=cast("list[float]", dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
@@ -876,7 +876,7 @@ class _AnalyseCalciumTraces(QWidget):
         amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
 
         pulse_on_frames_and_powers = cast(
-            dict, evoked_experiment_meta.get("pulse_on_frame", {})
+            "dict", evoked_experiment_meta.get("pulse_on_frame", {})
         )
         sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
 
