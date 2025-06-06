@@ -22,9 +22,7 @@ from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_trac
 from micromanager_gui._plate_viewer._util import ROIData
 
 # Test data paths
-TEST_DATA_SPONTANEOUS = (
-    Path(__file__).parent / "test_plate_viewer" / "data" / "spontaneous"
-)
+TEST_DATA_SPONTANEOUS = Path(__file__).parent / "data" / "spontaneous"
 
 
 class TestTracesPlotsSpecific:
@@ -246,6 +244,10 @@ class TestPlotMethodsIntegration:
         mock_widget.figure.clear = Mock()
         mock_ax = Mock()
         mock_widget.figure.add_subplot = Mock(return_value=mock_ax)
+        mock_widget.canvas = Mock()
+        mock_widget.canvas.draw = Mock()
+        # Initialize conditions as an empty dict that can be used by the bar plot
+        mock_widget.conditions = {}
 
         info = {
             "parameter": "Amplitude",

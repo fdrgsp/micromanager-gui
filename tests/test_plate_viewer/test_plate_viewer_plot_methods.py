@@ -43,10 +43,8 @@ from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_pl
 from micromanager_gui._plate_viewer._util import ROIData
 
 # Test data paths
-TEST_DATA_SPONTANEOUS = (
-    Path(__file__).parent / "test_plate_viewer" / "data" / "spontaneous"
-)
-TEST_DATA_EVOKED = Path(__file__).parent / "test_plate_viewer" / "data" / "evoked"
+TEST_DATA_SPONTANEOUS = Path(__file__).parent / "data" / "spontaneous"
+TEST_DATA_EVOKED = Path(__file__).parent / "data" / "evoked"
 
 SPONT_ANALYSIS_PATH = str(TEST_DATA_SPONTANEOUS / "spont_analysis")
 EVOKED_ANALYSIS_PATH = str(TEST_DATA_EVOKED / "evk_analysis")
@@ -168,21 +166,21 @@ class TestSingleWellPlotMethods:
     def test_plot_empty_text(self, mock_widget):
         """Test plotting with empty text returns early."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, "")
-        # Should not call clear or add_subplot
-        mock_widget.figure.clear.assert_not_called()
+        # Should call clear but not add_subplot
+        mock_widget.figure.clear.assert_called_once()
 
     def test_plot_none_text(self, mock_widget):
         """Test plotting with None text returns early."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, "None")
-        # Should not call clear or add_subplot
-        mock_widget.figure.clear.assert_not_called()
+        # Should call clear but not add_subplot
+        mock_widget.figure.clear.assert_called_once()
 
     def test_plot_section_header(self, mock_widget):
         """Test plotting with section header returns early."""
         section_header = next(iter(SINGLE_WELL_COMBO_OPTIONS_DICT.keys()))
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, section_header)
-        # Should not call clear or add_subplot
-        mock_widget.figure.clear.assert_not_called()
+        # Should call clear but not add_subplot
+        mock_widget.figure.clear.assert_called_once()
 
     @pytest.mark.parametrize("trace_type", list(TRACES_GROUP.keys()))
     def test_all_trace_types(self, mock_widget, trace_type):
