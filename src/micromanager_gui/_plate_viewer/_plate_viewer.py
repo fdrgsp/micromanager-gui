@@ -70,6 +70,7 @@ HCS = "hcs"
 UNSELECTABLE_COLOR = "#404040"
 TS = WRITERS[ZARR_TESNSORSTORE][0]
 ZR = WRITERS[OME_ZARR][0]
+PLATE_PLAN = "plate_plan.json"
 DEFAULT_PLATE_PLAN = useq.WellPlatePlan(
     plate=useq.WellPlate.from_str("coverslip-18mm-square"),
     a1_center_xy=(0.0, 0.0),
@@ -472,6 +473,7 @@ class PlateViewer(QMainWindow):
                 self._pv_analysis_data[well] = {}
                 # open the data for the well
                 with open(f) as file:
+                    data = {}
                     try:
                         data = cast(dict, json.load(file))
                     except json.JSONDecodeError as e:
@@ -508,7 +510,7 @@ class PlateViewer(QMainWindow):
 
         # the json file names should be in the form A1_0000.json
         for f in path_list:
-            if f.name in {GENOTYPE_MAP, TREATMENT_MAP}:
+            if f.name in {GENOTYPE_MAP, TREATMENT_MAP, PLATE_PLAN}:
                 continue
             # skip hidden files
             if f.name.startswith("."):
@@ -589,13 +591,11 @@ class PlateViewer(QMainWindow):
     def _resolve_plate_plan(self) -> useq.WellPlatePlan | None:
         """Resolve plate plan from various sources in order of preference."""
         # try loading from JSON file
-        plate_plan = self._load_plate_plan_from_json()
-        if plate_plan:
+        if plate_plan:=self._load_plate_plan_from_json():
             return plate_plan
 
         # try loading from old metadata
-        plate_plan = self._retrieve_plate_plan_from_old_metadata()
-        if plate_plan:
+        if plate_plan:=self._retrieve_plate_plan_from_old_metadata():
             return plate_plan
 
         # try using the wizard
@@ -612,7 +612,7 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return None
 
-        pp_path = Path(self._pv_analysis_path) / "plate_plan.json"
+        pp_path = Path(self._pv_analysis_path) / PLATE_PLAN
         if not pp_path.exists():
             return None
 
@@ -628,7 +628,7 @@ class PlateViewer(QMainWindow):
         if not self._pv_analysis_path:
             return
         try:
-            plate_plan_path = Path(self._pv_analysis_path) / "plate_plan.json"
+            plate_plan_path = Path(self._pv_analysis_path) / PLATE_PLAN
             with open(plate_plan_path, "w") as f:
                 json.dump(plate_plan.model_dump(), f, indent=4)
         except OSError as e:
