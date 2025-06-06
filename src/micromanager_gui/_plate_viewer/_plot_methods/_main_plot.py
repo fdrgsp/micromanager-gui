@@ -165,6 +165,7 @@ def plot_single_well_data(
 ) -> None:
     """Plot traces based on the text."""
     if not text or text == "None" or text in SINGLE_WELL_COMBO_OPTIONS_DICT.keys():
+        widget.figure.clear()
         return
 
     # TRACES GROUP
@@ -277,7 +278,6 @@ def plot_multi_well_data(
 ) -> None:
     """Plot the multi-well data."""
     widget.figure.clear()
-
     if not text or text == "None" or not analysis_path:
         return
 
