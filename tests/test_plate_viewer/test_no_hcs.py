@@ -292,12 +292,13 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
 
     pv._save_plate_plan_json(plate_plan)
 
-    # Verify file was overwritten with new plate plan data
+    # Verify file was updated with new plate plan while preserving existing settings
     with open(settings_file9) as f:
         saved_data = json.load(f)
 
-    # Should only contain plate_plan, existing data should be gone
-    assert list(saved_data.keys()) == [PLATE_PLAN]
+    # Should contain both existing data and plate_plan
+    assert "existing_key" in saved_data
+    assert saved_data["existing_key"] == "existing_value"
     assert PLATE_PLAN in saved_data
 
     # Verify the plate plan data is correct

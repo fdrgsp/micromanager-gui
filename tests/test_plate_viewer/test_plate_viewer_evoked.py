@@ -112,6 +112,7 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         "genotype_plate_map.json",
         "B5_0000_p0.json",
         "stimulation_mask.tif",
+        "settings.json",
     }, f"Expected files not found. Found: {set(files)}"
 
     # assert that the subfolders are created and contain the expected files

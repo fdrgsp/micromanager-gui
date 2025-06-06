@@ -1095,9 +1095,19 @@ class _AnalyseCalciumTraces(QWidget):
         settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
 
         try:
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the LED power equation
+            settings[LED_POWER_EQUATION] = eq
+
+            # Write back the complete settings
             with open(settings_json_file, "w") as f:
                 json.dump(
-                    {LED_POWER_EQUATION: eq},
+                    settings,
                     f,
                     indent=2,
                 )
