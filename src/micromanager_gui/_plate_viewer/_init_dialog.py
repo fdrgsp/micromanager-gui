@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from qtpy.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -72,8 +74,12 @@ class _InitDialog(QDialog):
         layout.addWidget(self.buttonBox, 3, 0, 1, 2)
 
     def value(self) -> tuple[str, str, str]:
+        datastore_path = self._browse_datastrore.value()
+        labels_path = self._browse_labels.value()
+        analysis_path = self._browse_analysis.value()
+
         return (
-            self._browse_datastrore.value(),
-            self._browse_labels.value(),
-            self._browse_analysis.value(),
+            os.path.normpath(datastore_path) if datastore_path else "",
+            os.path.normpath(labels_path) if labels_path else "",
+            os.path.normpath(analysis_path) if analysis_path else "",
         )

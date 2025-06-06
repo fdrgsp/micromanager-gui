@@ -128,7 +128,10 @@ class _BrowseWidget(QWidget):
         layout.addWidget(self._browse_btn)
 
     def value(self) -> str:
-        return self._path.text()  # type: ignore
+        import os
+
+        path_text = self._path.text()
+        return str(os.path.normpath(path_text)) if path_text else ""
 
     def setValue(self, path: str | Path) -> None:
         self._path.setText(str(path))
