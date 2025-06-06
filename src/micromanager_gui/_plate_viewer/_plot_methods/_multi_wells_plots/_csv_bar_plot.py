@@ -43,10 +43,12 @@ def plot_csv_bar_plot(  # <- new name, call it however you like
     csv_path: str | Path,
     info: dict[str, str],
     mean_n_sem: bool = True,
+    clear_figure: bool = True,
 ) -> None:
     """Load a CSV file and create *bar* plots (mean ± pooled-SEM) per condition."""
-    # Clear the figure at the start
-    widget.figure.clear()
+    if clear_figure:
+        widget.figure.clear()
+
     if mean_n_sem:
         _create_bar_plot_mean_and_pooled_sem(widget, csv_path, info)
     else:
