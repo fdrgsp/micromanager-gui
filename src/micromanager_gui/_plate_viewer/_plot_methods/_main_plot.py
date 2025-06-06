@@ -309,9 +309,6 @@ def plot_multi_well_data(
             csv_file,
             MULTI_WELL_GRAPHS_OPTIONS[text],
             mean_n_sem=False,
-            clear_figure=False,
         )
 
-    return plot_csv_bar_plot(
-        widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text], clear_figure=False
-    )
+    return plot_csv_bar_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])
