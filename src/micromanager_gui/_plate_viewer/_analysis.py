@@ -110,7 +110,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
-        self._min_peaks_height: float = 0.0
+        self._peaks_height_multiplier: float = 0.0
 
         self._led_power_equation: Callable | None = None
 
@@ -192,15 +192,18 @@ class _AnalyseCalciumTraces(QWidget):
         # PEAKS SETTINGS -------------------------------------------------------------
         min_peaks_lbl_wdg = QWidget(self)
         min_peaks_lbl_wdg.setToolTip(
-            "Set the min height for the peaks (used by the scipy find_peaks method)."
+            "Set the noise multiplier for peak detection threshold.\n"
+            "The actual threshold = noise_level * multiplier\n"
+            "Set to 0 for automatic threshold (3x noise level).\n"
+            "Typical values: 2-5 for sensitive detection, 5-10 for strict detection."
         )
-        min_peaks_lbl = QLabel("Min Peaks Height:")
+        min_peaks_lbl = QLabel("Noise Multiplier:")
         min_peaks_lbl.setSizePolicy(*FIXED)
         self._min_peaks_height_spin = QDoubleSpinBox(self)
         self._min_peaks_height_spin.setDecimals(4)
         self._min_peaks_height_spin.setRange(0.0, 100000.0)
         self._min_peaks_height_spin.setSingleStep(0.01)
-        self._min_peaks_height_spin.setValue(0.0075)
+        self._min_peaks_height_spin.setValue(4.0)
         min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
         min_peaks_layout.setContentsMargins(0, 0, 0, 0)
         min_peaks_layout.setSpacing(5)
@@ -419,7 +422,7 @@ class _AnalyseCalciumTraces(QWidget):
         ):
             return None
 
-        self._min_peaks_height = self._min_peaks_height_spin.value()
+        self._peaks_height_multiplier = self._min_peaks_height_spin.value()
 
         # get the LED power equation from the line edit
         eq = self._led_power_equation_le.text()
@@ -845,7 +848,7 @@ class _AnalyseCalciumTraces(QWidget):
         # deconvolve the dff trace
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
-        # Get the prominence to find peaks in the deconvolved trace
+        # Get the prominence and adaptive height threshold for peak detection
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
         # to outliers (unlike the mean).
@@ -862,11 +865,23 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff  # * 2
+        peaks_prominence_dec_dff = noise_level_dec_dff
+
+        # use adaptive height threshold based on noise level and user multiplier
+        # if user sets multiplier to 0, use default value of 3x noise level
+        if self._peaks_height_multiplier != 0.0:
+            adaptive_height_threshold = (
+                noise_level_dec_dff * self._peaks_height_multiplier
+            )
+        else:
+            # Default to 3x noise level when multiplier is 0 (auto mode)
+            adaptive_height_threshold = noise_level_dec_dff * 3.0
 
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
-            dec_dff, prominence=peaks_prominence_dec_dff, height=self._min_peaks_height
+            dec_dff,
+            prominence=peaks_prominence_dec_dff,
+            height=adaptive_height_threshold,
         )
 
         # get the amplitudes of the peaks in the dec_dff trace
@@ -925,6 +940,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
+            peaks_adaptive_height_threshold=adaptive_height_threshold,
             dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
