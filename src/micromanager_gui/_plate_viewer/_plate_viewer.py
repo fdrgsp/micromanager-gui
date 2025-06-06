@@ -638,9 +638,19 @@ class PlateViewer(QMainWindow):
             return
         try:
             settings_json_file = Path(self._pv_analysis_path) / SETTINGS_PATH
+
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the plate plan
+            settings[PLATE_PLAN] = plate_plan.model_dump()
+
+            # Write back the complete settings
             with open(settings_json_file, "w") as f:
-                pp = {PLATE_PLAN: plate_plan.model_dump()}
-                json.dump(pp, f, indent=4)
+                json.dump(settings, f, indent=4)
         except OSError as e:
             LOGGER.error(f"Failed to save plate plan: {e}")
 
