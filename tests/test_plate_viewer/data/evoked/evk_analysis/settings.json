@@ -1,4 +1,6 @@
 {
   "led_power_equation": "y = 11.07 * x - 6.63",
-  "noise_multiplier": 4.5
+  "noise_multiplier": 4.5,
+  "height_multiplier": 4.3,
+  "prominence_multiplier": 1.1
 }

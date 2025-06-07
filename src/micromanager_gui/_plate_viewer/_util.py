@@ -40,7 +40,8 @@ MWCM = "mW/cm²"
 SETTINGS_PATH = "settings.json"
 PLATE_PLAN = "plate_plan"
 LED_POWER_EQUATION = "led_power_equation"
-NOISE_MULTIPLIER = "noise_multiplier"
+PEAKS_HEIGHT_MULTIPLIER = "height_multiplier"
+PEAKS_PROMINENCE_MULTIPLIER = "prominence_multiplier"
 
 
 @dataclass
@@ -63,7 +64,7 @@ class ROIData(BaseClass):
     peaks_dec_dff: list[float] | None = None
     peaks_amplitudes_dec_dff: list[float] | None = None
     peaks_prominence_dec_dff: float | None = None
-    peaks_adaptive_height_threshold: float | None = None
+    peaks_height_dec_dff: float | None = None
     inferred_spikes: list[float] | None = None
     dec_dff_frequency: float | None = None  # Hz
     condition_1: str | None = None
