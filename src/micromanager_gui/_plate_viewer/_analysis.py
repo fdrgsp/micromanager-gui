@@ -45,6 +45,8 @@ from ._util import (
     GREEN,
     LED_POWER_EQUATION,
     MWCM,
+    PEAKS_HEIGHT_MULTIPLIER,
+    PEAKS_PROMINENCE_MULTIPLIER,
     RED,
     SETTINGS_PATH,
     STIMULATION_MASK,
@@ -110,7 +112,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
-        self._min_peaks_height: float = 0.0
 
         self._led_power_equation: Callable | None = None
 
@@ -190,22 +191,44 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
 
         # PEAKS SETTINGS -------------------------------------------------------------
-        min_peaks_lbl_wdg = QWidget(self)
-        min_peaks_lbl_wdg.setToolTip(
-            "Set the min height for the peaks (used by the scipy find_peaks method)."
+        peaks_height_lbl_wdg = QWidget(self)
+        peaks_height_lbl_wdg.setToolTip(
+            "Set the noise multiplier to use for peaks height detection.\n"
+            "The actual threshold = noise_level * multiplier\n"
+            "Lower values (e.g. <=5) will detect more peaks, while higher values "
+            "(e.g. >=6) will be stricter."
         )
-        min_peaks_lbl = QLabel("Min Peaks Height:")
-        min_peaks_lbl.setSizePolicy(*FIXED)
-        self._min_peaks_height_spin = QDoubleSpinBox(self)
-        self._min_peaks_height_spin.setDecimals(4)
-        self._min_peaks_height_spin.setRange(0.0, 100000.0)
-        self._min_peaks_height_spin.setSingleStep(0.01)
-        self._min_peaks_height_spin.setValue(0.0075)
-        min_peaks_layout = QHBoxLayout(min_peaks_lbl_wdg)
-        min_peaks_layout.setContentsMargins(0, 0, 0, 0)
-        min_peaks_layout.setSpacing(5)
-        min_peaks_layout.addWidget(min_peaks_lbl)
-        min_peaks_layout.addWidget(self._min_peaks_height_spin)
+        peaks_height_lbl = QLabel("Peaks Height Multiplier:")
+        peaks_height_lbl.setSizePolicy(*FIXED)
+        self._peaks_height_multiplier_spin = QDoubleSpinBox(self)
+        self._peaks_height_multiplier_spin.setDecimals(4)
+        self._peaks_height_multiplier_spin.setRange(0.0, 100000.0)
+        self._peaks_height_multiplier_spin.setSingleStep(0.01)
+        self._peaks_height_multiplier_spin.setValue(4.0)
+        peaks_height_layout = QHBoxLayout(peaks_height_lbl_wdg)
+        peaks_height_layout.setContentsMargins(0, 0, 0, 0)
+        peaks_height_layout.setSpacing(5)
+        peaks_height_layout.addWidget(peaks_height_lbl)
+        peaks_height_layout.addWidget(self._peaks_height_multiplier_spin)
+
+        peaks_prominence_lbl_wdg = QWidget(self)
+        peaks_prominence_lbl_wdg.setToolTip(
+            "Set the noise multiplier to use for peaks prominence detection.\n"
+            "The actual prominence = noise_level * multiplier.\n"
+            "Setting to 1 means no prominence filtering and the noise level is used."
+        )
+        peaks_prominence_lbl = QLabel("Peaks Prominence Multiplier:")
+        peaks_prominence_lbl.setSizePolicy(*FIXED)
+        self._peaks_prominence_multiplier_spin = QDoubleSpinBox(self)
+        self._peaks_prominence_multiplier_spin.setDecimals(4)
+        self._peaks_prominence_multiplier_spin.setRange(0, 100000.0)
+        self._peaks_prominence_multiplier_spin.setSingleStep(0.01)
+        self._peaks_prominence_multiplier_spin.setValue(1)
+        peaks_prominence_layout = QHBoxLayout(peaks_prominence_lbl_wdg)
+        peaks_prominence_layout.setContentsMargins(0, 0, 0, 0)
+        peaks_prominence_layout.setSpacing(5)
+        peaks_prominence_layout.addWidget(peaks_prominence_lbl)
+        peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
@@ -243,12 +266,13 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn.clicked.connect(self.cancel)
 
         # STYLING --------------------------------------------------------------------
-        fixed_width = self._analysis_path._label.sizeHint().width()
+        fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
+        self._analysis_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
-        min_peaks_lbl.setFixedWidth(fixed_width)
+        peaks_height_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -267,7 +291,8 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
-        wdg_layout.addWidget(min_peaks_lbl_wdg)
+        wdg_layout.addWidget(peaks_height_lbl_wdg)
+        wdg_layout.addWidget(peaks_prominence_lbl_wdg)
         wdg_layout.addWidget(self._analysis_path)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -375,8 +400,8 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
-    def update_led_power_equation_form_settings(self) -> None:
-        """Update the LED power equation line edit."""
+    def update_widget_form_json_settings(self) -> None:
+        """Update the widget form from the JSON settings."""
         if not self.analysis_path:
             return None
 
@@ -389,6 +414,11 @@ class _AnalyseCalciumTraces(QWidget):
                 settings = cast(dict, json.load(f))
                 pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
                 self._led_power_equation_le.setText(pp)
+                height_mult = cast(float, settings.get(PEAKS_HEIGHT_MULTIPLIER, 4.0))
+                self._peaks_height_multiplier_spin.setValue(height_mult)
+                prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
+                self._peaks_prominence_multiplier_spin.setValue(prom_mult)
+
         except Exception as e:
             LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
             return None
@@ -419,13 +449,13 @@ class _AnalyseCalciumTraces(QWidget):
         ):
             return None
 
-        self._min_peaks_height = self._min_peaks_height_spin.value()
-
         # get the LED power equation from the line edit
         eq = self._led_power_equation_le.text()
         self._led_power_equation = self.equation_from_str(eq)
         if self._led_power_equation:
-            self._save_led_equation_as_json(eq)
+            self._save_led_equation_to_json_settings(eq)
+
+        self._save_noise_multipliers_to_json_settings()
 
         return self._get_positions_to_analyze()
 
@@ -650,12 +680,10 @@ class _AnalyseCalciumTraces(QWidget):
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
-        if condition_1_plate_map:
-            path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
-        if conition_2_plate_map:
-            path = Path(self._analysis_path.value()) / TREATMENT_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
+        path = Path(self._analysis_path.value()) / GENOTYPE_MAP
+        self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
+        path = Path(self._analysis_path.value()) / TREATMENT_MAP
+        self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
 
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the key. e.g.:
@@ -845,7 +873,7 @@ class _AnalyseCalciumTraces(QWidget):
         # deconvolve the dff trace
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
-        # Get the prominence to find peaks in the deconvolved trace
+        # Get the prominence and adaptive height threshold for peak detection
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
         # to outliers (unlike the mean).
@@ -862,11 +890,20 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff  # * 2
+        # Set prominence threshold (how much peaks must stand out from surroundings)
+        # Use a fraction of noise level to be less restrictive than height threshold
+        prom_multiplier = self._peaks_prominence_multiplier_spin.value()
+        peaks_prominence_dec_dff = noise_level_dec_dff * prom_multiplier
+
+        # use adaptive height threshold based on noise level and user multiplier
+        height_multiplier = self._peaks_height_multiplier_spin.value()
+        peaks_height_dec_dff = noise_level_dec_dff * height_multiplier
 
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
-            dec_dff, prominence=peaks_prominence_dec_dff, height=self._min_peaks_height
+            dec_dff,
+            prominence=peaks_prominence_dec_dff,
+            height=peaks_height_dec_dff,
         )
 
         # get the amplitudes of the peaks in the dec_dff trace
@@ -925,6 +962,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
+            peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
@@ -1087,7 +1125,7 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer._pv_analysis_path = path
 
-    def _save_led_equation_as_json(self, eq: str) -> None:
+    def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
         if not self.analysis_path or not self._led_power_equation:
             return
@@ -1113,6 +1151,38 @@ class _AnalyseCalciumTraces(QWidget):
                 )
         except Exception as e:
             LOGGER.error(f"Failed to save LED power equation: {e}")
+
+    def _save_noise_multipliers_to_json_settings(self) -> None:
+        """Save the noise multiplier to a JSON file."""
+        if not self.analysis_path:
+            return
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+
+        try:
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the noise multiplier
+            settings[PEAKS_HEIGHT_MULTIPLIER] = (
+                self._peaks_height_multiplier_spin.value()
+            )
+            settings[PEAKS_PROMINENCE_MULTIPLIER] = (
+                self._peaks_prominence_multiplier_spin.value()
+            )
+
+            # Write back the complete settings
+            with open(settings_json_file, "w") as f:
+                json.dump(
+                    settings,
+                    f,
+                    indent=2,
+                )
+        except Exception as e:
+            LOGGER.error(f"Failed to save noise multiplier: {e}")
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulation area path and LED power widgets."""

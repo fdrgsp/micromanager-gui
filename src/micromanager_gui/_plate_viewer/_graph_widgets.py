@@ -135,6 +135,7 @@ class _DisplaySingleWellTraces(QGroupBox):
         if not text:
             return None
         # return n random rois
+        # TODO: fix this. It return a roi even if not active.
         try:
             if text[:3] == "rnd" and text[3:].isdigit():
                 random_keys = np.random.choice(
