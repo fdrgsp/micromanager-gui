@@ -869,7 +869,9 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
-        peaks_prominence_dec_dff = noise_level_dec_dff
+        # Set prominence threshold (how much peaks must stand out from surroundings)
+        # Using a fraction of noise level to be less restrictive than height threshold
+        peaks_prominence_dec_dff = noise_level_dec_dff * 0.75
 
         # use adaptive height threshold based on noise level and user multiplier
         adaptive_height_threshold = noise_level_dec_dff * self._peaks_height_multiplier
