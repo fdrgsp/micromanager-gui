@@ -195,8 +195,8 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_height_lbl_wdg.setToolTip(
             "Set the noise multiplier to use for peaks height detection.\n"
             "The actual threshold = noise_level * multiplier\n"
-            "Lower values (2-5) will detect more peaks, while higher values (5-10) "
-            "will be stricter."
+            "Lower values (e.g. <=5) will detect more peaks, while higher values "
+            "(e.g. >=6) will be stricter."
         )
         peaks_height_lbl = QLabel("Peaks Height Multiplier:")
         peaks_height_lbl.setSizePolicy(*FIXED)
@@ -215,8 +215,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_prominence_lbl_wdg.setToolTip(
             "Set the noise multiplier to use for peaks prominence detection.\n"
             "The actual prominence = noise_level * multiplier.\n"
-            "Lower values (0.5-1) will detect more peaks, while higher values (1-2) "
-            "will be stricter."
+            "Setting to 1 means no prominence filtering and the noise level is used."
         )
         peaks_prominence_lbl = QLabel("Peaks Prominence Multiplier:")
         peaks_prominence_lbl.setSizePolicy(*FIXED)
@@ -681,12 +680,10 @@ class _AnalyseCalciumTraces(QWidget):
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
-        if condition_1_plate_map:
-            path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
-        if conition_2_plate_map:
-            path = Path(self._analysis_path.value()) / TREATMENT_MAP
-            self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
+        path = Path(self._analysis_path.value()) / GENOTYPE_MAP
+        self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
+        path = Path(self._analysis_path.value()) / TREATMENT_MAP
+        self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
 
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the key. e.g.:
