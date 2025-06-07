@@ -164,7 +164,7 @@ class _CellposeSegmentation(QWidget):
         pos_lbl = QLabel("Segment Positions:")
         pos_lbl.setSizePolicy(*FIXED)
         self._pos_le = QLineEdit()
-        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33")
+        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33. Leave empty for all.")
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
