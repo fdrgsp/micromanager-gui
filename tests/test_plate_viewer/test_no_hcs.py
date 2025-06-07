@@ -75,7 +75,7 @@ def test_save_plate_plan_json_no_analysis_path(qtbot, dummy_data_loader) -> None
     # Ensure analysis path is None
     pv._pv_analysis_path = None
 
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
 
     assert result is None
 
@@ -92,7 +92,7 @@ def test_save_plate_plan_json_no_analysis_path(qtbot, dummy_data_loader) -> None
     )
 
     # Should return early without error
-    pv._save_plate_plan_json(plate_plan)
+    pv._save_plate_plan_json_settings(plate_plan)
     # No exception should be raised, method should simply return
 
 
@@ -129,7 +129,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
 
     # Set analysis path and test loading
     pv._pv_analysis_path = str(analysis_path1)
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
 
     assert result is not None
     assert isinstance(result, useq.WellPlatePlan)
@@ -143,7 +143,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     analysis_path2.mkdir()
     pv._pv_analysis_path = str(analysis_path2)
 
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
     assert result is None
 
     # Test 3: Malformed JSON
@@ -158,7 +158,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     pv._pv_analysis_path = str(analysis_path3)
 
     # Should return None and log warning
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
     assert result is None
 
     # Test 4: Missing plate_plan key
@@ -172,7 +172,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
         json.dump(settings_data, f)
 
     pv._pv_analysis_path = str(analysis_path4)
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
 
     assert result is None
 
@@ -187,7 +187,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
         json.dump(settings_data, f)
 
     pv._pv_analysis_path = str(analysis_path5)
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
 
     assert result is None
 
@@ -204,7 +204,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     pv._pv_analysis_path = str(analysis_path6)
 
     # Should return None and log warning due to ValidationError
-    result = pv._load_plate_plan_from_json()
+    result = pv._load_plate_plan_from_json_settings()
     assert result is None
 
     # Test 7: Successful save
@@ -227,7 +227,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     )
 
     # Save the plate plan
-    pv._save_plate_plan_json(plate_plan)
+    pv._save_plate_plan_json_settings(plate_plan)
 
     # Verify the file was created and contains correct data
     settings_file7 = analysis_path7 / SETTINGS_PATH
@@ -262,7 +262,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     )
 
     # Should handle the OSError gracefully and log error
-    pv._save_plate_plan_json(plate_plan)
+    pv._save_plate_plan_json_settings(plate_plan)
     # No exception should be raised, error should be logged
 
     # Test 9: Overwrite existing settings
@@ -290,7 +290,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
         selected_wells=((0, 1), (0, 2)),  # wells (0,0) and (1,2)
     )
 
-    pv._save_plate_plan_json(plate_plan)
+    pv._save_plate_plan_json_settings(plate_plan)
 
     # Verify file was updated with new plate plan while preserving existing settings
     with open(settings_file9) as f:
@@ -328,10 +328,10 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     )
 
     # Save the plate plan
-    pv._save_plate_plan_json(original_plate_plan)
+    pv._save_plate_plan_json_settings(original_plate_plan)
 
     # Load it back
-    loaded_plate_plan = pv._load_plate_plan_from_json()
+    loaded_plate_plan = pv._load_plate_plan_from_json_settings()
 
     # Verify all data is preserved
     assert loaded_plate_plan is not None

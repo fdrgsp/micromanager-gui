@@ -1,3 +1,4 @@
 {
-  "led_power_equation": "y = 11.07 * x - 6.63"
+  "led_power_equation": "y = 11.07 * x - 6.63",
+  "noise_multiplier": 4.5
 }

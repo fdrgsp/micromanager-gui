@@ -136,6 +136,8 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     assert pv._plate_map_treatment.value() == T_MAP
     # fmt: on
 
+    pv._analysis_wdg._min_peaks_height_spin.setValue(4.3)
+
     # autoselect the only 1 position in the plate map
     assert pv._analysis_wdg._prepare_for_running() == [0]
 
@@ -155,6 +157,7 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         "treatment_plate_map.json",
         "genotype_plate_map.json",
         "B5_0000_p0.json",
+        "settings.json",
     }, f"Expected files not found. Found: {set(files)}"
 
     # assert that the subfolders are created and contain the expected files

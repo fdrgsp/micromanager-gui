@@ -40,6 +40,7 @@ MWCM = "mW/cm²"
 SETTINGS_PATH = "settings.json"
 PLATE_PLAN = "plate_plan"
 LED_POWER_EQUATION = "led_power_equation"
+NOISE_MULTIPLIER = "noise_multiplier"
 
 
 @dataclass

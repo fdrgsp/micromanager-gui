@@ -45,6 +45,7 @@ from ._util import (
     GREEN,
     LED_POWER_EQUATION,
     MWCM,
+    NOISE_MULTIPLIER,
     RED,
     SETTINGS_PATH,
     STIMULATION_MASK,
@@ -194,7 +195,6 @@ class _AnalyseCalciumTraces(QWidget):
         min_peaks_lbl_wdg.setToolTip(
             "Set the noise multiplier for peak detection threshold.\n"
             "The actual threshold = noise_level * multiplier\n"
-            "Set to 0 for automatic threshold (3x noise level).\n"
             "Typical values: 2-5 for sensitive detection, 5-10 for strict detection."
         )
         min_peaks_lbl = QLabel("Noise Multiplier:")
@@ -378,8 +378,8 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
-    def update_led_power_equation_form_settings(self) -> None:
-        """Update the LED power equation line edit."""
+    def update_widget_form_json_settings(self) -> None:
+        """Update the widget form from the JSON settings."""
         if not self.analysis_path:
             return None
 
@@ -392,6 +392,8 @@ class _AnalyseCalciumTraces(QWidget):
                 settings = cast(dict, json.load(f))
                 pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
                 self._led_power_equation_le.setText(pp)
+                noise_mult = cast(float, settings.get(NOISE_MULTIPLIER, 4.0))
+                self._min_peaks_height_spin.setValue(noise_mult)
         except Exception as e:
             LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
             return None
@@ -428,7 +430,9 @@ class _AnalyseCalciumTraces(QWidget):
         eq = self._led_power_equation_le.text()
         self._led_power_equation = self.equation_from_str(eq)
         if self._led_power_equation:
-            self._save_led_equation_as_json(eq)
+            self._save_led_equation_to_json_settings(eq)
+
+        self._save_noise_multiplier_to_json_settings()
 
         return self._get_positions_to_analyze()
 
@@ -868,14 +872,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_prominence_dec_dff = noise_level_dec_dff
 
         # use adaptive height threshold based on noise level and user multiplier
-        # if user sets multiplier to 0, use default value of 3x noise level
-        if self._peaks_height_multiplier != 0.0:
-            adaptive_height_threshold = (
-                noise_level_dec_dff * self._peaks_height_multiplier
-            )
-        else:
-            # Default to 3x noise level when multiplier is 0 (auto mode)
-            adaptive_height_threshold = noise_level_dec_dff * 3.0
+        adaptive_height_threshold = noise_level_dec_dff * self._peaks_height_multiplier
 
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
@@ -1103,7 +1100,7 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer._pv_analysis_path = path
 
-    def _save_led_equation_as_json(self, eq: str) -> None:
+    def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
         if not self.analysis_path or not self._led_power_equation:
             return
@@ -1129,6 +1126,33 @@ class _AnalyseCalciumTraces(QWidget):
                 )
         except Exception as e:
             LOGGER.error(f"Failed to save LED power equation: {e}")
+
+    def _save_noise_multiplier_to_json_settings(self) -> None:
+        """Save the noise multiplier to a JSON file."""
+        if not self.analysis_path:
+            return
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+
+        try:
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the noise multiplier
+            settings[NOISE_MULTIPLIER] = self._peaks_height_multiplier
+
+            # Write back the complete settings
+            with open(settings_json_file, "w") as f:
+                json.dump(
+                    settings,
+                    f,
+                    indent=2,
+                )
+        except Exception as e:
+            LOGGER.error(f"Failed to save noise multiplier: {e}")
 
     def _on_activity_changed(self, text: str) -> None:
         """Show or hide the stimulation area path and LED power widgets."""

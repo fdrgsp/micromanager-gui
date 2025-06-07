@@ -564,7 +564,7 @@ class PlateViewer(QMainWindow):
             if stim_mask.exists():
                 self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
                 self._analysis_wdg.stimulation_area_path = str(stim_mask)
-            self._analysis_wdg.update_led_power_equation_form_settings()
+            self._analysis_wdg.update_widget_form_json_settings()
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None
@@ -586,7 +586,7 @@ class PlateViewer(QMainWindow):
 
             # save the resolved plate plan if we have an analysis path
             if final_plate_plan and self._pv_analysis_path:
-                self._save_plate_plan_json(final_plate_plan)
+                self._save_plate_plan_json_settings(final_plate_plan)
 
         if final_plate_plan is None:
             return None
@@ -598,7 +598,7 @@ class PlateViewer(QMainWindow):
     def _resolve_plate_plan(self) -> useq.WellPlatePlan | None:
         """Resolve plate plan from various sources in order of preference."""
         # try loading from JSON file
-        if plate_plan := self._load_plate_plan_from_json():
+        if plate_plan := self._load_plate_plan_from_json_settings():
             return plate_plan
 
         # try loading from old metadata
@@ -614,7 +614,7 @@ class PlateViewer(QMainWindow):
         self._default_plate_plan = True
         return DEFAULT_PLATE_PLAN
 
-    def _load_plate_plan_from_json(self) -> useq.WellPlatePlan | None:
+    def _load_plate_plan_from_json_settings(self) -> useq.WellPlatePlan | None:
         """Load plate plan from JSON file if it exists."""
         if not self._pv_analysis_path:
             return None
@@ -632,7 +632,7 @@ class PlateViewer(QMainWindow):
             LOGGER.warning(f"Failed to load plate plan from {settings_json_file}: {e}")
             return None
 
-    def _save_plate_plan_json(self, plate_plan: useq.WellPlatePlan) -> None:
+    def _save_plate_plan_json_settings(self, plate_plan: useq.WellPlatePlan) -> None:
         """Save plate plan to JSON file."""
         if not self._pv_analysis_path:
             return
