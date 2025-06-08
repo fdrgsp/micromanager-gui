@@ -124,22 +124,35 @@ class _DisplaySingleWellTraces(QGroupBox):
             return
         data = _get_fov_data(table_data, self._graph._plate_viewer._pv_analysis_data)
         if data is not None:
-            rois = self._get_rois(data)
+            rois = self._get_rois(data, self._graph._combo.currentText())
             if rois is None:
                 return
             plot_single_well_data(self._graph, data, text, rois=rois)
 
-    def _get_rois(self, data: dict) -> list[int] | None:
+    def _get_rois(self, data: dict[str, ROIData], plot_text: str) -> list[int] | None:
         """Return the list of ROIs to be displayed."""
         text = self._roi_le.text()
         if not text:
             return None
         # return n random rois
-        # TODO: fix this. It return a roi even if not active.
         try:
             if text[:3] == "rnd" and text[3:].isdigit():
+                # if the plot text contains any active word, consider only active ROIs
+                active = {
+                    "peaks",
+                    "amplitudes",
+                    "frequencies",
+                    "inter-event",
+                    "synchrony",
+                    "correlation",
+                    "hierarchical",
+                }
+                if any(word in plot_text.lower() for word in active):
+                    data_keys = [k for k in data if data[k].active]
+                else:
+                    data_keys = list(data.keys())
                 random_keys = np.random.choice(
-                    list(data.keys()), int(text[3:]), replace=False
+                    list(data_keys), int(text[3:]), replace=False
                 )
                 return list(map(int, random_keys))
         except ValueError:
@@ -180,7 +193,6 @@ class _SingleWellGraphWidget(QWidget):
 
         # add the "None" selectable option to the combo box
         none_item = QStandardItem("None")
-        # none_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.)
         model.appendRow(none_item)
 
         for key, value in SINGLE_WELL_COMBO_OPTIONS_DICT.items():
@@ -264,52 +276,6 @@ class _SingleWellGraphWidget(QWidget):
         if not filename:
             return
         self.figure.savefig(filename, dpi=300)
-
-
-class _DisplayMultiWellPositions(QGroupBox):
-    def __init__(self, parent: _MultilWellGraphWidget) -> None:
-        super().__init__(parent)
-        self.setTitle("Choose which Position to display")
-        self.setCheckable(True)
-        self.setChecked(False)
-
-        self.setToolTip(
-            "By default, the widget will display the data form all the positions "
-            "acquired. Here you can choose to only display a subset of Positions. You "
-            "can input a range (e.g. 1-10 to plot the first 10), single positions "
-            "(e.g. 30, 33 to plot positions 30 and 33) or, if you only want to pick n "
-            "positions, you can type 'rnd' followed by the number or positions you "
-            "want to display (e.g. rnd10 to plot 10 random positions)."
-        )
-
-        self.setSizePolicy(
-            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        )
-
-        self._graph: _MultilWellGraphWidget = parent
-
-        self._pos_le = QLineEdit()
-        self._pos_le.setPlaceholderText("e.g. 1-10, 30, 33 or rnd10")
-        # when pressing enter in the line edit, update the graph
-        self._pos_le.returnPressed.connect(self._update)
-        self._update_btn = QPushButton("Update", self)
-
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.addWidget(QLabel("Positions:"))
-        main_layout.addWidget(self._pos_le)
-        main_layout.addWidget(self._update_btn)
-        self._update_btn.clicked.connect(self._update)
-
-        self.toggled.connect(self._on_toggle)
-
-    def _on_toggle(self, state: bool) -> None:
-        ...
-        # to be implemented
-
-    def _update(self) -> None:
-        ...
-        # to be implemented
 
 
 class _MultilWellGraphWidget(QWidget):
