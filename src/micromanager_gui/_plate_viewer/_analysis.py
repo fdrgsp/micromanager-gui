@@ -7,7 +7,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
 import tifffile
@@ -27,6 +27,7 @@ from qtpy.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -42,13 +43,13 @@ from ._to_csv import save_to_csv
 from ._util import (
     COND1,
     COND2,
-    DECONVOLUTION_PENALTY,
     DFF_WINDOW,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
     MWCM,
-    PEAKS_HEIGHT_MULTIPLIER,
+    PEAKS_HEIGHT_MODE,
+    PEAKS_HEIGHT_VALUE,
     PEAKS_PROMINENCE_MULTIPLIER,
     RED,
     SETTINGS_PATH,
@@ -87,10 +88,84 @@ EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
 MAX_FRAMES_AFTER_STIMULATION = 5
+DEFAULT_HEIGHT = 0.0075
+GLOBAL_HEIGHT = "global_height"
+MULTIPLIER = "multiplier"
+DEFAULT_WINDOW = 15
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
     return np.array(a * np.exp(-b * x) + c)
+
+
+class _PeaksHeightData(TypedDict):
+    """TypedDict to store the peaks height data."""
+
+    value: float
+    mode: str
+
+
+class _PeaksHeightWidget(QWidget):
+    """Widget to select the peaks height multiplier."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        self.setToolTip(
+            "Peak height threshold for detecting calcium transients in deconvolved "
+            "ΔF/F0 traces using scipy.signal.find_peaks.\n\n"
+            "Two modes:\n"
+            "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
+            "ALL FOVs. Peaks below this value are rejected everywhere.\n\n"
+            "• Height Multiplier: Adaptive threshold computed individually for EACH "
+            "ROI in EACH FOV.\n"
+            "  Threshold = noise_level * multiplier, where noise_level "
+            "is calculated per ROI using Median Absolute Deviation (MAD)."
+        )
+
+        self._peaks_height_lbl = QLabel("Minimum Peaks Height:")
+        self._peaks_height_lbl.setSizePolicy(*FIXED)
+
+        self._peaks_height_spin = QDoubleSpinBox(self)
+        self._peaks_height_spin.setDecimals(4)
+        self._peaks_height_spin.setRange(0.0, 100000.0)
+        self._peaks_height_spin.setSingleStep(0.01)
+        self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
+
+        self._global_peaks_height = QRadioButton("Use as Global Minimum Peaks Height")
+        self._global_peaks_height.setChecked(True)
+
+        self._height_multiplier = QRadioButton("Use as Peaks Height Multiplier")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        layout.addWidget(self._peaks_height_lbl)
+        layout.addWidget(self._peaks_height_spin, 0)
+        layout.addWidget(self._global_peaks_height, 0)
+        layout.addWidget(self._height_multiplier, 1)
+
+    def value(self) -> _PeaksHeightData:
+        """Return the value of the peaks height multiplier."""
+        return {
+            "value": self._peaks_height_spin.value(),
+            "mode": (
+                GLOBAL_HEIGHT if self._global_peaks_height.isChecked() else MULTIPLIER
+            ),
+        }
+
+    def setValue(self, value: _PeaksHeightData) -> None:
+        """Set the value of the peaks height widget."""
+        if isinstance(value, dict):
+            self._peaks_height_spin.setValue(value["value"])
+            if value["mode"] == GLOBAL_HEIGHT:
+                self._global_peaks_height.setChecked(True)
+            else:
+                self._height_multiplier.setChecked(True)
+        else:
+            # default values
+            self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
+            self._global_peaks_height.setChecked(True)
 
 
 class _AnalyseCalciumTraces(QWidget):
@@ -201,63 +276,15 @@ class _AnalyseCalciumTraces(QWidget):
         self._dff_window_size_spin = QSpinBox(self)
         self._dff_window_size_spin.setRange(0, 10000)
         self._dff_window_size_spin.setSingleStep(1)
-        self._dff_window_size_spin.setValue(10)
+        self._dff_window_size_spin.setValue(DEFAULT_WINDOW)
         dff_layout = QHBoxLayout(dff_wdg)
         dff_layout.setContentsMargins(0, 0, 0, 0)
         dff_layout.setSpacing(5)
         dff_layout.addWidget(dff_lbl)
         dff_layout.addWidget(self._dff_window_size_spin)
 
-        # DECONVOLUTION SETTINGS -------------------------------------------------
-        dec_penalty_wdg = QWidget(self)
-        dec_penalty_wdg.setToolTip(
-            "Controls the penalty multiplier for adaptive deconvolution smoothing.\n"
-            "The system automatically calculates a base penalty from noise levels\n"
-            "in each trace, then multiplies it by this value for final adjustment.\n\n"
-            "• Higher values (>10): More smoothing, removes noise but may blur events\n"
-            "• Lower values (<10): Less smoothing, preserves detail but retains noise\n"
-            "• Default (10): Balanced approach suitable for most calcium imaging data\n"
-            "\nThe adaptive system ensures each ROI gets appropriate smoothing based\n"
-            "on its individual noise characteristics, while this multiplier provides\n"
-            "global fine-tuning control."
-        )
-        dec_penalty_lbl = QLabel("Deconvolution Penalty Multiplier:")
-        dec_penalty_lbl.setSizePolicy(*FIXED)
-        self._deconvolution_penalty_spin = QDoubleSpinBox(self)
-        self._deconvolution_penalty_spin.setDecimals(4)
-        self._deconvolution_penalty_spin.setRange(0.0, 100000.0)
-        self._deconvolution_penalty_spin.setSingleStep(0.1)
-        self._deconvolution_penalty_spin.setValue(1)
-        dec_penalty_layout = QHBoxLayout(dec_penalty_wdg)
-        dec_penalty_layout.setContentsMargins(0, 0, 0, 0)
-        dec_penalty_layout.setSpacing(5)
-        dec_penalty_layout.addWidget(dec_penalty_lbl)
-        dec_penalty_layout.addWidget(self._deconvolution_penalty_spin)
-
         # PEAKS SETTINGS -------------------------------------------------------------
-        peaks_height_wdg = QWidget(self)
-        peaks_height_wdg.setToolTip(
-            "Controls the height threshold multiplier for calcium peak detection.\n"
-            "The system calculates noise level from deconvolved traces, then\n"
-            "multiplies it by this value to set the minimum peak height.\n\n"
-            "Height threshold = noise_level * multiplier\n\n"
-            "• Lower values (2-4): More sensitive, detects smaller/weaker peaks\n"
-            "• Higher values (5-8): More selective, only detects prominent peaks\n"
-            "• Default (4.0): Good balance for typical calcium imaging signals\n\n"
-            "Adjust based on your signal-to-noise ratio and desired sensitivity."
-        )
-        peaks_height_lbl = QLabel("Peaks Height Multiplier:")
-        peaks_height_lbl.setSizePolicy(*FIXED)
-        self._peaks_height_multiplier_spin = QDoubleSpinBox(self)
-        self._peaks_height_multiplier_spin.setDecimals(4)
-        self._peaks_height_multiplier_spin.setRange(0.0, 100000.0)
-        self._peaks_height_multiplier_spin.setSingleStep(0.01)
-        self._peaks_height_multiplier_spin.setValue(4.0)
-        peaks_height_layout = QHBoxLayout(peaks_height_wdg)
-        peaks_height_layout.setContentsMargins(0, 0, 0, 0)
-        peaks_height_layout.setSpacing(5)
-        peaks_height_layout.addWidget(peaks_height_lbl)
-        peaks_height_layout.addWidget(self._peaks_height_multiplier_spin)
+        self._peaks_height_wdg = _PeaksHeightWidget(self)
 
         peaks_prominence_wdg = QWidget(self)
         peaks_prominence_wdg.setToolTip(
@@ -268,7 +295,6 @@ class _AnalyseCalciumTraces(QWidget):
             "• Value of 1.0: Uses noise level as prominence threshold (recommended)\n"
             "• Values >1.0: Requires peaks to be more prominent than noise level\n"
             "• Values <1.0: More lenient, allows peaks closer to noise level\n\n"
-            "Default (1.0) works well for most calcium imaging applications.\n"
             "Increase if detecting too many noise artifacts as peaks."
         )
         peaks_prominence_lbl = QLabel("Peaks Prominence Multiplier:")
@@ -320,14 +346,13 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn.clicked.connect(self.cancel)
 
         # STYLING --------------------------------------------------------------------
-        fixed_width = dec_penalty_lbl.sizeHint().width()
+        fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
         self._analysis_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
-        peaks_height_lbl.setFixedWidth(fixed_width)
-        peaks_prominence_lbl.setFixedWidth(fixed_width)
+        self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
         dff_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
@@ -351,8 +376,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(dff_wdg)
-        wdg_layout.addWidget(dec_penalty_wdg)
-        wdg_layout.addWidget(peaks_height_wdg)
+        wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addWidget(peaks_prominence_wdg)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(pos_wdg)
@@ -473,16 +497,15 @@ class _AnalyseCalciumTraces(QWidget):
         try:
             with open(settings_json_file) as f:
                 settings = cast(dict, json.load(f))
-                dff_window = cast(int, settings.get(DFF_WINDOW, 15))
+                dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
                 self._dff_window_size_spin.setValue(dff_window)
                 pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
                 self._led_power_equation_le.setText(pp)
-                height_mult = cast(float, settings.get(PEAKS_HEIGHT_MULTIPLIER, 4.0))
-                self._peaks_height_multiplier_spin.setValue(height_mult)
+                h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
+                h_mode = cast(str, settings.get(GLOBAL_HEIGHT, GLOBAL_HEIGHT))
+                self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
                 prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
                 self._peaks_prominence_multiplier_spin.setValue(prom_mult)
-                dec_penalty = cast(float, settings.get(DECONVOLUTION_PENALTY, 10.0))
-                self._deconvolution_penalty_spin.setValue(dec_penalty)
 
         except Exception as e:
             LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
@@ -780,6 +803,7 @@ class _AnalyseCalciumTraces(QWidget):
         # create the dict for the fov if it does not exist
         if fov_name not in self._analysis_data:
             self._analysis_data[fov_name] = {}
+
         # get the labels file for the position
         labels_path = self._get_labels_file_for_position(fov_name, p)
         if labels_path is None:
@@ -935,6 +959,9 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the dff of the roi trace
         dff: np.ndarray = calculate_dff(roi_trace, window=win, plot=False)
 
+        # deconvolve the dff trace with adaptive penalty
+        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
@@ -952,20 +979,6 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         # Calculate adaptive penalty based on noise level in the ΔF/F0 trace
-        noise_level_dff = np.median(np.abs(dff - np.median(dff))) / 0.6745
-
-        # Base penalty calculation: higher noise = higher penalty
-        # Typical range: 0.1 to 5.0, with 1.0 as baseline for moderate noise
-        base_penalty = np.clip(noise_level_dff * 10, 0.1, 5.0)
-
-        # Set deconvolution penalty multiplier from the spinbox
-        penalty_multiplier = self._deconvolution_penalty_spin.value()
-        deconvolution_penalty = float(base_penalty * penalty_multiplier)
-
-        # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=deconvolution_penalty)
-
-        # Get noise level from the deconvolved ΔF/F0 trace using MAD (as above))
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
 
         # Set prominence threshold (how much peaks must stand out from surroundings)
@@ -973,9 +986,15 @@ class _AnalyseCalciumTraces(QWidget):
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
         peaks_prominence_dec_dff = noise_level_dec_dff * prom_multiplier
 
-        # use adaptive height threshold based on noise level and user multiplier
-        height_multiplier = self._peaks_height_multiplier_spin.value()
-        peaks_height_dec_dff = noise_level_dec_dff * height_multiplier
+        # use the peaks height widget to get the height threshold
+        # if the mode is GLOBAL_HEIGHT, use the value directly, otherwise
+        # use the value as a multiplier of the noise level
+        peaks_height_data = self._peaks_height_wdg.value()
+        peaks_height_value = peaks_height_data["value"]
+        if peaks_height_data["mode"] == GLOBAL_HEIGHT:
+            peaks_height_dec_dff = peaks_height_value
+        else:  # MULTIPLIER
+            peaks_height_dec_dff = noise_level_dec_dff * peaks_height_value
 
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
@@ -1038,7 +1057,6 @@ class _AnalyseCalciumTraces(QWidget):
             dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
-            deconvolution_penalty=deconvolution_penalty,
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
             peaks_height_dec_dff=peaks_height_dec_dff,
@@ -1250,13 +1268,12 @@ class _AnalyseCalciumTraces(QWidget):
                     settings = json.load(f)
 
             settings[DFF_WINDOW] = self._dff_window_size_spin.value()
-            settings[PEAKS_HEIGHT_MULTIPLIER] = (
-                self._peaks_height_multiplier_spin.value()
-            )
             settings[PEAKS_PROMINENCE_MULTIPLIER] = (
                 self._peaks_prominence_multiplier_spin.value()
             )
-            settings[DECONVOLUTION_PENALTY] = self._deconvolution_penalty_spin.value()
+            peaks_h_data = self._peaks_height_wdg.value()
+            settings[PEAKS_HEIGHT_VALUE] = peaks_h_data.get("value", DEFAULT_HEIGHT)
+            settings[PEAKS_HEIGHT_MODE] = peaks_h_data.get("mode", GLOBAL_HEIGHT)
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

@@ -40,9 +40,9 @@ MWCM = "mW/cm²"
 SETTINGS_PATH = "settings.json"
 PLATE_PLAN = "plate_plan"
 LED_POWER_EQUATION = "led_power_equation"
-PEAKS_HEIGHT_MULTIPLIER = "height_multiplier"
+PEAKS_HEIGHT_VALUE = "height_value"
+PEAKS_HEIGHT_MODE = "height_mode"
 PEAKS_PROMINENCE_MULTIPLIER = "prominence_multiplier"
-DECONVOLUTION_PENALTY = "deconvolution_penalty"
 DFF_WINDOW = "dff_window"
 
 
@@ -65,7 +65,6 @@ class ROIData(BaseClass):
     dec_dff: list[float] | None = None  # deconvolved dff with oasis package
     peaks_dec_dff: list[float] | None = None
     peaks_amplitudes_dec_dff: list[float] | None = None
-    deconvolution_penalty: float | None = None
     peaks_prominence_dec_dff: float | None = None
     peaks_height_dec_dff: float | None = None
     inferred_spikes: list[float] | None = None
