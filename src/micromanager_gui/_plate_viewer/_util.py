@@ -47,6 +47,9 @@ PEAKS_DISTANCE = "peaks_distance"
 DFF_WINDOW = "dff_window"
 EVK_STIM = "evk_stim"
 EVK_NON_STIM = "evk_non_stim"
+MEAN_SUFFIX = "_Mean"
+SEM_SUFFIX = "_SEM"
+N_SUFFIX = "_N"
 
 
 @dataclass

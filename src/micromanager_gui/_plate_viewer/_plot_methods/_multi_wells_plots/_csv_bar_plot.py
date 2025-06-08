@@ -8,11 +8,15 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
-from micromanager_gui._plate_viewer._util import EVK_NON_STIM, EVK_STIM
+from micromanager_gui._plate_viewer._util import (
+    EVK_NON_STIM,
+    EVK_STIM,
+    MEAN_SUFFIX,
+    N_SUFFIX,
+    SEM_SUFFIX,
+)
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from matplotlib.axes import Axes
 
     from micromanager_gui._plate_viewer._graph_widgets import _MultilWellGraphWidget
@@ -21,9 +25,6 @@ if TYPE_CHECKING:
 CONDITION = "condition"
 WEIGHTED_MEAN = "weighted_mean"
 POOLED_SEM = "pooled_sem"
-MEAN_SUFFIX = "_Mean"
-SEM_SUFFIX = "_SEM"
-N_SUFFIX = "_N"
 MEAN = "mean"
 SEM = "sem"
 
@@ -125,7 +126,6 @@ def _parse_csv_triplet_format(
     if not parameter:
         return None
 
-    evk = parameter in {"Stimulated Amplitude", "Non-Stimulated Amplitude"}
     pulse_length: str | None = None
 
     try:
@@ -172,7 +172,7 @@ def _parse_csv_triplet_format(
 
         label = base
         # label cleaning for evoked traces
-        if evk:
+        if EVK_STIM in label or EVK_NON_STIM in label:
             label = label.replace(f"_{EVK_STIM}", "").replace(f"_{EVK_NON_STIM}", "")
             parts = label.split("_")
             pulse_length = parts[-1]  # "…_50"
@@ -220,11 +220,14 @@ def _parse_csv_column_format(csv_path: str | Path) -> PlotData | None:
         sem = float(vals.std(ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else 0.0
 
         # if col contains EVK_STIM or NON_EVK_STIM, remove it from the name
-        to_update = EVK_STIM in col or EVK_NON_STIM in col
-        if to_update:
+        if EVK_STIM in col or EVK_NON_STIM in col:
             col = col.replace(f"_{EVK_STIM}", "").replace(f"_{EVK_NON_STIM}", "")
             parts = col.split("_")
-            col = "_".join(parts[:-1])
+            if "power" in Path(csv_path).name.lower():
+                col = "_".join(parts[:-1])  # pulse length is last (e.eg. "_50")
+            else:
+                col = "_".join(parts)
+
         conditions.append(col)
         means.append(mean)
         sems.append(sem)

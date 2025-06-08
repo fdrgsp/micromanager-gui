@@ -9,7 +9,16 @@ import numpy as np
 import pandas as pd
 
 from ._logger import LOGGER
-from ._util import EVK_NON_STIM, EVK_STIM, ROIData, _get_synchrony_matrix, get_synchrony
+from ._util import (
+    EVK_NON_STIM,
+    EVK_STIM,
+    MEAN_SUFFIX,
+    N_SUFFIX,
+    SEM_SUFFIX,
+    ROIData,
+    _get_synchrony_matrix,
+    get_synchrony,
+)
 
 # fmt: off
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
@@ -343,9 +352,9 @@ def _export_to_csv_mean_values_grouped_by_condition(
                 values = fovs.get(fov)
 
                 if values is None:
-                    row[f"{cond}_Mean"] = ""
-                    row[f"{cond}_SEM"] = ""
-                    row[f"{cond}_N"] = ""
+                    row[f"{cond}{MEAN_SUFFIX}"] = ""
+                    row[f"{cond}{SEM_SUFFIX}"] = ""
+                    row[f"{cond}{N_SUFFIX}"] = ""
                     continue
 
                 if isinstance(values, list) and any(
@@ -356,9 +365,9 @@ def _export_to_csv_mean_values_grouped_by_condition(
                     flat_values = values
 
                 if len(flat_values) == 0:
-                    row[f"{cond}_Mean"] = ""
-                    row[f"{cond}_SEM"] = ""
-                    row[f"{cond}_N"] = ""
+                    row[f"{cond}{MEAN_SUFFIX}"] = ""
+                    row[f"{cond}{SEM_SUFFIX}"] = ""
+                    row[f"{cond}{N_SUFFIX}"] = ""
                     continue
 
                 mean_val = np.mean(flat_values)
@@ -366,9 +375,9 @@ def _export_to_csv_mean_values_grouped_by_condition(
                 sem_val = (
                     np.std(flat_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
                 )
-                row[f"{cond}_Mean"] = round(mean_val, 5)
-                row[f"{cond}_SEM"] = round(sem_val, 5)
-                row[f"{cond}_N"] = n_val
+                row[f"{cond}{MEAN_SUFFIX}"] = round(mean_val, 5)
+                row[f"{cond}{SEM_SUFFIX}"] = round(sem_val, 5)
+                row[f"{cond}{N_SUFFIX}"] = n_val
 
             output_rows.append(row)
 
@@ -470,13 +479,13 @@ def _export_to_csv_mean_values_evk_parameters(
                     sem_val = (
                         np.std(stim_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
                     )
-                    row[f"{cond}_Mean"] = round(mean_val, 5)
-                    row[f"{cond}_SEM"] = round(sem_val, 5)
-                    row[f"{cond}_N"] = str(n_val)
+                    row[f"{cond}{MEAN_SUFFIX}"] = round(mean_val, 5)
+                    row[f"{cond}{SEM_SUFFIX}"] = round(sem_val, 5)
+                    row[f"{cond}{N_SUFFIX}"] = str(n_val)
                 else:
-                    row[f"{cond}_Mean"] = ""
-                    row[f"{cond}_SEM"] = ""
-                    row[f"{cond}_N"] = ""
+                    row[f"{cond}{MEAN_SUFFIX}"] = ""
+                    row[f"{cond}{SEM_SUFFIX}"] = ""
+                    row[f"{cond}{N_SUFFIX}"] = ""
 
             output_rows.append(row)
 

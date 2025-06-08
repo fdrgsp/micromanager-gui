@@ -278,8 +278,8 @@ MW_GENERAL_GROUP = {
 }
 
 MW_EVOKED_GROUP = {
-    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Stimulated Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Non-Stimulated Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Non-Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED: {"stimulated": True, "parameter": "Percentage Active Stimulated", "suffix": "percentage_active_stimulated"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED: {"stimulated": False, "parameter": "Percentage Active Non-Stimulated", "suffix": "percentage_active_non_stimulated"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED_PER_LED_POWER: {"stimulated": True, "per_led_power": True, "parameter": "Percentage Active Stimulated per LED Power", "suffix": "percentage_active_stimulated_per_led_power"},  # noqa: E501
