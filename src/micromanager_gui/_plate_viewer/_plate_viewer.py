@@ -274,16 +274,6 @@ class PlateViewer(QMainWindow):
         # self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
         # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-
-        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        # self._pv_labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        # self._pv_analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"
-        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
-
-        # data = "/Volumes/FG_512_25/GON0515_NC250311_250508_FullEvk_CNQX_DAPV.tensorstore.zarr"
-        # self._pv_labels_path = "/Volumes/FG_512_25/l"
-        # self._pv_analysis_path = "/Volumes/FG_512_25/a"
-        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
         # ____________________________________________________________________________
 
     @property
