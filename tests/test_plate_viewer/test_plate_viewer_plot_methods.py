@@ -30,7 +30,9 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     DEC_DFF_NORMALIZED_ACTIVE_ONLY,
     DEC_DFF_WITH_PEAKS,
     DFF,
-    MULTI_WELL_COMBO_OPTIONS,
+    MULTI_WELL_COMBO_OPTIONS_DICT,
+    MW_EVOKED_GROUP,
+    MW_GENERAL_GROUP,
     NORMALIZED_TRACES,
     RASTER_PLOT,
     RAW_TRACES,
@@ -41,6 +43,9 @@ from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_pl
     plot_csv_bar_plot,
 )
 from micromanager_gui._plate_viewer._util import ROIData
+
+# Create MULTI_WELL_COMBO_OPTIONS from the available groups
+MULTI_WELL_COMBO_OPTIONS = list(MW_GENERAL_GROUP.keys()) + list(MW_EVOKED_GROUP.keys())
 
 # Test data paths
 TEST_DATA_SPONTANEOUS = Path(__file__).parent / "data" / "spontaneous"
@@ -452,6 +457,10 @@ class TestPlotMethodConstants:
         assert len(MULTI_WELL_COMBO_OPTIONS) > 0
         assert CSV_BAR_PLOT_AMPLITUDE in MULTI_WELL_COMBO_OPTIONS
         assert CSV_BAR_PLOT_FREQUENCY in MULTI_WELL_COMBO_OPTIONS
+
+        # Also test the dictionary structure
+        assert isinstance(MULTI_WELL_COMBO_OPTIONS_DICT, dict)
+        assert len(MULTI_WELL_COMBO_OPTIONS_DICT) > 0
 
 
 class TestPlotMethodsIntegration:

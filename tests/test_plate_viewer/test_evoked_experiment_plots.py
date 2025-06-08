@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plolt_evoked_evperiment_data_plots import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plolt_evoked_experiment_data_plots import (  # noqa: E501
     _plot_evoked_experiment_data,
     _plot_stim_or_not_stim_peaks_amplitude,
     extract_leading_number,

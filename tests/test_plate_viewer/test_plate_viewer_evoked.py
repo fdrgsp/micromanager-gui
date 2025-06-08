@@ -37,7 +37,14 @@ SAVE_MAP = {
         "test_analysis_frequency.csv",
         "test_analysis_synchrony.csv",
     },
-    "grouped_evk": {"test_analysis_amplitudes_stimulated_peaks.csv"},
+    "grouped_evk": {
+        "test_analysis_amplitudes_stimulated_peaks.csv",
+        "test_analysis_amplitudes_non_stimulated_peaks.csv",
+        "test_analysis_percentage_active_stimulated.csv",
+        "test_analysis_percentage_active_non_stimulated.csv",
+        "test_analysis_percentage_active_stimulated_per_led_power.csv",
+        "test_analysis_percentage_active_non_stimulated_per_led_power.csv",
+    },
 }
 
 

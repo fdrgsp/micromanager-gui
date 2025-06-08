@@ -638,8 +638,8 @@
     "dec_dff_frequency": 0.26143790849673204,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1236,
-    "cell_size_units": "pixel",
+    "cell_size": 522.21,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -803,8 +803,9 @@
       4.4
     ],
     "evoked_experiment": true,
-    "stimulated": true,
-    "amplitudes_stimulated_peaks": {
+    "stimulated": false,
+    "amplitudes_stimulated_peaks": null,
+    "amplitudes_non_stimulated_peaks": {
       "15.500mW/cm\u00b2_100": [
         0.47755267615643254
       ],
@@ -815,7 +816,6 @@
         0.8099628171771499
       ]
     },
-    "amplitudes_non_stimulated_peaks": null,
     "stmulations_frames_and_powers": {
       "3": 2,
       "53": 4,
@@ -1461,8 +1461,8 @@
     "dec_dff_frequency": 0.26143790849673204,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1214,
-    "cell_size_units": "pixel",
+    "cell_size": 512.9150000000001,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -2288,8 +2288,8 @@
     "dec_dff_frequency": 0.39215686274509803,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1498,
-    "cell_size_units": "pixel",
+    "cell_size": 632.9050000000001,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -3115,8 +3115,8 @@
     "dec_dff_frequency": 0.32679738562091504,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1070,
-    "cell_size_units": "pixel",
+    "cell_size": 452.07500000000005,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -3281,8 +3281,9 @@
       4.4
     ],
     "evoked_experiment": true,
-    "stimulated": true,
-    "amplitudes_stimulated_peaks": {
+    "stimulated": false,
+    "amplitudes_stimulated_peaks": null,
+    "amplitudes_non_stimulated_peaks": {
       "15.500mW/cm\u00b2_100": [
         0.22351763526524787
       ],
@@ -3293,7 +3294,6 @@
         0.34889867287533705
       ]
     },
-    "amplitudes_non_stimulated_peaks": null,
     "stmulations_frames_and_powers": {
       "3": 2,
       "53": 4,

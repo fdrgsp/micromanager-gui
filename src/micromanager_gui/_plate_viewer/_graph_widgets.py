@@ -25,7 +25,7 @@ from qtpy.QtWidgets import (
 
 from ._plot_methods import plot_multi_well_data, plot_single_well_data
 from ._plot_methods._main_plot import (
-    MULTI_WELL_COMBO_OPTIONS,
+    MULTI_WELL_COMBO_OPTIONS_DICT,
     SINGLE_WELL_COMBO_OPTIONS_DICT,
 )
 
@@ -289,7 +289,21 @@ class _MultilWellGraphWidget(QWidget):
         self._conditions: dict[str, bool] = {}
 
         self._combo = QComboBox(self)
-        self._combo.addItems(["None", *MULTI_WELL_COMBO_OPTIONS])
+        model = QStandardItemModel()
+        self._combo.setModel(model)
+
+        # add the "None" selectable option to the combo box
+        none_item = QStandardItem("None")
+        model.appendRow(none_item)
+
+        for key, value in MULTI_WELL_COMBO_OPTIONS_DICT.items():
+            section = QStandardItem(key)
+            section.setFlags(Qt.ItemFlag.NoItemFlags)
+            section.setData(True, SECTION_ROLE)
+            model.appendRow(section)
+            for item in value:
+                model.appendRow(QStandardItem(item))
+
         self._combo.currentTextChanged.connect(self._on_combo_changed)
 
         self._conditions_btn = QPushButton("Conditions...", self)
