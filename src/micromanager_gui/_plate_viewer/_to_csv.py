@@ -19,6 +19,10 @@ PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
 AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
+FREQ_STIMULATED = "frequency_stimulated"
+FREQ_NON_STIMULATED = "frequency_non_stimulated"
+PERCENTAGE_ACTIVE_STIMULATED = "percentage_active_stimulated"
+PERCENTAGE_ACTIVE_NON_STIMULATED = "percentage_active_non_stimulated"
 CSV_PARAMETERS: dict[str, str] = {
     "amplitude": "peaks_amplitudes_dec_dff",
     "frequency": "dec_dff_frequency",
@@ -30,6 +34,10 @@ CSV_PARAMETERS: dict[str, str] = {
 CSV_PARAMETERS_EVK = {
     "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
     "amplitudes_non_stimulated_peaks": AMP_NON_STIMULATED_PEAKS,
+    "frequency_stimulated": FREQ_STIMULATED,
+    "frequency_non_stimulated": FREQ_NON_STIMULATED,
+    "percentage_active_stimulated": PERCENTAGE_ACTIVE_STIMULATED,
+    "percentage_active_non_stimulated": PERCENTAGE_ACTIVE_NON_STIMULATED,
 }
 
 PARAMETER_TO_KEY: dict[str, str] = {
@@ -167,6 +175,34 @@ def _rearrange_by_parameter_evk(
             )
         except Exception as e:
             print(f"Error calculating non-stimulated peaks: {e}")
+            return {}
+    if parameter == FREQ_STIMULATED:
+        try:
+            return _get_frequency_stim_or_non_stim_parameter(data, stimulated=True)
+        except Exception as e:
+            print(f"Error calculating stimulated frequency: {e}")
+            return {}
+    if parameter == FREQ_NON_STIMULATED:
+        try:
+            return _get_frequency_stim_or_non_stim_parameter(data, stimulated=False)
+        except Exception as e:
+            print(f"Error calculating non-stimulated frequency: {e}")
+            return {}
+    if parameter == PERCENTAGE_ACTIVE_STIMULATED:
+        try:
+            return _get_percentage_active_stim_or_non_stim_parameter(
+                data, stimulated=True
+            )
+        except Exception as e:
+            print(f"Error calculating stimulated percentage active: {e}")
+            return {}
+    if parameter == PERCENTAGE_ACTIVE_NON_STIMULATED:
+        try:
+            return _get_percentage_active_stim_or_non_stim_parameter(
+                data, stimulated=False
+            )
+        except Exception as e:
+            print(f"Error calculating non-stimulated percentage active: {e}")
             return {}
     return {}
 
@@ -527,3 +563,113 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
                     target_power_pulse, []
                 ).extend(values)
     return amps_dict
+
+
+def _get_frequency_stim_or_non_stim_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
+) -> dict[str, dict[str, dict[str, list[Any]]]]:
+    """Group frequency data by stimulated/non-stimulated status in evoked conditions."""
+    freq_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
+
+    # We need to rearrange the evoked data differently for frequency
+    # Since frequency is a single value per ROI, not split by stimulus parameters
+    # We'll group all stimulus intensities together but separate by stimulated status
+
+    for original_condition in sorted(data):
+        fov_dict = data[original_condition]
+
+        # Extract the base condition (remove the evk_stim_/evk_non_stim_ part)
+        if "evk_stim_" in original_condition:
+            # Get base condition (e.g., "c1_t1" from evoked condition string)
+            base_condition = original_condition.split("_evk_stim_")[0]
+            condition_type = "stim"
+        elif "evk_non_stim_" in original_condition:
+            # Get base condition name from "c1_t1_evk_non_stim_15.500mW/cm²_100"
+            base_condition = original_condition.split("_evk_non_stim_")[0]
+            condition_type = "non_stim"
+        else:
+            continue  # skip non-evoked conditions
+
+        # Only process if this matches the stimulated status we're looking for
+        is_stim_match = (stimulated and condition_type == "stim")
+        is_non_stim_match = (not stimulated and condition_type == "non_stim")
+        if is_stim_match or is_non_stim_match:
+            # Create new condition key based on stimulated status
+            if stimulated:
+                new_condition = f"{base_condition}_evk_freq_stim"
+            else:
+                new_condition = f"{base_condition}_evk_freq_non_stim"
+
+            for fov, roi_dict in fov_dict.items():
+                for roi_data in roi_dict.values():
+                    # Check if this ROI has frequency data and matches stimulated status
+                    has_freq = roi_data.dec_dff_frequency is not None
+                    stim_match = roi_data.stimulated == stimulated
+                    if stim_match and has_freq:
+                        # For frequency, use generic key (not split by stimulus params)
+                        stimulus_key = "frequency"
+                        freq_dict.setdefault(new_condition, {}).setdefault(
+                            fov, {}
+                        ).setdefault(stimulus_key, []).append(
+                            roi_data.dec_dff_frequency
+                        )
+
+    return freq_dict
+
+
+def _get_percentage_active_stim_or_non_stim_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
+) -> dict[str, dict[str, dict[str, list[Any]]]]:
+    """Group percentage active data by stimulated/non-stimulated status."""
+    percentage_active_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
+
+    # We need to rearrange the evoked data differently for percentage_active
+    # Since percentage_active is calculated per FOV, not per ROI
+    # We'll group all stimulus intensities together but separate by stimulated status
+
+    for original_condition in sorted(data):
+        fov_dict = data[original_condition]
+
+        # Extract the base condition (remove the evk_stim_/evk_non_stim_ part)
+        if "evk_stim_" in original_condition:
+            # Get base condition (e.g., "c1_t1" from evoked condition string)
+            base_condition = original_condition.split("_evk_stim_")[0]
+            condition_type = "stim"
+        elif "evk_non_stim_" in original_condition:
+            # Get base condition name from "c1_t1_evk_non_stim_15.500mW/cm²_100"
+            base_condition = original_condition.split("_evk_non_stim_")[0]
+            condition_type = "non_stim"
+        else:
+            continue  # skip non-evoked conditions
+
+        # Only process if this matches the stimulated status we're looking for
+        is_stim_match = (stimulated and condition_type == "stim")
+        is_non_stim_match = (not stimulated and condition_type == "non_stim")
+        if is_stim_match or is_non_stim_match:
+            # Create new condition key based on stimulated status
+            if stimulated:
+                new_condition = f"{base_condition}_evk_percentage_active_stim"
+            else:
+                new_condition = f"{base_condition}_evk_percentage_active_non_stim"
+
+            for fov, roi_dict in fov_dict.items():
+                # Calculate percentage active for this FOV based on stimulated status
+                total_rois = 0
+                active_rois = 0
+                
+                for roi_data in roi_dict.values():
+                    # Only count ROIs that match the stimulated status we're looking for
+                    if roi_data.stimulated == stimulated:
+                        total_rois += 1
+                        if roi_data.active:
+                            active_rois += 1
+                
+                if total_rois > 0:
+                    percentage_active_value = (active_rois / total_rois) * 100
+                    # For percentage_active, use generic key (not split by stimulus)
+                    stimulus_key = "percentage_active"
+                    percentage_active_dict.setdefault(new_condition, {}).setdefault(
+                        fov, {}
+                    ).setdefault(stimulus_key, []).append(percentage_active_value)
+
+    return percentage_active_dict
