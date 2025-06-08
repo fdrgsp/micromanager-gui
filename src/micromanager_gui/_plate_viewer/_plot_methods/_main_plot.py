@@ -4,11 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ._multi_wells_plots._csv_bar_plot import plot_csv_bar_plot
-from ._single_wells_plots._correlation_plots import (
-    _plot_cross_correlation_data,
-    _plot_hierarchical_clustering_data,
-)
-from ._single_wells_plots._plolt_evoked_evperiment_data_plots import (
+from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
     _plot_stim_or_not_stim_peaks_amplitude,
     _plot_stimulated_vs_non_stimulated_roi_amp,
     _visualize_stimulated_area,
@@ -16,10 +12,15 @@ from ._single_wells_plots._plolt_evoked_evperiment_data_plots import (
 from ._single_wells_plots._plot_amplitudes_and_frequencies_data import (
     _plot_amplitude_and_frequency_data,
 )
+from ._single_wells_plots._plot_cell_size import _plot_cell_size_data
+from ._single_wells_plots._plot_correlation import (
+    _plot_cross_correlation_data,
+    _plot_hierarchical_clustering_data,
+)
 from ._single_wells_plots._plot_iei_data import _plot_iei_data
+from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
-from ._single_wells_plots._synchrony_plots import _plot_synchrony_data
 
 if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import (
@@ -52,6 +53,12 @@ DEC_DFF_IEI_SEM = "Deconvolved DeltaF/F0 Inter-event Interval (Mean ± SEM)"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
+GLOBAL_SYNCHRONY = "Global Synchrony"
+CROSS_CORRELATION = "Cross-Correlation"
+CLUSTERING = "Hierarchical Clustering"
+CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
+CELL_SIZE = "Cell Size"
+
 STIMULATED_AREA = "Stimulated Area"
 STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = "Stimulated vs Non-Stimulated ROIs with Stimulated Area"  # noqa: E501
@@ -63,10 +70,9 @@ STIMULATED_PEAKS_AMP_SEM = "Stimulated Peaks Amplitudes (Mean ± SEM)"
 NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
 NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
 NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
-GLOBAL_SYNCHRONY = "Global Synchrony"
-CROSS_CORRELATION = "Cross-Correlation"
-CLUSTERING = "Hierarchical Clustering"
-CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
+STIMULATED_PEAKS_FREQ = "Stimulated Peaks Frequencies"
+NON_STIMULATED_PEAKS_FREQ = "Non-Stimulated Peaks Frequencies"
+
 CSV_BAR_PLOT_AMPLITUDE = "Amplitude Bar Plot"
 CSV_BAR_PLOT_FREQUENCY = "Frequency Bar Plot"
 CSV_BAR_PLOT_IEI = "Inter-event Interval Bar Plot"
@@ -113,11 +119,15 @@ RASTER_PLOT_GROUP = {
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
 }
 
-INTEREVENT_INTERVAL = {
+INTEREVENT_INTERVAL_GROUP = {
     DEC_DFF_IEI: {},
     DEC_DFF_IEI_STD: {"std": True},
     DEC_DFF_IEI_SEM: {"sem": True},
 }
+
+CELL_SIZE_GROUP: dict[str, dict] = {
+    CELL_SIZE: {}
+    }
 
 CORRELATION_GROUP = {
     GLOBAL_SYNCHRONY: {},
@@ -151,7 +161,8 @@ SINGLE_WELL_COMBO_OPTIONS_DICT = {
     "------------Frequency------------------------": FREQUENCY_GROUP.keys(),
     "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
     "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
-    "------------Interevent Interval--------------": INTEREVENT_INTERVAL.keys(),
+    "------------Interevent Interval--------------": INTEREVENT_INTERVAL_GROUP.keys(),
+    "------------Cell Size------------------------": CELL_SIZE_GROUP.keys(),
     "------------Correlation----------------------": CORRELATION_GROUP.keys(),
     "------------Evoked Experiment----------------": EVOKED_GROUP.keys(),
 }
@@ -194,6 +205,32 @@ def plot_single_well_data(
     if text in RASTER_PLOT_GROUP:
         return _generate_raster_plot(widget, data, rois, **RASTER_PLOT_GROUP[text])
 
+    # INTEREVENT_INTERVAL GROUP
+    if text in INTEREVENT_INTERVAL_GROUP:
+        if text in {GLOBAL_SYNCHRONY}:
+            return _plot_synchrony_data(
+                widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text]
+            )
+        elif text in {DEC_DFF_IEI, DEC_DFF_IEI_STD, DEC_DFF_IEI_SEM}:
+            return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text])
+
+    # CELL SIZE GROUP
+    if text in CELL_SIZE_GROUP:
+        return _plot_cell_size_data(widget, data, rois, **CELL_SIZE_GROUP[text])
+
+    # CORRELATION GROUP
+    if text in CORRELATION_GROUP:
+        if text == GLOBAL_SYNCHRONY:
+            return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
+        elif text == CROSS_CORRELATION:
+            return _plot_cross_correlation_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text in {CLUSTERING, CLUSTERING_DENDOGRAM}:
+            return _plot_hierarchical_clustering_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+
     # EVOKED EXPERIMENT GROUP
     if text in EVOKED_GROUP:
         if text in {
@@ -221,26 +258,6 @@ def plot_single_well_data(
         }:
             return _plot_stim_or_not_stim_peaks_amplitude(
                 widget, data, rois, **EVOKED_GROUP[text]
-            )
-
-    # INTEREVENT_INTERVAL GROUP
-    if text in INTEREVENT_INTERVAL:
-        if text in {GLOBAL_SYNCHRONY}:
-            return _plot_synchrony_data(widget, data, rois, **INTEREVENT_INTERVAL[text])
-        elif text in {DEC_DFF_IEI, DEC_DFF_IEI_STD, DEC_DFF_IEI_SEM}:
-            return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL[text])
-
-    # CORRELATION GROUP
-    if text in CORRELATION_GROUP:
-        if text == GLOBAL_SYNCHRONY:
-            return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
-        elif text == CROSS_CORRELATION:
-            return _plot_cross_correlation_data(
-                widget, data, rois, **CORRELATION_GROUP[text]
-            )
-        elif text in {CLUSTERING, CLUSTERING_DENDOGRAM}:
-            return _plot_hierarchical_clustering_data(
-                widget, data, rois, **CORRELATION_GROUP[text]
             )
 
 
