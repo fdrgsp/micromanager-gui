@@ -19,6 +19,7 @@ from micromanager_gui._plate_viewer._graph_widgets import (
 from micromanager_gui._plate_viewer._util import ROIData
 
 
+# testgraph widgets.py
 class TestPersistentMenu:
     """Test the _PersistentMenu class."""
 
@@ -561,7 +562,7 @@ class TestMultiWellGraphWidget:
 
             menu = _PersistentMenu(widget)
             for condition, state in widget._conditions.items():
-                # Create a mock action since we can't create real QAction with Mock parent
+                # Create mock action since we can't create real QAction with Mock parent
                 action = Mock()
                 action.setCheckable = Mock()
                 action.setChecked = Mock()
@@ -753,7 +754,7 @@ class TestGraphWidgetsIntegration:
     def test_single_well_with_display_traces_integration(
         self, mock_plate_viewer_full, qapp
     ):
-        """Test integration between SingleWellGraphWidget and DisplaySingleWellTraces."""
+        """Test integration SingleWellGraphWidget and DisplaySingleWellTraces."""
         # Use mocks instead of real widgets to avoid Qt parent issues
         with patch(
             "micromanager_gui._plate_viewer._graph_widgets._SingleWellGraphWidget"
