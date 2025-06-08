@@ -803,8 +803,9 @@
       4.4
     ],
     "evoked_experiment": true,
-    "stimulated": true,
-    "amplitudes_stimulated_peaks": {
+    "stimulated": false,
+    "amplitudes_stimulated_peaks": null,
+    "amplitudes_non_stimulated_peaks": {
       "15.500mW/cm\u00b2_100": [
         0.47755267615643254
       ],
@@ -815,7 +816,6 @@
         0.8099628171771499
       ]
     },
-    "amplitudes_non_stimulated_peaks": null,
     "stmulations_frames_and_powers": {
       "3": 2,
       "53": 4,
@@ -3281,8 +3281,9 @@
       4.4
     ],
     "evoked_experiment": true,
-    "stimulated": true,
-    "amplitudes_stimulated_peaks": {
+    "stimulated": false,
+    "amplitudes_stimulated_peaks": null,
+    "amplitudes_non_stimulated_peaks": {
       "15.500mW/cm\u00b2_100": [
         0.22351763526524787
       ],
@@ -3293,7 +3294,6 @@
         0.34889867287533705
       ]
     },
-    "amplitudes_non_stimulated_peaks": null,
     "stmulations_frames_and_powers": {
       "3": 2,
       "53": 4,
