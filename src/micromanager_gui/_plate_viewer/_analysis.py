@@ -142,9 +142,9 @@ class _PeaksHeightWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
         layout.addWidget(self._peaks_height_lbl)
-        layout.addWidget(self._peaks_height_spin, 0)
+        layout.addWidget(self._peaks_height_spin, 1)
         layout.addWidget(self._global_peaks_height, 0)
-        layout.addWidget(self._height_multiplier, 1)
+        layout.addWidget(self._height_multiplier, 0)
 
     def value(self) -> _PeaksHeightData:
         """Return the value of the peaks height multiplier."""
@@ -322,7 +322,7 @@ class _AnalyseCalciumTraces(QWidget):
             "• Lower values: More sensitive, may detect noise or incomplete decay\n"
             "• Minimum value: 1 (adjacent frames allowed)"
         )
-        peaks_distance_lbl = QLabel("Minimum Distance:")
+        peaks_distance_lbl = QLabel("Minimum Peaks Distance:")
         peaks_distance_lbl.setSizePolicy(*FIXED)
         self._peaks_distance_spin = QSpinBox(self)
         self._peaks_distance_spin.setRange(1, 1000)
@@ -401,9 +401,9 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(dff_wdg)
-        wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addWidget(peaks_prominence_wdg)
         wdg_layout.addWidget(peaks_distance_wdg)
+        wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
