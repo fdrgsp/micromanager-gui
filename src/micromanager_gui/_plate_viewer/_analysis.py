@@ -48,6 +48,7 @@ from ._util import (
     GREEN,
     LED_POWER_EQUATION,
     MWCM,
+    PEAKS_DISTANCE,
     PEAKS_HEIGHT_MODE,
     PEAKS_HEIGHT_VALUE,
     PEAKS_PROMINENCE_MULTIPLIER,
@@ -237,11 +238,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._led_power_wdg.setToolTip(
             "Insert an equation to convert the LED power to mW.\n"
             "Supported formats:\n"
-            "• Linear: y = m*x + q (e.g., y = 2*x + 3)\n"
-            "• Quadratic: y = a*x^2 + b*x + c (e.g., y = 0.5*x^2 + 2*x + 1)\n"
-            "• Exponential: y = a*exp(b*x) + c (e.g., y = 2*exp(0.1*x) + 1)\n"
-            "• Power: y = a*x^b + c (e.g., y = 2*x^0.5 + 1)\n"
-            "• Logarithmic: y = a*log(x) + b (e.g., y = 2*log(x) + 1)\n"
+            "• Linear: y = m*x + q (e.g. y = 2*x + 3)\n"
+            "• Quadratic: y = a*x^2 + b*x + c (e.g. y = 0.5*x^2 + 2*x + 1)\n"
+            "• Exponential: y = a*exp(b*x) + c (e.g. y = 2*exp(0.1*x) + 1)\n"
+            "• Power: y = a*x^b + c (e.g. y = 2*x^0.5 + 1)\n"
+            "• Logarithmic: y = a*log(x) + b (e.g. y = 2*log(x) + 1)\n"
             "Leave empty to use values from metadata."
         )
         led_lbl = QLabel("LED Power Equation:")
@@ -249,7 +250,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._led_power_equation_le = QLineEdit(self)
         # self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
         self._led_power_equation_le.setPlaceholderText(
-            "e.g., y = 2*x + 3 (Leave empty for metadata)"
+            "e.g. y = 2*x + 3 (Leave empty for metadata)"
         )
         led_layout = QHBoxLayout(self._led_power_wdg)
         led_layout.setContentsMargins(0, 0, 0, 0)
@@ -310,6 +311,29 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
         peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
+        # PEAKS DISTANCE WIDGET -------------------------------------------------------
+        peaks_distance_wdg = QWidget(self)
+        peaks_distance_wdg.setToolTip(
+            "Minimum distance between peaks in frames.\n"
+            "This prevents detecting multiple peaks from the same calcium event.\n\n"
+            "Example: If exposure time = 50ms and you want 100ms minimum separation,\n"
+            "set distance = 2 frames (100ms ÷ 50ms = 2 frames).\n\n"
+            "• Higher values: More conservative, fewer detected peaks\n"
+            "• Lower values: More sensitive, may detect noise or incomplete decay\n"
+            "• Minimum value: 1 (adjacent frames allowed)"
+        )
+        peaks_distance_lbl = QLabel("Minimum Distance:")
+        peaks_distance_lbl.setSizePolicy(*FIXED)
+        self._peaks_distance_spin = QSpinBox(self)
+        self._peaks_distance_spin.setRange(1, 1000)
+        self._peaks_distance_spin.setSingleStep(1)
+        self._peaks_distance_spin.setValue(2)
+        peaks_distance_layout = QHBoxLayout(peaks_distance_wdg)
+        peaks_distance_layout.setContentsMargins(0, 0, 0, 0)
+        peaks_distance_layout.setSpacing(5)
+        peaks_distance_layout.addWidget(peaks_distance_lbl)
+        peaks_distance_layout.addWidget(self._peaks_distance_spin)
+
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         pos_wdg = QWidget(self)
         pos_wdg.setToolTip(
@@ -353,6 +377,7 @@ class _AnalyseCalciumTraces(QWidget):
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
+        peaks_distance_lbl.setFixedWidth(fixed_width)
         dff_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
@@ -378,6 +403,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(dff_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addWidget(peaks_prominence_wdg)
+        wdg_layout.addWidget(peaks_distance_wdg)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -506,6 +532,8 @@ class _AnalyseCalciumTraces(QWidget):
                 self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
                 prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
                 self._peaks_prominence_multiplier_spin.setValue(prom_mult)
+                peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
+                self._peaks_distance_spin.setValue(peaks_distance)
 
         except Exception as e:
             LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
@@ -615,11 +643,11 @@ class _AnalyseCalciumTraces(QWidget):
         """Parse various equation formats and return a callable function.
 
         Supported formats:
-        - Linear: y = m*x + q  (e.g., "y = 2*x + 3")
-        - Quadratic: y = a*x^2 + b*x + c  (e.g., "y = 0.5*x^2 + 2*x + 1")
-        - Exponential: y = a*exp(b*x) + c  (e.g., "y = 2*exp(0.1*x) + 1")
-        - Power: y = a*x^b + c  (e.g., "y = 2*x^0.5 + 1")
-        - Logarithmic: y = a*log(x) + b  (e.g., "y = 2*log(x) + 1")
+        - Linear: y = m*x + q  (e.g. "y = 2*x + 3")
+        - Quadratic: y = a*x^2 + b*x + c  (e.g. "y = 0.5*x^2 + 2*x + 1")
+        - Exponential: y = a*exp(b*x) + c  (e.g. "y = 2*exp(0.1*x) + 1")
+        - Power: y = a*x^b + c  (e.g. "y = 2*x^0.5 + 1")
+        - Logarithmic: y = a*log(x) + b  (e.g. "y = 2*log(x) + 1")
         """
         if not equation:
             return None
@@ -996,11 +1024,15 @@ class _AnalyseCalciumTraces(QWidget):
         else:  # MULTIPLIER
             peaks_height_dec_dff = noise_level_dec_dff * peaks_height_value
 
+        # Get minimum distance between peaks from user-specified value
+        min_distance_frames = self._peaks_distance_spin.value()
+
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
             dec_dff,
             prominence=peaks_prominence_dec_dff,
             height=peaks_height_dec_dff,
+            distance=min_distance_frames,
         )
 
         # get the amplitudes of the peaks in the dec_dff trace
@@ -1274,6 +1306,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_h_data = self._peaks_height_wdg.value()
             settings[PEAKS_HEIGHT_VALUE] = peaks_h_data.get("value", DEFAULT_HEIGHT)
             settings[PEAKS_HEIGHT_MODE] = peaks_h_data.get("mode", GLOBAL_HEIGHT)
+            settings[PEAKS_DISTANCE] = self._peaks_distance_spin.value()
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

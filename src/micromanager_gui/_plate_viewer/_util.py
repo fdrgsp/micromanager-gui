@@ -40,9 +40,10 @@ MWCM = "mW/cm²"
 SETTINGS_PATH = "settings.json"
 PLATE_PLAN = "plate_plan"
 LED_POWER_EQUATION = "led_power_equation"
-PEAKS_HEIGHT_VALUE = "height_value"
-PEAKS_HEIGHT_MODE = "height_mode"
-PEAKS_PROMINENCE_MULTIPLIER = "prominence_multiplier"
+PEAKS_HEIGHT_VALUE = "peaks_height_value"
+PEAKS_HEIGHT_MODE = "peaks_height_mode"
+PEAKS_PROMINENCE_MULTIPLIER = "peaks_prominence_multiplier"
+PEAKS_DISTANCE = "peaks_distance"
 DFF_WINDOW = "dff_window"
 
 

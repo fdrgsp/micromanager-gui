@@ -1,6 +1,8 @@
 {
   "dff_window": 10,
-  "prominence_multiplier": 1.0,
-  "height_value": 0.0075,
-  "height_mode": "global_height"
+  "led_power_equation": "y = 11.01*x - 6.52",
+  "peaks_prominence_multiplier": 1.0,
+  "peaks_height_value": 0.0075,
+  "peaks_height_mode": "global_height",
+  "peaks_distance": 2
 }
