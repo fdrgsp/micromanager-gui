@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._synchrony_plots import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony import (  # noqa: E501
     _plot_synchrony_data,
 )
 from micromanager_gui._plate_viewer._util import ROIData
@@ -35,7 +35,7 @@ class TestSynchronyPlots:
         }
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._synchrony_plots._get_phase_dict_from_rois"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
     )
     @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
     @patch("micromanager_gui._plate_viewer._util.get_synchrony")
@@ -64,7 +64,7 @@ class TestSynchronyPlots:
         mock_widget.figure.colorbar.assert_called_once()
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._synchrony_plots._get_phase_dict_from_rois"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
     )
     def test_plot_synchrony_data_no_phase(
         self, mock_get_phase, mock_widget, sample_roi_data
@@ -78,7 +78,7 @@ class TestSynchronyPlots:
         mock_widget.figure.clear.assert_called_once()
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._synchrony_plots._get_phase_dict_from_rois"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
     )
     @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
     def test_plot_synchrony_data_no_matrix(

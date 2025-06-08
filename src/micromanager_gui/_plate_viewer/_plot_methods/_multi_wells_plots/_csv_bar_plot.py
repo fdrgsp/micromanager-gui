@@ -8,9 +8,15 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from micromanager_gui._plate_viewer._util import (
+    EVK_NON_STIM,
+    EVK_STIM,
+    MEAN_SUFFIX,
+    N_SUFFIX,
+    SEM_SUFFIX,
+)
 
+if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from micromanager_gui._plate_viewer._graph_widgets import _MultilWellGraphWidget
@@ -19,13 +25,9 @@ if TYPE_CHECKING:
 CONDITION = "condition"
 WEIGHTED_MEAN = "weighted_mean"
 POOLED_SEM = "pooled_sem"
-MEAN_SUFFIX = "_Mean"
-SEM_SUFFIX = "_SEM"
-N_SUFFIX = "_N"
-EVK = "_evk_stim"
-NON_EVK = "_evk_non_stim"
 MEAN = "mean"
 SEM = "sem"
+BAR_COLOR = "#48C14A"
 
 
 class PlotData(TypedDict):
@@ -46,6 +48,7 @@ def plot_csv_bar_plot(  # <- new name, call it however you like
 ) -> None:
     """Load a CSV file and create *bar* plots (mean ± pooled-SEM) per condition."""
     widget.figure.clear()
+
     if mean_n_sem:
         _create_bar_plot_mean_and_pooled_sem(widget, csv_path, info)
     else:
@@ -98,7 +101,7 @@ def _create_bar_plot(
     of the raw FOV means.
     """
     # parse data for simple column format
-    data = _parse_csv_column_format(csv_path, info)
+    data = _parse_csv_column_format(csv_path)
     if data is None:
         return
 
@@ -124,7 +127,6 @@ def _parse_csv_triplet_format(
     if not parameter:
         return None
 
-    evk = parameter in {"Stimulated Amplitude", "Non-Stimulated Amplitude"}
     pulse_length: str | None = None
 
     try:
@@ -171,8 +173,8 @@ def _parse_csv_triplet_format(
 
         label = base
         # label cleaning for evoked traces
-        if evk:
-            label = label.replace(EVK, "").replace(NON_EVK, "")
+        if EVK_STIM in label or EVK_NON_STIM in label:
+            label = label.replace(f"_{EVK_STIM}", "").replace(f"_{EVK_NON_STIM}", "")
             parts = label.split("_")
             pulse_length = parts[-1]  # "…_50"
             label = "_".join(parts[:-1])
@@ -194,10 +196,7 @@ def _parse_csv_triplet_format(
     )
 
 
-def _parse_csv_column_format(
-    csv_path: str | Path,
-    info: dict[str, str],
-) -> PlotData | None:
+def _parse_csv_column_format(csv_path: str | Path) -> PlotData | None:
     """Parse CSV with simple column format (one column per condition)."""
     try:
         df = pd.read_csv(csv_path)
@@ -220,6 +219,15 @@ def _parse_csv_column_format(
 
         mean = float(vals.mean())
         sem = float(vals.std(ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else 0.0
+
+        # if col contains EVK_STIM or NON_EVK_STIM, remove it from the name
+        if EVK_STIM in col or EVK_NON_STIM in col:
+            col = col.replace(f"_{EVK_STIM}", "").replace(f"_{EVK_NON_STIM}", "")
+            parts = col.split("_")
+            if "power" in Path(csv_path).name.lower():
+                col = "_".join(parts[:-1])  # pulse length is last (e.eg. "_50")
+            else:
+                col = "_".join(parts)
 
         conditions.append(col)
         means.append(mean)
@@ -284,7 +292,7 @@ def _create_shared_bar_plot(
         yerr=filtered_sems,
         capsize=5,
         zorder=2,
-        color="lightgray",
+        color=BAR_COLOR,
         edgecolor="black",
     )
 
@@ -321,7 +329,7 @@ def _create_shared_bar_plot(
         (0, 0),
         1,
         1,
-        facecolor="lightgray",
+        facecolor=BAR_COLOR,
         edgecolor="black",
         label=bar_label,
     )
