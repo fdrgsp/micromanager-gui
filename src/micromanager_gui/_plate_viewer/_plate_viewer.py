@@ -866,7 +866,7 @@ class PlateViewer(QMainWindow):
         if not self._data:
             return
         if not positions:
-            positions = list(range(len(sequence.stage_positions) - 1))
+            positions = list(range(len(sequence.stage_positions)))
         for pos in tqdm(positions, desc="Saving as tiff"):
             data, meta = self._data.isel(p=pos, metadata=True)
             # the "Event" key was used in the old metadata format
