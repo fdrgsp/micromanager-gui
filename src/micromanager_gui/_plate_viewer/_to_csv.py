@@ -627,12 +627,13 @@ def _keep_power_conditions(
     percentage_active_dict: dict[str, dict[str, dict[str, list[float]]]] = {}
 
     for condition, fov_dict in sorted(data.items()):
-        if stimulated and "evk_stim_" in condition:
-            cond = condition.split("evk_stim_")[-1]
-        elif not stimulated and "evk_non_stim_" in condition:
-            cond = condition.split("evk_non_stim_")[-1]
+        if stimulated and "_evk_stim" in condition:
+            cond = condition.split("_evk_stim")[0]
+        elif not stimulated and "_evk_non_stim" in condition:
+            cond = condition.split("_evk_non_stim")[0]
         else:
             continue
+        print(cond)
 
         for fov, roi_dict in fov_dict.items():
             total_rois = 0
@@ -676,9 +677,9 @@ def _combined_power_conditions(
         is_non_stim_match = not stimulated and condition_type == "non_stim"
         if is_stim_match or is_non_stim_match:
             if stimulated:
-                new_condition = f"{base_condition}_evk_percentage_active_stim"
+                new_condition = f"{base_condition}_stim"
             else:
-                new_condition = f"{base_condition}_evk_percentage_active_non_stim"
+                new_condition = f"{base_condition}_non_stim"
 
             for fov, roi_dict in fov_dict.items():
                 # Calculate percentage active for this FOV based on stimulated status

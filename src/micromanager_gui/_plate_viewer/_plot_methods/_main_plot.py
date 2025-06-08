@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ._multi_wells_plots._csv_bar_plot import plot_csv_bar_plot
 from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
@@ -72,15 +72,6 @@ NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
 NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 STIMULATED_PEAKS_FREQ = "Stimulated Peaks Frequencies"
 NON_STIMULATED_PEAKS_FREQ = "Non-Stimulated Peaks Frequencies"
-
-CSV_BAR_PLOT_AMPLITUDE = "Amplitude Bar Plot"
-CSV_BAR_PLOT_FREQUENCY = "Frequency Bar Plot"
-CSV_BAR_PLOT_IEI = "Inter-event Interval Bar Plot"
-CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
-CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Bar Plot"
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
-CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Bar Plot"
-CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Bar Plot"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -264,28 +255,45 @@ def plot_single_well_data(
 # MULTI WELLS PLOTS -------------------------------------------------------------------
 
 # fmt: off
-MULTI_WELL_COMBO_OPTIONS = [
-    CSV_BAR_PLOT_AMPLITUDE,
-    CSV_BAR_PLOT_FREQUENCY,
-    CSV_BAR_PLOT_IEI,
-    CSV_BAR_PLOT_CELL_SIZE,
-    CSV_BAR_PLOT_GLOBAL_SYNCHRONY,
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS,
-    CSV_BAR_PLOT_STIMULATED_AMPLITUDE,
-    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE
-]
+CSV_BAR_PLOT_AMPLITUDE = "Amplitude Bar Plot"
+CSV_BAR_PLOT_FREQUENCY = "Frequency Bar Plot"
+CSV_BAR_PLOT_IEI = "Inter-event Interval Bar Plot"
+CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
+CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Bar Plot"
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
+CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Bar Plot"
+CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Bar Plot"
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED = "Percentage Active Stimulated"
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED = "Percentage Active Non-Stimulated"
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED_PER_LED_POWER = "Percentage Active Stimulated per LED Power"  # noqa: E501
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED_PER_LED_POWER = "Percentage Active Non-Stimulated per LED Power"  # noqa: E501
 
-MULTI_WELL_GRAPHS_OPTIONS = {
-    CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Amplitude", "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_FREQUENCY: {"parameter": "Frequency", "suffix": "frequency", "add_to_title": " (Deconvolved ΔF/F)", "units": "Hz"},  # noqa: E501
-    CSV_BAR_PLOT_IEI: {"parameter": "Inter-Event Interval", "suffix": "iei", "add_to_title": " (Deconvolved ΔF/F)", "units": "Sec"},  # noqa: E501
-    CSV_BAR_PLOT_CELL_SIZE: {"parameter": "Cell Size", "suffix": "cell_size", "units": "μm²"},  # noqa: E501
-    CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Global Synchrony", "suffix": "synchrony", "add_to_title": "(Median)", "units": "Index"},  # noqa: E501
+MW_GENERAL_GROUP = {
+    CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_FREQUENCY: {"parameter": "Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
+    CSV_BAR_PLOT_IEI: { "parameter": "Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
+    CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
+    CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active"},  # noqa: E501
-    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"parameter": "Stimulated Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"parameter": "Non-Stimulated Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+}
+
+MW_EVOKED_GROUP = {
+    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Stimulated Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Non-Stimulated Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED: {"stimulated": True, "parameter": "Percentage Active Stimulated", "suffix": "percentage_active_stimulated"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED: {"stimulated": False, "parameter": "Percentage Active Non-Stimulated", "suffix": "percentage_active_non_stimulated"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED_PER_LED_POWER: {"stimulated": True, "per_led_power": True, "parameter": "Percentage Active Stimulated per LED Power", "suffix": "percentage_active_stimulated_per_led_power"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED_PER_LED_POWER: {"stimulated": False, "per_led_power": True, "parameter": "Percentage Active Non-Stimulated per LED Power", "suffix": "percentage_active_non_stimulated_per_led_power"},  # noqa: E501
 }
 # fmt: on
+
+
+# Dictionary to group the options in the graph widgets combobox
+# The keys are sections that wont be selectable but are used as dividers
+MULTI_WELL_COMBO_OPTIONS_DICT = {
+    "------------General-----------------------": MW_GENERAL_GROUP.keys(),
+    "------------Evoked Experiment-------------": MW_EVOKED_GROUP.keys(),
+}
 
 
 def plot_multi_well_data(
@@ -293,42 +301,71 @@ def plot_multi_well_data(
     text: str,
     analysis_path: str | None,
 ) -> None:
-    """Plot the multi-well data."""
-    if not text or text == "None" or not analysis_path:
+    """Plot multi-well data based on the text."""
+    if not text or text == "None" or text in MULTI_WELL_COMBO_OPTIONS_DICT.keys():
         widget.figure.clear()
         return
 
-    suffix = MULTI_WELL_GRAPHS_OPTIONS[text].get("suffix")
+    if not analysis_path:
+        widget.figure.clear()
+        return
+
+    # MW_GENERAL_GROUP
+    if text in MW_GENERAL_GROUP:
+        return _plot_csv_bar_plot_data(
+            widget, text, analysis_path, **MW_GENERAL_GROUP[text]
+        )
+
+    # MW_EVOKED_GROUP
+    if text in MW_EVOKED_GROUP:
+        return _plot_csv_bar_plot_data(
+            widget, text, analysis_path, **MW_EVOKED_GROUP[text]
+        )
+
+
+def _plot_csv_bar_plot_data(
+    widget: _MultilWellGraphWidget, text: str, analysis_path: str, **kwargs: Any
+) -> None:
+    """Helper function to plot CSV bar plot data."""
+    suffix = kwargs.get("suffix")
     if not suffix:
         print(f"No parameter found for {text}.")
         widget.figure.clear()
         return
 
-    if "stimulated" in suffix:
+    # Determine CSV path based on whether it's stimulated data
+    stimulated = kwargs.get("stimulated", False)
+    if stimulated or "stimulated" in suffix:
         csv_path = Path(analysis_path) / "grouped_evk"
     else:
         csv_path = Path(analysis_path) / "grouped"
+
     if not csv_path.exists():
         print(f"CSV path {csv_path} does not exist.")
         widget.figure.clear()
         return
 
-    csv_file: Path | None = None
-    for f in csv_path.glob("*.csv"):
-        if f.name.endswith(f"_{suffix}.csv"):
-            csv_file = f
-            break
+    csv_file = next(
+        (f for f in csv_path.glob("*.csv") if f.name.endswith(f"_{suffix}.csv")),
+        None,
+    )
 
     if not csv_file:
         widget.figure.clear()
         return
 
-    if suffix in {"synchrony", "percentage_active"}:
+    # Create plot options from kwargs, filtering out non-plot parameters
+    plot_options = {
+        k: v for k, v in kwargs.items() if k not in ["stimulated", "per_led_power"]
+    }
+
+    # Special handling for certain plot types that don't use mean_n_sem
+    if suffix == "synchrony" or "percentage_active" in suffix:
         return plot_csv_bar_plot(
             widget,
             csv_file,
-            MULTI_WELL_GRAPHS_OPTIONS[text],
+            plot_options,
             mean_n_sem=False,
         )
 
-    return plot_csv_bar_plot(widget, csv_file, MULTI_WELL_GRAPHS_OPTIONS[text])
+    return plot_csv_bar_plot(widget, csv_file, plot_options)
