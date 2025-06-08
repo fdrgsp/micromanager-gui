@@ -169,14 +169,18 @@ class TestDisplaySingleWellTraces:
         # Set up checked state - starts unchecked
         widget._checked_state = False
         widget.isChecked = Mock(side_effect=lambda: widget._checked_state)
-        widget.setChecked = Mock(side_effect=lambda x: setattr(widget, '_checked_state', x))
+        widget.setChecked = Mock(
+            side_effect=lambda x: setattr(widget, "_checked_state", x)
+        )
         widget.title = Mock(return_value="Choose which ROI to display")
         widget.isCheckable = Mock(return_value=True)
 
         # Set up text() method for _roi_le
         widget._roi_le_text = ""
         widget._roi_le.text = Mock(side_effect=lambda: widget._roi_le_text)
-        widget._roi_le.setText = Mock(side_effect=lambda x: setattr(widget, '_roi_le_text', x))
+        widget._roi_le.setText = Mock(
+            side_effect=lambda x: setattr(widget, "_roi_le_text", x)
+        )
 
         # Mock the methods that will be tested
         def mock_parse_input(input_str):
@@ -361,6 +365,7 @@ class TestSingleWellGraphWidget:
         def on_save_side_effect():
             name = widget._combo.currentText().replace(" ", "_")
             from qtpy.QtWidgets import QFileDialog
+
             filename, _ = QFileDialog.getSaveFileName(
                 widget, "Save Image", name, "PNG Image (*.png)"
             )
@@ -369,9 +374,7 @@ class TestSingleWellGraphWidget:
 
         # Set up method mocks with side effects
         widget.clear_plot = Mock(side_effect=clear_plot_side_effect)
-        widget.set_combo_text_red = Mock(
-            side_effect=set_combo_text_red_side_effect
-        )
+        widget.set_combo_text_red = Mock(side_effect=set_combo_text_red_side_effect)
         widget._on_combo_changed = Mock(side_effect=on_combo_changed_side_effect)
         widget._on_save = Mock(side_effect=on_save_side_effect)
 
@@ -445,9 +448,7 @@ class TestSingleWellGraphWidget:
         # Setup
         single_well_widget._fov = "A1"
         mock_table_data = Mock()
-        single_well_widget._plate_viewer._fov_table.value.return_value = (
-            mock_table_data
-        )
+        single_well_widget._plate_viewer._fov_table.value.return_value = mock_table_data
         mock_data = {"1": ROIData()}
         mock_get_fov_data.return_value = mock_data
 
@@ -513,7 +514,9 @@ class TestMultiWellGraphWidget:
         widget._conditions_btn = Mock()
         widget._conditions_btn.isEnabled = Mock(return_value=False)
         widget._conditions_btn.setEnabled = Mock(
-            side_effect=lambda x: widget._conditions_btn.isEnabled.configure_mock(return_value=x)
+            side_effect=lambda x: widget._conditions_btn.isEnabled.configure_mock(
+                return_value=x
+            )
         )
         widget._save_btn = Mock()
         widget.figure = Mock()
@@ -549,11 +552,13 @@ class TestMultiWellGraphWidget:
             if not filename:
                 return
             widget.figure.savefig(filename, dpi=300)
+
         widget._on_save = Mock(side_effect=on_save)
 
         # Use actual implementation for _show_conditions_menu
         def show_conditions_menu():
             from micromanager_gui._plate_viewer._graph_widgets import _PersistentMenu
+
             menu = _PersistentMenu(widget)
             for condition, state in widget._conditions.items():
                 # Create a mock action since we can't create real QAction with Mock parent
@@ -575,12 +580,14 @@ class TestMultiWellGraphWidget:
                 widget._conditions_btn.rect().bottomLeft()
             )
             menu.exec(button_pos)
+
         widget._show_conditions_menu = Mock(side_effect=show_conditions_menu)
 
         # Use actual implementation for _on_condition_toggled
         def on_condition_toggled(checked, condition):
             widget._conditions[condition] = checked
             widget._on_combo_changed(widget._combo.currentText())
+
         widget._on_condition_toggled = Mock(side_effect=on_condition_toggled)
 
         # Simple property attributes
@@ -759,7 +766,7 @@ class TestGraphWidgetsIntegration:
             widget = mock_widget_class(mock_plate_viewer_full)
 
             # Test that the display traces widget is properly connected
-            assert hasattr(widget, '_choose_dysplayed_traces')
+            assert hasattr(widget, "_choose_dysplayed_traces")
             assert widget._choose_dysplayed_traces._graph == widget
 
     def test_combo_box_sections_not_selectable(self, mock_plate_viewer_full, qapp):
@@ -820,8 +827,8 @@ class TestGraphWidgetsIntegration:
         multi_widget._conditions_btn.clicked = Mock()
 
         # Verify signal connections exist by checking connect attribute
-        assert hasattr(single_widget._combo.currentTextChanged, 'connect')
-        assert hasattr(single_widget._save_btn.clicked, 'connect')
-        assert hasattr(multi_widget._combo.currentTextChanged, 'connect')
-        assert hasattr(multi_widget._save_btn.clicked, 'connect')
-        assert hasattr(multi_widget._conditions_btn.clicked, 'connect')
+        assert hasattr(single_widget._combo.currentTextChanged, "connect")
+        assert hasattr(single_widget._save_btn.clicked, "connect")
+        assert hasattr(multi_widget._combo.currentTextChanged, "connect")
+        assert hasattr(multi_widget._save_btn.clicked, "connect")
+        assert hasattr(multi_widget._conditions_btn.clicked, "connect")
