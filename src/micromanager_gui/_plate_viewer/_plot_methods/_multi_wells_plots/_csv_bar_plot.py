@@ -27,6 +27,7 @@ WEIGHTED_MEAN = "weighted_mean"
 POOLED_SEM = "pooled_sem"
 MEAN = "mean"
 SEM = "sem"
+BAR_COLOR = "#48C14A"
 
 
 class PlotData(TypedDict):
@@ -291,7 +292,7 @@ def _create_shared_bar_plot(
         yerr=filtered_sems,
         capsize=5,
         zorder=2,
-        color="lightgray",
+        color=BAR_COLOR,
         edgecolor="black",
     )
 
@@ -328,7 +329,7 @@ def _create_shared_bar_plot(
         (0, 0),
         1,
         1,
-        facecolor="lightgray",
+        facecolor=BAR_COLOR,
         edgecolor="black",
         label=bar_label,
     )
