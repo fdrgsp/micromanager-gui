@@ -136,8 +136,6 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     assert pv._plate_map_treatment.value() == T_MAP
     # fmt: on
 
-    pv._analysis_wdg._peaks_height_multiplier_spin.setValue(4.3)
-
     # autoselect the only 1 position in the plate map
     assert pv._analysis_wdg._prepare_for_running() == [0]
 
