@@ -28,6 +28,7 @@ from qtpy.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -41,6 +42,8 @@ from ._to_csv import save_to_csv
 from ._util import (
     COND1,
     COND2,
+    DECONVOLUTION_PENALTY,
+    DFF_WINDOW,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
@@ -190,13 +193,58 @@ class _AnalyseCalciumTraces(QWidget):
         )
         self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
 
+        # DF/F SETTINGS --------------------------------------------------------
+        dff_wdg = QWidget(self)
+        dff_wdg.setToolTip("Controls the window size for calculating ΔF/F0.")
+        dff_lbl = QLabel("ΔF/F0 Window Size")
+        dff_lbl.setSizePolicy(*FIXED)
+        self._dff_window_size_spin = QSpinBox(self)
+        self._dff_window_size_spin.setRange(0, 10000)
+        self._dff_window_size_spin.setSingleStep(1)
+        self._dff_window_size_spin.setValue(10)
+        dff_layout = QHBoxLayout(dff_wdg)
+        dff_layout.setContentsMargins(0, 0, 0, 0)
+        dff_layout.setSpacing(5)
+        dff_layout.addWidget(dff_lbl)
+        dff_layout.addWidget(self._dff_window_size_spin)
+
+        # DECONVOLUTION SETTINGS -------------------------------------------------
+        dec_penalty_wdg = QWidget(self)
+        dec_penalty_wdg.setToolTip(
+            "Controls the penalty multiplier for adaptive deconvolution smoothing.\n"
+            "The system automatically calculates a base penalty from noise levels\n"
+            "in each trace, then multiplies it by this value for final adjustment.\n\n"
+            "• Higher values (>10): More smoothing, removes noise but may blur events\n"
+            "• Lower values (<10): Less smoothing, preserves detail but retains noise\n"
+            "• Default (10): Balanced approach suitable for most calcium imaging data\n"
+            "\nThe adaptive system ensures each ROI gets appropriate smoothing based\n"
+            "on its individual noise characteristics, while this multiplier provides\n"
+            "global fine-tuning control."
+        )
+        dec_penalty_lbl = QLabel("Deconvolution Penalty Multiplier:")
+        dec_penalty_lbl.setSizePolicy(*FIXED)
+        self._deconvolution_penalty_spin = QDoubleSpinBox(self)
+        self._deconvolution_penalty_spin.setDecimals(4)
+        self._deconvolution_penalty_spin.setRange(0.0, 100000.0)
+        self._deconvolution_penalty_spin.setSingleStep(0.1)
+        self._deconvolution_penalty_spin.setValue(1)
+        dec_penalty_layout = QHBoxLayout(dec_penalty_wdg)
+        dec_penalty_layout.setContentsMargins(0, 0, 0, 0)
+        dec_penalty_layout.setSpacing(5)
+        dec_penalty_layout.addWidget(dec_penalty_lbl)
+        dec_penalty_layout.addWidget(self._deconvolution_penalty_spin)
+
         # PEAKS SETTINGS -------------------------------------------------------------
-        peaks_height_lbl_wdg = QWidget(self)
-        peaks_height_lbl_wdg.setToolTip(
-            "Set the noise multiplier to use for peaks height detection.\n"
-            "The actual threshold = noise_level * multiplier\n"
-            "Lower values (e.g. <=5) will detect more peaks, while higher values "
-            "(e.g. >=6) will be stricter."
+        peaks_height_wdg = QWidget(self)
+        peaks_height_wdg.setToolTip(
+            "Controls the height threshold multiplier for calcium peak detection.\n"
+            "The system calculates noise level from deconvolved traces, then\n"
+            "multiplies it by this value to set the minimum peak height.\n\n"
+            "Height threshold = noise_level * multiplier\n\n"
+            "• Lower values (2-4): More sensitive, detects smaller/weaker peaks\n"
+            "• Higher values (5-8): More selective, only detects prominent peaks\n"
+            "• Default (4.0): Good balance for typical calcium imaging signals\n\n"
+            "Adjust based on your signal-to-noise ratio and desired sensitivity."
         )
         peaks_height_lbl = QLabel("Peaks Height Multiplier:")
         peaks_height_lbl.setSizePolicy(*FIXED)
@@ -205,17 +253,23 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_height_multiplier_spin.setRange(0.0, 100000.0)
         self._peaks_height_multiplier_spin.setSingleStep(0.01)
         self._peaks_height_multiplier_spin.setValue(4.0)
-        peaks_height_layout = QHBoxLayout(peaks_height_lbl_wdg)
+        peaks_height_layout = QHBoxLayout(peaks_height_wdg)
         peaks_height_layout.setContentsMargins(0, 0, 0, 0)
         peaks_height_layout.setSpacing(5)
         peaks_height_layout.addWidget(peaks_height_lbl)
         peaks_height_layout.addWidget(self._peaks_height_multiplier_spin)
 
-        peaks_prominence_lbl_wdg = QWidget(self)
-        peaks_prominence_lbl_wdg.setToolTip(
-            "Set the noise multiplier to use for peaks prominence detection.\n"
-            "The actual prominence = noise_level * multiplier.\n"
-            "Setting to 1 means no prominence filtering and the noise level is used."
+        peaks_prominence_wdg = QWidget(self)
+        peaks_prominence_wdg.setToolTip(
+            "Controls the prominence threshold multiplier for peak validation.\n"
+            "Prominence measures how much a peak stands out from surrounding\n"
+            "baseline, helping distinguish real calcium events from noise.\n\n"
+            "Prominence threshold = noise_level * multiplier\n\n"
+            "• Value of 1.0: Uses noise level as prominence threshold (recommended)\n"
+            "• Values >1.0: Requires peaks to be more prominent than noise level\n"
+            "• Values <1.0: More lenient, allows peaks closer to noise level\n\n"
+            "Default (1.0) works well for most calcium imaging applications.\n"
+            "Increase if detecting too many noise artifacts as peaks."
         )
         peaks_prominence_lbl = QLabel("Peaks Prominence Multiplier:")
         peaks_prominence_lbl.setSizePolicy(*FIXED)
@@ -224,7 +278,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_prominence_multiplier_spin.setRange(0, 100000.0)
         self._peaks_prominence_multiplier_spin.setSingleStep(0.01)
         self._peaks_prominence_multiplier_spin.setValue(1)
-        peaks_prominence_layout = QHBoxLayout(peaks_prominence_lbl_wdg)
+        peaks_prominence_layout = QHBoxLayout(peaks_prominence_wdg)
         peaks_prominence_layout.setContentsMargins(0, 0, 0, 0)
         peaks_prominence_layout.setSpacing(5)
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
@@ -244,7 +298,7 @@ class _AnalyseCalciumTraces(QWidget):
         pos_lbl = QLabel("Analyze Positions:")
         pos_lbl.setSizePolicy(*FIXED)
         self._pos_le = QLineEdit()
-        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33")
+        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33. Leave empty for all")
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
@@ -266,13 +320,15 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn.clicked.connect(self.cancel)
 
         # STYLING --------------------------------------------------------------------
-        fixed_width = peaks_prominence_lbl.sizeHint().width()
+        fixed_width = dec_penalty_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
         self._analysis_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         peaks_height_lbl.setFixedWidth(fixed_width)
+        peaks_prominence_lbl.setFixedWidth(fixed_width)
+        dff_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -294,8 +350,10 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(peaks_height_lbl_wdg)
-        wdg_layout.addWidget(peaks_prominence_lbl_wdg)
+        wdg_layout.addWidget(dff_wdg)
+        wdg_layout.addWidget(dec_penalty_wdg)
+        wdg_layout.addWidget(peaks_height_wdg)
+        wdg_layout.addWidget(peaks_prominence_wdg)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(pos_wdg)
         wdg_layout.addWidget(progress_wdg)
@@ -415,12 +473,16 @@ class _AnalyseCalciumTraces(QWidget):
         try:
             with open(settings_json_file) as f:
                 settings = cast(dict, json.load(f))
+                dff_window = cast(int, settings.get(DFF_WINDOW, 15))
+                self._dff_window_size_spin.setValue(dff_window)
                 pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
                 self._led_power_equation_le.setText(pp)
                 height_mult = cast(float, settings.get(PEAKS_HEIGHT_MULTIPLIER, 4.0))
                 self._peaks_height_multiplier_spin.setValue(height_mult)
                 prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
                 self._peaks_prominence_multiplier_spin.setValue(prom_mult)
+                dec_penalty = cast(float, settings.get(DECONVOLUTION_PENALTY, 10.0))
+                self._deconvolution_penalty_spin.setValue(dec_penalty)
 
         except Exception as e:
             LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
@@ -679,7 +741,7 @@ class _AnalyseCalciumTraces(QWidget):
             return
 
         condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
-        conition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+        condition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
@@ -695,7 +757,7 @@ class _AnalyseCalciumTraces(QWidget):
         for data in condition_1_plate_map:
             self._plate_map_data[data.name] = {COND1: data.condition[0]}
 
-        for data in conition_2_plate_map:
+        for data in condition_2_plate_map:
             if data.name in self._plate_map_data:
                 self._plate_map_data[data.name][COND2] = data.condition[0]
             else:
@@ -869,14 +931,11 @@ class _AnalyseCalciumTraces(QWidget):
 
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
-
+        win = self._dff_window_size_spin.value()
         # calculate the dff of the roi trace
-        dff: np.ndarray = calculate_dff(roi_trace, window=10, plot=False)
+        dff: np.ndarray = calculate_dff(roi_trace, window=win, plot=False)
 
-        # deconvolve the dff trace
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
-
-        # Get the prominence and adaptive height threshold for peak detection
+        # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
         # to outliers (unlike the mean).
@@ -892,7 +951,23 @@ class _AnalyseCalciumTraces(QWidget):
         # (Gaussian) distribution. Specifically: for a normal distribution,
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
+        # Calculate adaptive penalty based on noise level in the ΔF/F0 trace
+        noise_level_dff = np.median(np.abs(dff - np.median(dff))) / 0.6745
+
+        # Base penalty calculation: higher noise = higher penalty
+        # Typical range: 0.1 to 5.0, with 1.0 as baseline for moderate noise
+        base_penalty = np.clip(noise_level_dff * 10, 0.1, 5.0)
+
+        # Set deconvolution penalty multiplier from the spinbox
+        penalty_multiplier = self._deconvolution_penalty_spin.value()
+        deconvolution_penalty = float(base_penalty * penalty_multiplier)
+
+        # deconvolve the dff trace with adaptive penalty
+        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=deconvolution_penalty)
+
+        # Get noise level from the deconvolved ΔF/F0 trace using MAD (as above))
         noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
@@ -963,6 +1038,7 @@ class _AnalyseCalciumTraces(QWidget):
             dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
+            deconvolution_penalty=deconvolution_penalty,
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
             peaks_height_dec_dff=peaks_height_dec_dff,
@@ -1056,12 +1132,16 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is not None:
             self._plate_viewer.pv_analysis_data = self._analysis_data
 
-            # update the graphs with the new data
-            if self._plate_viewer._tab.currentIndex() != 0:
-                self._plate_viewer._on_tab_changed(1)
-                for sgh in self._plate_viewer.SW_GRAPHS:
+            # automatically set combo boxes to first valid option when analysis
+            # data is available - ensures graphs refresh after analysis completion
+            for sgh in self._plate_viewer.SW_GRAPHS:
+                if sgh._combo.currentText() != "None":
+                    # Force refresh for already selected options
                     sgh._on_combo_changed(sgh._combo.currentText())
-                for mgh in self._plate_viewer.MW_GRAPHS:
+
+            for mgh in self._plate_viewer.MW_GRAPHS:
+                if mgh._combo.currentText() != "None":
+                    # Force refresh for already selected options
                     mgh._on_combo_changed(mgh._combo.currentText())
 
         # save the analysis data to a JSON file
@@ -1169,13 +1249,14 @@ class _AnalyseCalciumTraces(QWidget):
                 with open(settings_json_file) as f:
                     settings = json.load(f)
 
-            # Update the noise multiplier
+            settings[DFF_WINDOW] = self._dff_window_size_spin.value()
             settings[PEAKS_HEIGHT_MULTIPLIER] = (
                 self._peaks_height_multiplier_spin.value()
             )
             settings[PEAKS_PROMINENCE_MULTIPLIER] = (
                 self._peaks_prominence_multiplier_spin.value()
             )
+            settings[DECONVOLUTION_PENALTY] = self._deconvolution_penalty_spin.value()
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:
