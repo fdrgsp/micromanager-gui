@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import matplotlib.cm as cm
 import mplcursors
 import numpy as np
+from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 if TYPE_CHECKING:
@@ -116,7 +117,7 @@ def _generate_amplitude_colors(
 ) -> None:
     """Assign colors based on amplitude for raster plot."""
     norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
-    cmap = cm.get_cmap("viridis")
+    cmap = colormaps.get_cmap("viridis")
     for roi in rois or data.keys():
         roi_data = data[str(roi)]
         if roi_data.peaks_amplitudes_dec_dff:
