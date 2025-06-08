@@ -638,8 +638,8 @@
     "dec_dff_frequency": 0.26143790849673204,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1236,
-    "cell_size_units": "pixel",
+    "cell_size": 522.21,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -1461,8 +1461,8 @@
     "dec_dff_frequency": 0.26143790849673204,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1214,
-    "cell_size_units": "pixel",
+    "cell_size": 512.9150000000001,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -2288,8 +2288,8 @@
     "dec_dff_frequency": 0.39215686274509803,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1498,
-    "cell_size_units": "pixel",
+    "cell_size": 632.9050000000001,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
@@ -3115,8 +3115,8 @@
     "dec_dff_frequency": 0.32679738562091504,
     "condition_1": "c1",
     "condition_2": "t1",
-    "cell_size": 1070,
-    "cell_size_units": "pixel",
+    "cell_size": 452.07500000000005,
+    "cell_size_units": "\u00b5m",
     "total_recording_time_in_sec": 15.3,
     "active": true,
     "instantaneous_phase": [
