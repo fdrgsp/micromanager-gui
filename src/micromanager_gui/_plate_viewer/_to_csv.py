@@ -89,7 +89,6 @@ def save_to_csv(
     # fmt: off
     # Save the data as CSV files
     msg = f"Exporting data to `{path}`..."
-    print(msg)
     LOGGER.info(msg)
     try:
         _export_raw_data(path, analysis_data)
@@ -100,10 +99,8 @@ def save_to_csv(
     except Exception as e:
         error_msg = f"Error exporting data to CSV: {e}"
         LOGGER.error(error_msg)
-        print(error_msg)
         return
 
-    print("DONE!")
     LOGGER.info("Exporting data to CSV: DONE!")
     # fmt: on
 
@@ -162,18 +159,18 @@ def _rearrange_by_parameter(
         try:
             return _get_percentage_active_parameter(data)
         except Exception as e:
-            print(f"Error calculating percentage active: {e}")
+            LOGGER.error(f"Error calculating percentage active: {e}")
             return {}
     if parameter == SYNCHRONY:
         try:
             return _get_synchrony_parameter(data)
         except Exception as e:
-            print(f"Error calculating synchrony: {e}")
+            LOGGER.error(f"Error calculating synchrony: {e}")
             return {}
     try:
         return _get_parameter(data, parameter)
     except Exception as e:
-        print(f"Error calculating parameter '{parameter}': {e}")
+        LOGGER.error(f"Error calculating parameter '{parameter}': {e}")
         return {}
 
 
@@ -187,7 +184,7 @@ def _rearrange_by_parameter_evk(
         try:
             return _get_amplitude_stim_or_non_stim_peaks_parameter(data)
         except Exception as e:
-            print(f"Error calculating stimulated peaks: {e}")
+            LOGGER.error(f"Error calculating stimulated peaks: {e}")
             return {}
 
     # AMPLITUDE NON-STIMULATED
@@ -197,7 +194,7 @@ def _rearrange_by_parameter_evk(
                 data, stimulated=False
             )
         except Exception as e:
-            print(f"Error calculating non-stimulated peaks: {e}")
+            LOGGER.error(f"Error calculating non-stimulated peaks: {e}")
             return {}
 
     # PERCENTAGE ACTIVE STIMULATED
@@ -212,7 +209,7 @@ def _rearrange_by_parameter_evk(
                 per_power=(parameter == PERCENTAGE_ACTIVE_STIMULATED_PER_POWER),
             )
         except Exception as e:
-            print(f"Error calculating stimulated percentage active: {e}")
+            LOGGER.error(f"Error calculating stimulated percentage active: {e}")
             return {}
 
     # PERCENTAGE ACTIVE NON-STIMULATED
@@ -227,7 +224,7 @@ def _rearrange_by_parameter_evk(
                 per_power=(parameter == PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER),
             )
         except Exception as e:
-            print(f"Error calculating non-stimulated percentage active: {e}")
+            LOGGER.error(f"Error calculating non-stimulated percentage active: {e}")
             return {}
     return {}
 

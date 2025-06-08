@@ -906,7 +906,6 @@ class _AnalyseCalciumTraces(QWidget):
         if labels_path is None:
             self._failed_labels.append(labels_name)
             LOGGER.error("No labels found for %s!", labels_name)
-            print(f"No labels found for {labels_name}!")
         return labels_path
 
     def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
