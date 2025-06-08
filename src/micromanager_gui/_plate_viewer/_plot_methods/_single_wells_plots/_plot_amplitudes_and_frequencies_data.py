@@ -158,8 +158,38 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if (lbl := sel.artist.get_label()) and "ROI" in lbl:
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+        # Get the label of the artist
+        label = sel.artist.get_label()
+
+        # Only show hover for ROI traces, not for peaks or other elements
+        if label and "ROI" in label and not label.startswith("_"):
+            # Get the data point coordinates
+            x, y = sel.target
+
+            # Create hover text with ROI and value information
+            roi = cast(str, label.split(" ")[1])
+
+            # Determine what type of plot this is based on axis labels
+            x_label = ax.get_xlabel()
+            y_label = ax.get_ylabel()
+
+            if "Amplitude" in x_label and "Frequency" in y_label:
+                # Amplitude vs Frequency plot
+                hover_text = f"{label}\nAmp: {x:.3f}\nFreq: {y:.3f} Hz"
+            elif "Amplitude" in y_label:
+                # Amplitude plot
+                hover_text = f"{label}\nAmp: {y:.3f}"
+            elif "Frequency" in y_label:
+                # Frequency plot
+                hover_text = f"{label}\nFreq: {y:.3f} Hz"
+            else:
+                # Fallback to just ROI label
+                hover_text = label
+
+            sel.annotation.set(text=hover_text, fontsize=8, color="black")
+
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
+        else:
+            # Hide the annotation for non-ROI elements
+            sel.annotation.set_visible(False)
