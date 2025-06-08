@@ -272,7 +272,7 @@ class PlateViewer(QMainWindow):
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         # data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
         # self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
-        # self._pv_analysis_path = ("tests/test_plate_viewer/data/evoked/evk_analysis")
+        # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
         # ____________________________________________________________________________
 

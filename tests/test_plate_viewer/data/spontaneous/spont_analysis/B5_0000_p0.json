@@ -478,8 +478,8 @@
       0.022961637821763137,
       0.19676318360423709
     ],
-    "peaks_prominence_dec_dff": 0.002357032088677004,
-    "peaks_height_dec_dff": 0.009568150062946253,
+    "peaks_prominence_dec_dff": 0.0023336951373039644,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.06576521898180976,
@@ -1291,8 +1291,8 @@
       0.06195592147393808,
       0.04643310825335377
     ],
-    "peaks_prominence_dec_dff": 0.0033116989019450044,
-    "peaks_height_dec_dff": 0.013443530196014374,
+    "peaks_prominence_dec_dff": 0.003278909803905945,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.03318037809459347,
@@ -2102,8 +2102,8 @@
       0.015676445816872747,
       0.020808698100010597
     ],
-    "peaks_prominence_dec_dff": 0.0012665659721663208,
-    "peaks_height_dec_dff": 0.0051415054315662526,
+    "peaks_prominence_dec_dff": 0.0012540257150161593,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.007353782293695616,
@@ -2911,8 +2911,8 @@
       0.03104701775340486,
       0.14512757061097825
     ],
-    "peaks_prominence_dec_dff": 0.0013391030068764529,
-    "peaks_height_dec_dff": 0.0054359627011816404,
+    "peaks_prominence_dec_dff": 0.0013258445612638148,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.010198685893986452,
@@ -3720,8 +3720,8 @@
       0.17520462477257923,
       0.2295257280777732
     ],
-    "peaks_prominence_dec_dff": 0.002793787357407713,
-    "peaks_height_dec_dff": 0.011341116995417448,
+    "peaks_prominence_dec_dff": 0.0027661260964432803,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.07481172481435426,

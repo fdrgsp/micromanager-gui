@@ -91,7 +91,7 @@ MAX_FRAMES_AFTER_STIMULATION = 5
 DEFAULT_HEIGHT = 0.0075
 GLOBAL_HEIGHT = "global_height"
 MULTIPLIER = "multiplier"
-DEFAULT_WINDOW = 15
+DEFAULT_WINDOW = 10
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:

@@ -1,5 +1,6 @@
 {
-  "led_power_equation": "y = 11.07 * x - 6.63",
-  "height_multiplier": 4.3,
-  "prominence_multiplier": 1.1
+  "dff_window": 10,
+  "prominence_multiplier": 1.0,
+  "height_value": 0.0075,
+  "height_mode": "global_height"
 }

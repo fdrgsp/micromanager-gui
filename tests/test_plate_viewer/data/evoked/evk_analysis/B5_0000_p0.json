@@ -478,8 +478,8 @@
       0.8099628171771499,
       0.13690756072437343
     ],
-    "peaks_prominence_dec_dff": 0.0010197634413529782,
-    "peaks_height_dec_dff": 0.003986347998016187,
+    "peaks_prominence_dec_dff": 0.0009270576739572529,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.0,
@@ -805,13 +805,13 @@
     "evoked_experiment": true,
     "stimulated": true,
     "amplitudes_stimulated_peaks": {
-      "15.510mW/cm\u00b2_100": [
+      "2_100": [
         0.47755267615643254
       ],
-      "37.650mW/cm\u00b2_100": [
+      "4_100": [
         0.8218552381450223
       ],
-      "59.790mW/cm\u00b2_100": [
+      "6_100": [
         0.8099628171771499
       ]
     },
@@ -1301,8 +1301,8 @@
       0.545180010673548,
       0.017784926023977268
     ],
-    "peaks_prominence_dec_dff": 0.0005885987701081935,
-    "peaks_height_dec_dff": 0.002300886101332029,
+    "peaks_prominence_dec_dff": 0.0005350897910074487,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.0,
@@ -1628,13 +1628,13 @@
     "evoked_experiment": true,
     "stimulated": true,
     "amplitudes_stimulated_peaks": {
-      "15.510mW/cm\u00b2_100": [
+      "2_100": [
         0.12948877030853384
       ],
-      "37.650mW/cm\u00b2_100": [
+      "4_100": [
         0.40904390707953864
       ],
-      "59.790mW/cm\u00b2_100": [
+      "6_100": [
         0.545180010673548
       ]
     },
@@ -2128,8 +2128,8 @@
       0.2600764104402181,
       0.02229615296992365
     ],
-    "peaks_prominence_dec_dff": 0.004475456318203639,
-    "peaks_height_dec_dff": 0.017494965607523314,
+    "peaks_prominence_dec_dff": 0.0040685966529123985,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.0005841962616462502,
@@ -2457,13 +2457,13 @@
     "evoked_experiment": true,
     "stimulated": true,
     "amplitudes_stimulated_peaks": {
-      "15.510mW/cm\u00b2_100": [
+      "2_100": [
         0.22603507713521404
       ],
-      "37.650mW/cm\u00b2_100": [
+      "4_100": [
         0.1573355230189487
       ],
-      "59.790mW/cm\u00b2_100": [
+      "6_100": [
         0.2600764104402181
       ]
     },
@@ -2955,8 +2955,8 @@
       0.34889867287533705,
       0.14660147345015612
     ],
-    "peaks_prominence_dec_dff": 0.003466377035182968,
-    "peaks_height_dec_dff": 0.013550382955715238,
+    "peaks_prominence_dec_dff": 0.0031512518501663343,
+    "peaks_height_dec_dff": 0.0075,
     "inferred_spikes": [
       0.0,
       0.0010860848811892537,
@@ -3283,13 +3283,13 @@
     "evoked_experiment": true,
     "stimulated": true,
     "amplitudes_stimulated_peaks": {
-      "15.510mW/cm\u00b2_100": [
+      "2_100": [
         0.22351763526524787
       ],
-      "37.650mW/cm\u00b2_100": [
+      "4_100": [
         0.3227315233915037
       ],
-      "59.790mW/cm\u00b2_100": [
+      "6_100": [
         0.34889867287533705
       ]
     },
