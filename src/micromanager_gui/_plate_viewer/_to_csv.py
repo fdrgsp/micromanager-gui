@@ -324,12 +324,14 @@ def _export_to_csv_mean_values_grouped_by_condition(
     path = Path(path)
     exp_name = path.stem
     folder = path / "grouped"
-    folder.mkdir(parents=True, exist_ok=True)
 
     for parameter, condition_dict in data.items():
         if parameter in SINGLE_VALUES:
+            folder.mkdir(parents=True, exist_ok=True)
             _export_to_csv_single_values(folder, exp_name, parameter, condition_dict)
             continue
+
+        folder.mkdir(parents=True, exist_ok=True)
 
         output_rows = []
 
@@ -428,17 +430,19 @@ def _export_to_csv_mean_values_evk_parameters(
     path = Path(path)
     exp_name = path.stem
     folder = path / "grouped_evk"
-    folder.mkdir(parents=True, exist_ok=True)
 
     for parameter, condition_dict in data.items():
         if not condition_dict:
             continue
 
         if parameter in SINGLE_VALUES_EVK:
+            folder.mkdir(parents=True, exist_ok=True)
             _export_to_csv_evk_single_values(
                 folder, exp_name, parameter, condition_dict
             )
             continue
+
+        folder.mkdir(parents=True, exist_ok=True)
 
         output_rows = []
 
