@@ -13,7 +13,6 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -135,7 +134,9 @@ class _CellposeSegmentation(QWidget):
         self._diameter_spin = QDoubleSpinBox(self)
         self._diameter_spin.setRange(0, 1000)
         self._diameter_spin.setValue(0)
-        self._diameter_spin.setToolTip("Set the diameter of the cells.")
+        self._diameter_spin.setToolTip(
+            "Set the diameter of the cells. Leave 0 for automatic detection."
+        )
         diameter_layout.addWidget(self._diameter_label)
         diameter_layout.addWidget(self._diameter_spin)
 
@@ -163,7 +164,7 @@ class _CellposeSegmentation(QWidget):
         pos_lbl = QLabel("Segment Positions:")
         pos_lbl.setSizePolicy(*FIXED)
         self._pos_le = QLineEdit()
-        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33")
+        self._pos_le.setPlaceholderText("e.g. 0-10, 30, 33. Leave empty for all.")
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
@@ -203,15 +204,17 @@ class _CellposeSegmentation(QWidget):
         progress_layout.addWidget(self._elapsed_time_label)
 
         self.groupbox = QGroupBox("Cellpose Segmentation", self)
-        settings_groupbox_layout = QGridLayout(self.groupbox)
+        settings_groupbox_layout = QVBoxLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
-        settings_groupbox_layout.addWidget(model_wdg, 0, 0, 1, 2)
-        settings_groupbox_layout.addWidget(self._browse_custom_model, 1, 0, 1, 2)
-        settings_groupbox_layout.addWidget(diameter_wdg, 2, 0, 1, 2)
-        settings_groupbox_layout.addWidget(self._output_path, 3, 0, 1, 2)
-        settings_groupbox_layout.addWidget(pos_wdg, 4, 0, 1, 2)
-        settings_groupbox_layout.addWidget(progress_wdg, 5, 0, 1, 2)
+        settings_groupbox_layout.addWidget(self._output_path)
+        settings_groupbox_layout.addSpacing(10)
+        settings_groupbox_layout.addWidget(model_wdg)
+        settings_groupbox_layout.addWidget(self._browse_custom_model)
+        settings_groupbox_layout.addWidget(diameter_wdg)
+        settings_groupbox_layout.addSpacing(10)
+        settings_groupbox_layout.addWidget(pos_wdg)
+        settings_groupbox_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
