@@ -497,7 +497,21 @@ def _export_to_csv_evk_single_values(
     """Export single-value data to CSV."""
     columns = {}
     max_len = 0
-    for condition, fovs in sorted(data.items()):
+
+    if parameter in {
+        PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
+        PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
+    }:
+        # Sort conditions per power
+        sorted_conditions = sorted(
+            data.keys(),
+            key=lambda k: (condition_tag(k), numeric_intensity(k, -2)),
+        )
+    else:
+        sorted_conditions = sorted(data.keys())
+
+    for condition in sorted_conditions:
+        fovs = data[condition]
         values = []
         for _, value_dict in fovs.items():
             for inner_values in value_dict.values():
