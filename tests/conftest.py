@@ -28,7 +28,7 @@ TEST_CONFIG = str(Path(__file__).parent / "test_config.cfg")
 
 
 # to create a new CMMCorePlus() for every test
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def global_mmcore():
     mmc = CMMCorePlus()
     mmc.loadSystemConfiguration(TEST_CONFIG)
