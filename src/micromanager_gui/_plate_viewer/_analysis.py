@@ -964,7 +964,12 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the size of the roi in µm or px if µm is not available
         roi_size_pixel = masked_data.shape[1]  # area
-        px_size = meta[0].get("pixel_size_um", None)
+        px_keys = ["pixel_size_um", "PixelSizeUm"]
+        px_size = None
+        for key in px_keys:
+            px_size = meta[0].get(key, None)
+            if px_size:
+                break
         # calculate the size of the roi in µm if px_size is available or not 0,
         # otherwise use the size is in pixels
         roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
