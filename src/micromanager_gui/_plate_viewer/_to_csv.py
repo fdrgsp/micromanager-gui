@@ -9,11 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ._logger import LOGGER
-from ._util import (
-    ROIData,
-    _get_synchrony_matrix,
-    get_synchrony,
-)
+from ._util import EVK_NON_STIM, EVK_STIM, ROIData, _get_synchrony_matrix, get_synchrony
 
 # fmt: off
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
@@ -134,10 +130,10 @@ def _rearrange_fov_by_conditions(
             # update the evoked conditions dict
             if roi_data.stimulated:
                 amps_dict = roi_data.amplitudes_stimulated_peaks
-                stim_label = "evk_stim"
+                stim_label = EVK_STIM
             else:
                 amps_dict = roi_data.amplitudes_non_stimulated_peaks
-                stim_label = "evk_non_stim"
+                stim_label = EVK_NON_STIM
             if amps_dict:
                 for power_and_pulse in amps_dict:
                     key = f"{cond_key}_{stim_label}_{power_and_pulse}"
@@ -583,10 +579,10 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
     """Group the data by condition → FOV → power_pulse (matching the condition name)."""
     amps_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
     for condition, fov_dict in sorted(data.items()):
-        if stimulated and "evk_stim_" in condition:
-            target_power_pulse = condition.split("evk_stim_")[-1]
-        elif not stimulated and "evk_non_stim_" in condition:
-            target_power_pulse = condition.split("evk_non_stim_")[-1]
+        if stimulated and f"{EVK_STIM}_" in condition:
+            target_power_pulse = condition.split(f"{EVK_STIM}_")[-1]
+        elif not stimulated and f"{EVK_NON_STIM}_" in condition:
+            target_power_pulse = condition.split(f"{EVK_NON_STIM}_")[-1]
         else:
             continue  # skip unrelated conditions
         for fov, roi_dict in fov_dict.items():
@@ -627,13 +623,12 @@ def _keep_power_conditions(
     percentage_active_dict: dict[str, dict[str, dict[str, list[float]]]] = {}
 
     for condition, fov_dict in sorted(data.items()):
-        if stimulated and "_evk_stim" in condition:
-            cond = condition.split("_evk_stim")[0]
-        elif not stimulated and "_evk_non_stim" in condition:
-            cond = condition.split("_evk_non_stim")[0]
+        if stimulated and f"_{EVK_STIM}" in condition:
+            cond = condition.split(f"_{EVK_STIM}")[0]
+        elif not stimulated and f"_{EVK_NON_STIM}" in condition:
+            cond = condition.split(f"_{EVK_NON_STIM}")[0]
         else:
             continue
-        print(cond)
 
         for fov, roi_dict in fov_dict.items():
             total_rois = 0
@@ -664,22 +659,20 @@ def _combined_power_conditions(
     percentage_active_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
 
     for condition, fov_dict in sorted(data.items()):
-        if "evk_stim_" in condition:
-            base_condition = condition.split("_evk_stim_")[0]
-            condition_type = "stim"
-        elif "evk_non_stim_" in condition:
-            base_condition = condition.split("_evk_non_stim_")[0]
-            condition_type = "non_stim"
+        if EVK_STIM in condition:
+            base_condition = condition.split(f"_{EVK_STIM}")[0]
+        elif EVK_NON_STIM in condition:
+            base_condition = condition.split(f"_{EVK_NON_STIM}")[0]
         else:
             continue  # skip unrelated conditions
 
-        is_stim_match = stimulated and condition_type == "stim"
-        is_non_stim_match = not stimulated and condition_type == "non_stim"
+        is_stim_match = stimulated and EVK_STIM in condition
+        is_non_stim_match = not stimulated and EVK_NON_STIM in condition
         if is_stim_match or is_non_stim_match:
             if stimulated:
-                new_condition = f"{base_condition}_stim"
+                new_condition = f"{base_condition}_{EVK_STIM}"
             else:
-                new_condition = f"{base_condition}_non_stim"
+                new_condition = f"{base_condition}_{EVK_NON_STIM}"
 
             for fov, roi_dict in fov_dict.items():
                 # Calculate percentage active for this FOV based on stimulated status
@@ -702,29 +695,3 @@ def _combined_power_conditions(
                     ).setdefault(stimulus_key, []).append(percentage_active_value)
 
     return percentage_active_dict
-
-
-# This might be useful in the future, but currently not used...
-# def _get_frequency_stim_or_non_stim_parameter(
-#     data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
-# ) -> dict[str, dict[str, dict[str, list[float]]]]:
-#     """Group frequency data by stimulated/non-stimulated in evoked conditions."""
-#     freq_dict: dict[str, dict[str, dict[str, list[float]]]] = {}
-
-#     for condition, fov_dict in sorted(data.items()):
-#         if stimulated and "evk_stim_" in condition:
-#             cond = condition.split("evk_stim_")[-1]
-#         elif not stimulated and "evk_non_stim_" in condition:
-#             cond = condition.split("evk_non_stim_")[-1]
-#         else:
-#             continue
-#         for fov, roi_dict in fov_dict.items():
-#             for roi_data in roi_dict.values():
-#                 # Check if ROI has frequency data and matches stimulated status
-#                 freq = roi_data.dec_dff_frequency
-#                 if (roi_data.stimulated == stimulated and freq):
-#                     freq_dict.setdefault(condition, {}).setdefault(fov, {}).setdefault(  # noqa: E501
-#                         cond, []
-#                     ).append(freq)
-
-#     return freq_dict

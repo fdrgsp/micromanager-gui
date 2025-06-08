@@ -45,6 +45,8 @@ PEAKS_HEIGHT_MODE = "peaks_height_mode"
 PEAKS_PROMINENCE_MULTIPLIER = "peaks_prominence_multiplier"
 PEAKS_DISTANCE = "peaks_distance"
 DFF_WINDOW = "dff_window"
+EVK_STIM = "evk_stim"
+EVK_NON_STIM = "evk_non_stim"
 
 
 @dataclass

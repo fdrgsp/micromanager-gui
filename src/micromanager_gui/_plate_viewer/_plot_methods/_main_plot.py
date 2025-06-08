@@ -329,7 +329,7 @@ def _plot_csv_bar_plot_data(
     """Helper function to plot CSV bar plot data."""
     suffix = kwargs.get("suffix")
     if not suffix:
-        print(f"No parameter found for {text}.")
+        print(f"No suffix provided for {text}.")
         widget.figure.clear()
         return
 
