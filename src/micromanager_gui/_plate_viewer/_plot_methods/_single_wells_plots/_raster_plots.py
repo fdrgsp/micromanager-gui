@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import matplotlib.cm as cm
 import mplcursors
 import numpy as np
+from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 if TYPE_CHECKING:
@@ -32,10 +33,9 @@ def _generate_raster_plot(
 
     # initialize required lists and variables
     event_data: list[list[float]] = []
-    colors: list[list[str]] = []
+    colors: list = []  # Colors for eventplot (can be strings or tuples)
     rois_rec_time: list[float] = []
     total_frames: int = 0
-    trace: list[float] | None = None
 
     # if amplitude colors are used, determine min/max amplitude range
     min_amp, max_amp = (float("inf"), float("-inf")) if amplitude_colors else (0, 0)
@@ -70,7 +70,7 @@ def _generate_raster_plot(
             max_amp = max(max_amp, max(roi_data.peaks_amplitudes_dec_dff))
         else:
             # assign default color if not using amplitude-based coloring
-            colors.append([f"C{roi_id - 1}"] * len(roi_data.peaks_dec_dff))
+            colors.append(f"C{roi_id - 1}")
 
     # create the color palette for the raster plot
     if amplitude_colors:
@@ -84,15 +84,20 @@ def _generate_raster_plot(
     ax.set_yticklabels([])
     ax.set_yticks([])
 
-    # use the last trace to get total number of frames (they should all be the same)
-    trace = roi_data.raw_trace
-    _update_time_axis(ax, rois_rec_time, trace)
+    # use any trace to get total number of frames (they should all be the same)
+    sample_trace = None
+    for roi_data in data.values():
+        if roi_data.raw_trace is not None:
+            sample_trace = roi_data.raw_trace
+            break
+
+    _update_time_axis(ax, rois_rec_time, sample_trace)
 
     # add the colorbar if amplitude colors are used
     if amplitude_colors and colorbar:
         cbar = widget.figure.colorbar(
             cm.ScalarMappable(
-                norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap=cm.viridis
+                norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap="viridis"
             ),
             ax=ax,
         )
@@ -108,34 +113,53 @@ def _generate_amplitude_colors(
     rois: list[int] | None,
     min_amp: float,
     max_amp: float,
-    colors: list[list[str]],
+    colors: list,
 ) -> None:
     """Assign colors based on amplitude for raster plot."""
     norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
-    cmap = cm.viridis
+    cmap = colormaps.get_cmap("viridis")
     for roi in rois or data.keys():
         roi_data = data[str(roi)]
         if roi_data.peaks_amplitudes_dec_dff:
-            colors.append(
-                [cmap(norm_amp_color(amp)) for amp in roi_data.peaks_amplitudes_dec_dff]
-            )
+            # Use average amplitude for ROI color
+            avg_amp = np.mean(roi_data.peaks_amplitudes_dec_dff)
+            color = cmap(norm_amp_color(avg_amp))
+            colors.append(color)
 
 
 def _add_hover_functionality(
-    ax: Axes, widget: _SingleWellGraphWidget, rois: list[int] | None
+    ax: Axes, widget: _SingleWellGraphWidget, active_rois: list[int]
 ) -> None:
     """Add hover functionality using mplcursors."""
     cursor = mplcursors.cursor(ax, hover=mplcursors.HoverMode.Transient)
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if sel.artist.get_label():
-            child = int(sel.artist.get_label()[6:])
-            roi = str(rois[child]) if rois is not None else str(child + 1)
-            sel.annotation.set(text=f"ROI {roi}", fontsize=8, color="black")
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+        # Get the label of the artist
+        label = sel.artist.get_label()
+
+        # Only show hover for valid ROI elements
+        if label and "ROI" in label and not label.startswith("_"):
+            sel.annotation.set(text=label, fontsize=8, color="black")
+            roi_parts = label.split(" ")
+            if len(roi_parts) > 1 and roi_parts[1].isdigit():
+                widget.roiSelected.emit(roi_parts[1])
+        else:
+            # For raster plots, map the position to an ROI
+            if hasattr(sel, "target") and len(active_rois) > 0:
+                try:
+                    y_pos = int(sel.target[1])  # Get y-coordinate (ROI index)
+                    if 0 <= y_pos < len(active_rois):
+                        roi_id = active_rois[y_pos]
+                        hover_text = f"ROI {roi_id}"
+                        sel.annotation.set(text=hover_text, fontsize=8, color="black")
+                        widget.roiSelected.emit(str(roi_id))
+                        return
+                except (ValueError, AttributeError, IndexError):
+                    pass
+
+            # Hide the annotation for non-ROI elements
+            sel.annotation.set_visible(False)
 
 
 def _update_time_axis(

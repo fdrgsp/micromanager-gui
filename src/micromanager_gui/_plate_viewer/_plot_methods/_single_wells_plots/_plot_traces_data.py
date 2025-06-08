@@ -197,8 +197,15 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
 
     @cursor.connect("add")  # type: ignore [misc]
     def on_add(sel: mplcursors.Selection) -> None:
-        sel.annotation.set(text=sel.artist.get_label(), fontsize=8, color="black")
-        if (lbl := sel.artist.get_label()) and "ROI" in lbl:
-            roi = cast(str, sel.artist.get_label().split(" ")[1])
+        # Get the label of the artist
+        label = sel.artist.get_label()
+
+        # Only show hover for ROI traces, not for peaks or other elements
+        if label and "ROI" in label and not label.startswith("_"):
+            sel.annotation.set(text=label, fontsize=8, color="black")
+            roi = cast(str, label.split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
+        else:
+            # Hide the annotation for non-ROI elements
+            sel.annotation.set_visible(False)
