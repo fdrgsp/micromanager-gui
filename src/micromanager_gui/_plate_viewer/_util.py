@@ -369,11 +369,18 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     # Initialize background array
     background: np.ndarray = np.zeros_like(data)
 
-    # Use the lower percentile (e.g., 10th percentile)
+    # use the lower percentile (e.g., 10th percentile)
     for y in range(len(data)):
         x = max(0, y - window // 2)
         lower_percentile = np.percentile(data[x : y + 1], percentile)
         background[y] = lower_percentile
+
+    # center the window around the current index
+    # for y in range(len(data)):
+    #     start = max(0, y - window // 2)
+    #     end = min(len(data), y + window // 2 + 1)
+    #     lower_percentile = np.percentile(data[start:end], percentile)
+    #     background[y] = lower_percentile
 
     return background
 
@@ -430,15 +437,40 @@ def _get_synchrony_matrix(
         if phase_array.shape[0] < 2:
             return None
 
+    # ------------------OLD INCORRECT CODE v1------------------
+    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
+    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
+    # # ensure phase difference is within valid range [0, 2π]
+    # phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
+    # # compute cosine and sine of the phase differences
+    # cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
+    # sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
+    # return np.sqrt(cos_mean**2 + sin_mean**2)  # type: ignore
+    # ---------------------------------------------------------
+
+    # ------------------OLD INCORRECT CODE v2------------------
+    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
+    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
+    # # compute cosine and sine of the phase differences (no wrapping needed for PLV)
+    # cos_diff = np.cos(phase_diff)
+    # sin_diff = np.sin(phase_diff)
+    # # compute mean cosine and sine over time
+    # cos_mean = np.mean(cos_diff, axis=2)  # shape: (#ROIs, #ROIs)
+    # sin_mean = np.mean(sin_diff, axis=2)  # shape: (#ROIs, #ROIs)
+    # # compute Phase Locking Value (PLV) matrix
+    # synchrony_matrix = np.sqrt(cos_mean**2 + sin_mean**2)
+    # ---------------------------------------------------------
+
     # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
     phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # ensure phase difference is within valid range [0, 2π]
-    phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-    # compute cosine and sine of the phase differences
-    cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
-    sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
+    # compute Phase-Locking-Value (PLV) matrix directly
+    # e^{jΔφ} = cosΔφ + j sinΔφ ; the magnitude of its time-average is the PLV
+    synchrony_matrix = np.abs(np.mean(np.exp(1j * phase_diff), axis=2))
 
-    return np.sqrt(cos_mean**2 + sin_mean**2)  # type: ignore
+    # ensure diagonal elements are exactly 1 (perfect self-synchrony)
+    np.fill_diagonal(synchrony_matrix, 1.0)
+
+    return synchrony_matrix  # type: ignore
 
 
 def get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
@@ -453,8 +485,15 @@ def get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
         return None
 
     # calculate the sum of each row, excluding the diagonal
-    row_sum = np.sum(synchrony_matrix, axis=1) - 1
-    return float(np.median(row_sum) / (synchrony_matrix.shape[0] - 1))
+    # since diagonal elements are 1, we subtract 1 from each row sum
+    n_rois = synchrony_matrix.shape[0]
+    off_diagonal_sum = np.sum(synchrony_matrix, axis=1) - np.diag(synchrony_matrix)
+
+    # normalize by the number of off-diagonal elements per row
+    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
+
+    # return the median synchrony across all ROIs
+    return float(np.median(mean_synchrony_per_roi))
 
 
 def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:
