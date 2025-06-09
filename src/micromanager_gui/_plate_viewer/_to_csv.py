@@ -383,10 +383,49 @@ def _export_to_csv_mean_values_grouped_by_condition(
         df.to_csv(csv_path, index=False)
 
 
+def _export_to_csv_percentage_active_n(
+    path: Path, exp_name: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export percentage active data with percentage and n columns per condition."""
+    combined_columns = {}
+
+    for condition, fovs in sorted(data.items()):
+        percentages = []
+        sample_sizes = []
+
+        for _, value in fovs.items():
+            for item in value:
+                if isinstance(item, tuple) and len(item) == 2:
+                    percentage, n = item
+                    percentages.append(percentage)
+                    sample_sizes.append(n)
+                elif isinstance(item, (int, float)):
+                    # Backward compatibility: if it's just a percentage
+                    percentages.append(float(item))
+                    sample_sizes.append(1)  # Default n=1
+
+        # Add percentage and n columns for this condition
+        combined_columns[f"{condition}_%"] = percentages
+        combined_columns[f"{condition}_n"] = sample_sizes
+
+    # Export CSV with alternating percentage and n columns
+    if combined_columns:
+        padded_rows = zip_longest(*combined_columns.values(), fillvalue=float("nan"))
+        df = pd.DataFrame(padded_rows, columns=list(combined_columns.keys()))
+        df = df.round(4)
+
+        csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[PERCENTAGE_ACTIVE]}.csv"
+        df.to_csv(csv_path, index=False)
+
+
 def _export_to_csv_single_values(
     path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
 ) -> None:
     """Export single-value data to CSV."""
+    if parameter == PERCENTAGE_ACTIVE:
+        _export_to_csv_percentage_active_n(path, exp_name, data)
+        return
+
     columns = {}
     max_len = 0
     for condition, fovs in sorted(data.items()):
@@ -495,20 +534,21 @@ def _export_to_csv_evk_single_values(
     path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
 ) -> None:
     """Export single-value data to CSV."""
-    columns = {}
-    max_len = 0
-
+    # Handle percentage active parameters with special format
     if parameter in {
         PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
         PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
+        PERCENTAGE_ACTIVE_STIMULATED,
+        PERCENTAGE_ACTIVE_NON_STIMULATED,
     }:
-        # Sort conditions per power
-        sorted_conditions = sorted(
-            data.keys(),
-            key=lambda k: (condition_tag(k), numeric_intensity(k, -2)),
-        )
-    else:
-        sorted_conditions = sorted(data.keys())
+        _export_to_csv_evk_percentage_active_n(path, exp_name, parameter, data)
+        return
+
+    columns = {}
+    max_len = 0
+
+    # Sort conditions (percentage active parameters handled above)
+    sorted_conditions = sorted(data.keys())
 
     for condition in sorted_conditions:
         fovs = data[condition]
@@ -530,18 +570,69 @@ def _export_to_csv_evk_single_values(
     df.to_csv(csv_path, index=False)
 
 
+def _export_to_csv_evk_percentage_active_n(
+    path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export evoked percentage active data with percentage and n columns."""
+    combined_columns = {}
+
+    if parameter in {
+        PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
+        PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
+    }:
+        # Sort conditions per power
+        sorted_conditions = sorted(
+            data.keys(),
+            key=lambda k: (condition_tag(k), numeric_intensity(k, -2)),
+        )
+    else:
+        sorted_conditions = sorted(data.keys())
+
+    for condition in sorted_conditions:
+        fovs = data[condition]
+        percentages = []
+        sample_sizes = []
+
+        for _, value_dict in fovs.items():
+            for inner_values in value_dict.values():
+                for item in inner_values:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        percentage, n = item
+                        percentages.append(percentage)
+                        sample_sizes.append(n)
+                    elif isinstance(item, (int, float)):
+                        # Backward compatibility: if it's just a percentage
+                        percentages.append(float(item))
+                        sample_sizes.append(1)  # Default n=1
+
+        # Add percentage and n columns for this condition
+        combined_columns[f"{condition}_%"] = percentages
+        combined_columns[f"{condition}_n"] = sample_sizes
+
+    # Export CSV with alternating percentage and n columns
+    if combined_columns:
+        padded_rows = zip_longest(*combined_columns.values(), fillvalue=float("nan"))
+        df = pd.DataFrame(padded_rows, columns=list(combined_columns.keys()))
+        df = df.round(4)
+
+        csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
+        df.to_csv(csv_path, index=False)
+
+
 def _get_percentage_active_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]],
 ) -> dict[str, dict[str, list[Any]]]:
-    """Group the data by the percentage of active cells."""
-    percentage_active_dict: dict[str, dict[str, list[float]]] = {}
+    """Group the data by the percentage of active cells with sample sizes."""
+    percentage_active_dict: dict[str, dict[str, list[tuple[float, int]]]] = {}
     for condition, well_fov_dict in sorted(data.items()):
         for well_fov, roi_dict in well_fov_dict.items():
             actives = sum(1 if roi_data.active else 0 for roi_data in roi_dict.values())
-            percentage_active = actives / len(roi_dict) * 100
+            total = len(roi_dict)
+            percentage_active = actives / total * 100
+            # Store as tuple: (percentage, sample_size)
             percentage_active_dict.setdefault(condition, {}).setdefault(
                 well_fov, []
-            ).append(percentage_active)
+            ).append((percentage_active, total))
 
     return percentage_active_dict
 
@@ -637,7 +728,9 @@ def _keep_power_conditions(
     data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
 ) -> dict[str, dict[str, dict[str, list[Any]]]]:
     """Keep percentage active data for each power condition."""
-    percentage_active_dict: dict[str, dict[str, dict[str, list[float]]]] = {}
+    percentage_active_dict: dict[
+        str, dict[str, dict[str, list[tuple[float, int]]]]
+    ] = {}
 
     for condition, fov_dict in sorted(data.items()):
         if stimulated and f"_{EVK_STIM}" in condition:
@@ -659,9 +752,10 @@ def _keep_power_conditions(
 
             if total_rois > 0:
                 percentage_active_value = (active_rois / total_rois) * 100
+                # Store as tuple: (percentage, sample_size)
                 percentage_active_dict.setdefault(condition, {}).setdefault(
                     fov, {}
-                ).setdefault(cond, []).append(percentage_active_value)
+                ).setdefault(cond, []).append((percentage_active_value, total_rois))
 
     return percentage_active_dict
 
@@ -707,8 +801,11 @@ def _combined_power_conditions(
                     percentage_active_value = (active_rois / total_rois) * 100
                     # For percentage_active, use generic key (not split by stimulus)
                     stimulus_key = "percentage_active"
+                    # Store as tuple: (percentage, sample_size)
                     percentage_active_dict.setdefault(new_condition, {}).setdefault(
                         fov, {}
-                    ).setdefault(stimulus_key, []).append(percentage_active_value)
+                    ).setdefault(stimulus_key, []).append(
+                        (percentage_active_value, total_rois)
+                    )
 
     return percentage_active_dict

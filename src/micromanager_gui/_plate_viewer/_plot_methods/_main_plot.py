@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from micromanager_gui._plate_viewer._logger import LOGGER
+
 from ._multi_wells_plots._csv_bar_plot import plot_csv_bar_plot
 from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
     _plot_stim_or_not_stim_peaks_amplitude,
@@ -341,7 +343,7 @@ def _plot_csv_bar_plot_data(
         csv_path = Path(analysis_path) / "grouped"
 
     if not csv_path.exists():
-        print(f"CSV path {csv_path} does not exist.")
+        LOGGER.error(f"CSV path {csv_path} does not exist.")
         widget.figure.clear()
         return
 
@@ -360,12 +362,20 @@ def _plot_csv_bar_plot_data(
     }
 
     # Special handling for certain plot types that don't use mean_n_sem
-    if suffix == "synchrony" or "percentage_active" in suffix:
+    if "synchrony" in suffix:
         return plot_csv_bar_plot(
             widget,
             csv_file,
             plot_options,
             mean_n_sem=False,
+        )
+
+    if "percentage_active" in suffix:
+        return plot_csv_bar_plot(
+            widget,
+            csv_file,
+            plot_options,
+            value_n=True,
         )
 
     return plot_csv_bar_plot(widget, csv_file, plot_options)
