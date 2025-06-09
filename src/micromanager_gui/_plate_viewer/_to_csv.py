@@ -537,10 +537,7 @@ def _get_percentage_active_parameter(
     percentage_active_dict: dict[str, dict[str, list[float]]] = {}
     for condition, well_fov_dict in sorted(data.items()):
         for well_fov, roi_dict in well_fov_dict.items():
-            actives = 0
-            for roi_data in roi_dict.values():
-                value = 1 if roi_data.active else 0
-                actives += value
+            actives = sum(1 if roi_data.active else 0 for roi_data in roi_dict.values())
             percentage_active = actives / len(roi_dict) * 100
             percentage_active_dict.setdefault(condition, {}).setdefault(
                 well_fov, []
