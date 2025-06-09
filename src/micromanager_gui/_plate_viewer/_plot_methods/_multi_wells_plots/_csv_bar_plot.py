@@ -45,11 +45,14 @@ def plot_csv_bar_plot(  # <- new name, call it however you like
     csv_path: str | Path,
     info: dict[str, str],
     mean_n_sem: bool = True,
+    value_n: bool = False,
 ) -> None:
     """Load a CSV file and create *bar* plots (mean ± pooled-SEM) per condition."""
     widget.figure.clear()
 
-    if mean_n_sem:
+    if value_n:
+        _create_bar_plot_percentage_n_format(widget, csv_path, info)
+    elif mean_n_sem:
         _create_bar_plot_mean_and_pooled_sem(widget, csv_path, info)
     else:
         _create_bar_plot(widget, csv_path, info)
@@ -347,3 +350,117 @@ def _create_shared_bar_plot(
 
     widget.figure.tight_layout()
     widget.canvas.draw()
+
+
+def _create_bar_plot_percentage_n_format(
+    widget: _MultilWellGraphWidget,
+    csv_path: str | Path,
+    info: dict[str, str],
+) -> None:
+    """Load a CSV with percentage/n pairs and create weighted statistics bar plot.
+
+    The CSV should contain alternating columns per condition: <Condition>_%
+    and <Condition>_n, where each row represents one FOV with percentage
+    and sample size. The function computes weighted means and proper binomial
+    standard errors for proportions.
+    """
+    # parse data for percentage/n format
+    data = _parse_csv_percentage_n_format(csv_path, info)
+    if data is None:
+        return
+
+    # create the plot using shared plotting logic
+    _create_shared_bar_plot(
+        widget=widget,
+        info=info,
+        conditions=data["conditions"],
+        means=data["means"],
+        sems=data["sems"],
+        fov_values_list=data["fov_values_list"],
+        pulse_length=data["pulse_length"],
+        bar_label="Weighted Mean ± Binomial SEM",
+    )
+
+
+def _parse_csv_percentage_n_format(
+    csv_path: str | Path,
+    info: dict[str, str],
+) -> PlotData | None:
+    """Parse CSV with percentage/n format (_%  and _n columns)."""
+    parameter = info.get("parameter")
+    if not parameter:
+        return None
+
+    pulse_length: str | None = None
+
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return None
+
+    # get condition bases from _% columns
+    percentage_cols = [c for c in df.columns if c.endswith("_%")]
+    if not percentage_cols:
+        return None
+    cond_bases = [c[:-2] for c in percentage_cols]
+
+    conditions = []
+    means = []
+    sems = []
+    fov_values_list = []
+
+    for base in cond_bases:
+        col_percentage, col_n = f"{base}_%", f"{base}_n"
+
+        if col_n not in df.columns:
+            continue
+
+        sub = df[[col_percentage, col_n]].dropna()
+        if sub.empty:
+            continue
+
+        percentages = sub[col_percentage].to_numpy()
+        sample_sizes = sub[col_n].to_numpy().astype(int)
+
+        # Convert percentages to proportions for calculation
+        proportions = percentages / 100.0
+        total_n = sample_sizes.sum()
+
+        if total_n <= 0:
+            continue
+
+        # Weighted mean: sum(proportion * n) / sum(n)
+        weighted_proportion = (proportions * sample_sizes).sum() / total_n
+        weighted_percentage = weighted_proportion * 100.0
+
+        # Binomial standard error: sqrt(p * (1-p) / total_n) * 100
+        if weighted_proportion <= 0 or weighted_proportion >= 1:
+            binomial_sem = 0.0
+        else:
+            binomial_var = weighted_proportion * (1 - weighted_proportion) / total_n
+            binomial_sem = np.sqrt(binomial_var) * 100.0
+
+        label = base
+        # label cleaning for evoked traces
+        if EVK_STIM in label or EVK_NON_STIM in label:
+            label = label.replace(f"_{EVK_STIM}", "").replace(f"_{EVK_NON_STIM}", "")
+            parts = label.split("_")
+            pulse_length = parts[-1]  # "…_50"
+            label = "_".join(parts[:-1])
+
+        conditions.append(label)
+        means.append(weighted_percentage)
+        sems.append(binomial_sem)
+        fov_values_list.append(percentages)
+
+    if not conditions:
+        return None
+
+    return PlotData(
+        conditions=conditions,
+        means=means,
+        sems=sems,
+        fov_values_list=fov_values_list,
+        pulse_length=pulse_length,
+    )

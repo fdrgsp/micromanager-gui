@@ -104,11 +104,24 @@ def test_combined_power_conditions_cell_distribution():
     assert isinstance(stim_fov_data, dict), "FOV data should be a dict"
     assert len(stim_fov_data) > 0, "FOV data should not be empty"
 
-    # Get the first (and should be only) condition key and percentage
+    # Get the first (and should be only) condition key and percentage tuples
     stim_cond_key = next(iter(stim_fov_data.keys()))
-    stim_percentages = stim_fov_data[stim_cond_key]
-    assert isinstance(stim_percentages, list), "Percentages should be in a list"
-    assert len(stim_percentages) > 0, "Should have at least one percentage value"
+    stim_data = stim_fov_data[stim_cond_key]
+    assert isinstance(stim_data, list), "Data should be in a list"
+    assert len(stim_data) > 0, "Should have at least one data value"
+
+    # Extract percentages from tuples (percentage, n)
+    stim_percentages = []
+    stim_sample_sizes = []
+    for item in stim_data:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            stim_percentages.append(percentage)
+            stim_sample_sizes.append(n)
+        else:
+            # Backward compatibility - if just a percentage
+            stim_percentages.append(float(item))
+            stim_sample_sizes.append(1)
 
     # Check that we have multiple percentage values (one per power condition)
     assert len(stim_percentages) == 2, "Should have percentages from 2 power conditions"
@@ -128,7 +141,20 @@ def test_combined_power_conditions_cell_distribution():
     non_stim_condition = "condition1_evk_non_stim"
     non_stim_fov_data = result_non_stimulated[non_stim_condition][stim_fov]
     non_stim_cond_key = next(iter(non_stim_fov_data.keys()))
-    non_stim_percentages = non_stim_fov_data[non_stim_cond_key]
+    non_stim_data = non_stim_fov_data[non_stim_cond_key]
+
+    # Extract percentages from tuples (percentage, n)
+    non_stim_percentages = []
+    non_stim_sample_sizes = []
+    for item in non_stim_data:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            non_stim_percentages.append(percentage)
+            non_stim_sample_sizes.append(n)
+        else:
+            # Backward compatibility - if just a percentage
+            non_stim_percentages.append(float(item))
+            non_stim_sample_sizes.append(1)
 
     expected_stim_percentages = [75.0, 75.0]
     # Verify percentages match expected values
@@ -162,34 +188,62 @@ def test_combined_power_conditions_cell_distribution():
             assert isinstance(
                 cond_data, dict
             ), f"FOV data should be dict, got {type(cond_data)}"
-            for _cond, percentages in cond_data.items():
+            for _cond, data_items in cond_data.items():
                 assert isinstance(
-                    percentages, list
-                ), f"Percentages should be list, got {type(percentages)}"
-                for percentage in percentages:
-                    assert isinstance(
-                        percentage, (int, float)
-                    ), f"percentage should be numeric, got {type(percentage)}"
-                    assert (
-                        0 <= percentage <= 100
-                    ), f"percentage should be 0-100, got {percentage}"
+                    data_items, list
+                ), f"Data items should be list, got {type(data_items)}"
+                for item in data_items:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        percentage, n = item
+                        assert isinstance(
+                            percentage, (int, float)
+                        ), f"percentage should be numeric, got {type(percentage)}"
+                        assert isinstance(
+                            n, int
+                        ), f"sample size should be int, got {type(n)}"
+                        assert (
+                            0 <= percentage <= 100
+                        ), f"percentage should be 0-100, got {percentage}"
+                        assert n >= 0, f"sample size should be non-negative, got {n}"
+                    else:
+                        # Backward compatibility
+                        assert isinstance(
+                            item, (int, float)
+                        ), f"item should be numeric, got {type(item)}"
+                        assert (
+                            0 <= item <= 100
+                        ), f"percentage should be 0-100, got {item}"
 
     for _, fovs in result_non_stimulated.items():
         for _, cond_data in fovs.items():
             assert isinstance(
                 cond_data, dict
             ), f"FOV data should be dict, got {type(cond_data)}"
-            for _cond, percentages in cond_data.items():
+            for _cond, data_items in cond_data.items():
                 assert isinstance(
-                    percentages, list
-                ), f"Percentages should be list, got {type(percentages)}"
-                for percentage in percentages:
-                    assert isinstance(
-                        percentage, (int, float)
-                    ), f"percentage should be numeric, got {type(percentage)}"
-                    assert (
-                        0 <= percentage <= 100
-                    ), f"percentage should be 0-100, got {percentage}"
+                    data_items, list
+                ), f"Data items should be list, got {type(data_items)}"
+                for item in data_items:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        percentage, n = item
+                        assert isinstance(
+                            percentage, (int, float)
+                        ), f"percentage should be numeric, got {type(percentage)}"
+                        assert isinstance(
+                            n, int
+                        ), f"sample size should be int, got {type(n)}"
+                        assert (
+                            0 <= percentage <= 100
+                        ), f"percentage should be 0-100, got {percentage}"
+                        assert n >= 0, f"sample size should be non-negative, got {n}"
+                    else:
+                        # Backward compatibility
+                        assert isinstance(
+                            item, (int, float)
+                        ), f"item should be numeric, got {type(item)}"
+                        assert (
+                            0 <= item <= 100
+                        ), f"percentage should be 0-100, got {item}"
 
     print("✅ All assertions passed! Test completed successfully!")
 
@@ -258,7 +312,17 @@ def test_combined_power_conditions_multiple_fovs():
     # Verify calculations for each FOV
     # FOV1: power1 = 1/2 = 50%, power2 = 2/2 = 100%
     fov1_data = result_stimulated[combined_condition]["fov1"]
-    fov1_percentages = fov1_data["percentage_active"]
+    fov1_data_items = fov1_data["percentage_active"]
+
+    # Extract percentages from tuples (percentage, n)
+    fov1_percentages = []
+    for item in fov1_data_items:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            fov1_percentages.append(percentage)
+        else:
+            fov1_percentages.append(float(item))
+
     expected_fov1_percentages = [50.0, 100.0]  # power1, power2
     assert len(fov1_percentages) == 2, "Should have 2 power conditions"
     for i, (actual, expected) in enumerate(
@@ -270,7 +334,17 @@ def test_combined_power_conditions_multiple_fovs():
 
     # FOV2: power1 = 2/2 = 100%, power2 = 0/2 = 0%
     fov2_data = result_stimulated[combined_condition]["fov2"]
-    fov2_percentages = fov2_data["percentage_active"]
+    fov2_data_items = fov2_data["percentage_active"]
+
+    # Extract percentages from tuples (percentage, n)
+    fov2_percentages = []
+    for item in fov2_data_items:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            fov2_percentages.append(percentage)
+        else:
+            fov2_percentages.append(float(item))
+
     expected_fov2_percentages = [100.0, 0.0]  # power1, power2
     assert len(fov2_percentages) == 2, "Should have 2 power conditions"
     for i, (actual, expected) in enumerate(
@@ -294,7 +368,16 @@ def test_combined_power_conditions_multiple_fovs():
     # Verify calculations for each FOV
     # FOV1: power1 = 1/2 = 50%, power2 = 2/2 = 100%
     fov1_data = result_non_stimulated[combined_condition_key]["fov1"]
-    fov1_percentages = fov1_data["percentage_active"]
+    fov1_data_items = fov1_data["percentage_active"]
+
+    # Extract percentages from tuples (percentage, n)
+    fov1_percentages = []
+    for item in fov1_data_items:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            fov1_percentages.append(percentage)
+        else:
+            fov1_percentages.append(float(item))
     expected_fov1_percentages = [50.0, 100.0]  # power1, power2
     assert len(fov1_percentages) == 2, "Should have 2 power conditions"
     for i, (actual, expected) in enumerate(
@@ -306,7 +389,16 @@ def test_combined_power_conditions_multiple_fovs():
 
     # FOV2: power1 = 0/2 = 0%, power2 = 1/2 = 50%
     fov2_data = result_non_stimulated[combined_condition_key]["fov2"]
-    fov2_percentages = fov2_data["percentage_active"]
+    fov2_data_items = fov2_data["percentage_active"]
+
+    # Extract percentages from tuples (percentage, n)
+    fov2_percentages = []
+    for item in fov2_data_items:
+        if isinstance(item, tuple) and len(item) == 2:
+            percentage, n = item
+            fov2_percentages.append(percentage)
+        else:
+            fov2_percentages.append(float(item))
     expected_fov2_percentages = [0.0, 50.0]  # power1, power2
     assert len(fov2_percentages) == 2, "Should have 2 power conditions"
     for i, (actual, expected) in enumerate(
@@ -471,17 +563,23 @@ def test_combined_power_conditions_integration_with_bar_plot_mean_and_pooled_sem
 
         # Collect all percentage values across FOVs for this condition
         all_percentages = []
-        n_values = []
+        all_sample_sizes = []
 
         for fov_data in fovs.values():
-            for percentages in fov_data.values():
-                all_percentages.extend(percentages)
-                # Each percentage represents one measurement
-                n_values.extend([1] * len(percentages))
+            for data_items in fov_data.values():
+                for item in data_items:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        percentage, n = item
+                        all_percentages.append(percentage)
+                        all_sample_sizes.append(n)
+                    else:
+                        # Backward compatibility
+                        all_percentages.append(float(item))
+                        all_sample_sizes.append(1)
 
         # Calculate weighted mean and pooled SEM
         if all_percentages:
-            weights = np.array(n_values)
+            weights = np.array(all_sample_sizes)
             values = np.array(all_percentages)
 
             # Weighted mean
@@ -600,19 +698,43 @@ def test_combined_power_conditions_integration_with_bar_plot_mean_and_pooled_sem
                 assert isinstance(
                     cond_data, dict
                 ), f"Condition data should be dict for {condition}:{fov}"
-                for cond_key, percentages in cond_data.items():
+                for cond_key, data_items in cond_data.items():
                     assert isinstance(
-                        percentages, list
-                    ), f"Percentages should be list for {condition}:{fov}:{cond_key}"
+                        data_items, list
+                    ), f"Data items should be list for {condition}:{fov}:{cond_key}"
                     assert (
-                        len(percentages) > 0
-                    ), f"Should have percentages for {condition}:{fov}:{cond_key}"
+                        len(data_items) > 0
+                    ), f"Should have data items for {condition}:{fov}:{cond_key}"
                     # Should have multiple values since we're combining power
                     # conditions
-                    assert len(percentages) == 2, (
+                    assert len(data_items) == 2, (
                         f"Should have 2 power conditions combined for "
                         f"{condition}:{fov}:{cond_key}"
                     )
+                    # Verify each item is a tuple (percentage, n)
+                    for item in data_items:
+                        if isinstance(item, tuple) and len(item) == 2:
+                            percentage, n = item
+                            assert isinstance(
+                                percentage, (int, float)
+                            ), f"Percentage should be numeric, got {type(percentage)}"
+                            assert isinstance(
+                                n, int
+                            ), f"Sample size should be int, got {type(n)}"
+                            assert (
+                                0 <= percentage <= 100
+                            ), f"Percentage should be 0-100, got {percentage}"
+                            assert (
+                                n >= 0
+                            ), f"Sample size should be non-negative, got {n}"
+                        else:
+                            # Backward compatibility
+                            assert isinstance(
+                                item, (int, float)
+                            ), f"Item should be numeric, got {type(item)}"
+                            assert (
+                                0 <= item <= 100
+                            ), f"Percentage should be 0-100, got {item}"
 
         # Verify that the CSV triplet format has correct structure
         for col_name in df.columns:
