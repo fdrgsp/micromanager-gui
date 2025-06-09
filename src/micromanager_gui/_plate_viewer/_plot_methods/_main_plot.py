@@ -18,6 +18,7 @@ from ._single_wells_plots._plot_correlation import (
     _plot_hierarchical_clustering_data,
 )
 from ._single_wells_plots._plot_iei_data import _plot_iei_data
+from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
@@ -40,6 +41,9 @@ DEC_DFF = "Deconvolved DeltaF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
 DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
 DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"
+INFERRED_SPIKES = "Inferred Spikes"
+INFERRED_SPIKES_NORMALIZED = "Inferred Spikes Normalized"
+INFERRED_SPIKES_ACTIVE_ONLY = "Inferred Spikes (Active Only)"
 DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
 DEC_DFF_AMPLITUDE_STD = "Deconvolved DeltaF/F0 Amplitudes (Mean ± StD)"
 DEC_DFF_AMPLITUDE_SEM = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM)"
@@ -85,6 +89,9 @@ TRACES_GROUP = {
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_ACTIVE_ONLY: {"dec": True, "normalize": True, "active_only": True},  # noqa: E501
     DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},  # "active_only": True default with "with_peaks" # noqa: E501
+    INFERRED_SPIKES: {},
+    INFERRED_SPIKES_NORMALIZED: {"normalize": True},
+    INFERRED_SPIKES_ACTIVE_ONLY: {"active_only": True},
 }
 
 AMPLITUDE_GROUP = {
@@ -172,7 +179,14 @@ def plot_single_well_data(
 
     # TRACES GROUP
     if text in TRACES_GROUP:
-        return _plot_traces_data(widget, data, rois, **TRACES_GROUP[text])
+        if text in {
+            INFERRED_SPIKES,
+            INFERRED_SPIKES_NORMALIZED,
+            INFERRED_SPIKES_ACTIVE_ONLY,
+        }:
+            return _plot_inferred_spikes(widget, data, rois, **TRACES_GROUP[text])
+        else:
+            return _plot_traces_data(widget, data, rois, **TRACES_GROUP[text])
 
     # AMPLITUDE GROUP
     if text in AMPLITUDE_GROUP:
