@@ -362,7 +362,7 @@ def _plot_csv_bar_plot_data(
     }
 
     # Special handling for certain plot types that don't use mean_n_sem
-    if suffix == "synchrony" in suffix:
+    if "synchrony" in suffix:
         return plot_csv_bar_plot(
             widget,
             csv_file,
@@ -370,7 +370,7 @@ def _plot_csv_bar_plot_data(
             mean_n_sem=False,
         )
 
-    if suffix == "percentage_active" in suffix:
+    if "percentage_active" in suffix:
         return plot_csv_bar_plot(
             widget,
             csv_file,
