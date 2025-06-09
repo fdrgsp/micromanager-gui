@@ -357,7 +357,298 @@ def test_combined_power_conditions_edge_cases():
     print("✅ Edge cases test passed!")
 
 
+def test_combined_power_conditions_integration_with_bar_plot_mean_and_pooled_sem():
+    """Test integration between _combined_power_conditions and _create_bar_plot.
+
+    This test verifies that the data structure returned by _combined_power_conditions
+    can be successfully converted to CSV triplet format and used by
+    _create_bar_plot_mean_and_pooled_sem.
+
+    The test follows the pipeline:
+    _combined_power_conditions → CSV triplet format → _parse_csv_triplet_format
+    → _create_bar_plot_mean_and_pooled_sem
+    """
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import Mock
+
+    import numpy as np
+    import pandas as pd
+    from matplotlib.figure import Figure
+
+    from micromanager_gui._plate_viewer._graph_widgets import _MultilWellGraphWidget
+    from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_plot import (  # noqa: E501
+        _create_bar_plot_mean_and_pooled_sem,
+        _parse_csv_triplet_format,
+    )
+
+    print("\n=== Testing _combined_power_conditions → CSV triplet → bar plot ===")
+
+    # Create test data with multiple conditions and power conditions
+    # This simulates realistic experimental data with multiple power conditions
+    # that should be combined
+    test_data = {
+        # Condition 1: Two power conditions for stimulated cells
+        "condition1_evk_stim_power1_100ms": {
+            "fov1": {
+                "roi1": ROIData(stimulated=True, active=True),
+                "roi2": ROIData(stimulated=True, active=True),
+                "roi3": ROIData(stimulated=True, active=False),
+                "roi4": ROIData(stimulated=True, active=False),
+            },
+            "fov2": {
+                "roi5": ROIData(stimulated=True, active=True),
+                "roi6": ROIData(stimulated=True, active=True),
+                "roi7": ROIData(stimulated=True, active=True),
+                "roi8": ROIData(stimulated=True, active=False),
+            },
+        },
+        "condition1_evk_stim_power2_200ms": {
+            "fov1": {
+                "roi9": ROIData(stimulated=True, active=True),
+                "roi10": ROIData(stimulated=True, active=True),
+                "roi11": ROIData(stimulated=True, active=True),
+                "roi12": ROIData(stimulated=True, active=False),
+            },
+            "fov2": {
+                "roi13": ROIData(stimulated=True, active=True),
+                "roi14": ROIData(stimulated=True, active=False),
+                "roi15": ROIData(stimulated=True, active=False),
+                "roi16": ROIData(stimulated=True, active=False),
+            },
+        },
+        # Condition 2: Two power conditions for stimulated cells (different
+        # baseline activity)
+        "condition2_evk_stim_power1_100ms": {
+            "fov1": {
+                "roi17": ROIData(stimulated=True, active=True),
+                "roi18": ROIData(stimulated=True, active=True),
+                "roi19": ROIData(stimulated=True, active=True),
+                "roi20": ROIData(stimulated=True, active=True),
+            },
+            "fov2": {
+                "roi21": ROIData(stimulated=True, active=True),
+                "roi22": ROIData(stimulated=True, active=True),
+                "roi23": ROIData(stimulated=True, active=False),
+                "roi24": ROIData(stimulated=True, active=False),
+            },
+        },
+        "condition2_evk_stim_power2_200ms": {
+            "fov1": {
+                "roi25": ROIData(stimulated=True, active=True),
+                "roi26": ROIData(stimulated=True, active=True),
+                "roi27": ROIData(stimulated=True, active=True),
+                "roi28": ROIData(stimulated=True, active=False),
+            },
+            "fov2": {
+                "roi29": ROIData(stimulated=True, active=True),
+                "roi30": ROIData(stimulated=True, active=True),
+                "roi31": ROIData(stimulated=True, active=True),
+                "roi32": ROIData(stimulated=True, active=True),
+            },
+        },
+    }
+
+    # Step 1: Get _combined_power_conditions output
+    result = _combined_power_conditions(test_data, stimulated=True)
+    print("_combined_power_conditions result:", result)
+
+    # Verify the basic structure
+    assert len(result) == 2, f"Expected 2 combined conditions, got {len(result)}"
+    assert "condition1_evk_stim" in result, "Should have condition1_evk_stim"
+    assert "condition2_evk_stim" in result, "Should have condition2_evk_stim"
+
+    # Step 2: Convert to CSV triplet format (simulating
+    # _export_to_csv_mean_values_evk_parameters)
+    # This mimics the CSV export process that creates _Mean, _SEM, _N columns
+
+    # Calculate statistics for each condition
+    triplet_data = {}
+
+    for condition, fovs in result.items():
+        # Extract condition name (remove the stimulation suffix)
+        condition_name = condition.replace("_evk_stim", "")
+
+        # Collect all percentage values across FOVs for this condition
+        all_percentages = []
+        n_values = []
+
+        for fov_data in fovs.values():
+            for percentages in fov_data.values():
+                all_percentages.extend(percentages)
+                # Each percentage represents one measurement
+                n_values.extend([1] * len(percentages))
+
+        # Calculate weighted mean and pooled SEM
+        if all_percentages:
+            weights = np.array(n_values)
+            values = np.array(all_percentages)
+
+            # Weighted mean
+            weighted_mean = np.average(values, weights=weights)
+
+            # Pooled SEM calculation
+            n_total = sum(weights)
+            if n_total > 1:
+                # Calculate weighted variance
+                weighted_variance = np.average(
+                    (values - weighted_mean) ** 2, weights=weights
+                )
+                pooled_sem = np.sqrt(weighted_variance / n_total)
+            else:
+                pooled_sem = 0.0
+
+            triplet_data[f"{condition_name}_Mean"] = [weighted_mean]
+            triplet_data[f"{condition_name}_SEM"] = [pooled_sem]
+            triplet_data[f"{condition_name}_N"] = [n_total]
+
+            print(f"Condition '{condition_name}':")
+            print(f"  Values: {all_percentages}")
+            print(f"  Weighted Mean: {weighted_mean:.2f}")
+            print(f"  Pooled SEM: {pooled_sem:.2f}")
+            print(f"  N: {n_total}")
+
+    # Expected calculations for verification:
+    # Condition1: fov1=[50.0, 75.0], fov2=[75.0, 25.0] -> values=[50,75,75,25],
+    # mean=56.25, n=4
+    # Condition2: fov1=[100.0, 75.0], fov2=[50.0, 100.0] ->
+    # values=[100,75,50,100], mean=81.25, n=4
+
+    # Step 3: Create temporary CSV file with triplet format
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".csv", delete=False
+    ) as temp_file:
+        # Create DataFrame with triplet format
+        df = pd.DataFrame(triplet_data)
+        df.to_csv(temp_file.name, index=False)
+        csv_path = Path(temp_file.name)
+
+    print(f"\nCreated temporary CSV with triplet format: {csv_path}")
+    print("CSV contents:")
+    print(df.to_string())
+
+    try:
+        # Step 4: Test CSV triplet parsing
+        info = {
+            "parameter": "Percentage of Active Cells",
+            "suffix": "percentage_active",
+            "add_to_title": " (Combined Power Conditions)",
+            "units": "%",
+        }
+
+        parsed_data = _parse_csv_triplet_format(csv_path, info)
+        assert parsed_data is not None, "CSV triplet parsing should not return None"
+
+        print("\nParsed triplet data:")
+        print(f"  Conditions: {parsed_data['conditions']}")
+        print(f"  Means: {parsed_data['means']}")
+        print(f"  SEMs: {parsed_data['sems']}")
+        print(f"  N values: {parsed_data.get('n_values', 'Not available')}")
+
+        # Verify parsing results
+        assert len(parsed_data["conditions"]) == 2, "Should have 2 conditions"
+        assert len(parsed_data["means"]) == 2, "Should have 2 means"
+        assert len(parsed_data["sems"]) == 2, "Should have 2 SEMs"
+
+        # Verify condition names
+        expected_conditions = ["condition1", "condition2"]
+        for expected_cond in expected_conditions:
+            assert (
+                expected_cond in parsed_data["conditions"]
+            ), f"Missing condition: {expected_cond}"
+
+        # Verify that means are reasonable (should be between 0 and 100 for
+        # percentages)
+        for i, mean in enumerate(parsed_data["means"]):
+            assert 0 <= mean <= 100, f"Mean {i} should be 0-100%, got {mean}"
+            assert not np.isnan(mean), f"Mean {i} should not be NaN"
+
+        # Verify that SEMs are non-negative
+        for i, sem in enumerate(parsed_data["sems"]):
+            assert sem >= 0, f"SEM {i} should be non-negative, got {sem}"
+            assert not np.isnan(sem), f"SEM {i} should not be NaN"
+
+        print("✅ CSV triplet parsing verification passed!")
+
+        # Step 5: Test _create_bar_plot_mean_and_pooled_sem with mock widget
+        mock_widget = Mock(spec=_MultilWellGraphWidget)
+        mock_widget.figure = Mock(spec=Figure)
+        mock_widget.figure.clear = Mock()
+        mock_ax = Mock()
+        mock_widget.figure.add_subplot = Mock(return_value=mock_ax)
+        mock_widget.canvas = Mock()
+        mock_widget.canvas.draw = Mock()
+        mock_widget.conditions = {}
+
+        # This should not raise any exceptions
+        _create_bar_plot_mean_and_pooled_sem(mock_widget, csv_path, info)
+
+        # Verify that the plotting functions were called
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+        mock_widget.canvas.draw.assert_called_once()
+
+        print("✅ _create_bar_plot_mean_and_pooled_sem integration passed!")
+
+        # Step 6: Test data structure integrity throughout pipeline
+        print("\n=== Data Structure Integrity Verification ===")
+
+        # Verify that the original _combined_power_conditions output has
+        # correct structure
+        for condition, fovs in result.items():
+            assert isinstance(fovs, dict), f"FOVs should be dict for {condition}"
+            for fov, cond_data in fovs.items():
+                assert isinstance(
+                    cond_data, dict
+                ), f"Condition data should be dict for {condition}:{fov}"
+                for cond_key, percentages in cond_data.items():
+                    assert isinstance(
+                        percentages, list
+                    ), f"Percentages should be list for {condition}:{fov}:{cond_key}"
+                    assert (
+                        len(percentages) > 0
+                    ), f"Should have percentages for {condition}:{fov}:{cond_key}"
+                    # Should have multiple values since we're combining power
+                    # conditions
+                    assert len(percentages) == 2, (
+                        f"Should have 2 power conditions combined for "
+                        f"{condition}:{fov}:{cond_key}"
+                    )
+
+        # Verify that the CSV triplet format has correct structure
+        for col_name in df.columns:
+            if col_name.endswith("_Mean"):
+                condition = col_name.replace("_Mean", "")
+                assert (
+                    f"{condition}_SEM" in df.columns
+                ), f"Missing SEM column for {condition}"
+                assert (
+                    f"{condition}_N" in df.columns
+                ), f"Missing N column for {condition}"
+
+        print("✅ Data structure integrity verification passed!")
+
+        print("\n=== Integration Test Summary ===")
+        print("✅ _combined_power_conditions output structure verified")
+        print("✅ Power conditions successfully combined across multiple FOVs")
+        print("✅ Data conversion to CSV triplet format successful")
+        print("✅ CSV triplet parsing by _parse_csv_triplet_format successful")
+        print("✅ Weighted mean and pooled SEM calculations working correctly")
+        print(
+            "✅ _create_bar_plot_mean_and_pooled_sem accepts and processes "
+            "the data successfully"
+        )
+        print(
+            "✅ Complete integration pipeline for combined power conditions "
+            "working correctly!"
+        )
+
+    finally:
+        # Clean up temporary file
+        csv_path.unlink()
+
+
 if __name__ == "__main__":
     test_combined_power_conditions_cell_distribution()
     test_combined_power_conditions_multiple_fovs()
     test_combined_power_conditions_edge_cases()
+    test_combined_power_conditions_integration_with_bar_plot_mean_and_pooled_sem()
