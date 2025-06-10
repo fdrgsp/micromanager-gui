@@ -58,7 +58,7 @@ RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
 GLOBAL_SYNCHRONY = "Global Synchrony"
 CROSS_CORRELATION = "Cross-Correlation"
 CLUSTERING = "Hierarchical Clustering"
-CLUSTERING_DENDOGRAM = "Hierarchical Clustering (Dendrogram)"
+CLUSTERING_DENDROGRAM = "Hierarchical Clustering (Dendrogram)"
 CELL_SIZE = "Cell Size"
 
 STIMULATED_AREA = "Stimulated Area"
@@ -126,7 +126,7 @@ CORRELATION_GROUP = {
     GLOBAL_SYNCHRONY: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
-    CLUSTERING_DENDOGRAM: {"use_dendrogram": True},
+    CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
     }
 
 EVOKED_GROUP = {
@@ -219,7 +219,7 @@ def plot_single_well_data(
             return _plot_cross_correlation_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
-        elif text in {CLUSTERING, CLUSTERING_DENDOGRAM}:
+        elif text in {CLUSTERING, CLUSTERING_DENDROGRAM}:
             return _plot_hierarchical_clustering_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
@@ -265,10 +265,6 @@ CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
 CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Bar Plot"
 CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Bar Plot"
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED = "Percentage Active Stimulated"
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED = "Percentage Active Non-Stimulated"
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED_PER_LED_POWER = "Percentage Active Stimulated per LED Power"  # noqa: E501
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED_PER_LED_POWER = "Percentage Active Non-Stimulated per LED Power"  # noqa: E501
 
 MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
@@ -282,10 +278,6 @@ MW_GENERAL_GROUP = {
 MW_EVOKED_GROUP = {
     CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Non-Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED: {"stimulated": True, "parameter": "Percentage of Active Cells", "suffix": "percentage_active_stimulated", "add_to_title": " (Stimulated)"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED: {"stimulated": False, "parameter": "Percentage of Active Cells", "suffix": "percentage_active_non_stimulated", "add_to_title": " (Non-Stimulated)"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_STIMULATED_PER_LED_POWER: {"stimulated": True, "per_led_power": True, "parameter": "Percentage of Active Cells", "suffix": "percentage_active_stimulated_per_led_power", "add_to_title": " (Stimulated - Per LED Power)"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_NON_STIMULATED_PER_LED_POWER: {"stimulated": False, "per_led_power": True, "parameter": "Percentage of Active Cells", "suffix": "percentage_active_non_stimulated_per_led_power", "add_to_title": " (Non-Stimulated - Per LED Power)"},  # noqa: E501
 }
 # fmt: on
 
