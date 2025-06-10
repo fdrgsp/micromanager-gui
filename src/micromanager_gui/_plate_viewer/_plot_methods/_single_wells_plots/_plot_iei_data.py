@@ -18,8 +18,6 @@ def _plot_iei_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    std: bool = False,
-    sem: bool = False,
 ) -> None:
     """Plot traces data."""
     # clear the figure
@@ -30,9 +28,9 @@ def _plot_iei_data(
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        _plot_metrics(ax, roi_key, roi_data, std, sem)
+        _plot_metrics(ax, roi_key, roi_data)
 
-    _set_graph_title_and_labels(ax, std, sem)
+    _set_graph_title_and_labels(ax)
 
     _add_hover_functionality(ax, widget)
 
@@ -44,59 +42,37 @@ def _plot_metrics(
     ax: Axes,
     roi_key: str,
     roi_data: ROIData,
-    std: bool,
-    sem: bool,
 ) -> None:
     """Plot amplitude, frequency, or inter-event intervals."""
     if not roi_data.iei:
         return
-    # plot mean inter-event intervals +- std of each ROI
-    if std:
-        mean_iei = np.mean(roi_data.iei)
-        std_iei = np.std(roi_data.iei)
-        ax.errorbar(
-            [int(roi_key)],
-            mean_iei,
-            yerr=std_iei,
-            fmt="o",
-            label=f"ROI {roi_key}",
-            capsize=5,
-        )
     # plot mean inter-event intervals +- sem of each ROI
-    elif sem:
-        mean_iei = np.mean(roi_data.iei)
-        sem_iei = mean_iei / np.sqrt(len(roi_data.iei))
-        ax.errorbar(
-            [int(roi_key)],
-            mean_iei,
-            yerr=sem_iei,
-            fmt="o",
-            label=f"ROI {roi_key}",
-            capsize=5,
-        )
-    else:
-        ax.plot(
-            [int(roi_key)] * len(roi_data.iei),
-            roi_data.iei,
-            "o",
-            label=f"ROI {roi_key}",
-        )
+    mean_iei = np.mean(roi_data.iei)
+    sem_iei = mean_iei / np.sqrt(len(roi_data.iei))
+    ax.errorbar(
+        [int(roi_key)],
+        mean_iei,
+        yerr=sem_iei,
+        fmt="o",
+        label=f"ROI {roi_key}",
+        capsize=5,
+    )
+    ax.scatter(
+        [int(roi_key)] * len(roi_data.iei),
+        roi_data.iei,
+        alpha=0.5,
+        color="lightgray",
+        s=30,
+        label=f"ROI {roi_key}",
+    )
 
 
 def _set_graph_title_and_labels(
     ax: Axes,
-    std: bool,
-    sem: bool,
 ) -> None:
     """Set axis labels based on the plotted data."""
-    if std:
-        title = "Inter-event intervals (Sec - Mean ± StD - Deconvolved ΔF/F)"
-    elif sem:
-        title = "Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
-    else:
-        title = "Inter-event intervals (Sec - Deconvolved ΔF/F)"
+    title = "Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
     x_lbl = "ROIs"
-
     ax.set_title(title)
     ax.set_ylabel("Inter-event intervals (Sec)")
     ax.set_xlabel(x_lbl)

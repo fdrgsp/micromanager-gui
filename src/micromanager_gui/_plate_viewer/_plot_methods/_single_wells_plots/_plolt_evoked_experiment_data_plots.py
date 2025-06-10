@@ -37,8 +37,6 @@ def _plot_evoked_experiment_data(
     with_rois: bool = False,
     stimulated: bool = False,
     with_peaks: bool = False,
-    std: bool = False,
-    sem: bool = False,
 ) -> None:
     """Plot evoked experiment data."""
     if stimulated_area or with_rois:
@@ -48,7 +46,7 @@ def _plot_evoked_experiment_data(
         _plot_stimulated_vs_non_stimulated_roi_amp(widget, data, rois, with_peaks)
 
     else:
-        _plot_stim_or_not_stim_peaks_amplitude(widget, data, rois, stimulated, std, sem)
+        _plot_stim_or_not_stim_peaks_amplitude(widget, data, rois, stimulated)
 
 
 def _plot_stim_or_not_stim_peaks_amplitude(
@@ -56,8 +54,6 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     stimulated: bool = False,
-    std: bool = False,
-    sem: bool = False,
 ) -> None:
     """Visualize stimulated peak amplitudes per ROI per stimulation parameters."""
     # clear the figure
@@ -124,50 +120,39 @@ def _plot_stim_or_not_stim_peaks_amplitude(
         amps = np.array([amp for _, amp in roi_amp_pairs])
         rois_ = [roi for roi, _ in roi_amp_pairs]
 
-        if std or sem:
-            mean_amp = np.mean(amps)
-            std_amp = np.std(amps)
-            n = len(amps)
-            error = std_amp if std else std_amp / np.sqrt(n)
-
-            errorbar = ax.errorbar(
-                power_pulse_label,
-                mean_amp,
-                yerr=error,
-                fmt="o",
-                capsize=5,
-                label=power_pulse_label,
-            )
-            all_artists.append(errorbar)
-            all_metadata.append((rois_, [mean_amp]))
-        else:
-            scatter = ax.scatter(
-                [power_pulse_label] * len(amps), amps, label=power_pulse_label
-            )
-            all_artists.append(scatter)
-            all_metadata.append((rois_, cast(list[float], amps.tolist())))
+        mean_amp = np.mean(amps)
+        std_amp = np.std(amps)
+        n = len(amps)
+        error = std_amp / np.sqrt(n)
+        errorbar = ax.errorbar(
+            power_pulse_label,
+            mean_amp,
+            yerr=error,
+            fmt="o",
+            capsize=5,
+            label=power_pulse_label,
+        )
+        all_artists.append(errorbar)
+        all_metadata.append((rois_, [mean_amp]))
+        scatter = ax.scatter(
+            [power_pulse_label] * len(amps),
+            amps,
+            label=power_pulse_label,
+            color="lightgray",
+            s=30,
+        )
+        all_artists.append(scatter)
+        all_metadata.append((rois_, cast(list[float], amps.tolist())))
 
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
-    ax.set_ylabel(
-        "Mean Amplitude ± StD"
-        if std
-        else "Mean Amplitude ± SEM"
-        if sem
-        else "Amplitude"
-    )
+    ax.set_ylabel("Mean Amplitude ± SEM")
     ax.set_xlabel(x_axis_label)
     if x_axis_label == "Irradiance (mW/cm²)":
         ticks = ax.get_xticks()
         ax.set_xticks(ticks)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    title = ("Stimulated" if stimulated else "Non-Stimulated") + (
-        " Mean Amplitudes ± StD"
-        if std
-        else " Mean Amplitudes ± SEM"
-        if sem
-        else " Mean Amplitudes"
-    )
+    title = "Stimulated" if stimulated else "Non-Stimulated Mean Amplitudes ± SEM"
     title += "\n("
     title += "Per LED Intensity - "
     if pulse:

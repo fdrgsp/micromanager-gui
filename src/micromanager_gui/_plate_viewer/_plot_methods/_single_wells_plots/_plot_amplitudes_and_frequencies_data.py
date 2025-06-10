@@ -20,8 +20,6 @@ def _plot_amplitude_and_frequency_data(
     rois: list[int] | None = None,
     amp: bool = False,
     freq: bool = False,
-    std: bool = False,
-    sem: bool = False,
 ) -> None:
     """Plot traces data."""
     # clear the figure
@@ -33,9 +31,9 @@ def _plot_amplitude_and_frequency_data(
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        _plot_metrics(ax, roi_key, roi_data, amp, freq, std, sem)
+        _plot_metrics(ax, roi_key, roi_data, amp, freq)
 
-    _set_graph_title_and_labels(ax, amp, freq, std, sem)
+    _set_graph_title_and_labels(ax, amp, freq)
 
     _add_hover_functionality(ax, widget)
 
@@ -49,54 +47,32 @@ def _plot_metrics(
     roi_data: ROIData,
     amp: bool,
     freq: bool,
-    std: bool,
-    sem: bool,
 ) -> None:
-    """Plot amplitude, frequency, or inter-event intervals."""
+    """Plot amplitude or frequency."""
     if amp and freq:
         if not roi_data.peaks_amplitudes_dec_dff or roi_data.dec_dff_frequency is None:
             return
-        # plot mean amplitude +- std of each ROI vs frequency
-        if std:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
-            std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
-            _plot_errorbars(
-                ax, mean_amp, roi_data.dec_dff_frequency, std_amp, f"ROI {roi_key}"
-            )
-        # plot mean amplitude +- sem of each ROI vs frequency
-        elif sem:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
-            sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
-            _plot_errorbars(
-                ax, mean_amp, roi_data.dec_dff_frequency, sem_amp, f"ROI {roi_key}"
-            )
-        else:
-            ax.plot(
-                roi_data.peaks_amplitudes_dec_dff,
-                [roi_data.dec_dff_frequency] * len(roi_data.peaks_amplitudes_dec_dff),
-                "o",
-                label=f"ROI {roi_key}",
-            )
+        mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+        sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+        _plot_errorbars(
+            ax, mean_amp, roi_data.dec_dff_frequency, sem_amp, f"ROI {roi_key}"
+        )
     elif amp:
         if not roi_data.peaks_amplitudes_dec_dff:
             return
-        # plot mean amplitude +- std of each ROI
-        if std:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
-            std_amp = np.std(roi_data.peaks_amplitudes_dec_dff)
-            _plot_errorbars(ax, [int(roi_key)], mean_amp, std_amp, f"ROI {roi_key}")
+
         # plot mean amplitude +- sem of each ROI
-        elif sem:
-            mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
-            sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
-            _plot_errorbars(ax, [int(roi_key)], mean_amp, sem_amp, f"ROI {roi_key}")
-        else:
-            ax.plot(
-                [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
-                roi_data.peaks_amplitudes_dec_dff,
-                "o",
-                label=f"ROI {roi_key}",
-            )
+        mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+        sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+        _plot_errorbars(ax, [int(roi_key)], mean_amp, sem_amp, f"ROI {roi_key}")
+        ax.scatter(
+            [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
+            roi_data.peaks_amplitudes_dec_dff,
+            alpha=0.5,
+            s=30,
+            color="lightgray",
+            label=f"ROI {roi_key}",
+        )
     elif freq:
         if roi_data.dec_dff_frequency is None:
             return
@@ -114,29 +90,15 @@ def _set_graph_title_and_labels(
     ax: Axes,
     amp: bool,
     freq: bool,
-    std: bool,
-    sem: bool,
 ) -> None:
     """Set axis labels based on the plotted data."""
     title = x_lbl = y_lbl = ""
     if amp and freq:
-        if std:
-            title = "ROIs Mean Amplitude ± StD vs Frequency"
-        elif sem:
-            title = "ROIs Mean Amplitude ± SEM vs Frequency"
-        else:
-            title = "ROIs Amplitude vs Frequency"
-        title += " (Deconvolved ΔF/F)"
+        title = "ROIs Mean Amplitude ± SEM vs Frequency (Deconvolved ΔF/F)"
         x_lbl = "Amplitude"
         y_lbl = "Frequency (Hz)"
     elif amp:
-        if std:
-            title = "Mean Amplitude ± StD"
-        elif sem:
-            title = "Mean Amplitude ± SEM"
-        else:
-            title = "Amplitude"
-        title += " (Deconvolved ΔF/F)"
+        title = "Mean Amplitude ± SEM (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
         y_lbl = "Amplitude"
     elif freq:
