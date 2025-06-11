@@ -26,10 +26,6 @@ PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
 AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
-PERCENTAGE_ACTIVE_STIMULATED_PER_POWER = "percentage_active_stimulated_per_led_power"
-PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER = "percentage_active_non_stimulated_per_led_power"  # noqa: E501
-PERCENTAGE_ACTIVE_STIMULATED = "percentage_active_stimulated"
-PERCENTAGE_ACTIVE_NON_STIMULATED = "percentage_active_non_stimulated"
 CSV_PARAMETERS: dict[str, str] = {
     "amplitude": "peaks_amplitudes_dec_dff",
     "frequency": "dec_dff_frequency",
@@ -40,11 +36,7 @@ CSV_PARAMETERS: dict[str, str] = {
 }
 CSV_PARAMETERS_EVK = {
     "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
-    "amplitudes_non_stimulated_peaks": AMP_NON_STIMULATED_PEAKS,
-    "percentage_active_stimulated_per_led_power": PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,  # noqa: E501
-    "percentage_active_non_stimulated_per_led_power": PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,  # noqa: E501
-    "percentage_active_stimulated": PERCENTAGE_ACTIVE_STIMULATED,
-    "percentage_active_non_stimulated": PERCENTAGE_ACTIVE_NON_STIMULATED,
+    "amplitudes_non_stimulated_peaks": AMP_NON_STIMULATED_PEAKS
 }
 
 PARAMETER_TO_KEY: dict[str, str] = {
@@ -53,12 +45,6 @@ PARAMETER_TO_KEY: dict[str, str] = {
 }
 
 SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY]
-SINGLE_VALUES_EVK = [
-    PERCENTAGE_ACTIVE_STIMULATED,
-    PERCENTAGE_ACTIVE_NON_STIMULATED,
-    PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
-    PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
-]
 # fmt: on
 
 
@@ -195,36 +181,6 @@ def _rearrange_by_parameter_evk(
             )
         except Exception as e:
             LOGGER.error(f"Error calculating non-stimulated peaks: {e}")
-            return {}
-
-    # PERCENTAGE ACTIVE STIMULATED
-    if parameter in {
-        PERCENTAGE_ACTIVE_STIMULATED,
-        PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
-    }:
-        try:
-            return _get_percentage_active_stim_or_non_stim_parameter(
-                data,
-                stimulated=True,
-                per_power=(parameter == PERCENTAGE_ACTIVE_STIMULATED_PER_POWER),
-            )
-        except Exception as e:
-            LOGGER.error(f"Error calculating stimulated percentage active: {e}")
-            return {}
-
-    # PERCENTAGE ACTIVE NON-STIMULATED
-    if parameter in {
-        PERCENTAGE_ACTIVE_NON_STIMULATED,
-        PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
-    }:
-        try:
-            return _get_percentage_active_stim_or_non_stim_parameter(
-                data,
-                stimulated=False,
-                per_power=(parameter == PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER),
-            )
-        except Exception as e:
-            LOGGER.error(f"Error calculating non-stimulated percentage active: {e}")
             return {}
     return {}
 
@@ -383,10 +339,49 @@ def _export_to_csv_mean_values_grouped_by_condition(
         df.to_csv(csv_path, index=False)
 
 
+def _export_to_csv_percentage_active_n(
+    path: Path, exp_name: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export percentage active data with percentage and n columns per condition."""
+    combined_columns = {}
+
+    for condition, fovs in sorted(data.items()):
+        percentages = []
+        sample_sizes = []
+
+        for _, value in fovs.items():
+            for item in value:
+                if isinstance(item, tuple) and len(item) == 2:
+                    percentage, n = item
+                    percentages.append(percentage)
+                    sample_sizes.append(n)
+                elif isinstance(item, (int, float)):
+                    # Backward compatibility: if it's just a percentage
+                    percentages.append(float(item))
+                    sample_sizes.append(1)  # Default n=1
+
+        # Add percentage and n columns for this condition
+        combined_columns[f"{condition}_%"] = percentages
+        combined_columns[f"{condition}_n"] = sample_sizes
+
+    # Export CSV with alternating percentage and n columns
+    if combined_columns:
+        padded_rows = zip_longest(*combined_columns.values(), fillvalue=float("nan"))
+        df = pd.DataFrame(padded_rows, columns=list(combined_columns.keys()))
+        df = df.round(4)
+
+        csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[PERCENTAGE_ACTIVE]}.csv"
+        df.to_csv(csv_path, index=False)
+
+
 def _export_to_csv_single_values(
     path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
 ) -> None:
     """Export single-value data to CSV."""
+    if parameter == PERCENTAGE_ACTIVE:
+        _export_to_csv_percentage_active_n(path, exp_name, data)
+        return
+
     columns = {}
     max_len = 0
     for condition, fovs in sorted(data.items()):
@@ -437,13 +432,6 @@ def _export_to_csv_mean_values_evk_parameters(
         if not condition_dict:
             continue
 
-        if parameter in SINGLE_VALUES_EVK:
-            folder.mkdir(parents=True, exist_ok=True)
-            _export_to_csv_evk_single_values(
-                folder, exp_name, parameter, condition_dict
-            )
-            continue
-
         folder.mkdir(parents=True, exist_ok=True)
 
         output_rows = []
@@ -491,57 +479,20 @@ def _export_to_csv_mean_values_evk_parameters(
         df.to_csv(csv_path, index=False)
 
 
-def _export_to_csv_evk_single_values(
-    path: Path, exp_name: str, parameter: str, data: dict[str, dict[str, Any]]
-) -> None:
-    """Export single-value data to CSV."""
-    columns = {}
-    max_len = 0
-
-    if parameter in {
-        PERCENTAGE_ACTIVE_STIMULATED_PER_POWER,
-        PERCENTAGE_ACTIVE_NON_STIMULATED_PER_POWER,
-    }:
-        # Sort conditions per power
-        sorted_conditions = sorted(
-            data.keys(),
-            key=lambda k: (condition_tag(k), numeric_intensity(k, -2)),
-        )
-    else:
-        sorted_conditions = sorted(data.keys())
-
-    for condition in sorted_conditions:
-        fovs = data[condition]
-        values = []
-        for _, value_dict in fovs.items():
-            for inner_values in value_dict.values():
-                values.extend(iter(inner_values))
-        columns[condition] = values
-        max_len = max(max_len, len(values))
-
-    # create DataFrame
-    # pad with NaNs to make all columns equal length (for pandas DataFrame)
-    padded_rows = zip_longest(*columns.values(), fillvalue=float("nan"))
-    df = pd.DataFrame(padded_rows, columns=list(columns.keys()))
-    df = df.round(4)
-
-    # save to CSV
-    csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[parameter]}.csv"
-    df.to_csv(csv_path, index=False)
-
-
 def _get_percentage_active_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]],
 ) -> dict[str, dict[str, list[Any]]]:
-    """Group the data by the percentage of active cells."""
-    percentage_active_dict: dict[str, dict[str, list[float]]] = {}
+    """Group the data by the percentage of active cells with sample sizes."""
+    percentage_active_dict: dict[str, dict[str, list[tuple[float, int]]]] = {}
     for condition, well_fov_dict in sorted(data.items()):
         for well_fov, roi_dict in well_fov_dict.items():
             actives = sum(1 if roi_data.active else 0 for roi_data in roi_dict.values())
-            percentage_active = actives / len(roi_dict) * 100
+            total = len(roi_dict)
+            percentage_active = actives / total * 100
+            # Store as tuple: (percentage, sample_size)
             percentage_active_dict.setdefault(condition, {}).setdefault(
                 well_fov, []
-            ).append(percentage_active)
+            ).append((percentage_active, total))
 
     return percentage_active_dict
 
@@ -618,97 +569,3 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
                     target_power_pulse, []
                 ).extend(values)
     return amps_dict
-
-
-def _get_percentage_active_stim_or_non_stim_parameter(
-    data: dict[str, dict[str, dict[str, ROIData]]],
-    stimulated: bool = True,
-    per_power: bool = False,
-) -> dict[str, dict[str, dict[str, list[Any]]]]:
-    """Group percentage active data by stimulated/non-stimulated status."""
-    return (
-        _keep_power_conditions(data, stimulated)
-        if per_power
-        else _combined_power_conditions(data, stimulated)
-    )
-
-
-def _keep_power_conditions(
-    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool = True
-) -> dict[str, dict[str, dict[str, list[Any]]]]:
-    """Keep percentage active data for each power condition."""
-    percentage_active_dict: dict[str, dict[str, dict[str, list[float]]]] = {}
-
-    for condition, fov_dict in sorted(data.items()):
-        if stimulated and f"_{EVK_STIM}" in condition:
-            cond = condition.split(f"_{EVK_STIM}")[0]
-        elif not stimulated and f"_{EVK_NON_STIM}" in condition:
-            cond = condition.split(f"_{EVK_NON_STIM}")[0]
-        else:
-            continue
-
-        for fov, roi_dict in fov_dict.items():
-            total_rois = 0
-            active_rois = 0
-
-            for roi_data in roi_dict.values():
-                if roi_data.stimulated == stimulated:
-                    total_rois += 1
-                    if roi_data.active:
-                        active_rois += 1
-
-            if total_rois > 0:
-                percentage_active_value = (active_rois / total_rois) * 100
-                percentage_active_dict.setdefault(condition, {}).setdefault(
-                    fov, {}
-                ).setdefault(cond, []).append(percentage_active_value)
-
-    return percentage_active_dict
-
-
-def _combined_power_conditions(
-    data: dict[str, dict[str, dict[str, ROIData]]], stimulated: bool
-) -> dict[str, dict[str, dict[str, list[Any]]]]:
-    """Combine percentage active data for stimulated/non-stimulated conditions.
-
-    Here we group all the power combinations together for the percentage active.
-    """
-    percentage_active_dict: dict[str, dict[str, dict[str, list[Any]]]] = {}
-
-    for condition, fov_dict in sorted(data.items()):
-        if EVK_STIM in condition:
-            base_condition = condition.split(f"_{EVK_STIM}")[0]
-        elif EVK_NON_STIM in condition:
-            base_condition = condition.split(f"_{EVK_NON_STIM}")[0]
-        else:
-            continue  # skip unrelated conditions
-
-        is_stim_match = stimulated and EVK_STIM in condition
-        is_non_stim_match = not stimulated and EVK_NON_STIM in condition
-        if is_stim_match or is_non_stim_match:
-            if stimulated:
-                new_condition = f"{base_condition}_{EVK_STIM}"
-            else:
-                new_condition = f"{base_condition}_{EVK_NON_STIM}"
-
-            for fov, roi_dict in fov_dict.items():
-                # Calculate percentage active for this FOV based on stimulated status
-                total_rois = 0
-                active_rois = 0
-
-                for roi_data in roi_dict.values():
-                    # Only count ROIs that match the stimulated status we're looking for
-                    if roi_data.stimulated == stimulated:
-                        total_rois += 1
-                        if roi_data.active:
-                            active_rois += 1
-
-                if total_rois > 0:
-                    percentage_active_value = (active_rois / total_rois) * 100
-                    # For percentage_active, use generic key (not split by stimulus)
-                    stimulus_key = "percentage_active"
-                    percentage_active_dict.setdefault(new_condition, {}).setdefault(
-                        fov, {}
-                    ).setdefault(stimulus_key, []).append(percentage_active_value)
-
-    return percentage_active_dict
