@@ -35,11 +35,16 @@ def _plot_spike_synchrony_data(
 
     Parameters
     ----------
-        widget: The widget to plot on
-        data: Dictionary of ROIData objects containing spike information
-        rois: List of ROI indices to include in the analysis, None for all
-        spike_threshold: Threshold for spike detection (default 0.1)
-        time_window: Time window for synchrony detection in seconds (default 0.1)
+    widget: _SingleWellGraphWidget
+        widget to plot on
+    data: dict[str, ROIData]
+        Dictionary of ROI data
+    rois: list[int] | None
+        List of ROI indices to include, None for all
+    spike_threshold: float
+        Threshold for spike detection (default 0.1)
+    time_window: float
+        Time window for synchrony detection in seconds (default 0.1)
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)

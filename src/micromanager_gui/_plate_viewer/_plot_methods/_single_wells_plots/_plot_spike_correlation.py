@@ -32,10 +32,14 @@ def _plot_spike_correlation_data(
 
     Parameters
     ----------
-        widget: The widget to plot on
-        data: Dictionary of ROIData objects containing spike information
-        rois: List of ROI indices to include in the analysis, None for all
-        spike_threshold: Threshold for spike detection (default 0.1)
+    widget: _SingleWellGraphWidget
+        Widget to plot on
+    data: dict[str, ROIData]
+        Dictionary of ROI data
+    rois: list[int] | None
+        List of ROI indices to include, None for all
+    spike_threshold: float
+        Threshold for spike detection (default 0.1)
     """
     widget.figure.clear()
 

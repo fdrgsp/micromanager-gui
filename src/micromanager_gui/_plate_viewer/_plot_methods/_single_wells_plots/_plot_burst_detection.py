@@ -28,13 +28,20 @@ def _plot_burst_detection_data(
 
     Parameters
     ----------
-        widget: The widget to plot on
-        data: Dictionary of ROIData objects containing spike information
-        rois: List of ROI indices to include in the analysis, None for all
-        spike_threshold: Threshold for spike detection (default 0.1)
-        burst_threshold: Threshold for burst detection (default 0.3)
-        min_burst_duration: Minimum duration of a burst in samples (default 3)
-        smoothing_sigma: Sigma for Gaussian smoothing of activity (default 2.0)
+    widget: _SingleWellGraphWidget
+        Widget to plot on
+    data: dict[str, ROIData]
+        Dictionary of ROI data
+    rois: list[int] | None
+        List of ROI indices to include, None for all
+    spike_threshold: float
+        Threshold for spike detection (default 0.1)
+    burst_threshold: float
+        Threshold for burst detection (default 0.3)
+    min_burst_duration: int
+        Minimum burst duration in samples (default 3)
+    smoothing_sigma: float
+        Sigma for Gaussian smoothing of population activity (default 2.0)
     """
     widget.figure.clear()
 

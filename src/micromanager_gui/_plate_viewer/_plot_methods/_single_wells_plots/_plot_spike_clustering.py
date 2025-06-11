@@ -28,12 +28,18 @@ def _plot_spike_clustering_data(
 
     Parameters
     ----------
-        widget: The widget to plot on
-        data: Dictionary of ROIData objects containing spike information
-        rois: List of ROI indices to include in the analysis, None for all
-        spike_threshold: Threshold for spike detection (default 0.1)
-        n_clusters: Number of clusters to form, None for automatic selection
-        clustering_method: Clustering method to use (default "ward")
+    widget: _SingleWellGraphWidget
+        Widget to plot on
+    data: dict[str, ROIData]
+        Dictionary of ROI data
+    rois: list[int] | None
+        List of ROI indices to include, None for all
+    spike_threshold: float
+        Threshold for spike detection (default 0.1)
+    n_clusters: int | None
+        Number of clusters to form, None for automatic selection
+    clustering_method: str
+        Clustering method to use (default "ward")
     """
     widget.figure.clear()
 
