@@ -80,6 +80,7 @@ def save_to_csv(
         _export_raw_data(path, analysis_data)
         _export_dff_data(path, analysis_data)
         _export_dec_dff_data(path, analysis_data)
+        _export_inferred_spikes_data(path, analysis_data)
         _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
         _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
     except Exception as e:
@@ -273,6 +274,37 @@ def _export_dec_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) 
 
     # save to CSV
     df.to_csv(folder / f"{exp_name}_dec_dff_data.csv", index=True)
+
+
+def _export_inferred_spikes_data(
+    path: Path | str, data: dict[str, dict[str, ROIData]]
+) -> None:
+    """Save the inferred spikes data as CSV files.
+
+    Columns are frames and rows are ROIs.
+    """
+    path = Path(path)
+    exp_name = path.stem
+    folder = path / "inferred_spikes_data"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # store traces by well_fov and roi_key
+    rows = {}
+    for well_fov, rois in data.items():
+        for roi_key, roi_data in rois.items():
+            if roi_data.inferred_spikes is None:
+                continue
+            row_name = f"{well_fov}_{roi_key}"
+            rows[row_name] = roi_data.inferred_spikes
+
+    # convert to DataFrame (handles unequal lengths by filling with NaN)
+    df = pd.DataFrame.from_dict(rows, orient="index")
+
+    # give the columns t0, t1, t2, ... name
+    df.columns = [f"t{i}" for i in range(df.shape[1])]
+
+    # save to CSV
+    df.to_csv(folder / f"{exp_name}_inferred_spikes_data.csv", index=True)
 
 
 def _export_to_csv_mean_values_grouped_by_condition(

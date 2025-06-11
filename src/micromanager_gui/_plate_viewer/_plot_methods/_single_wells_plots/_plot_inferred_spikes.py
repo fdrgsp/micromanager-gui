@@ -20,6 +20,7 @@ def _plot_inferred_spikes(
     rois: list[int] | None = None,
     normalize: bool = False,
     active_only: bool = False,
+    dec_dff: bool = False,
 ) -> None:
     """Plot inferred spikes data."""
     # clear the figure
@@ -75,6 +76,8 @@ def _plot_inferred_spikes(
         _plot_spike_trace(
             ax, roi_key, roi_data.inferred_spikes, normalize, count, p1, p2
         )
+        if dec_dff and roi_data.dec_dff:
+            _plot_spike_trace(ax, roi_key, roi_data.dec_dff, normalize, count, p1, p2)
         last_trace = roi_data.inferred_spikes
         count += 1
 
@@ -121,7 +124,7 @@ def _normalize_trace_percentile(trace: list[float], p1: float, p2: float) -> np.
 def _set_graph_title_and_labels(ax: Axes, normalize: bool) -> None:
     """Set axis labels based on the plotted data."""
     title = "Normalized Inferred Spikes" if normalize else "Inferred Spikes"
-    y_lbl = "ROIs" if normalize else "Inferred Spikes"
+    y_lbl = "ROIs" if normalize else "Inferred Spikes (magnitude)"
 
     ax.set_title(title)
     ax.set_ylabel(y_lbl)
