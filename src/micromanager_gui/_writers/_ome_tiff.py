@@ -29,12 +29,15 @@ class _OMETiffWriter(OMETiffWriter):
         The filename to write to.  Must end with '.ome.tiff' or '.ome.tif'.
     """
 
-    def __init__(self, filename: Path | str) -> None:
+    def __init__(self, filename: Path | str, pixel_size: float = 1.0) -> None:
         super().__init__(filename)
 
         self._folder: Path = Path(self._filename)
         # create a folder to store the OME-TIFF files
         self._folder.mkdir(parents=True, exist_ok=True)
+
+        # hack to store the pixel size for the ome-tiff metadata
+        self._px_size: float = pixel_size
 
     def new_array(
         self, position_key: str, dtype: np.dtype, sizes: dict[str, int]
@@ -114,3 +117,13 @@ class _OMETiffWriter(OMETiffWriter):
                 f.write(
                     self.current_sequence.model_dump_json(exclude_unset=True, indent=4)
                 )
+
+    def _sequence_metadata(self) -> dict:
+        """Create metadata for the sequence, when creating a new file."""
+        metadata = super()._sequence_metadata()
+        if self._px_size and self._is_ome:
+            metadata["PhysicalSizeX"] = self._px_size
+            metadata["PhysicalSizeY"] = self._px_size
+            metadata["PhysicalSizeXUnit"] = "µm"
+            metadata["PhysicalSizeYUnit"] = "µm"
+        return metadata
