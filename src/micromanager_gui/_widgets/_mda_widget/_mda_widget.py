@@ -420,7 +420,7 @@ class MDAWidget_(MDAWidget):
             # we need to add the ".ome.tif" to correctly use the OMETiffWriter
             if not save_path.name.endswith(OME_TIFFS):
                 save_path = save_path.with_suffix(OME_TIFF)
-            return _OMETiffWriter(save_path)
+            return _OMETiffWriter(save_path, self._mmc.getPixelSizeUm())
         elif OME_ZARR in save_format:
             return OMEZarrWriter(save_path)
         elif ZARR_TESNSORSTORE in save_format:
