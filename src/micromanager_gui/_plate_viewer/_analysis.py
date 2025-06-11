@@ -82,8 +82,8 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-ELAPSED_TIME_KEY = "runner_time_ms"
 CAMERA_KEY = "camera_metadata"
+RUNNER_TIME_KEY = "runner_time_ms"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
@@ -917,11 +917,11 @@ class _AnalyseCalciumTraces(QWidget):
     def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
         elapsed_time_list: list[float] = []
         # get the elapsed time for each timepoint to calculate tot_time_sec
-        if (cam_key := CAMERA_KEY) in meta[0]:  # new metadata format
+        if RUNNER_TIME_KEY in meta[0]:  # new metadata format
             for m in meta:
-                et = m[cam_key].get(ELAPSED_TIME_KEY)
-                if et is not None:
-                    elapsed_time_list.append(float(et))
+                rt = m[RUNNER_TIME_KEY]
+                if rt is not None:
+                    elapsed_time_list.append(float(rt))
         return elapsed_time_list
 
     def _calculate_total_time(

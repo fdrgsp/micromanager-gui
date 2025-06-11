@@ -635,12 +635,12 @@
       0.0,
       0.0
     ],
-    "dec_dff_frequency": 0.26143790849673204,
+    "dec_dff_frequency": 0.24683212869176402,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 522.21,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 15.3,
+    "total_recording_time_in_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -798,9 +798,9 @@
       31.41592653589793
     ],
     "iei": [
-      5.0,
-      4.9,
-      4.4
+      5.301430000000343,
+      5.302005999998481,
+      4.402
     ],
     "evoked_experiment": true,
     "stimulated": false,
@@ -1458,12 +1458,12 @@
       4.336808689942018e-19,
       -4.336808689942018e-19
     ],
-    "dec_dff_frequency": 0.26143790849673204,
+    "dec_dff_frequency": 0.24683212869176402,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 512.9150000000001,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 15.3,
+    "total_recording_time_in_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -1621,9 +1621,9 @@
       31.41592653589793
     ],
     "iei": [
-      5.1,
-      4.9,
-      4.2
+      5.401430000000342,
+      5.302005999998481,
+      4.202
     ],
     "evoked_experiment": true,
     "stimulated": true,
@@ -2285,12 +2285,12 @@
       -8.673617379884035e-19,
       0.0
     ],
-    "dec_dff_frequency": 0.39215686274509803,
+    "dec_dff_frequency": 0.37024819303764606,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 632.9050000000001,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 15.3,
+    "total_recording_time_in_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -2449,10 +2449,10 @@
     ],
     "iei": [
       1.7,
-      3.3,
-      4.2,
-      0.7,
-      4.3
+      3.601430000000342,
+      4.202,
+      1.1000059999984806,
+      4.302
     ],
     "evoked_experiment": true,
     "stimulated": true,
@@ -3112,12 +3112,12 @@
       0.0,
       6.938893903907228e-18
     ],
-    "dec_dff_frequency": 0.32679738562091504,
+    "dec_dff_frequency": 0.30854016086470504,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 452.07500000000005,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 15.3,
+    "total_recording_time_in_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -3275,10 +3275,10 @@
       37.69911184307752
     ],
     "iei": [
-      3.3,
-      1.7,
-      4.9,
-      4.4
+      3.301,
+      2.000430000000342,
+      5.302005999998481,
+      4.402
     ],
     "evoked_experiment": true,
     "stimulated": false,
