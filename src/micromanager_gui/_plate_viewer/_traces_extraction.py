@@ -470,9 +470,8 @@ class _ExtractCalciumTraces(QWidget):
         for label_value, label_mask in tqdm(labels_masks.items(), desc=msg):
             if self._check_for_abort_requested():
                 break
-
             # extract the data
-            self._process_roi_trace(data, fov_name, label_value, label_mask)
+            self._process_roi_trace(data, meta, fov_name, label_value, label_mask)
 
         # save the analysis data for the well
         self._save_analysis_data(fov_name)
@@ -505,6 +504,7 @@ class _ExtractCalciumTraces(QWidget):
     def _process_roi_trace(
         self,
         data: np.ndarray,
+        meta: list[dict],
         fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
@@ -512,7 +512,17 @@ class _ExtractCalciumTraces(QWidget):
         """Process individual ROI traces."""
         # get the data for the current label
         masked_data = data[:, label_mask]
-
+        # get the size of the roi in µm or px if µm is not available
+        roi_size_pixel = masked_data.shape[1]  # area
+        px_keys = ["pixel_size_um", "PixelSizeUm"]
+        px_size = None
+        for key in px_keys:
+            px_size = meta[0].get(key, None)
+            if px_size:
+                break
+        # calculate the size of the roi in µm if px_size is available or not 0,
+        # otherwise use the size is in pixels
+        roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
         win = self._dff_window_size_spin.value()
@@ -525,11 +535,13 @@ class _ExtractCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            mask_image=masked_data.tolist(),
+            label_mask=label_mask.tolist(),
             raw_trace=cast(list[float], roi_trace.tolist()),
             dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             inferred_spikes=spikes.tolist(),
+            cell_size=roi_size,
+            cell_size_units="µm" if px_size is not None else "pixel",
         )
 
     def _on_worker_finished(self) -> None:

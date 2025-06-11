@@ -941,7 +941,6 @@ class _AnalyseCalciumTraces(QWidget):
         evoked_meta: dict[str, Any] | None,
         fov_name: str,
         label_value: int,
-        label_mask: np.ndarray,
         timepoints: int,
         exp_time: float,
         tot_time_sec: float,
@@ -951,31 +950,10 @@ class _AnalyseCalciumTraces(QWidget):
         """Process individual ROI traces."""
         # get the data for the current label
         roi_data = ROIData(**roi_dict)
-
-        if roi_data.mask_image is None:
-            LOGGER.error(
-                f"No mask image found for label {label_value} in {fov_name}!"
-            )
-            return
-
-        masked_data= np.ndarray(roi_data.mask_image)
-
-        # get the size of the roi in µm or px if µm is not available
-        roi_size_pixel = masked_data.shape[1]  # area
-        px_keys = ["pixel_size_um", "PixelSizeUm"]
-        px_size = None
-        for key in px_keys:
-            px_size = meta[0].get(key, None)
-            if px_size:
-                break
-        # calculate the size of the roi in µm if px_size is available or not 0,
-        # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
-
-        # exclude small rois, might not be necessary if trained cellpose performs
-        # better
-        if px_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
-            return
+        roi_trace = roi_data.raw_trace
+        dff = roi_data.dff
+        dec_dff = roi_data.dec_dff
+        label_mask = roi_data.label_mask
 
         # check if the roi is stimulated
         roi_stimulation_overlap_ratio = 0.0
@@ -983,15 +961,6 @@ class _AnalyseCalciumTraces(QWidget):
             roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
                 self._stimulated_area_mask, label_mask
             )
-
-        # compute the mean for each frame
-        roi_trace: np.ndarray = masked_data.mean(axis=1)
-        win = self._dff_window_size_spin.value()
-        # calculate the dff of the roi trace
-        dff: np.ndarray = calculate_dff(roi_trace, window=win, plot=False)
-
-        # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
