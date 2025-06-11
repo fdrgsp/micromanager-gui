@@ -10,7 +10,6 @@ from scipy.cluster.hierarchy import dendrogram, fcluster, linkage
 from scipy.spatial.distance import pdist, squareform
 
 if TYPE_CHECKING:
-
     from micromanager_gui._plate_viewer._graph_widgets import (
         _SingleWellGraphWidget,
     )
