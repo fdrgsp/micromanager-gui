@@ -43,7 +43,8 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 )
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
-from ._analysis import EVOKED, _AnalyseCalciumTraces
+# from ._analysis import EVOKED, _AnalyseCalciumTraces
+from ._analysis_new import EVOKED, _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
@@ -55,6 +56,7 @@ from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._to_csv import save_to_csv
+from ._traces_extraction import _ExtractCalciumTraces
 from ._util import (
     GENOTYPE_MAP,
     PLATE_PLAN,
@@ -201,6 +203,9 @@ class PlateViewer(QMainWindow):
         self._segmentation_wdg.segmentationFinished.connect(
             self._on_fov_table_selection_changed
         )
+
+        self._traces_extraction_wdg = _ExtractCalciumTraces(self)
+
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
         analysis_layout = QVBoxLayout(self._analysis_tab)
@@ -208,6 +213,7 @@ class PlateViewer(QMainWindow):
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._plate_map_group)
         analysis_layout.addWidget(self._segmentation_wdg)
+        analysis_layout.addWidget(self._traces_extraction_wdg)
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
@@ -276,10 +282,10 @@ class PlateViewer(QMainWindow):
         # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
-        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        # self._pv_labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        # self._pv_analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
-        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+        data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
+        self._pv_labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
+        self._pv_analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
+        self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
         # fmt: on
         # ____________________________________________________________________________
 
@@ -366,7 +372,7 @@ class PlateViewer(QMainWindow):
 
         # UPDATE SEGMENTATION AND ANALYSIS WIDGETS-------------------------------------
 
-        self._set_segmentation_and_analysis_widgets_data()
+        self._set_widgets_data()
 
         # LOAD PLATE-------------------------------------------------------------------
         plate = self._load_plate_plan(self._data.sequence.stage_positions)
@@ -421,7 +427,12 @@ class PlateViewer(QMainWindow):
         # clear the segmentation widget
         self._segmentation_wdg.data = None
         self._segmentation_wdg.output_path = None
-        # set the analysis widget data
+        # clear the traces extraction widget
+        self._traces_extraction_wdg.data = None
+        self._traces_extraction_wdg.analysis_data.clear()
+        self._traces_extraction_wdg.labels_path = None
+        self._traces_extraction_wdg.analysis_path = None
+        # clear the analysis widget data
         self._analysis_wdg.data = None
         self._analysis_wdg.analysis_data.clear()
         self._analysis_wdg.labels_path = None
@@ -554,11 +565,16 @@ class PlateViewer(QMainWindow):
 
         return filtered_paths
 
-    def _set_segmentation_and_analysis_widgets_data(self) -> None:
+    def _set_widgets_data(self) -> None:
         """Update the segmentation and analysis widgets data."""
         # set the segmentation widget data
         self._segmentation_wdg.data = self._data
         self._segmentation_wdg.output_path = self._pv_labels_path
+        # set the traces extraction widget data
+        self._traces_extraction_wdg.data = self._data
+        self._traces_extraction_wdg.analysis_data = self._pv_analysis_data
+        self._traces_extraction_wdg.labels_path = self._pv_labels_path
+        self._traces_extraction_wdg.analysis_path = self._pv_analysis_path
         # set the analysis widget data
         self._analysis_wdg.data = self._data
         self._analysis_wdg.analysis_data = self._pv_analysis_data

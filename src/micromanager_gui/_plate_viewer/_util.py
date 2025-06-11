@@ -66,6 +66,7 @@ class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
 
     well_fov_position: str = ""
+    mask_image: list[float] | None = None  # mask image of the roi
     raw_trace: list[float] | None = None
     dff: list[float] | None = None
     dec_dff: list[float] | None = None  # deconvolved dff with oasis package
