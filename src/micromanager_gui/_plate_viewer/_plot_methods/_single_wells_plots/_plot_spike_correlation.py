@@ -30,11 +30,12 @@ def _plot_spike_correlation_data(
 ) -> None:
     """Plot spike train cross-correlation analysis.
 
-    Args:
-        widget: The graph widget to plot on
-        data: Dictionary of ROI data
-        rois: List of ROI indices to analyze, None for all active ROIs
-        spike_threshold: Threshold for considering a spike event (0.0-1.0)
+    Parameters
+    ----------
+        widget: The widget to plot on
+        data: Dictionary of ROIData objects containing spike information
+        rois: List of ROI indices to include in the analysis, None for all
+        spike_threshold: Threshold for spike detection (default 0.1)
     """
     widget.figure.clear()
 

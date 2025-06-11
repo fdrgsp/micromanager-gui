@@ -26,14 +26,15 @@ def _plot_burst_detection_data(
 ) -> None:
     """Plot burst detection and network state analysis.
 
-    Args:
-        widget: The graph widget to plot on
-        data: Dictionary of ROI data
-        rois: List of ROI indices to analyze, None for all active ROIs
-        spike_threshold: Threshold for considering a spike event (0.0-1.0)
-        burst_threshold: Threshold for population activity to be considered a burst
-        min_burst_duration: Minimum duration of a burst (in samples)
-        smoothing_sigma: Gaussian smoothing parameter for population activity
+    Parameters
+    ----------
+        widget: The widget to plot on
+        data: Dictionary of ROIData objects containing spike information
+        rois: List of ROI indices to include in the analysis, None for all
+        spike_threshold: Threshold for spike detection (default 0.1)
+        burst_threshold: Threshold for burst detection (default 0.3)
+        min_burst_duration: Minimum duration of a burst in samples (default 3)
+        smoothing_sigma: Sigma for Gaussian smoothing of activity (default 2.0)
     """
     widget.figure.clear()
 

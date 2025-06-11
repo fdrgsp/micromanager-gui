@@ -29,17 +29,17 @@ def _plot_spike_synchrony_data(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     spike_threshold: float = 0.1,
-    time_window: float | None = None,
+    time_window: float = 0.1,  # seconds
 ) -> None:
     """Plot spike-based synchrony analysis.
 
-    Args:
-        widget: The graph widget to plot on
-        data: Dictionary of ROI data
-        rois: List of ROI indices to analyze, None for all active ROIs
-        spike_threshold: Threshold for considering a spike event (0.0-1.0)
-        time_window: Time window in seconds for synchrony detection. If None,
-                    uses exposure time from the data
+    Parameters
+    ----------
+        widget: The widget to plot on
+        data: Dictionary of ROIData objects containing spike information
+        rois: List of ROI indices to include in the analysis, None for all
+        spike_threshold: Threshold for spike detection (default 0.1)
+        time_window: Time window for synchrony detection in seconds (default 0.1)
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
@@ -59,9 +59,8 @@ def _plot_spike_synchrony_data(
 
     # Get exposure time from data for temporal resolution
     exposure_time_ms = _get_exposure_time_from_data(data)
-    if time_window is None:
-        # Use exposure time as the synchrony window (convert from ms to seconds)
-        time_window = exposure_time_ms / 1000.0 if exposure_time_ms > 0 else 0.1
+    # Use exposure time as the synchrony window (convert from ms to seconds)
+    time_window = exposure_time_ms / 1000.0 if exposure_time_ms > 0 else 0.1
 
     synchrony_matrix = _calculate_spike_synchrony_matrix(spike_trains, time_window)
 

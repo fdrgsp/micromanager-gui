@@ -26,13 +26,14 @@ def _plot_spike_clustering_data(
 ) -> None:
     """Plot functional clustering analysis based on spiking patterns.
 
-    Args:
-        widget: The graph widget to plot on
-        data: Dictionary of ROI data
-        rois: List of ROI indices to analyze, None for all active ROIs
-        spike_threshold: Threshold for spike event (0.0-1.0)
-        n_clusters: Number of clusters to create, None for automatic selection
-        clustering_method: Method for clustering ('ward', 'average', 'complete')
+    Parameters
+    ----------
+        widget: The widget to plot on
+        data: Dictionary of ROIData objects containing spike information
+        rois: List of ROI indices to include in the analysis, None for all
+        spike_threshold: Threshold for spike detection (default 0.1)
+        n_clusters: Number of clusters to form, None for automatic selection
+        clustering_method: Clustering method to use (default "ward")
     """
     widget.figure.clear()
 
