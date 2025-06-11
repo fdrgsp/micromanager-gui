@@ -98,8 +98,6 @@ class TestEvokedExperimentPlots:
             data=test_data,
             rois=[1],
             stimulated=True,
-            std=False,
-            sem=False,
         )
         mock_widget.figure.clear.assert_called_once()
         mock_widget.figure.add_subplot.assert_called_once()

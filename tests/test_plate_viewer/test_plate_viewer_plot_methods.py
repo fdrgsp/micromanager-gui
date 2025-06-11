@@ -20,7 +20,7 @@ from micromanager_gui._plate_viewer._plot_methods import (
     plot_single_well_data,
 )
 from micromanager_gui._plate_viewer._plot_methods._main_plot import (
-    AMPLITUDE_GROUP,
+    AMPLITUDE_AND_FREQUENCY_GROUP,
     CSV_BAR_PLOT_AMPLITUDE,
     CSV_BAR_PLOT_FREQUENCY,
     DEC_DFF,
@@ -195,9 +195,11 @@ class TestSingleWellPlotMethods:
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, trace_type)
         mock_widget.figure.clear.assert_called_once()
 
-    @pytest.mark.parametrize("amplitude_type", list(AMPLITUDE_GROUP.keys()))
+    @pytest.mark.parametrize(
+        "amplitude_type", list(AMPLITUDE_AND_FREQUENCY_GROUP.keys())
+    )
     def test_all_amplitude_types(self, mock_widget, amplitude_type):
-        """Test all amplitude types from AMPLITUDE_GROUP."""
+        """Test all amplitude types from AMPLITUDE_AND_FREQUENCY_GROUP."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, amplitude_type)
         mock_widget.figure.clear.assert_called_once()
 
@@ -441,8 +443,8 @@ class TestPlotMethodConstants:
         assert DEC_DFF_NORMALIZED in TRACES_GROUP
 
     def test_amplitude_group_contains_expected_options(self):
-        """Test that AMPLITUDE_GROUP contains expected plotting options."""
-        assert DEC_DFF_AMPLITUDE in AMPLITUDE_GROUP
+        """Test that AMPLITUDE_AND_FREQUENCY_GROUP contains expected options."""
+        assert DEC_DFF_AMPLITUDE in AMPLITUDE_AND_FREQUENCY_GROUP
 
     def test_single_well_combo_options_structure(self):
         """Test that single well combo options are properly structured."""

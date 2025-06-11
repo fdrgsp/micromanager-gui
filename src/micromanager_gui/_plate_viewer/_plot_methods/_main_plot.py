@@ -36,26 +36,17 @@ if TYPE_CHECKING:
 # fmt: off
 RAW_TRACES = "Raw Traces"
 NORMALIZED_TRACES = "Normalized Traces"
-DFF = "DeltaF/F0"
-DFF_NORMALIZED = "DeltaF/F0 Normalized"
-DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved DeltaF/F0 Normalized (Active Only)"
-DEC_DFF = "Deconvolved DeltaF/F0"
-DEC_DFF_WITH_PEAKS = "Deconvolved DeltaF/F0 with Peaks"
-DEC_DFF_NORMALIZED = "Deconvolved DeltaF/F0 Normalized"
-DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved DeltaF/F0 Normalized with Peaks"
-INFERRED_SPIKES = "Inferred Spikes"
-INFERRED_SPIKES_NORMALIZED = "Inferred Spikes Normalized"
-INFERRED_SPIKES_ACTIVE_ONLY = "Inferred Spikes (Active Only)"
-DEC_DFF_AMPLITUDE = "Deconvolved DeltaF/F0 Amplitudes"
-DEC_DFF_AMPLITUDE_STD = "Deconvolved DeltaF/F0 Amplitudes (Mean ± StD)"
-DEC_DFF_AMPLITUDE_SEM = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM)"
-DEC_DFF_FREQUENCY = "Deconvolved DeltaF/F0 Frequencies"
-DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes vs Frequencies"
-DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes (Mean ± StD) vs Frequencies"  # noqa: E501
-DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY = "Deconvolved DeltaF/F0 Amplitudes (Mean ± SEM) vs Frequencies"  # noqa: E501
-DEC_DFF_IEI = "Deconvolved DeltaF/F0 Inter-event Interval"
-DEC_DFF_IEI_STD = "Deconvolved DeltaF/F0 Inter-event Interval (Mean ± StD)"
-DEC_DFF_IEI_SEM = "Deconvolved DeltaF/F0 Inter-event Interval (Mean ± SEM)"
+DFF = "ΔF/F0"
+DFF_NORMALIZED = "ΔF/F0 Normalized"
+DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved ΔF/F0 Normalized (Active Only)"
+DEC_DFF = "Deconvolved ΔF/F0"
+DEC_DFF_WITH_PEAKS = "Deconvolved ΔF/F0 with Peaks"
+DEC_DFF_NORMALIZED = "Deconvolved ΔF/F0 Normalized"
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved ΔF/F0 Normalized with Peaks"
+DEC_DFF_AMPLITUDE = "Deconvolved ΔF/F0 Amplitudes"
+DEC_DFF_FREQUENCY = "Deconvolved ΔF/F0 Frequencies"
+DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved ΔF/F0 Amplitudes vs Frequencies"
+DEC_DFF_IEI = "Deconvolved ΔF/F0 Inter-event Interval"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
@@ -68,14 +59,10 @@ CELL_SIZE = "Cell Size"
 STIMULATED_AREA = "Stimulated Area"
 STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
 STIMULATED_ROIS_WITH_STIMULATED_AREA = "Stimulated vs Non-Stimulated ROIs with Stimulated Area"  # noqa: E501
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = "Stimulated vs Non-Stimulated Normalized (Deconvolved DeltaF/F0)"  # noqa: E501
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved DeltaF/F0)"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = "Stimulated vs Non-Stimulated Normalized (Deconvolved ΔF/F0)"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved ΔF/F0)"  # noqa: E501
 STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
-STIMULATED_PEAKS_AMP_STD = "Stimulated Peaks Amplitudes (Mean ± StD)"
-STIMULATED_PEAKS_AMP_SEM = "Stimulated Peaks Amplitudes (Mean ± SEM)"
 NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
-NON_STIMULATED_PEAKS_AMP_STD = "Non-Stimulated Peaks Amplitudes (Mean ± StD)"
-NON_STIMULATED_PEAKS_AMP_SEM = "Non-Stimulated Peaks Amplitudes (Mean ± SEM)"
 STIMULATED_PEAKS_FREQ = "Stimulated Peaks Frequencies"
 NON_STIMULATED_PEAKS_FREQ = "Non-Stimulated Peaks Frequencies"
 
@@ -96,21 +83,11 @@ TRACES_GROUP = {
     INFERRED_SPIKES_ACTIVE_ONLY: {"active_only": True},
 }
 
-AMPLITUDE_GROUP = {
-    DEC_DFF_AMPLITUDE: {"amp": True},
-    DEC_DFF_AMPLITUDE_STD: {"amp": True, "std": True},
-    DEC_DFF_AMPLITUDE_SEM: {"amp": True, "sem": True},
-}
-
-FREQUENCY_GROUP = {
-    DEC_DFF_FREQUENCY: {"freq": True},
-}
-
 
 AMPLITUDE_AND_FREQUENCY_GROUP = {
+    DEC_DFF_AMPLITUDE: {"amp": True},
+    DEC_DFF_FREQUENCY: {"freq": True},
     DEC_DFF_AMPLITUDE_VS_FREQUENCY: {"amp": True, "freq": True},
-    DEC_DFF_AMPLITUDE_STD_VS_FREQUENCY: {"amp": True, "freq": True, "std": True},
-    DEC_DFF_AMPLITUDE_SEM_VS_FREQUENCY: {"amp": True, "freq": True, "sem": True},
 }
 
 RASTER_PLOT_GROUP = {
@@ -119,10 +96,8 @@ RASTER_PLOT_GROUP = {
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
 }
 
-INTEREVENT_INTERVAL_GROUP = {
+INTEREVENT_INTERVAL_GROUP: dict[str, dict] = {
     DEC_DFF_IEI: {},
-    DEC_DFF_IEI_STD: {"std": True},
-    DEC_DFF_IEI_SEM: {"sem": True},
 }
 
 CELL_SIZE_GROUP: dict[str, dict] = {
@@ -141,11 +116,7 @@ EVOKED_GROUP = {
     STIMULATED_ROIS: {"with_rois": True},
     STIMULATED_ROIS_WITH_STIMULATED_AREA: {"with_rois": True, "stimulated_area": True},
     STIMULATED_PEAKS_AMP: {"stimulated": True},
-    STIMULATED_PEAKS_AMP_STD: {"stimulated": True, "std": True},
-    STIMULATED_PEAKS_AMP_SEM: {"stimulated": True, "sem": True},
     NON_STIMULATED_PEAKS_AMP: {},
-    NON_STIMULATED_PEAKS_AMP_STD: {"std": True},
-    NON_STIMULATED_PEAKS_AMP_SEM: {"sem": True},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
 }
@@ -157,8 +128,6 @@ EVOKED_GROUP = {
 # The keys are sections that wont be selectable but are used as dividers
 SINGLE_WELL_COMBO_OPTIONS_DICT = {
     "------------Traces---------------------------": TRACES_GROUP.keys(),
-    "------------Amplitude------------------------": AMPLITUDE_GROUP.keys(),
-    "------------Frequency------------------------": FREQUENCY_GROUP.keys(),
     "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
     "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
     "------------Interevent Interval--------------": INTEREVENT_INTERVAL_GROUP.keys(),
@@ -190,18 +159,6 @@ def plot_single_well_data(
         else:
             return _plot_traces_data(widget, data, rois, **TRACES_GROUP[text])
 
-    # AMPLITUDE GROUP
-    if text in AMPLITUDE_GROUP:
-        return _plot_amplitude_and_frequency_data(
-            widget, data, rois, **AMPLITUDE_GROUP[text]
-        )
-
-    # FREQUENCY GROUP
-    if text in FREQUENCY_GROUP:
-        return _plot_amplitude_and_frequency_data(
-            widget, data, rois, **FREQUENCY_GROUP[text]
-        )
-
     # AMPLITUDE AND FREQUENCY GROUP
     if text in AMPLITUDE_AND_FREQUENCY_GROUP:
         return _plot_amplitude_and_frequency_data(
@@ -214,11 +171,7 @@ def plot_single_well_data(
 
     # INTEREVENT_INTERVAL GROUP
     if text in INTEREVENT_INTERVAL_GROUP:
-        if text in {GLOBAL_SYNCHRONY}:
-            return _plot_synchrony_data(
-                widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text]
-            )
-        elif text in {DEC_DFF_IEI, DEC_DFF_IEI_STD, DEC_DFF_IEI_SEM}:
+        if text in {DEC_DFF_IEI}:
             return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text])
 
     # CELL SIZE GROUP
@@ -255,14 +208,7 @@ def plot_single_well_data(
                 widget, data, rois, **EVOKED_GROUP[text]
             )
 
-        elif text in {
-            STIMULATED_PEAKS_AMP,
-            NON_STIMULATED_PEAKS_AMP,
-            STIMULATED_PEAKS_AMP_STD,
-            NON_STIMULATED_PEAKS_AMP_STD,
-            STIMULATED_PEAKS_AMP_SEM,
-            NON_STIMULATED_PEAKS_AMP_SEM,
-        }:
+        elif text in {STIMULATED_PEAKS_AMP, NON_STIMULATED_PEAKS_AMP}:
             return _plot_stim_or_not_stim_peaks_amplitude(
                 widget, data, rois, **EVOKED_GROUP[text]
             )
