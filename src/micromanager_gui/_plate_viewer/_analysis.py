@@ -82,7 +82,6 @@ if TYPE_CHECKING:
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
-CAMERA_KEY = "camera_metadata"
 RUNNER_TIME_KEY = "runner_time_ms"
 SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
