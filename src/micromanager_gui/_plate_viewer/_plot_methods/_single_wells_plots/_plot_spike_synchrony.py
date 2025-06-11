@@ -9,6 +9,12 @@ import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
+from micromanager_gui._plate_viewer._util import (
+    _get_synchrony_matrix,
+    get_linear_phase,
+    get_synchrony,
+)
+
 if TYPE_CHECKING:
     from matplotlib.image import AxesImage
 
@@ -23,7 +29,7 @@ def _plot_spike_synchrony_data(
     data: dict[str, ROIData],
     rois: list[int] | None = None,
     spike_threshold: float = 0.1,
-    time_window: float = 0.1,
+    time_window: float | None = None,
 ) -> None:
     """Plot spike-based synchrony analysis.
 
@@ -32,7 +38,8 @@ def _plot_spike_synchrony_data(
         data: Dictionary of ROI data
         rois: List of ROI indices to analyze, None for all active ROIs
         spike_threshold: Threshold for considering a spike event (0.0-1.0)
-        time_window: Time window in seconds for synchrony detection
+        time_window: Time window in seconds for synchrony detection. If None,
+                    uses exposure time from the data
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
@@ -50,6 +57,12 @@ def _plot_spike_synchrony_data(
         widget.canvas.draw()
         return
 
+    # Get exposure time from data for temporal resolution
+    exposure_time_ms = _get_exposure_time_from_data(data)
+    if time_window is None:
+        # Use exposure time as the synchrony window (convert from ms to seconds)
+        time_window = exposure_time_ms / 1000.0 if exposure_time_ms > 0 else 0.1
+
     synchrony_matrix = _calculate_spike_synchrony_matrix(spike_trains, time_window)
 
     if synchrony_matrix is None:
@@ -64,13 +77,14 @@ def _plot_spike_synchrony_data(
         widget.canvas.draw()
         return
 
-    # Calculate global synchrony metric
-    upper_tri_indices = np.triu_indices_from(synchrony_matrix, k=1)
-    global_synchrony = np.median(synchrony_matrix[upper_tri_indices])
+    # Calculate global synchrony metric using existing function
+    global_synchrony = get_synchrony(synchrony_matrix)
+    if global_synchrony is None:
+        global_synchrony = 0.0
 
     title = (
         f"Spike-based Synchrony (threshold={spike_threshold:.1f}, "
-        f"window={time_window:.1f}s)\nGlobal Synchrony: {global_synchrony:.3f}"
+        f"window={time_window*1000:.1f}ms)\nMedian Global Synchrony: {global_synchrony:.3f}"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
@@ -132,21 +146,51 @@ def _get_spike_trains_from_rois(
     return spike_trains if len(spike_trains) >= 2 else None
 
 
+def _get_exposure_time_from_data(roi_data_dict: dict[str, ROIData]) -> float:
+    """Extract exposure time from ROI data.
+
+    Attempts to estimate exposure time from total recording time and number of frames.
+    Falls back to a default if no temporal information is available.
+
+    Args:
+        roi_data_dict: Dictionary of ROI data
+
+    Returns
+    -------
+        Exposure time in milliseconds
+    """
+    for roi_data in roi_data_dict.values():
+        if (
+            roi_data.total_recording_time_in_sec is not None
+            and roi_data.inferred_spikes is not None
+            and len(roi_data.inferred_spikes) > 0
+        ):
+            total_time_sec = roi_data.total_recording_time_in_sec
+            n_frames = len(roi_data.inferred_spikes)
+            # Calculate frame interval (exposure + any delay between frames)
+            frame_interval_ms = (total_time_sec * 1000) / n_frames
+            return frame_interval_ms
+
+    # Default fallback (100ms frame interval = 10 Hz)
+    return 100.0
+
+
 def _calculate_spike_synchrony_matrix(
     spike_trains: dict[str, np.ndarray],
     time_window: float,
-    sampling_rate: float = 10.0,  # Hz, typical frame rate
 ) -> np.ndarray | None:
-    """Calculate pairwise spike synchrony matrix.
+    """Calculate pairwise spike synchrony matrix using PLV approach.
+
+    Converts spike trains to instantaneous phases and uses the existing
+    PLV-based synchrony calculation for consistency with calcium analysis.
 
     Args:
         spike_trains: Dictionary of binary spike trains
         time_window: Time window for synchrony detection (seconds)
-        sampling_rate: Sampling rate in Hz
 
     Returns
     -------
-        Square matrix of synchrony values
+        Square matrix of synchrony values using PLV method
     """
     roi_names = list(spike_trains.keys())
     n_rois = len(roi_names)
@@ -154,68 +198,24 @@ def _calculate_spike_synchrony_matrix(
     if n_rois < 2:
         return None
 
-    synchrony_matrix = np.zeros((n_rois, n_rois))
+    # Convert spike trains to phase representations
+    phase_dict = {}
 
-    # Convert time window to sample window
-    sample_window = int(time_window * sampling_rate)
+    for roi_name, spike_train in spike_trains.items():
+        # Find spike indices
+        spike_indices = np.where(spike_train)[0]
 
-    for i, roi_i in enumerate(roi_names):
-        for j, roi_j in enumerate(roi_names):
-            if i == j:
-                synchrony_matrix[i, j] = 1.0
-            else:
-                sync_value = _calculate_pairwise_spike_synchrony(
-                    spike_trains[roi_i], spike_trains[roi_j], sample_window
-                )
-                synchrony_matrix[i, j] = sync_value
+        if len(spike_indices) == 0:
+            # No spikes - assign zero phase
+            phase_dict[roi_name] = [0.0] * len(spike_train)
+        else:
+            # Use existing get_linear_phase function to create phase from spikes
+            phase_dict[roi_name] = get_linear_phase(len(spike_train), spike_indices)
+
+    # Use existing PLV-based synchrony matrix calculation
+    synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
     return synchrony_matrix
-
-
-def _calculate_pairwise_spike_synchrony(
-    spikes1: np.ndarray,
-    spikes2: np.ndarray,
-    window: int,
-) -> float:
-    """Calculate synchrony between two spike trains.
-
-    Uses coincidence detection within a time window.
-
-    Args:
-        spikes1: Binary spike train 1
-        spikes2: Binary spike train 2
-        window: Sample window for coincidence detection
-
-    Returns
-    -------
-        Synchrony value between 0 and 1
-    """
-    if len(spikes1) != len(spikes2):
-        min_len = min(len(spikes1), len(spikes2))
-        spikes1 = spikes1[:min_len]
-        spikes2 = spikes2[:min_len]
-
-    spike_times1 = np.where(spikes1)[0]
-    spike_times2 = np.where(spikes2)[0]
-
-    if len(spike_times1) == 0 or len(spike_times2) == 0:
-        return 0.0
-
-    # Count coincident spikes
-    coincidences = 0
-    for t1 in spike_times1:
-        # Check if any spike in train 2 occurs within the window
-        time_diffs = np.abs(spike_times2 - t1)
-        if np.any(time_diffs <= window):
-            coincidences += 1
-
-    # Normalize by the total number of spikes
-    total_spikes = len(spike_times1) + len(spike_times2)
-    if total_spikes == 0:
-        return 0.0
-
-    # Return normalized synchrony metric
-    return (2 * coincidences) / total_spikes
 
 
 def _add_hover_functionality(
@@ -233,7 +233,10 @@ def _add_hover_functionality(
         if x < len(rois) and y < len(rois):
             roi_x, roi_y = rois[x], rois[y]
             sel.annotation.set(
-                text=f"ROI {roi_x} ↔ ROI {roi_y}\nSpike Synchrony: {synchrony_matrix[y, x]:.3f}",
+                text=(
+                    f"ROI {roi_x} ↔ ROI {roi_y}\n"
+                    f"Spike Synchrony: {synchrony_matrix[y, x]:.3f}"
+                ),
                 fontsize=8,
                 color="black",
             )

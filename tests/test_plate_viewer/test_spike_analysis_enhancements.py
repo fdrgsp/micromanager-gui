@@ -3,31 +3,31 @@
 import sys
 from pathlib import Path
 
-# Add the source directory to Python path for testing
-src_path = Path(__file__).parent.parent.parent.parent / "src"
-sys.path.insert(0, str(src_path))
-
 import numpy as np
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_burst_detection import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_burst_detection import (  # noqa: E501
     _calculate_network_states,
     _detect_population_bursts,
     _get_population_spike_data,
 )
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_clustering import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_clustering import (  # noqa: E501
     _extract_spike_features,
     _perform_hierarchical_clustering,
 )
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_correlation import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_correlation import (  # noqa: E501
     _calculate_spike_cross_correlation,
 )
 
 # Import the new spike-based analysis modules
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (  # noqa: E501
     _calculate_spike_synchrony_matrix,
     _get_spike_trains_from_rois,
 )
 from micromanager_gui._plate_viewer._util import ROIData
+
+# Add the source directory to Python path for testing
+src_path = Path(__file__).parent.parent.parent.parent / "src"
+sys.path.insert(0, str(src_path))
 
 
 def create_synthetic_spike_data(
