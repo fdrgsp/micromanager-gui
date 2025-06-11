@@ -52,7 +52,8 @@ dependencies = [
     "PyQt6",
     "tensorstore!=0.1.72",
     "pydantic<2.11.0",
-    "pandas"
+    "pandas",
+    "superqt[font-mi6]"
 ]
 
 # extras
