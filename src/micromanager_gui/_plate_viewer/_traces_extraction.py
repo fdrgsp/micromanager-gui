@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import tifffile
+import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
 from qtpy.QtCore import QSize, Signal
@@ -37,7 +38,6 @@ from ._util import (
     RED,
     SETTINGS_PATH,
     ROIData,
-    _BrowseWidget,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
@@ -58,6 +58,8 @@ if TYPE_CHECKING:
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
 DEFAULT_WINDOW = 50
+EVENT_KEY = "mda_event"
+RUNNER_TIME_KEY = "runner_time_ms"
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -83,6 +85,7 @@ class _ExtractCalciumTraces(QWidget):
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
         self._labels_path: str | None = labels_path
+        self._analysis_path: str | None = None
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         self._worker: GeneratorWorker | None = None
@@ -97,19 +100,9 @@ class _ExtractCalciumTraces(QWidget):
         self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
-        # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
-        self._analysis_path = _BrowseWidget(
-            self,
-            "Analysis Output Path",
-            "",
-            "Select the output path for the Analysis Data.",
-            is_dir=True,
-        )
-        self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
-
         # DF/F SETTINGS --------------------------------------------------------
-        dff_wdg = QWidget(self)
-        dff_wdg.setToolTip(
+        self._dff_wdg = QWidget(self)
+        self._dff_wdg.setToolTip(
             "Controls the sliding window size for calculating ΔF/F₀ baseline "
             "(expressed in frames).\n\n"
             "The algorithm uses a sliding window to estimate the background "
@@ -131,21 +124,21 @@ class _ExtractCalciumTraces(QWidget):
         self._dff_window_size_spin.setRange(0, 10000)
         self._dff_window_size_spin.setSingleStep(1)
         self._dff_window_size_spin.setValue(DEFAULT_WINDOW)
-        dff_layout = QHBoxLayout(dff_wdg)
+        dff_layout = QHBoxLayout(self._dff_wdg)
         dff_layout.setContentsMargins(0, 0, 0, 0)
         dff_layout.setSpacing(5)
         dff_layout.addWidget(dff_lbl)
         dff_layout.addWidget(self._dff_window_size_spin)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
-        pos_wdg = QWidget(self)
-        pos_wdg.setToolTip(
+        self._pos_wdg = QWidget(self)
+        self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
             "You can input single Positions (e.g. 30, 33) a range (e.g. 1-10), or a "
             "mix of single Positions and ranges (e.g. 1-10, 30, 50-65). "
             "NOTE: The Positions are 0-indexed."
         )
-        pos_wdg_layout = QHBoxLayout(pos_wdg)
+        pos_wdg_layout = QHBoxLayout(self._pos_wdg)
         pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
         pos_wdg_layout.setSpacing(5)
         pos_lbl = QLabel("Analyze Positions:")
@@ -173,10 +166,7 @@ class _ExtractCalciumTraces(QWidget):
         self._cancel_btn.clicked.connect(self.cancel)
 
         # STYLING --------------------------------------------------------------------
-        fixed_width = self._analysis_path._label.sizeHint().width()
-        self._analysis_path._label.setFixedWidth(fixed_width)
-        dff_lbl.setFixedWidth(fixed_width)
-        pos_lbl.setFixedWidth(fixed_width)
+        pos_lbl.setFixedWidth(dff_lbl.sizeHint().width())
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -193,9 +183,11 @@ class _ExtractCalciumTraces(QWidget):
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(self._analysis_path)
-        wdg_layout.addWidget(dff_wdg)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(pos_wdg)
+        wdg_layout.addWidget(self._dff_wdg)
+        wdg_layout.addSpacing(10)
+        wdg_layout.addWidget(self._pos_wdg)
+        wdg_layout.addSpacing(10)
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -234,15 +226,15 @@ class _ExtractCalciumTraces(QWidget):
 
     @labels_path.setter
     def labels_path(self, labels_path: str | None) -> None:
-        self._labels_path = labels_path
+        self._labels_path = labels_path or None
 
     @property
     def analysis_path(self) -> str | None:
-        return self._analysis_path.value()
+        return self._analysis_path
 
     @analysis_path.setter
     def analysis_path(self, analysis_path: str | None) -> None:
-        self._analysis_path.setValue(analysis_path or "")
+        self._analysis_path = analysis_path or None
 
     # PUBLIC METHODS ---------------------------------------------------------------
 
@@ -250,11 +242,7 @@ class _ExtractCalciumTraces(QWidget):
         """Extract the roi traces in a separate thread."""
         self._failed_labels.clear()
 
-        print("Starting traces extraction...")
-
         pos = self._prepare_for_running()
-
-        print("Positions to analyze:", pos)
 
         if pos is None:
             return
@@ -299,10 +287,10 @@ class _ExtractCalciumTraces(QWidget):
 
     def update_widget_form_json_settings(self) -> None:
         """Update the widget form from the JSON settings."""
-        if not self.analysis_path:
+        if not self._analysis_path:
             return None
 
-        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+        settings_json_file = Path(self._analysis_path) / SETTINGS_PATH
         if not settings_json_file.exists():
             return None
 
@@ -332,43 +320,68 @@ class _ExtractCalciumTraces(QWidget):
 
         if not self._validate_input_data():
             LOGGER.error("Input data validation failed!")
-            self._show_and_log_error("Input data validation failed!")
             return None
 
         if not self._get_valid_output_path():
             LOGGER.error("Output path validation failed!")
-            self._show_and_log_error("Output path validation failed!")
             return None
+
+        self._save_parameters_to_json()
 
         return self._get_positions_to_analyze()
 
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
         if self._data is None or self._labels_path is None:
-            self._show_and_log_error("No data or labels path provided!")
+            self._show_and_log_error("No Data or valid Segmentation Path provided!")
             return False
 
         if self._data.sequence is None:
-            self._show_and_log_error("No useq.MDAsequence found!")
+            self._show_and_log_error("No useq.MDAsequence found in the data!")
             return False
 
         return True
 
     def _get_valid_output_path(self) -> Path | None:
         """Validate and return the output path."""
-        if path := self._analysis_path.value():
+        if path := self._analysis_path:
             analysis_path = Path(path)
             if not analysis_path.is_dir():
-                self._show_and_log_error("Output Path is not a directory!")
+                self._show_and_log_error("Analysis Path is not a valid directory!")
                 return None
             return analysis_path
-
-        self._show_and_log_error("No Output Path provided!")
+        self._show_and_log_error("No Analysis Path provided!")
         return None
+
+    def _save_parameters_to_json(self) -> None:
+        """Save the noise multiplier to a JSON file."""
+        if not self.analysis_path:
+            return
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+
+        try:
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            settings[DFF_WINDOW] = self._dff_window_size_spin.value()
+
+            # Write back the complete settings
+            with open(settings_json_file, "w") as f:
+                json.dump(
+                    settings,
+                    f,
+                    indent=2,
+                )
+        except Exception as e:
+            LOGGER.error(f"Failed to save settings to {settings_json_file}: {e}")
 
     def _get_positions_to_analyze(self) -> list[int] | None:
         """Get the positions to analyze."""
-        if self._data is None or (sequence:=self._data.sequence) is None:
+        if self._data is None or (sequence := self._data.sequence) is None:
             return None
 
         if not self._pos_le.text():
@@ -447,7 +460,7 @@ class _ExtractCalciumTraces(QWidget):
         data, meta = self._data.isel(p=p, metadata=True)
 
         # the "Event" key was used in the old metadata format
-        event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+        event_key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
 
         # get the fov_name name from metadata
         fov_name = self._get_fov_name(event_key, meta, p)
@@ -465,13 +478,35 @@ class _ExtractCalciumTraces(QWidget):
         labels = tifffile.imread(labels_path)
         labels_masks = self._create_label_masks_dict(labels)
 
+        sequence = cast(useq.MDASequence, self._data.sequence)
+        timepoints = sequence.sizes["t"]
+
+        # get the exposure time from the metadata
+        exp_time_ms = meta[0][event_key].get("exposure", 0.0)
+
+        # get the elapsed time from the metadata to calculate the total time in seconds
+        elapsed_time_list_ms = self.get_elapsed_time_list(meta)
+        # if the elapsed time is not available or for any reason is different from
+        # the number of timepoints, set it as list of timepoints every exp_time
+        if len(elapsed_time_list_ms) != timepoints:
+            elapsed_time_list_ms = [i * exp_time_ms for i in range(timepoints)]
+        tot_time_sec = (elapsed_time_list_ms[-1] - elapsed_time_list_ms[0]) / 1000
+
         msg = f"Extracting Traces Data from Well {fov_name}."
         LOGGER.info(msg)
         for label_value, label_mask in tqdm(labels_masks.items(), desc=msg):
             if self._check_for_abort_requested():
                 break
             # extract the data
-            self._process_roi_trace(data, meta, fov_name, label_value, label_mask)
+            self._process_roi_trace(
+                data,
+                meta,
+                fov_name,
+                label_value,
+                label_mask,
+                tot_time_sec,
+                elapsed_time_list_ms,
+            )
 
         # save the analysis data for the well
         self._save_analysis_data(fov_name)
@@ -495,11 +530,21 @@ class _ExtractCalciumTraces(QWidget):
             LOGGER.error("No labels found for %s!", labels_name)
         return labels_path
 
-    def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
+    def _create_label_masks_dict(self, labels: np.ndarray) -> dict[int, np.ndarray]:
         """Create masks for each label in the labels image."""
         # get the range of labels and remove the background (0)
         labels_range = np.unique(labels[labels != 0])
         return {label_value: (labels == label_value) for label_value in labels_range}
+
+    def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
+        elapsed_time_list: list[float] = []
+        # get the elapsed time for each timepoint to calculate tot_time_sec
+        if RUNNER_TIME_KEY in meta[0]:  # new metadata format
+            for m in meta:
+                rt = m[RUNNER_TIME_KEY]
+                if rt is not None:
+                    elapsed_time_list.append(float(rt))
+        return elapsed_time_list
 
     def _process_roi_trace(
         self,
@@ -508,6 +553,8 @@ class _ExtractCalciumTraces(QWidget):
         fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
+        tot_time_sec: float,
+        elapsed_time_list_ms: list[float],
     ) -> None:
         """Process individual ROI traces."""
         # get the data for the current label
@@ -523,9 +570,11 @@ class _ExtractCalciumTraces(QWidget):
         # calculate the size of the roi in µm if px_size is available or not 0,
         # otherwise use the size is in pixels
         roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
+
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
         win = self._dff_window_size_spin.value()
+
         # calculate the dff of the roi trace
         dff: np.ndarray = calculate_dff(roi_trace, window=win, plot=False)
 
@@ -535,13 +584,15 @@ class _ExtractCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            label_mask=label_mask.tolist(),
+            label_mask=label_mask.tolist(),  # type: ignore
             raw_trace=cast(list[float], roi_trace.tolist()),
             dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             inferred_spikes=spikes.tolist(),
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
+            elapsed_time_list_ms=elapsed_time_list_ms,
+            total_recording_time_sec=tot_time_sec,
         )
 
     def _on_worker_finished(self) -> None:
@@ -553,7 +604,7 @@ class _ExtractCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer.pv_analysis_data = self._analysis_data
+            self._plate_viewer.analysis_data = self._analysis_data
 
             # automatically set combo boxes to first valid option when analysis
             # data is available - ensures graphs refresh after analysis completion
@@ -568,8 +619,8 @@ class _ExtractCalciumTraces(QWidget):
                     mgh._on_combo_changed(mgh._combo.currentText())
 
         # save the analysis data to a JSON file
-        if self.analysis_path:
-            save_trace_data_to_csv(self.analysis_path, self._analysis_data)
+        if self._analysis_path:
+            save_trace_data_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:
@@ -588,8 +639,10 @@ class _ExtractCalciumTraces(QWidget):
 
     def _save_analysis_data(self, pos_name: str) -> None:
         """Save analysis data to a JSON file."""
+        if not self._analysis_path:
+            return
         LOGGER.info("Saving JSON file for Well %s.", pos_name)
-        path = Path(self._analysis_path.value()) / f"{pos_name}.json"
+        path = Path(self._analysis_path) / f"{pos_name}.json"
         with path.open("w") as f:
             json.dump(
                 self._analysis_data[pos_name],
@@ -609,21 +662,21 @@ class _ExtractCalciumTraces(QWidget):
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
-        self._pos_le.setEnabled(enable)
-        self._analysis_path.setEnabled(enable)
+        self._dff_wdg.setEnabled(enable)
+        self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
+            # this should never happen, just for type checking
             return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._segmentation_wdg.setEnabled(enable)
-        # disable graphs tabs
+        self._plate_viewer._analysis_wdg.setEnabled(enable)
         self._plate_viewer._tab.setTabEnabled(1, enable)
         self._plate_viewer._tab.setTabEnabled(2, enable)
 
     def _update_plate_viewer_analysis_path(self, path: str) -> None:
         """Update the analysis path of the plate viewer."""
         if self._plate_viewer is not None:
-            self._plate_viewer._pv_analysis_path = path
+            self._plate_viewer._analysis_path = path
 
     def _reset_progress_bar(self) -> None:
         """Reset the progress bar and elapsed time label."""

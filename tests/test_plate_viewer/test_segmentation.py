@@ -167,16 +167,16 @@ class TestCellposeSegmentation:
         qtbot.addWidget(widget)
 
         # Test getter when empty
-        assert widget.output_path == ""
+        assert widget.labels_path == ""
 
         # Test setter
         test_path = str(temp_dir)
-        widget.output_path = test_path
-        assert widget.output_path == test_path
+        widget.labels_path = test_path
+        assert widget.labels_path == test_path
 
         # Test setter with None
-        widget.output_path = None
-        assert widget.output_path == ""
+        widget.labels_path = None
+        assert widget.labels_path == ""
 
     def test_model_combo_changed(self, qtbot):
         """Test model combo box changes."""
@@ -219,7 +219,7 @@ class TestCellposeSegmentation:
         widget = _CellposeSegmentation(data=mock_data)
         qtbot.addWidget(widget)
 
-        widget.output_path = "/nonexistent/path"
+        widget.labels_path = "/nonexistent/path"
         with patch(
             "micromanager_gui._plate_viewer._segmentation.show_error_dialog"
         ) as mock_error:
@@ -233,7 +233,7 @@ class TestCellposeSegmentation:
 
         widget = _CellposeSegmentation(data=mock_data)
         qtbot.addWidget(widget)
-        widget.output_path = str(temp_dir)
+        widget.labels_path = str(temp_dir)
 
         with patch(
             "micromanager_gui._plate_viewer._segmentation.show_error_dialog"
@@ -245,7 +245,7 @@ class TestCellposeSegmentation:
         """Test successful validation."""
         widget = _CellposeSegmentation(data=mock_data)
         qtbot.addWidget(widget)
-        widget.output_path = str(temp_dir)
+        widget.labels_path = str(temp_dir)
 
         assert widget._validate_segmentation_setup()
 
@@ -306,7 +306,7 @@ class TestCellposeSegmentation:
         """Test handling when no existing label files."""
         widget = _CellposeSegmentation()
         qtbot.addWidget(widget)
-        widget.output_path = str(temp_dir)
+        widget.labels_path = str(temp_dir)
 
         assert widget._handle_existing_labels()
 
@@ -318,7 +318,7 @@ class TestCellposeSegmentation:
 
         widget = _CellposeSegmentation()
         qtbot.addWidget(widget)
-        widget.output_path = str(temp_dir)
+        widget.labels_path = str(temp_dir)
 
         with patch.object(widget, "_overwrite_msgbox") as mock_msgbox:
             mock_msgbox.return_value = QMessageBox.StandardButton.Yes
@@ -333,7 +333,7 @@ class TestCellposeSegmentation:
 
         widget = _CellposeSegmentation()
         qtbot.addWidget(widget)
-        widget.output_path = str(temp_dir)
+        widget.labels_path = str(temp_dir)
 
         with patch.object(widget, "_overwrite_msgbox") as mock_msgbox:
             mock_msgbox.return_value = QMessageBox.StandardButton.No
@@ -426,7 +426,7 @@ class TestCellposeSegmentation:
         widget._enable(False)
         assert not widget._models_combo.isEnabled()
         assert not widget._browse_custom_model.isEnabled()
-        assert not widget._output_path.isEnabled()
+        assert not widget._labels_path.isEnabled()
         assert not widget._pos_le.isEnabled()
         assert not widget._run_btn.isEnabled()
 
@@ -440,7 +440,7 @@ class TestCellposeSegmentation:
         widget._enable(True)
         assert widget._models_combo.isEnabled()
         assert widget._browse_custom_model.isEnabled()
-        assert widget._output_path.isEnabled()
+        assert widget._labels_path.isEnabled()
         assert widget._pos_le.isEnabled()
         assert widget._run_btn.isEnabled()
 

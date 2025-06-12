@@ -907,7 +907,7 @@ class _AnalyseCalciumTraces(QWidget):
             LOGGER.error("No labels found for %s!", labels_name)
         return labels_path
 
-    def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
+    def _create_label_masks_dict(self, labels: np.ndarray) -> dict[int, np.ndarray]:
         """Create masks for each label in the labels image."""
         # get the range of labels and remove the background (0)
         labels_range = np.unique(labels[labels != 0])
@@ -1101,7 +1101,7 @@ class _AnalyseCalciumTraces(QWidget):
             cell_size_units="µm" if px_size is not None else "pixel",
             condition_1=condition_1,
             condition_2=condition_2,
-            total_recording_time_in_sec=tot_time_sec,
+            total_recording_time_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
             instantaneous_phase=instantaneous_phase,
             iei=iei,
@@ -1109,7 +1109,7 @@ class _AnalyseCalciumTraces(QWidget):
             stimulated=is_roi_stimulated,
             amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
             amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
-            stmulations_frames_and_powers=stimulation_frames_and_powers or None,
+            stimulations_frames_and_powers=stimulation_frames_and_powers or None,
         )
 
     def _update_stim_vs_non_stim(
@@ -1259,7 +1259,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _update_plate_viewer_analysis_path(self, path: str) -> None:
         """Update the analysis path of the plate viewer."""
         if self._plate_viewer is not None:
-            self._plate_viewer._pv_analysis_path = path
+            self._plate_viewer._analysis_path = path
 
     def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""

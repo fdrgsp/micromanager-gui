@@ -11,14 +11,13 @@ from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
 import tifffile
-import useq
 from fonticon_mdi6 import MDI6
-from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
@@ -39,11 +38,11 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
+from ._plate_map import PlateMapWidget
 from ._to_csv import save_to_csv
 from ._util import (
     COND1,
     COND2,
-    DFF_WINDOW,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
@@ -60,7 +59,6 @@ from ._util import (
     _BrowseWidget,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
-    calculate_dff,
     create_stimulation_mask,
     get_iei,
     get_linear_phase,
@@ -72,6 +70,7 @@ from ._util import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import useq
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
@@ -178,7 +177,6 @@ class _AnalyseCalciumTraces(QWidget):
         parent: PlateViewer | None = None,
         *,
         data: TensorstoreZarrReader | OMEZarrReader | None = None,
-        labels_path: str | None = None,
     ) -> None:
         super().__init__(parent)
 
@@ -186,28 +184,51 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
+        self._analysis_path: str | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._stimulated_area_mask: np.ndarray | None = None
-        self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
-
         self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
 
-        # list to store the failed labels if they will not be found during the
+        # list to store the failed json if they will not be found during the
         # analysis. used to show at the end of the analysis to the user which labels
         # are failed to be found.
-        self._failed_labels: list[str] = []
+        self._failed_json: list[str] = []
 
         # ELAPSED TIME TIMER ---------------------------------------------------------
         self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
+        # WIDGET TO SHOW/EDIT THE PLATE MAPS -----------------------------------------
+        self._plate_map_dialog = QDialog(self)
+        plate_map_layout = QHBoxLayout(self._plate_map_dialog)
+        plate_map_layout.setContentsMargins(10, 10, 10, 10)
+        plate_map_layout.setSpacing(5)
+        self._plate_map_genotype = PlateMapWidget(self, title="Genotype Map")
+        plate_map_layout.addWidget(self._plate_map_genotype)
+        self._plate_map_treatment = PlateMapWidget(self, title="Treatment Map")
+        plate_map_layout.addWidget(self._plate_map_treatment)
+
+        self._plate_map_btn = QPushButton("Show/Edit Plate Map")
+        self._plate_map_btn.setIcon(icon(MDI6.view_comfy))
+        # self._plate_map_btn.setIconSize(QSize(25, 25))
+        self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
+        self._plate_map_wdg = QWidget()
+        plate_map_lbl = QLabel("Plate Map:")
+        plate_map_lbl.setSizePolicy(*FIXED)
+        plate_map_group_layout = QHBoxLayout(self._plate_map_wdg)
+        plate_map_group_layout.setContentsMargins(0, 0, 0, 0)
+        plate_map_group_layout.setSpacing(5)
+        plate_map_group_layout.addWidget(plate_map_lbl)
+        plate_map_group_layout.addWidget(self._plate_map_btn)
+        plate_map_group_layout.addStretch(1)
+
         # WIDGET TO SELECT THE EXPERIMENT TYPE ---------------------------------------
-        experiment_type_wdg = QWidget(self)
-        experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
+        self._experiment_type_wdg = QWidget(self)
+        experiment_type_wdg_layout = QHBoxLayout(self._experiment_type_wdg)
         experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
         experiment_type_wdg_layout.setSpacing(5)
         activity_combo_label = QLabel("Experiment Type:")
@@ -258,21 +279,11 @@ class _AnalyseCalciumTraces(QWidget):
         led_layout.addWidget(self._led_power_equation_le)
         self._led_power_wdg.hide()
 
-        # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
-        self._analysis_path = _BrowseWidget(
-            self,
-            "Analysis Output Path",
-            "",
-            "Select the output path for the Analysis Data.",
-            is_dir=True,
-        )
-        self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
-
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
 
-        peaks_prominence_wdg = QWidget(self)
-        peaks_prominence_wdg.setToolTip(
+        self._peaks_prominence_wdg = QWidget(self)
+        self._peaks_prominence_wdg.setToolTip(
             "Controls the prominence threshold multiplier for peak validation.\n"
             "Prominence measures how much a peak stands out from surrounding\n"
             "baseline, helping distinguish real calcium events from noise.\n\n"
@@ -289,15 +300,15 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_prominence_multiplier_spin.setRange(0, 100000.0)
         self._peaks_prominence_multiplier_spin.setSingleStep(0.01)
         self._peaks_prominence_multiplier_spin.setValue(1)
-        peaks_prominence_layout = QHBoxLayout(peaks_prominence_wdg)
+        peaks_prominence_layout = QHBoxLayout(self._peaks_prominence_wdg)
         peaks_prominence_layout.setContentsMargins(0, 0, 0, 0)
         peaks_prominence_layout.setSpacing(5)
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
         peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
         # PEAKS DISTANCE WIDGET -------------------------------------------------------
-        peaks_distance_wdg = QWidget(self)
-        peaks_distance_wdg.setToolTip(
+        self._peaks_distance_wdg = QWidget(self)
+        self._peaks_distance_wdg.setToolTip(
             "Minimum distance between peaks in frames.\n"
             "This prevents detecting multiple peaks from the same calcium event.\n\n"
             "Example: If exposure time = 50ms and you want 100ms minimum separation,\n"
@@ -312,21 +323,21 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_distance_spin.setRange(1, 1000)
         self._peaks_distance_spin.setSingleStep(1)
         self._peaks_distance_spin.setValue(2)
-        peaks_distance_layout = QHBoxLayout(peaks_distance_wdg)
+        peaks_distance_layout = QHBoxLayout(self._peaks_distance_wdg)
         peaks_distance_layout.setContentsMargins(0, 0, 0, 0)
         peaks_distance_layout.setSpacing(5)
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
-        pos_wdg = QWidget(self)
-        pos_wdg.setToolTip(
+        self._pos_wdg = QWidget(self)
+        self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
             "You can input single Positions (e.g. 30, 33) a range (e.g. 1-10), or a "
             "mix of single Positions and ranges (e.g. 1-10, 30, 50-65). "
             "NOTE: The Positions are 0-indexed."
         )
-        pos_wdg_layout = QHBoxLayout(pos_wdg)
+        pos_wdg_layout = QHBoxLayout(self._pos_wdg)
         pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
         pos_wdg_layout.setSpacing(5)
         pos_lbl = QLabel("Analyze Positions:")
@@ -357,11 +368,11 @@ class _AnalyseCalciumTraces(QWidget):
         fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
-        self._analysis_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
         peaks_distance_lbl.setFixedWidth(fixed_width)
+        plate_map_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -377,17 +388,18 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
-        wdg_layout.addWidget(self._analysis_path)
+        wdg_layout.addWidget(self._plate_map_wdg)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(experiment_type_wdg)
+        wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(peaks_prominence_wdg)
-        wdg_layout.addWidget(peaks_distance_wdg)
+        wdg_layout.addWidget(self._peaks_prominence_wdg)
+        wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(pos_wdg)
+        wdg_layout.addWidget(self._pos_wdg)
+        wdg_layout.addSpacing(10)
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -421,20 +433,12 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data = data
 
     @property
-    def labels_path(self) -> str | None:
-        return self._labels_path
-
-    @labels_path.setter
-    def labels_path(self, labels_path: str | None) -> None:
-        self._labels_path = labels_path
-
-    @property
     def analysis_path(self) -> str | None:
-        return self._analysis_path.value()
+        return self._analysis_path
 
     @analysis_path.setter
     def analysis_path(self, analysis_path: str | None) -> None:
-        self._analysis_path.setValue(analysis_path or "")
+        self._analysis_path = analysis_path or ""
 
     @property
     def stimulation_area_path(self) -> str | None:
@@ -448,7 +452,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
-        self._failed_labels.clear()
+        self._failed_json.clear()
 
         pos = self._prepare_for_running()
 
@@ -523,7 +527,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     # PREPARATION FOR RUNNING ---------------------------------------------------------
 
-    def _prepare_for_running(self) -> list[int] | None:
+    def _prepare_for_running(self) -> list[str] | None:
         """Prepare the widget for running.
 
         Returns the number of positions to analyze or None if an error occurred.
@@ -551,14 +555,14 @@ class _AnalyseCalciumTraces(QWidget):
         if self._led_power_equation:
             self._save_led_equation_to_json_settings(eq)
 
-        self._save_noise_multipliers_to_json_settings()
+        self._save_parameters_to_json()
 
         return self._get_positions_to_analyze()
 
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
-        if self._data is None or self._labels_path is None:
-            self._show_and_log_error("No data or labels path provided!")
+        if self._data is None:
+            self._show_and_log_error("No data path provided!")
             return False
 
         if self._data.sequence is None:
@@ -572,8 +576,8 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is None:
             return False
 
-        tr_map = self._plate_viewer._plate_map_treatment.value()
-        gen_map = self._plate_viewer._plate_map_genotype.value()
+        tr_map = self._plate_map_treatment.value()
+        gen_map = self._plate_map_genotype.value()
 
         if not gen_map and not tr_map:
             msg = "The Plate Map is not set!\n\nDo you want to continue?"
@@ -591,7 +595,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _get_valid_output_path(self) -> Path | None:
         """Validate and return the output path."""
-        if path := self._analysis_path.value():
+        if path := self._analysis_path:
             analysis_path = Path(path)
             if not analysis_path.is_dir():
                 self._show_and_log_error("Output Path is not a directory!")
@@ -679,8 +683,7 @@ class _AnalyseCalciumTraces(QWidget):
                 "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
                 "are supported."
             )
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
+            self._show_and_log_error(msg)
             return None
 
         except ValueError as e:
@@ -692,43 +695,56 @@ class _AnalyseCalciumTraces(QWidget):
             show_error_dialog(self, msg)
             return None
 
-    def _get_positions_to_analyze(self) -> list[int] | None:
+    def _get_positions_to_analyze(self) -> list[str] | None:
         """Get the positions to analyze."""
         if self._data is None or (sequence := self._data.sequence) is None:
             return None
 
         if not self._pos_le.text():
-            positions = [
-                i
-                for i, p in enumerate(sequence.stage_positions)
-                if self._get_labels_file(
-                    f"{p.name or f'pos_{str(i).zfill(4)}'}_p{i}.tif"
-                )
-            ]
+            positions = []
+            for i, p in enumerate(sequence.stage_positions):
+                pname = f"{p.name or f'pos_{str(i).zfill(4)}'}_p{i}"
+                if self._get_position_json_file(pname):
+                    positions.append(pname)
         else:
-            positions = parse_lineedit_text(self._pos_le.text())
-            if not positions:
+            positions_idx = parse_lineedit_text(self._pos_le.text())
+            if not positions_idx:
                 self._show_and_log_error("Invalid Positions provided!")
                 return None
-            if max(positions) >= len(sequence.stage_positions):
+
+            if max(positions_idx) >= len(sequence.stage_positions):
                 self._show_and_log_error("Input Positions out of range!")
                 return None
+
+            positions = []
+            for i, p in enumerate(sequence.stage_positions):
+                if i in positions_idx:
+                    pname = f"{p.name or f'pos_{str(i).zfill(4)}'}_p{i}"
+                    if self._get_position_json_file(pname):
+                        positions.append(pname)
+
+        if not positions:
+            self._show_and_log_error(
+                "No valid json file found for the provided Positions!\n"
+                "Did you run the 'Extract Calcium Traces' first?"
+            )
+            return None
 
         LOGGER.info("Positions to analyze: %s", positions)
         return positions
 
-    def _get_labels_file(self, label_name: str) -> str | None:
+    def _get_position_json_file(self, label_name: str) -> str | None:
         """Get the labels file for the given name."""
-        if self._labels_path is None:
+        if not self.analysis_path:
             return None
-        for label_file in Path(self._labels_path).glob("*.tif"):
-            if label_file.name.endswith(label_name):
+        for label_file in Path(self.analysis_path).glob("*.json"):
+            if label_file.name.endswith(f"{label_name}.json"):
                 return str(label_file)
         return None
 
     # RUN THE ANALYSIS -------------------------------------------------------------
 
-    def _extract_traces_data(self, positions: list[int]) -> Generator[str, None, None]:
+    def _extract_traces_data(self, positions: list[str]) -> Generator[str, None, None]:
         """Extract the roi traces in multiple threads."""
         LOGGER.info("Starting traces analysis...")
 
@@ -768,18 +784,18 @@ class _AnalyseCalciumTraces(QWidget):
         return bool(self._worker is not None and self._worker.abort_requested)
 
     def _handle_plate_map(self) -> None:
-        if self._plate_viewer is None:
+        if self._plate_viewer is None or not self._analysis_path:
             return
 
-        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
-        condition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+        condition_1_plate_map = self._plate_map_genotype.value()
+        condition_2_plate_map = self._plate_map_treatment.value()
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
-        path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-        self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
-        path = Path(self._analysis_path.value()) / TREATMENT_MAP
-        self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
+        path = Path(self._analysis_path) / GENOTYPE_MAP
+        self._save_plate_map(path, self._plate_map_genotype.value())
+        path = Path(self._analysis_path) / TREATMENT_MAP
+        self._save_plate_map(path, self._plate_map_treatment.value())
 
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the key. e.g.:
@@ -794,58 +810,27 @@ class _AnalyseCalciumTraces(QWidget):
             else:
                 self._plate_map_data[data.name] = {COND2: data.condition[0]}
 
-    def _extract_trace_data_per_position(self, p: int) -> None:
+    def _extract_trace_data_per_position(self, fov_name: str) -> None:
         """Extract the roi traces for the given position."""
         if self._data is None or self._check_for_abort_requested():
             return
-
-        # get the data and metadata for the position
-        data, meta = self._data.isel(p=p, t=0, metadata=True)
-
-        # the "Event" key was used in the old metadata format
-        event_key = "mda_event" if "mda_event" in meta[0] else "Event"
-
-        # get the fov_name name from metadata
-        fov_name = self._get_fov_name(event_key, meta, p)
 
         # get fov json form analysis path
         if self.analysis_path is None:
             # this should not ever happen, just for type checking
             return
+
         # look for a fov name in the analysis data path
         json_list = list(Path(self.analysis_path).glob(f"{fov_name}.json"))
         # if the fov json file does not exist, return
         if not any(json_list):
+            self._failed_json.append(fov_name)
             LOGGER.error("No analysis data found for %s!", fov_name)
             return
 
         p_json_path = json_list[0]
         with open(p_json_path) as f:
-            p_json_data = cast(dict, json.load(f))
-
-        # # get the labels file for the position
-        # labels_path = self._get_labels_file_for_position(fov_name, p)
-        # if labels_path is None:
-        #     return
-
-        # # open the labels file and create masks for each label
-        # labels = tifffile.imread(labels_path)
-        # labels_masks = self._create_label_masks_dict(labels)
-        # sequence = cast(useq.MDASequence, self._data.sequence)
-
-        # # get the elapsed time from the metadata to calculate the total time in seconds
-        # elapsed_time_list = self.get_elapsed_time_list(meta)
-
-        # # get the exposure time from the metadata
-        # exp_time = meta[0][event_key].get("exposure", 0.0)
-
-        # # get timepoints
-        # timepoints = sequence.sizes["t"]
-
-        # # get the total time in seconds for the recording
-        # tot_time_sec = self._calculate_total_time(
-        #     elapsed_time_list, exp_time, timepoints
-        # )
+            p_json_data = cast(dict[str, dict], json.load(f))
 
         # # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
@@ -856,7 +841,7 @@ class _AnalyseCalciumTraces(QWidget):
             metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
-        msg = f"Extracting Traces Data from Well {fov_name}."
+        msg = f"Processing {fov_name}."
         LOGGER.info(msg)
         for label_value, roi_dict in tqdm(p_json_data.items(), desc=msg):
             if self._check_for_abort_requested():
@@ -865,102 +850,45 @@ class _AnalyseCalciumTraces(QWidget):
             # extract the data
             self._process_roi_trace(
                 roi_dict,
-                meta,
                 evoked_experiment_meta,
                 fov_name,
                 label_value,
-                label_mask,
-                timepoints,
-                exp_time,
-                tot_time_sec,
                 evoked_experiment,
-                elapsed_time_list,
             )
 
         # # save the analysis data for the well
-        # self._save_analysis_data(fov_name)
+        self._save_analysis_data(fov_name)
 
         # update the progress bar
         self.progress_bar_updated.emit()
 
-    def _get_fov_name(self, event_key: str, meta: list[dict], p: int) -> str:
-        """Retrieve the fov name from metadata."""
-        # the "Event" key was used in the old metadata format
-        pos_name = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
-        return f"{pos_name}_p{p}"
-
-    def _get_labels_file_for_position(self, fov: str, p: int) -> str | None:
-        """Retrieve the labels file for the given position."""
-        # if the fov name does not end with "_p{p}", add it
-        labels_name = f"{fov}.tif" if fov.endswith(f"_p{p}") else f"{fov}_p{p}.tif"
-        labels_path = self._get_labels_file(labels_name)
-        if labels_path is None:
-            self._failed_labels.append(labels_name)
-            LOGGER.error("No labels found for %s!", labels_name)
-        return labels_path
-
-    def _create_label_masks_dict(self, labels: np.ndarray) -> dict:
-        """Create masks for each label in the labels image."""
-        # get the range of labels and remove the background (0)
-        labels_range = np.unique(labels[labels != 0])
-        return {label_value: (labels == label_value) for label_value in labels_range}
-
-    def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
-        elapsed_time_list: list[float] = []
-        # get the elapsed time for each timepoint to calculate tot_time_sec
-        if RUNNER_TIME_KEY in meta[0]:  # new metadata format
-            for m in meta:
-                rt = m[RUNNER_TIME_KEY]
-                if rt is not None:
-                    elapsed_time_list.append(float(rt))
-        return elapsed_time_list
-
-    def _calculate_total_time(
-        self,
-        elapsed_time_list: list[float],
-        exp_time: float,
-        timepoints: int,
-    ) -> float:
-        """Calculate total time in seconds for the recording."""
-        # if the len of elapsed time is not equal to the number of timepoints,
-        # use exposure time and the number of timepoints to calculate tot_time_sec
-        if len(elapsed_time_list) != timepoints:
-            tot_time_sec = exp_time * timepoints / 1000
-        # otherwise, calculate the total time in seconds using the elapsed time.
-        # NOTE: adding the exposure time to consider the first frame
-        else:
-            tot_time_sec = (
-                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
-            ) / 1000
-        return tot_time_sec
-
     def _process_roi_trace(
         self,
         roi_dict: dict,
-        meta: list[dict],
         evoked_meta: dict[str, Any] | None,
         fov_name: str,
-        label_value: int,
-        timepoints: int,
-        exp_time: float,
-        tot_time_sec: float,
+        label_value: str,
         evoked_exp: bool,
-        elapsed_time_list: list[float],
     ) -> None:
         """Process individual ROI traces."""
-        # get the data for the current label
         roi_data = ROIData(**roi_dict)
-        roi_trace = roi_data.raw_trace
+        roi_raw_trace = roi_data.raw_trace
         dff = roi_data.dff
-        dec_dff = roi_data.dec_dff
-        label_mask = roi_data.label_mask
+        dec_dff = np.array(roi_data.dec_dff)
+        label_mask = np.array(roi_data.label_mask, dtype=bool)
+        tot_time_sec = roi_data.total_recording_time_sec
+        elapsed_time_list_ms = roi_data.elapsed_time_list_ms
 
-        # check if the roi is stimulated
-        roi_stimulation_overlap_ratio = 0.0
-        if evoked_exp and self._stimulated_area_mask is not None:
-            roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
-                self._stimulated_area_mask, label_mask
+        if roi_raw_trace is None or dff is None or dec_dff is None:
+            LOGGER.error(
+                "No valid traces found for label %s in position %s.",
+                label_value,
+                fov_name,
             )
+            return
+
+        # get the conditions for the well
+        condition_1, condition_2 = self._get_conditions(fov_name)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -979,12 +907,14 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         # Calculate adaptive penalty based on noise level in the ΔF/F0 trace
-        noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+        noise_level_dec_dff = float(
+            np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+        )
 
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
-        peaks_prominence_dec_dff = noise_level_dec_dff * prom_multiplier
+        peaks_prominence_dec_dff: float = noise_level_dec_dff * prom_multiplier
 
         # use the peaks height widget to get the height threshold
         # if the mode is GLOBAL_HEIGHT, use the value directly, otherwise
@@ -1006,11 +936,17 @@ class _AnalyseCalciumTraces(QWidget):
             height=peaks_height_dec_dff,
             distance=min_distance_frames,
         )
+        peaks_dec_dff = cast(np.ndarray, peaks_dec_dff)
 
         # get the amplitudes of the peaks in the dec_dff trace
-        peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
+        peaks_amplitudes_dec_dff = [float(dec_dff[p]) for p in peaks_dec_dff]
 
         # check if the roi is stimulated
+        roi_stimulation_overlap_ratio = 0.0
+        if evoked_exp and self._stimulated_area_mask is not None:
+            roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
+                self._stimulated_area_mask, label_mask
+            )
         is_roi_stimulated = roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD
 
         # to store the amplitudes as dict: {power_pulselength: [amplitude]}
@@ -1036,50 +972,83 @@ class _AnalyseCalciumTraces(QWidget):
             else None
         )
 
-        # get the conditions for the well
-        condition_1, condition_2 = self._get_conditions(fov_name)
-
         # calculate the linear phase of the peaks in the dec_dff trace
+        timepoints = len(roi_raw_trace)
         instantaneous_phase = (
             get_linear_phase(timepoints, peaks_dec_dff)
             if len(peaks_dec_dff) > 0
             else None
         )
 
-        # if the elapsed time is not available or for any reason is different from
-        # the number of timepoints, set it as list of timepoints every exp_time
-        if len(elapsed_time_list) != timepoints:
-            elapsed_time_list = [i * exp_time for i in range(timepoints)]
-
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
-        iei = get_iei(peaks_dec_dff, elapsed_time_list)
+        iei = None
+        if elapsed_time_list_ms:
+            iei = get_iei(peaks_dec_dff, elapsed_time_list_ms)
 
-        # store the data to the analysis dict as ROIData
-        self._analysis_data[fov_name][str(label_value)] = ROIData(
-            well_fov_position=fov_name,
-            raw_trace=cast(list[float], roi_trace.tolist()),
-            dff=cast(list[float], dff.tolist()),
-            dec_dff=dec_dff.tolist(),
-            peaks_dec_dff=peaks_dec_dff.tolist(),
-            peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
-            peaks_prominence_dec_dff=peaks_prominence_dec_dff,
-            peaks_height_dec_dff=peaks_height_dec_dff,
-            dec_dff_frequency=frequency or None,
-            inferred_spikes=spikes.tolist(),
-            cell_size=roi_size,
-            cell_size_units="µm" if px_size is not None else "pixel",
-            condition_1=condition_1,
-            condition_2=condition_2,
-            total_recording_time_in_sec=tot_time_sec,
-            active=len(peaks_dec_dff) > 0,
-            instantaneous_phase=instantaneous_phase,
-            iei=iei,
-            evoked_experiment=evoked_exp,
-            stimulated=is_roi_stimulated,
-            amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
-            amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
-            stmulations_frames_and_powers=stimulation_frames_and_powers or None,
+        # update the current roi data with new arguments
+        update_params = self._create_roi_update_params(
+            peaks_dec_dff,
+            peaks_amplitudes_dec_dff,
+            peaks_prominence_dec_dff,
+            peaks_height_dec_dff,
+            frequency,
+            instantaneous_phase,
+            iei,
+            evoked_exp,
+            is_roi_stimulated,
+            amplitudes_stimulated_peaks,
+            amplitudes_non_stimulated_peaks,
+            stimulation_frames_and_powers,
+            condition_1,
+            condition_2,
         )
+
+        self._analysis_data[fov_name][label_value] = self._analysis_data[fov_name][
+            label_value
+        ].replace(**update_params)
+
+    def _create_roi_update_params(
+        self,
+        peaks_dec_dff: np.ndarray,
+        peaks_amplitudes_dec_dff: list[float],
+        peaks_prominence_dec_dff: float,
+        peaks_height_dec_dff: float,
+        frequency: float | None,
+        instantaneous_phase: list[float] | None,
+        iei: list[float] | None,
+        evoked_exp: bool,
+        is_roi_stimulated: bool,
+        amplitudes_stimulated_peaks: dict[str, list[float]] | None,
+        amplitudes_non_stimulated_peaks: dict[str, list[float]] | None,
+        stimulation_frames_and_powers: dict[str, int] | None,
+        condition_1: str | None,
+        condition_2: str | None,
+    ) -> dict[str, Any]:
+        """Create parameters for updating ROI data."""
+        update_params = {
+            "peaks_dec_dff": peaks_dec_dff.tolist(),
+            "peaks_amplitudes_dec_dff": peaks_amplitudes_dec_dff,
+            "peaks_prominence_dec_dff": peaks_prominence_dec_dff,
+            "peaks_height_dec_dff": peaks_height_dec_dff,
+            "dec_dff_frequency": frequency,
+            "active": len(peaks_dec_dff) > 0,
+            "instantaneous_phase": instantaneous_phase,
+            "iei": iei,
+            "evoked_experiment": evoked_exp,
+            "stimulated": is_roi_stimulated,
+            "amplitudes_stimulated_peaks": amplitudes_stimulated_peaks,
+            "amplitudes_non_stimulated_peaks": amplitudes_non_stimulated_peaks,
+            "stimulations_frames_and_powers": stimulation_frames_and_powers,
+            "condition_1": condition_1,
+            "condition_2": condition_2,
+        }
+
+        # Convert empty collections to None for consistency
+        for key, value in list(update_params.items()):
+            if isinstance(value, (list, dict)) and not value:
+                update_params[key] = None
+
+        return update_params
 
     def _update_stim_vs_non_stim(
         self,
@@ -1152,7 +1121,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer.pv_analysis_data = self._analysis_data
+            self._plate_viewer._analysis_data = self._analysis_data
 
             # automatically set combo boxes to first valid option when analysis
             # data is available - ensures graphs refresh after analysis completion
@@ -1167,13 +1136,14 @@ class _AnalyseCalciumTraces(QWidget):
                     mgh._on_combo_changed(mgh._combo.currentText())
 
         # save the analysis data to a JSON file
-        save_to_csv(self._analysis_path.value(), self._analysis_data)
+        if self._analysis_path:  # at this point it should always be set
+            save_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
-        if self._failed_labels:
+        if self._failed_json:
             msg = (
-                "The following labels were not found during the analysis:\n\n"
-                + "\n".join(self._failed_labels)
+                "The following json file were not found during the analysis:\n\n"
+                + "\n".join(self._failed_json)
             )
             self._show_and_log_error(msg)
 
@@ -1189,13 +1159,16 @@ class _AnalyseCalciumTraces(QWidget):
         with path.open("w") as f:
             json.dump(data, f, indent=2)
 
-    def _save_analysis_data(self, pos_name: str) -> None:
+    def _save_analysis_data(self, fov_name: str) -> None:
         """Save analysis data to a JSON file."""
-        LOGGER.info("Saving JSON file for Well %s.", pos_name)
-        path = Path(self._analysis_path.value()) / f"{pos_name}.json"
+        if not self._analysis_path:
+            # this should not ever happen, just for type checking
+            return
+        LOGGER.info("Saving JSON file for Well %s.", fov_name)
+        path = Path(self._analysis_path) / f"{fov_name}.json"
         with path.open("w") as f:
             json.dump(
-                self._analysis_data[pos_name],
+                self._analysis_data[fov_name],
                 f,
                 default=lambda o: asdict(o) if isinstance(o, ROIData) else o,
                 indent=2,
@@ -1203,32 +1176,28 @@ class _AnalyseCalciumTraces(QWidget):
 
     # WIDGET --------------------------------------------------------------------------
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
         if self._worker is not None:
             self._worker.quit()
-        super().closeEvent(event)
+        super().closeEvent(a0)
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
-        self._pos_le.setEnabled(enable)
+        self._plate_map_wdg.setEnabled(enable)
+        self._experiment_type_wdg.setEnabled(enable)
         self._stimulation_area_path.setEnabled(enable)
-        self._experiment_type_combo.setEnabled(enable)
-        self._analysis_path.setEnabled(enable)
+        self._peaks_distance_wdg.setEnabled(enable)
+        self._peaks_height_wdg.setEnabled(enable)
+        self._peaks_prominence_wdg.setEnabled(enable)
+        self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
             return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._segmentation_wdg.setEnabled(enable)
-        # disable graphs tabs
         self._plate_viewer._tab.setTabEnabled(1, enable)
         self._plate_viewer._tab.setTabEnabled(2, enable)
-
-    def _update_plate_viewer_analysis_path(self, path: str) -> None:
-        """Update the analysis path of the plate viewer."""
-        if self._plate_viewer is not None:
-            self._plate_viewer._pv_analysis_path = path
 
     def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
@@ -1257,7 +1226,7 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             LOGGER.error(f"Failed to save LED power equation: {e}")
 
-    def _save_noise_multipliers_to_json_settings(self) -> None:
+    def _save_parameters_to_json(self) -> None:
         """Save the noise multiplier to a JSON file."""
         if not self.analysis_path:
             return
@@ -1271,7 +1240,6 @@ class _AnalyseCalciumTraces(QWidget):
                 with open(settings_json_file) as f:
                     settings = json.load(f)
 
-            settings[DFF_WINDOW] = self._dff_window_size_spin.value()
             settings[PEAKS_PROMINENCE_MULTIPLIER] = (
                 self._peaks_prominence_multiplier_spin.value()
             )
@@ -1334,3 +1302,29 @@ class _AnalyseCalciumTraces(QWidget):
         value = self._progress_bar.value() + 1
         self._progress_bar.setValue(value)
         self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
+
+    def _show_plate_map_dialog(self) -> None:
+        """Show the plate map dialog."""
+        if self._plate_map_dialog.isHidden():
+            self._plate_map_dialog.show()
+        else:
+            self._plate_map_dialog.raise_()
+            self._plate_map_dialog.activateWindow()
+
+    def _load_plate_map(self, plate: useq.WellPlate | None) -> None:
+        """Load the plate map from the given file."""
+        if plate is None:
+            return
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+
+        self._plate_map_genotype.setPlate(plate)
+        self._plate_map_treatment.setPlate(plate)
+        # load plate map if exists
+        if self.analysis_path is not None:
+            gen_path = Path(self.analysis_path) / GENOTYPE_MAP
+            if gen_path.exists():
+                self._plate_map_genotype.setValue(gen_path)
+            treat_path = Path(self.analysis_path) / TREATMENT_MAP
+            if treat_path.exists():
+                self._plate_map_treatment.setValue(treat_path)

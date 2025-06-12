@@ -80,7 +80,8 @@ class ROIData(BaseClass):
     condition_2: str | None = None
     cell_size: float | None = None
     cell_size_units: str | None = None
-    total_recording_time_in_sec: float | None = None
+    elapsed_time_list_ms: list[float] | None = None  # in ms
+    total_recording_time_sec: float | None = None  # in seconds
     active: bool | None = None
     instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
@@ -91,7 +92,7 @@ class ROIData(BaseClass):
     # this is the amp of the peaks of the roi that happens at the stimulation event
     # but are not due to direct light stimulation
     amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
-    stmulations_frames_and_powers: dict[str, int] | None = None
+    stimulations_frames_and_powers: dict[str, int] | None = None
     # ... add whatever other data we need
 
 
@@ -497,13 +498,13 @@ def get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
     return float(np.median(mean_synchrony_per_roi))
 
 
-def get_iei(peaks: list[int], elapsed_time_list: list[float]) -> list[float] | None:
+def get_iei(peaks: np.ndarray, elapsed_time_list_ms: list[float]) -> list[float] | None:
     """Calculate the interevent interval."""
     # if less than 2 peaks or framerate is negative
-    if len(peaks) < 2 or len(elapsed_time_list) <= 1:
+    if len(peaks) < 2 or len(elapsed_time_list_ms) <= 1:
         return None
 
-    peaks_time_stamps = [elapsed_time_list[i] for i in peaks]  # ms
+    peaks_time_stamps = [elapsed_time_list_ms[i] for i in peaks]  # ms
 
     # calculate the difference in time between two consecutive peaks
     iei_ms = np.diff(np.array(peaks_time_stamps))  # ms

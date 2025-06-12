@@ -34,8 +34,8 @@ class TestEvokedExperimentPlots:
                 peaks_dec_dff=[0, 2],
                 active=True,
                 stimulated=False,
-                total_recording_time_in_sec=10.0,
-                stmulations_frames_and_powers={"100": 5},
+                total_recording_time_sec=10.0,
+                stimulations_frames_and_powers={"100": 5},
             ),
             "2": ROIData(
                 well_fov_position="A2",
@@ -44,8 +44,8 @@ class TestEvokedExperimentPlots:
                 peaks_dec_dff=[1],
                 active=True,
                 stimulated=True,
-                total_recording_time_in_sec=10.0,
-                stmulations_frames_and_powers={"100": 5},
+                total_recording_time_sec=10.0,
+                stimulations_frames_and_powers={"100": 5},
             ),
         }
 

@@ -73,7 +73,7 @@ def test_save_plate_plan_json_no_analysis_path(qtbot, dummy_data_loader) -> None
     qtbot.addWidget(pv)
 
     # Ensure analysis path is None
-    pv._pv_analysis_path = None
+    pv._analysis_path = None
 
     result = pv._load_plate_plan_from_json_settings()
 
@@ -128,7 +128,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
         json.dump(settings_data, f)
 
     # Set analysis path and test loading
-    pv._pv_analysis_path = str(analysis_path1)
+    pv._analysis_path = str(analysis_path1)
     result = pv._load_plate_plan_from_json_settings()
 
     assert result is not None
@@ -141,7 +141,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     # Test 2: No settings file
     analysis_path2 = tmp_path / "analysis2"
     analysis_path2.mkdir()
-    pv._pv_analysis_path = str(analysis_path2)
+    pv._analysis_path = str(analysis_path2)
 
     result = pv._load_plate_plan_from_json_settings()
     assert result is None
@@ -155,7 +155,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     with open(settings_file3, "w") as f:
         f.write("{ invalid json content")
 
-    pv._pv_analysis_path = str(analysis_path3)
+    pv._analysis_path = str(analysis_path3)
 
     # Should return None and log warning
     result = pv._load_plate_plan_from_json_settings()
@@ -171,7 +171,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     with open(settings_file4, "w") as f:
         json.dump(settings_data, f)
 
-    pv._pv_analysis_path = str(analysis_path4)
+    pv._analysis_path = str(analysis_path4)
     result = pv._load_plate_plan_from_json_settings()
 
     assert result is None
@@ -186,7 +186,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     with open(settings_file5, "w") as f:
         json.dump(settings_data, f)
 
-    pv._pv_analysis_path = str(analysis_path5)
+    pv._analysis_path = str(analysis_path5)
     result = pv._load_plate_plan_from_json_settings()
 
     assert result is None
@@ -201,7 +201,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     with open(settings_file6, "w") as f:
         json.dump(settings_data, f)
 
-    pv._pv_analysis_path = str(analysis_path6)
+    pv._analysis_path = str(analysis_path6)
 
     # Should return None and log warning due to ValidationError
     result = pv._load_plate_plan_from_json_settings()
@@ -210,7 +210,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     # Test 7: Successful save
     analysis_path7 = tmp_path / "analysis7"
     analysis_path7.mkdir()
-    pv._pv_analysis_path = str(analysis_path7)
+    pv._analysis_path = str(analysis_path7)
 
     # Create a plate plan to save
     plate = useq.WellPlate(
@@ -247,7 +247,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     assert loaded_plate_plan.selected_wells == ((0, 1, 2), (0, 1, 2))
 
     # Test 8: Save with file permission error
-    pv._pv_analysis_path = str(tmp_path / "nonexistent_dir")
+    pv._analysis_path = str(tmp_path / "nonexistent_dir")
 
     # Create a plate plan
     plate = useq.WellPlate(
@@ -269,7 +269,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     analysis_path9 = tmp_path / "analysis9"
     analysis_path9.mkdir()
     settings_file9 = analysis_path9 / SETTINGS_PATH
-    pv._pv_analysis_path = str(analysis_path9)
+    pv._analysis_path = str(analysis_path9)
 
     # Create existing settings file with different content
     existing_data = {"existing_key": "existing_value"}
@@ -310,7 +310,7 @@ def test_load_plate_plan_from_json(qtbot, dummy_data_loader, tmp_path) -> None:
     # Test 10: Round-trip save and load
     analysis_path10 = tmp_path / "analysis10"
     analysis_path10.mkdir()
-    pv._pv_analysis_path = str(analysis_path10)
+    pv._analysis_path = str(analysis_path10)
 
     # Create original plate plan with complex data
     plate = useq.WellPlate(

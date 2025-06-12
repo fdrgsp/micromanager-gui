@@ -54,8 +54,8 @@ def _generate_raster_plot(
         active_rois.append(roi_id)
 
         # convert the x-axis frames to seconds
-        if roi_data.total_recording_time_in_sec is not None:
-            rois_rec_time.append(roi_data.total_recording_time_in_sec)
+        if roi_data.total_recording_time_sec is not None:
+            rois_rec_time.append(roi_data.total_recording_time_sec)
 
         # assuming all traces have the same number of frames
         if not total_frames and roi_data.raw_trace is not None:
