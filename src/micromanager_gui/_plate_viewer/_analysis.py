@@ -1403,11 +1403,14 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _show_plate_map_dialog(self) -> None:
         """Show the plate map dialog."""
-        if self._plate_map_dialog.isHidden():
+        # ensure the dialog is visible and properly positioned
+        if self._plate_map_dialog.isHidden() or not self._plate_map_dialog.isVisible():
             self._plate_map_dialog.show()
-        else:
-            self._plate_map_dialog.raise_()
-            self._plate_map_dialog.activateWindow()
+        # always try to bring to front and activate
+        self._plate_map_dialog.raise_()
+        self._plate_map_dialog.activateWindow()
+        # force focus on the dialog
+        self._plate_map_dialog.setFocus()
 
     def _load_plate_map(self, plate: useq.WellPlate | None) -> None:
         """Load the plate map from the given file."""
