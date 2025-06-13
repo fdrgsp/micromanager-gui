@@ -19,6 +19,7 @@ from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
@@ -39,6 +40,7 @@ from superqt.utils import create_worker
 from tqdm import tqdm
 
 from ._logger import LOGGER
+from ._plate_map import PlateMapWidget
 from ._to_csv import save_to_csv
 from ._util import (
     COND1,
@@ -186,11 +188,11 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
+        self._analysis_path: str | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
-
         self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
@@ -205,9 +207,32 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer = _ElapsedTimer()
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
+        # WIDGET TO SHOW/EDIT THE PLATE MAPS -----------------------------------------
+        self._plate_map_dialog = QDialog(self)
+        plate_map_layout = QHBoxLayout(self._plate_map_dialog)
+        plate_map_layout.setContentsMargins(10, 10, 10, 10)
+        plate_map_layout.setSpacing(5)
+        self._plate_map_genotype = PlateMapWidget(self, title="Genotype Map")
+        plate_map_layout.addWidget(self._plate_map_genotype)
+        self._plate_map_treatment = PlateMapWidget(self, title="Treatment Map")
+        plate_map_layout.addWidget(self._plate_map_treatment)
+
+        self._plate_map_btn = QPushButton("Show/Edit Plate Map")
+        self._plate_map_btn.setIcon(icon(MDI6.view_comfy))
+        self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
+        self._plate_map_wdg = QWidget()
+        plate_map_lbl = QLabel("Plate Map:")
+        plate_map_lbl.setSizePolicy(*FIXED)
+        plate_map_group_layout = QHBoxLayout(self._plate_map_wdg)
+        plate_map_group_layout.setContentsMargins(0, 0, 0, 0)
+        plate_map_group_layout.setSpacing(5)
+        plate_map_group_layout.addWidget(plate_map_lbl)
+        plate_map_group_layout.addWidget(self._plate_map_btn)
+        plate_map_group_layout.addStretch(1)
+
         # WIDGET TO SELECT THE EXPERIMENT TYPE ---------------------------------------
-        experiment_type_wdg = QWidget(self)
-        experiment_type_wdg_layout = QHBoxLayout(experiment_type_wdg)
+        self._experiment_type_wdg = QWidget(self)
+        experiment_type_wdg_layout = QHBoxLayout(self._experiment_type_wdg)
         experiment_type_wdg_layout.setContentsMargins(0, 0, 0, 0)
         experiment_type_wdg_layout.setSpacing(5)
         activity_combo_label = QLabel("Experiment Type:")
@@ -247,7 +272,6 @@ class _AnalyseCalciumTraces(QWidget):
         led_lbl = QLabel("LED Power Equation:")
         led_lbl.setSizePolicy(*FIXED)
         self._led_power_equation_le = QLineEdit(self)
-        # self._led_power_equation_le.setText("y = 11.07 * x - 6.63")
         self._led_power_equation_le.setPlaceholderText(
             "e.g. y = 2*x + 3 (Leave empty for metadata)"
         )
@@ -258,26 +282,31 @@ class _AnalyseCalciumTraces(QWidget):
         led_layout.addWidget(self._led_power_equation_le)
         self._led_power_wdg.hide()
 
-        # WIDGET TO SELECT THE OUTPUT PATH -------------------------------------------
-        self._analysis_path = _BrowseWidget(
-            self,
-            "Analysis Output Path",
-            "",
-            "Select the output path for the Analysis Data.",
-            is_dir=True,
-        )
-        self._analysis_path.pathSet.connect(self._update_plate_viewer_analysis_path)
-
         # DF/F SETTINGS --------------------------------------------------------
-        dff_wdg = QWidget(self)
-        dff_wdg.setToolTip("Controls the window size for calculating ΔF/F0.")
+        self._dff_wdg = QWidget(self)
+        self._dff_wdg.setToolTip(
+            "Controls the sliding window size for calculating ΔF/F₀ baseline "
+            "(expressed in frames).\n\n"
+            "The algorithm uses a sliding window to estimate the background "
+            "fluorescence:\n"
+            "• For each timepoint, calculates the 10th percentile within the window\n"
+            "• Window extends from current timepoint backwards by window_size/2 "
+            "frames\n"
+            "• ΔF/F₀ = (fluorescence - background) / background\n\n"
+            "Window size considerations:\n"
+            "• Larger values (200-500): More stable baseline, good for slow drifts\n"
+            "• Smaller values (50-100): More adaptive, follows local fluorescence "
+            "changes\n"
+            "• Too small (<20): May track signal itself, reducing ΔF/F₀ sensitivity\n"
+            "• Too large (>1000): May not adapt to legitimate baseline shifts"
+        )
         dff_lbl = QLabel("ΔF/F0 Window Size")
         dff_lbl.setSizePolicy(*FIXED)
         self._dff_window_size_spin = QSpinBox(self)
         self._dff_window_size_spin.setRange(0, 10000)
         self._dff_window_size_spin.setSingleStep(1)
         self._dff_window_size_spin.setValue(DEFAULT_WINDOW)
-        dff_layout = QHBoxLayout(dff_wdg)
+        dff_layout = QHBoxLayout(self._dff_wdg)
         dff_layout.setContentsMargins(0, 0, 0, 0)
         dff_layout.setSpacing(5)
         dff_layout.addWidget(dff_lbl)
@@ -286,8 +315,8 @@ class _AnalyseCalciumTraces(QWidget):
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
 
-        peaks_prominence_wdg = QWidget(self)
-        peaks_prominence_wdg.setToolTip(
+        self._peaks_prominence_wdg = QWidget(self)
+        self._peaks_prominence_wdg.setToolTip(
             "Controls the prominence threshold multiplier for peak validation.\n"
             "Prominence measures how much a peak stands out from surrounding\n"
             "baseline, helping distinguish real calcium events from noise.\n\n"
@@ -304,15 +333,15 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_prominence_multiplier_spin.setRange(0, 100000.0)
         self._peaks_prominence_multiplier_spin.setSingleStep(0.01)
         self._peaks_prominence_multiplier_spin.setValue(1)
-        peaks_prominence_layout = QHBoxLayout(peaks_prominence_wdg)
+        peaks_prominence_layout = QHBoxLayout(self._peaks_prominence_wdg)
         peaks_prominence_layout.setContentsMargins(0, 0, 0, 0)
         peaks_prominence_layout.setSpacing(5)
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
         peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
         # PEAKS DISTANCE WIDGET -------------------------------------------------------
-        peaks_distance_wdg = QWidget(self)
-        peaks_distance_wdg.setToolTip(
+        self._peaks_distance_wdg = QWidget(self)
+        self._peaks_distance_wdg.setToolTip(
             "Minimum distance between peaks in frames.\n"
             "This prevents detecting multiple peaks from the same calcium event.\n\n"
             "Example: If exposure time = 50ms and you want 100ms minimum separation,\n"
@@ -327,21 +356,21 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_distance_spin.setRange(1, 1000)
         self._peaks_distance_spin.setSingleStep(1)
         self._peaks_distance_spin.setValue(2)
-        peaks_distance_layout = QHBoxLayout(peaks_distance_wdg)
+        peaks_distance_layout = QHBoxLayout(self._peaks_distance_wdg)
         peaks_distance_layout.setContentsMargins(0, 0, 0, 0)
         peaks_distance_layout.setSpacing(5)
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
-        pos_wdg = QWidget(self)
-        pos_wdg.setToolTip(
+        self._pos_wdg = QWidget(self)
+        self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
             "You can input single Positions (e.g. 30, 33) a range (e.g. 1-10), or a "
             "mix of single Positions and ranges (e.g. 1-10, 30, 50-65). "
             "NOTE: The Positions are 0-indexed."
         )
-        pos_wdg_layout = QHBoxLayout(pos_wdg)
+        pos_wdg_layout = QHBoxLayout(self._pos_wdg)
         pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
         pos_wdg_layout.setSpacing(5)
         pos_lbl = QLabel("Analyze Positions:")
@@ -372,12 +401,12 @@ class _AnalyseCalciumTraces(QWidget):
         fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
-        self._analysis_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
         peaks_distance_lbl.setFixedWidth(fixed_width)
         dff_lbl.setFixedWidth(fixed_width)
+        plate_map_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -393,18 +422,18 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
-        wdg_layout.addWidget(self._analysis_path)
+        wdg_layout.addWidget(self._plate_map_wdg)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(experiment_type_wdg)
+        wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(dff_wdg)
-        wdg_layout.addWidget(peaks_prominence_wdg)
-        wdg_layout.addWidget(peaks_distance_wdg)
+        wdg_layout.addWidget(self._dff_wdg)
+        wdg_layout.addWidget(self._peaks_prominence_wdg)
+        wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addSpacing(10)
-        wdg_layout.addWidget(pos_wdg)
+        wdg_layout.addWidget(self._pos_wdg)
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -447,11 +476,11 @@ class _AnalyseCalciumTraces(QWidget):
 
     @property
     def analysis_path(self) -> str | None:
-        return self._analysis_path.value()
+        return self._analysis_path
 
     @analysis_path.setter
     def analysis_path(self, analysis_path: str | None) -> None:
-        self._analysis_path.setValue(analysis_path or "")
+        self._analysis_path = analysis_path
 
     @property
     def stimulation_area_path(self) -> str | None:
@@ -510,33 +539,39 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
-    def update_widget_form_json_settings(self) -> None:
+    def _update_widget_form_settings(self) -> None:
         """Update the widget form from the JSON settings."""
-        if not self.analysis_path:
+        if not self._analysis_path:
             return None
 
-        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+        settings_json_file = Path(self._analysis_path) / SETTINGS_PATH
         if not settings_json_file.exists():
+            LOGGER.warning(f"Settings file {settings_json_file} not found")
             return None
 
         try:
             with open(settings_json_file) as f:
-                settings = cast(dict, json.load(f))
-                dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
-                self._dff_window_size_spin.setValue(dff_window)
-                pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
-                self._led_power_equation_le.setText(pp)
-                h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
-                h_mode = cast(str, settings.get(GLOBAL_HEIGHT, GLOBAL_HEIGHT))
-                self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
-                prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
-                self._peaks_prominence_multiplier_spin.setValue(prom_mult)
-                peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
-                self._peaks_distance_spin.setValue(peaks_distance)
-
+                self._update_form_settings(f)
         except Exception as e:
-            LOGGER.warning(f"Failed to load settings from {settings_json_file}: {e}")
+            self._show_and_log_error(
+                f"Failed to load settings from {settings_json_file}: {e}"
+            )
             return None
+
+    def _update_form_settings(self, f: Any) -> None:
+        """Update the widget form from the JSON settings file."""
+        settings = cast(dict, json.load(f))
+        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
+        self._dff_window_size_spin.setValue(dff_window)
+        pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
+        self._led_power_equation_le.setText(pp)
+        h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
+        h_mode = cast(str, settings.get(GLOBAL_HEIGHT, GLOBAL_HEIGHT))
+        self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
+        prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
+        self._peaks_prominence_multiplier_spin.setValue(prom_mult)
+        peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
+        self._peaks_distance_spin.setValue(peaks_distance)
 
     # PRIVATE METHODS -----------------------------------------------------------------
 
@@ -551,12 +586,14 @@ class _AnalyseCalciumTraces(QWidget):
             return None
 
         if not self._validate_input_data():
-            return None
-
-        if self._plate_viewer and not self._validate_plate_map():
+            LOGGER.error("Input data validation failed!")
             return None
 
         if not (analysis_path := self._get_valid_output_path()):
+            LOGGER.error("Output path validation failed!")
+            return None
+
+        if self._plate_viewer and not self._validate_plate_map():
             return None
 
         if self._is_evoked_experiment() and not self._prepare_stimulation_mask(
@@ -577,11 +614,11 @@ class _AnalyseCalciumTraces(QWidget):
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
         if self._data is None or self._labels_path is None:
-            self._show_and_log_error("No data or labels path provided!")
+            self._show_and_log_error("No Data or valid Segmentation Path provided!")
             return False
 
         if self._data.sequence is None:
-            self._show_and_log_error("No useq.MDAsequence found!")
+            self._show_and_log_error("No useq.MDAsequence found in the data!")
             return False
 
         return True
@@ -591,8 +628,8 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is None:
             return False
 
-        tr_map = self._plate_viewer._plate_map_treatment.value()
-        gen_map = self._plate_viewer._plate_map_genotype.value()
+        tr_map = self._plate_map_treatment.value()
+        gen_map = self._plate_map_genotype.value()
 
         if not gen_map and not tr_map:
             msg = "The Plate Map is not set!\n\nDo you want to continue?"
@@ -610,14 +647,14 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _get_valid_output_path(self) -> Path | None:
         """Validate and return the output path."""
-        if path := self._analysis_path.value():
+        if path := self._analysis_path:
             analysis_path = Path(path)
             if not analysis_path.is_dir():
-                self._show_and_log_error("Output Path is not a directory!")
+                self._show_and_log_error("Analysis Path is not a valid directory!")
                 return None
             return analysis_path
 
-        self._show_and_log_error("No Output Path provided!")
+        self._show_and_log_error("No Analysis Path provided!")
         return None
 
     def _is_evoked_experiment(self) -> bool:
@@ -698,8 +735,7 @@ class _AnalyseCalciumTraces(QWidget):
                 "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
                 "are supported."
             )
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
+            self._show_and_log_error(msg)
             return None
 
         except ValueError as e:
@@ -707,8 +743,7 @@ class _AnalyseCalciumTraces(QWidget):
                 f"Error parsing equation coefficients: {e}\n"
                 "Using values from the metadata."
             )
-            LOGGER.error(msg)
-            show_error_dialog(self, msg)
+            self._show_and_log_error(msg)
             return None
 
     def _get_positions_to_analyze(self) -> list[int] | None:
@@ -787,18 +822,18 @@ class _AnalyseCalciumTraces(QWidget):
         return bool(self._worker is not None and self._worker.abort_requested)
 
     def _handle_plate_map(self) -> None:
-        if self._plate_viewer is None:
+        if self._plate_viewer is None or not self._analysis_path:
             return
 
-        condition_1_plate_map = self._plate_viewer._plate_map_genotype.value()
-        condition_2_plate_map = self._plate_viewer._plate_map_treatment.value()
+        condition_1_plate_map = self._plate_map_genotype.value()
+        condition_2_plate_map = self._plate_map_treatment.value()
 
         # save plate map
         LOGGER.info("Saving Plate Maps.")
-        path = Path(self._analysis_path.value()) / GENOTYPE_MAP
-        self._save_plate_map(path, self._plate_viewer._plate_map_genotype.value())
-        path = Path(self._analysis_path.value()) / TREATMENT_MAP
-        self._save_plate_map(path, self._plate_viewer._plate_map_treatment.value())
+        path = Path(self._analysis_path) / GENOTYPE_MAP
+        self._save_plate_map(path, self._plate_map_genotype.value())
+        path = Path(self._analysis_path) / TREATMENT_MAP
+        self._save_plate_map(path, self._plate_map_treatment.value())
 
         # update the stored _plate_map_data dict so we have the condition for each well
         # name as the key. e.g.:
@@ -841,19 +876,20 @@ class _AnalyseCalciumTraces(QWidget):
         labels_masks = self._create_label_masks_dict(labels)
         sequence = cast(useq.MDASequence, self._data.sequence)
 
-        # get the elapsed time from the metadata to calculate the total time in seconds
-        elapsed_time_list = self.get_elapsed_time_list(meta)
-
         # get the exposure time from the metadata
         exp_time = meta[0][event_key].get("exposure", 0.0)
 
         # get timepoints
         timepoints = sequence.sizes["t"]
 
+        # get the elapsed time from the metadata to calculate the total time in seconds
+        elapsed_time_list = self.get_elapsed_time_list(meta)
+        # if the elapsed time is not available or for any reason is different from
+        # the number of timepoints, set it as list of timepoints every exp_time
+        if len(elapsed_time_list) != timepoints:
+            elapsed_time_list = [i * exp_time for i in range(timepoints)]
         # get the total time in seconds for the recording
-        tot_time_sec = self._calculate_total_time(
-            elapsed_time_list, exp_time, timepoints
-        )
+        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0] + exp_time) / 1000
 
         # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
@@ -879,7 +915,6 @@ class _AnalyseCalciumTraces(QWidget):
                 label_value,
                 label_mask,
                 timepoints,
-                exp_time,
                 tot_time_sec,
                 evoked_experiment,
                 elapsed_time_list,
@@ -923,25 +958,6 @@ class _AnalyseCalciumTraces(QWidget):
                     elapsed_time_list.append(float(rt))
         return elapsed_time_list
 
-    def _calculate_total_time(
-        self,
-        elapsed_time_list: list[float],
-        exp_time: float,
-        timepoints: int,
-    ) -> float:
-        """Calculate total time in seconds for the recording."""
-        # if the len of elapsed time is not equal to the number of timepoints,
-        # use exposure time and the number of timepoints to calculate tot_time_sec
-        if len(elapsed_time_list) != timepoints:
-            tot_time_sec = exp_time * timepoints / 1000
-        # otherwise, calculate the total time in seconds using the elapsed time.
-        # NOTE: adding the exposure time to consider the first frame
-        else:
-            tot_time_sec = (
-                elapsed_time_list[-1] - elapsed_time_list[0] + exp_time
-            ) / 1000
-        return tot_time_sec
-
     def _process_roi_trace(
         self,
         data: np.ndarray,
@@ -951,7 +967,6 @@ class _AnalyseCalciumTraces(QWidget):
         label_value: int,
         label_mask: np.ndarray,
         timepoints: int,
-        exp_time: float,
         tot_time_sec: float,
         evoked_exp: bool,
         elapsed_time_list: list[float],
@@ -992,6 +1007,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # deconvolve the dff trace with adaptive penalty
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+        dec_dff = cast(np.ndarray, dec_dff)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1010,12 +1026,14 @@ class _AnalyseCalciumTraces(QWidget):
         # MAD ≈ 0.6745 * standard deviation. Dividing by 0.6745 converts the MAD
         # into an estimate of the standard deviation.
         # Calculate adaptive penalty based on noise level in the ΔF/F0 trace
-        noise_level_dec_dff = np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+        noise_level_dec_dff = float(
+            np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
+        )
 
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
-        peaks_prominence_dec_dff = noise_level_dec_dff * prom_multiplier
+        peaks_prominence_dec_dff: float = noise_level_dec_dff * prom_multiplier
 
         # use the peaks height widget to get the height threshold
         # if the mode is GLOBAL_HEIGHT, use the value directly, otherwise
@@ -1037,9 +1055,10 @@ class _AnalyseCalciumTraces(QWidget):
             height=peaks_height_dec_dff,
             distance=min_distance_frames,
         )
+        peaks_dec_dff = cast(np.ndarray, peaks_dec_dff)
 
         # get the amplitudes of the peaks in the dec_dff trace
-        peaks_amplitudes_dec_dff = [dec_dff[p] for p in peaks_dec_dff]
+        peaks_amplitudes_dec_dff = [float(dec_dff[p]) for p in peaks_dec_dff]
 
         # check if the roi is stimulated
         is_roi_stimulated = roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD
@@ -1077,19 +1096,16 @@ class _AnalyseCalciumTraces(QWidget):
             else None
         )
 
-        # if the elapsed time is not available or for any reason is different from
-        # the number of timepoints, set it as list of timepoints every exp_time
-        if len(elapsed_time_list) != timepoints:
-            elapsed_time_list = [i * exp_time for i in range(timepoints)]
-
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            raw_trace=cast(list[float], roi_trace.tolist()),
-            dff=cast(list[float], dff.tolist()),
+            # raw_trace=cast(list[float], roi_trace.tolist()),
+            raw_trace=roi_trace.tolist(),
+            # dff=cast(list[float], dff.tolist()),
+            dff=dff.tolist(),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
@@ -1183,7 +1199,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
-            self._plate_viewer.pv_analysis_data = self._analysis_data
+            self._plate_viewer.analysis_data = self._analysis_data
 
             # automatically set combo boxes to first valid option when analysis
             # data is available - ensures graphs refresh after analysis completion
@@ -1198,7 +1214,8 @@ class _AnalyseCalciumTraces(QWidget):
                     mgh._on_combo_changed(mgh._combo.currentText())
 
         # save the analysis data to a JSON file
-        save_to_csv(self._analysis_path.value(), self._analysis_data)
+        if self._analysis_path:
+            save_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:
@@ -1223,7 +1240,9 @@ class _AnalyseCalciumTraces(QWidget):
     def _save_analysis_data(self, pos_name: str) -> None:
         """Save analysis data to a JSON file."""
         LOGGER.info("Saving JSON file for Well %s.", pos_name)
-        path = Path(self._analysis_path.value()) / f"{pos_name}.json"
+        if not self._analysis_path:
+            return
+        path = Path(self._analysis_path) / f"{pos_name}.json"
         with path.open("w") as f:
             json.dump(
                 self._analysis_data[pos_name],
@@ -1234,32 +1253,30 @@ class _AnalyseCalciumTraces(QWidget):
 
     # WIDGET --------------------------------------------------------------------------
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
         if self._worker is not None:
             self._worker.quit()
-        super().closeEvent(event)
+        super().closeEvent(a0)
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
         self._cancel_waiting_bar.setEnabled(True)
-        self._pos_le.setEnabled(enable)
+        self._plate_map_wdg.setEnabled(enable)
+        self._experiment_type_wdg.setEnabled(enable)
         self._stimulation_area_path.setEnabled(enable)
-        self._experiment_type_combo.setEnabled(enable)
-        self._analysis_path.setEnabled(enable)
+        self._dff_wdg.setEnabled(enable)
+        self._peaks_distance_wdg.setEnabled(enable)
+        self._peaks_height_wdg.setEnabled(enable)
+        self._peaks_prominence_wdg.setEnabled(enable)
+        self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
             return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._segmentation_wdg.setEnabled(enable)
         # disable graphs tabs
         self._plate_viewer._tab.setTabEnabled(1, enable)
         self._plate_viewer._tab.setTabEnabled(2, enable)
-
-    def _update_plate_viewer_analysis_path(self, path: str) -> None:
-        """Update the analysis path of the plate viewer."""
-        if self._plate_viewer is not None:
-            self._plate_viewer._analysis_path = path
 
     def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
@@ -1365,3 +1382,31 @@ class _AnalyseCalciumTraces(QWidget):
         value = self._progress_bar.value() + 1
         self._progress_bar.setValue(value)
         self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
+
+    def _show_plate_map_dialog(self) -> None:
+        """Show the plate map dialog."""
+        if self._plate_map_dialog.isHidden():
+            self._plate_map_dialog.show()
+        else:
+            self._plate_map_dialog.raise_()
+            self._plate_map_dialog.activateWindow()
+
+    def _load_plate_map(self, plate: useq.WellPlate | None) -> None:
+        """Load the plate map from the given file."""
+        if plate is None:
+            return
+        # clear the plate map data
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
+        # set the plate type
+        self._plate_map_genotype.setPlate(plate)
+        self._plate_map_treatment.setPlate(plate)
+        # load plate map if exists
+        if not self._analysis_path:
+            return
+        gen_path = Path(self._analysis_path) / GENOTYPE_MAP
+        if gen_path.exists():
+            self._plate_map_genotype.setValue(gen_path)
+        treat_path = Path(self._analysis_path) / TREATMENT_MAP
+        if treat_path.exists():
+            self._plate_map_treatment.setValue(treat_path)

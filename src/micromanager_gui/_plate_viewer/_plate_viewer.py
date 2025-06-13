@@ -40,8 +40,7 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 )
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
-# from ._analysis import EVOKED, _AnalyseCalciumTraces
-from ._analysis_new import EVOKED, _AnalyseCalciumTraces
+from ._analysis import EVOKED, _AnalyseCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
@@ -52,7 +51,6 @@ from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._to_csv import save_to_csv
-from ._traces_extraction import _ExtractCalciumTraces
 from ._util import (
     GENOTYPE_MAP,
     PLATE_PLAN,
@@ -150,7 +148,9 @@ class PlateViewer(QMainWindow):
         left_layout.addWidget(self._fov_table)
 
         # splitter for the plate map and the fov table
-        self.splitter_top_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
+        self.splitter_top_left = QSplitter(
+            parent=self, orientation=Qt.Orientation.Vertical
+        )
         self.splitter_top_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_top_left.setChildrenCollapsible(False)
         self.splitter_top_left.addWidget(self._plate_view)
@@ -161,7 +161,9 @@ class PlateViewer(QMainWindow):
         top_left_layout.addWidget(self.splitter_top_left)
 
         # splitter for the plate map/fov table and the image viewer
-        self.splitter_bottom_left = QSplitter(self, orientation=Qt.Orientation.Vertical)
+        self.splitter_bottom_left = QSplitter(
+            parent=self, orientation=Qt.Orientation.Vertical
+        )
         self.splitter_bottom_left.setContentsMargins(0, 0, 0, 0)
         self.splitter_bottom_left.setChildrenCollapsible(False)
         self.splitter_bottom_left.addWidget(top_left_group)
@@ -182,15 +184,12 @@ class PlateViewer(QMainWindow):
             self._on_fov_table_selection_changed
         )
 
-        self._traces_extraction_wdg = _ExtractCalciumTraces(self)
-
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
         analysis_layout = QVBoxLayout(self._analysis_tab)
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._segmentation_wdg)
-        analysis_layout.addWidget(self._traces_extraction_wdg)
         analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
@@ -254,10 +253,10 @@ class PlateViewer(QMainWindow):
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         # fmt off
-        # data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
-        # self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
-        # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
-        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+        data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
+        self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
+        self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
+        self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
         # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
         # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
@@ -278,7 +277,6 @@ class PlateViewer(QMainWindow):
     def pv_labels_path(self, value: str | None) -> None:
         self._labels_path = value
         self._segmentation_wdg.labels_path = value
-        self._traces_extraction_wdg.labels_path = value
         self._on_fov_table_selection_changed()
 
     @property
@@ -288,7 +286,6 @@ class PlateViewer(QMainWindow):
     @pv_analysis_path.setter
     def pv_analysis_path(self, value: str) -> None:
         self._analysis_path = value
-        self._traces_extraction_wdg.analysis_path = value
         self._analysis_wdg.analysis_path = value
         self._load_and_set_analysis_data(value)
 
@@ -400,11 +397,6 @@ class PlateViewer(QMainWindow):
         # clear the segmentation widget
         self._segmentation_wdg.data = None
         self._segmentation_wdg.labels_path = None
-        # clear the traces extraction widget
-        self._traces_extraction_wdg.data = None
-        self._traces_extraction_wdg.analysis_data.clear()
-        self._traces_extraction_wdg.labels_path = None
-        self._traces_extraction_wdg.analysis_path = None
         # clear the analysis widget data
         self._analysis_wdg.data = None
         self._analysis_wdg.analysis_data.clear()
@@ -546,14 +538,11 @@ class PlateViewer(QMainWindow):
         self._segmentation_wdg.data = self._data
         self._segmentation_wdg.labels_path = self._labels_path
         # set the traces extraction widget data
-        self._traces_extraction_wdg.data = self._data
-        self._traces_extraction_wdg.analysis_data = self._analysis_data
-        self._traces_extraction_wdg.labels_path = self._labels_path
-        self._traces_extraction_wdg.analysis_path = self._analysis_path
         # set the analysis widget data
         self._analysis_wdg.data = self._data
         self._analysis_wdg.analysis_data = self._analysis_data
         self._analysis_wdg.analysis_path = self._analysis_path
+        self._analysis_wdg.labels_path = self._labels_path
         # set the stimulation mask if it exists
         if self._analysis_wdg.analysis_path:
             # if a file namend "stimulation_mask.tif" exists in the analysis path
@@ -561,7 +550,6 @@ class PlateViewer(QMainWindow):
             if stim_mask.exists():
                 self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
                 self._analysis_wdg.stimulation_area_path = str(stim_mask)
-            self._analysis_wdg.update_widget_form_json_settings()
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None
