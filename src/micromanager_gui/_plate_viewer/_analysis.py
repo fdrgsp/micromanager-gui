@@ -67,7 +67,6 @@ from ._util import (
     calculate_dff,
     create_stimulation_mask,
     get_iei,
-    get_linear_phase,
     get_overlap_roi_with_stimulated_area,
     parse_lineedit_text,
     show_error_dialog,
