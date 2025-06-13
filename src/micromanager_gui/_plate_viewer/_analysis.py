@@ -21,6 +21,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -410,6 +411,13 @@ class _AnalyseCalciumTraces(QWidget):
         plate_map_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
+        def create_divider_line() -> QFrame:
+            """Create a horizontal divider line."""
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Sunken)
+            return line
+
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -424,16 +432,22 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(self._plate_map_wdg)
-        wdg_layout.addSpacing(10)
+        wdg_layout.addSpacing(3)
+        wdg_layout.addWidget(create_divider_line())
+        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
-        wdg_layout.addSpacing(10)
+        wdg_layout.addSpacing(3)
+        wdg_layout.addWidget(create_divider_line())
+        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._dff_wdg)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
-        wdg_layout.addSpacing(10)
+        wdg_layout.addSpacing(3)
+        wdg_layout.addWidget(create_divider_line())
+        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._pos_wdg)
         wdg_layout.addWidget(progress_wdg)
 

@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -188,6 +189,13 @@ class _CellposeSegmentation(QWidget):
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
 
         # LAYOUT ----------------------------------------------------------------
+        def create_divider_line() -> QFrame:
+            """Create a horizontal divider line."""
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Sunken)
+            return line
+
         progress_layout.addWidget(self._run_btn)
         progress_layout.addWidget(self._cancel_btn)
         progress_layout.addWidget(self._progress_bar)
@@ -201,9 +209,13 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout.addWidget(self._model_wdg)
         settings_groupbox_layout.addWidget(self._browse_custom_model)
         settings_groupbox_layout.addWidget(self._diameter_wdg)
-        settings_groupbox_layout.addSpacing(10)
+        settings_groupbox_layout.addSpacing(3)
+        settings_groupbox_layout.addWidget(create_divider_line())
+        settings_groupbox_layout.addSpacing(3)
         settings_groupbox_layout.addWidget(self._pos_wdg)
-        settings_groupbox_layout.addSpacing(10)
+        settings_groupbox_layout.addSpacing(3)
+        settings_groupbox_layout.addWidget(create_divider_line())
+        settings_groupbox_layout.addSpacing(3)
         settings_groupbox_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
