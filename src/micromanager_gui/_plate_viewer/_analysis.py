@@ -680,7 +680,7 @@ class _AnalyseCalciumTraces(QWidget):
                 self._show_and_log_error(
                     "The Analysis Path is not a valid directory!\n"
                     "Please select a valid path in File > "
-                    "Load Data and Set Directories...' and set the Analysis Path'."
+                    "Load Data and Set Directories...' and set a valid Analysis Path'."
                 )
                 return None
             return analysis_path
