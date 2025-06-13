@@ -86,28 +86,6 @@ def _plot_synchrony_data(
     widget.canvas.draw()
 
 
-def _get_phase_dict_from_rois(
-    roi_data_dict: dict[str, ROIData], rois: list[int] | None = None
-) -> dict[str, list[float]] | None:
-    """Get the phase info from the wanted ROIs."""
-    phase_dict: dict[str, list[float]] = {}
-
-    if rois is None:
-        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
-
-    # if less than two rois input, can't calculate synchrony
-    if len(rois) < 2:
-        return None
-
-    for roi, roi_data in roi_data_dict.items():
-        if int(roi) not in rois:
-            continue
-        if (phase_list := roi_data.instantaneous_phase) is not None:
-            phase_dict[roi] = phase_list
-
-    return phase_dict
-
-
 def _add_hover_functionality(
     image: AxesImage,
     widget: _SingleWellGraphWidget,
