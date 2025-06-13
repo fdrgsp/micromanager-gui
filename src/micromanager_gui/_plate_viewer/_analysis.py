@@ -1009,6 +1009,7 @@ class _AnalyseCalciumTraces(QWidget):
         # deconvolve the dff trace with adaptive penalty
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
         dec_dff = cast(np.ndarray, dec_dff)
+        spikes = cast(np.ndarray, spikes)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
