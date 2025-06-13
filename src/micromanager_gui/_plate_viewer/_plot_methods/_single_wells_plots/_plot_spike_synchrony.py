@@ -165,11 +165,11 @@ def _get_exposure_time_from_data(roi_data_dict: dict[str, ROIData]) -> float:
     """
     for roi_data in roi_data_dict.values():
         if (
-            roi_data.total_recording_time_in_sec is not None
+            roi_data.total_recording_time_sec is not None
             and roi_data.inferred_spikes is not None
             and len(roi_data.inferred_spikes) > 0
         ):
-            total_time_sec = roi_data.total_recording_time_in_sec
+            total_time_sec = roi_data.total_recording_time_sec
             n_frames = len(roi_data.inferred_spikes)
             # Calculate frame interval (exposure + any delay between frames)
             frame_interval_ms = (total_time_sec * 1000) / n_frames

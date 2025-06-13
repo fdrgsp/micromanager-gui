@@ -49,7 +49,7 @@ class TestInferredSpikesPlots:
                 dec_dff=[0.0, 0.04, 0.08, 0.12, 0.16] * 20,
                 inferred_spikes=[0.0, 0.2, 0.0, 0.8, 0.3] * 20,
                 peaks_dec_dff=[10, 30, 50, 70, 90],
-                total_recording_time_in_sec=20.0,
+                total_recording_time_sec=20.0,
                 active=True,
             ),
             "2": ROIData(
@@ -59,7 +59,7 @@ class TestInferredSpikesPlots:
                 dec_dff=[0.0, 0.042, 0.084, 0.126, 0.168] * 20,
                 inferred_spikes=[0.0, 0.1, 0.0, 0.6, 0.2] * 20,
                 peaks_dec_dff=[15, 35, 55, 75, 95],
-                total_recording_time_in_sec=20.0,
+                total_recording_time_sec=20.0,
                 active=True,
             ),
             "3": ROIData(
@@ -69,7 +69,7 @@ class TestInferredSpikesPlots:
                 dec_dff=[0.0, 0.045, 0.089, 0.134, 0.178] * 20,
                 inferred_spikes=[0.0, 0.0, 0.0, 0.1, 0.0] * 20,
                 peaks_dec_dff=[20, 40, 60, 80, 100],
-                total_recording_time_in_sec=20.0,
+                total_recording_time_sec=20.0,
                 active=False,  # Inactive ROI
             ),
         }

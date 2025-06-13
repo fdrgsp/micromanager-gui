@@ -35,7 +35,7 @@ def create_test_data_with_temporal_info():
         data[str(roi_id)] = ROIData(
             well_fov_position=f"A{roi_id+1}",
             inferred_spikes=spike_probs.tolist(),
-            total_recording_time_in_sec=total_time_sec,
+            total_recording_time_sec=total_time_sec,
             active=True,
         )
 

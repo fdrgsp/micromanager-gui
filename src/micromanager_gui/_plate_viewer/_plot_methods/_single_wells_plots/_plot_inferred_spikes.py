@@ -66,7 +66,7 @@ def _plot_inferred_spikes(
         if not roi_data.inferred_spikes:
             continue
 
-        if (ttime := roi_data.total_recording_time_in_sec) is not None:
+        if (ttime := roi_data.total_recording_time_sec) is not None:
             rois_rec_time.append(ttime)
 
         # plot only active neurons if asked to plot active only
