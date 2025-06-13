@@ -17,6 +17,7 @@ from ._util import (
     SEM_SUFFIX,
     ROIData,
     _get_synchrony_matrix,
+    get_linear_phase,
     get_synchrony,
 )
 
@@ -536,12 +537,19 @@ def _get_synchrony_parameter(
     synchrony_dict: dict[str, dict[str, list[Any]]] = {}
     for condition, key_dict in sorted(data.items()):
         for well_fov, roi_dict in key_dict.items():
-            instantaneous_phase_dict: dict[str, list[float]] = {
-                roi_key: roi_data.instantaneous_phase
-                for roi_key, roi_data in roi_dict.items()
-                if roi_data.instantaneous_phase is not None
-            }
-            synchrony_matrix = _get_synchrony_matrix(instantaneous_phase_dict)
+            phase_dict: dict[str, list[float]] = {}
+            for roi_key, roi_data in roi_dict.items():
+                if (
+                    not roi_data.dec_dff
+                    or not roi_data.peaks_dec_dff
+                    or len(roi_data.peaks_dec_dff) < 1
+                ):
+                    continue
+                frames = len(roi_data.dec_dff)
+                peaks = np.array(roi_data.peaks_dec_dff)
+                phase_dict[roi_key] = get_linear_phase(frames, peaks)
+
+            synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
             linear_synchrony = get_synchrony(synchrony_matrix)
 

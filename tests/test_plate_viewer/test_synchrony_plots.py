@@ -26,30 +26,30 @@ class TestSynchronyPlots:
         return {
             "1": ROIData(
                 well_fov_position="A1",
-                instantaneous_phase=[0.1, 0.2, 0.3, 0.4, 0.5],
+                dec_dff=[1.0, 1.1, 1.2, 1.3, 1.4],
+                peaks_dec_dff=[1, 3],
             ),
             "2": ROIData(
                 well_fov_position="A2",
-                instantaneous_phase=[0.2, 0.3, 0.4, 0.5, 0.6],
+                dec_dff=[1.0, 1.2, 1.1, 1.3, 1.2],
+                peaks_dec_dff=[0, 2, 4],
             ),
         }
 
-    @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
-    )
+    @patch("micromanager_gui._plate_viewer._util.get_linear_phase")
     @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
     @patch("micromanager_gui._plate_viewer._util.get_synchrony")
     def test_plot_synchrony_data_success(
         self,
         mock_get_synchrony,
         mock_get_matrix,
-        mock_get_phase,
+        mock_get_linear_phase,
         mock_widget,
         sample_roi_data,
     ):
         """Test successful synchrony plotting."""
         # Mock the dependencies
-        mock_get_phase.return_value = {"1": [0.1, 0.2], "2": [0.2, 0.3]}
+        mock_get_linear_phase.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
         mock_get_matrix.return_value = [[1.0, 0.8], [0.8, 1.0]]
         mock_get_synchrony.return_value = 0.9
 
@@ -63,32 +63,48 @@ class TestSynchronyPlots:
         mock_ax.imshow.assert_called_once()
         mock_widget.figure.colorbar.assert_called_once()
 
-    @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
-    )
-    def test_plot_synchrony_data_no_phase(
-        self, mock_get_phase, mock_widget, sample_roi_data
-    ):
+    def test_plot_synchrony_data_no_phase(self, mock_widget, sample_roi_data):
         """Test synchrony plotting when no phase data is available."""
-        mock_get_phase.return_value = None
+        # Create ROI data without dec_dff or peaks_dec_dff
+        roi_data_no_phase = {
+            "1": ROIData(well_fov_position="A1"),
+            "2": ROIData(well_fov_position="A2"),
+        }
+
+        result = _plot_synchrony_data(mock_widget, roi_data_no_phase, rois=[1, 2])
+
+        assert result is None
+        mock_widget.figure.clear.assert_called_once()
+
+    @patch("micromanager_gui._plate_viewer._util.get_linear_phase")
+    @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
+    def test_plot_synchrony_data_no_matrix(
+        self, mock_get_matrix, mock_get_linear_phase, mock_widget, sample_roi_data
+    ):
+        """Test synchrony plotting when synchrony matrix cannot be calculated."""
+        mock_get_linear_phase.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+        mock_get_matrix.return_value = None
 
         result = _plot_synchrony_data(mock_widget, sample_roi_data, rois=[1, 2])
 
         assert result is None
         mock_widget.figure.clear.assert_called_once()
 
-    @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_synchrony._get_phase_dict_from_rois"
-    )
-    @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
-    def test_plot_synchrony_data_no_matrix(
-        self, mock_get_matrix, mock_get_phase, mock_widget, sample_roi_data
-    ):
-        """Test synchrony plotting when synchrony matrix cannot be calculated."""
-        mock_get_phase.return_value = {"1": [0.1, 0.2]}
-        mock_get_matrix.return_value = None
-
+    def test_plot_synchrony_data_insufficient_rois(self, mock_widget, sample_roi_data):
+        """Test synchrony plotting when there are less than 2 ROIs."""
         result = _plot_synchrony_data(mock_widget, sample_roi_data, rois=[1])
+
+        assert result is None
+        mock_widget.figure.clear.assert_called_once()
+
+    def test_plot_synchrony_data_no_rois_specified(self, mock_widget):
+        """Test synchrony plotting when no ROIs are specified and none are found."""
+        roi_data_no_digits = {
+            "roi_a": ROIData(well_fov_position="A1"),
+            "roi_b": ROIData(well_fov_position="A2"),
+        }
+
+        result = _plot_synchrony_data(mock_widget, roi_data_no_digits, rois=None)
 
         assert result is None
         mock_widget.figure.clear.assert_called_once()

@@ -1156,13 +1156,6 @@ class _AnalyseCalciumTraces(QWidget):
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
 
-        # # calculate the linear phase of the peaks in the dec_dff trace
-        # instantaneous_phase = (
-        #     get_linear_phase(timepoints, peaks_dec_dff)
-        #     if len(peaks_dec_dff) > 0
-        #     else None
-        # )
-
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
