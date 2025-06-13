@@ -7,12 +7,13 @@ import tifffile
 from cellpose import core, models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
-from qtpy.QtCore import QSize, Signal
+from qtpy.QtCore import Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -30,6 +31,7 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._util import (
+    EVENT_KEY,
     GREEN,
     RED,
     _BrowseWidget,
@@ -95,6 +97,7 @@ class _CellposeSegmentation(QWidget):
 
         self._plate_viewer: PlateViewer | None = parent
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
+        self._labels_path: str | None = None
         self._labels: dict[str, np.ndarray] = {}
         self._worker: GeneratorWorker | None = None
 
@@ -103,8 +106,8 @@ class _CellposeSegmentation(QWidget):
         self._elapsed_timer.elapsed_time_updated.connect(self._update_progress_label)
 
         # MODEL WIDGET ----------------------------------------------------------
-        model_wdg = QWidget(self)
-        model_wdg_layout = QHBoxLayout(model_wdg)
+        self._model_wdg = QWidget(self)
+        model_wdg_layout = QHBoxLayout(self._model_wdg)
         model_wdg_layout.setContentsMargins(0, 0, 0, 0)
         model_wdg_layout.setSpacing(5)
         self._models_combo_label = QLabel("Model Type:")
@@ -125,8 +128,8 @@ class _CellposeSegmentation(QWidget):
         self._browse_custom_model.hide()
 
         # DIAMETER WIDGETS ------------------------------------------
-        diameter_wdg = QWidget(self)
-        diameter_layout = QHBoxLayout(diameter_wdg)
+        self._diameter_wdg = QWidget(self)
+        diameter_layout = QHBoxLayout(self._diameter_wdg)
         diameter_layout.setContentsMargins(0, 0, 0, 0)
         diameter_layout.setSpacing(5)
         self._diameter_label = QLabel("Diameter:")
@@ -140,25 +143,15 @@ class _CellposeSegmentation(QWidget):
         diameter_layout.addWidget(self._diameter_label)
         diameter_layout.addWidget(self._diameter_spin)
 
-        # OUTPUT PATH WIDGET ----------------------------------------------------
-        self._output_path = _BrowseWidget(
-            self,
-            "Labels Output Path",
-            "",
-            "Choose the path to save the labels.",
-            is_dir=True,
-        )
-        self._output_path.pathSet.connect(self._update_plate_viewer_labels_path)
-
         # POSITIONS WIDGET ------------------------------------------------------
-        pos_wdg = QWidget(self)
-        pos_wdg.setToolTip(
+        self._pos_wdg = QWidget(self)
+        self._pos_wdg.setToolTip(
             "Select the Positions to segment. Leave blank to segment all Positions. "
             "You can input single Positions (e.g. 30, 33) a range (e.g. 1-10), or a "
             "mix of single Positions and ranges (e.g. 1-10, 30, 50-65). "
             "NOTE: The Positions are 0-indexed."
         )
-        pos_wdg_layout = QHBoxLayout(pos_wdg)
+        pos_wdg_layout = QHBoxLayout(self._pos_wdg)
         pos_wdg_layout.setContentsMargins(0, 0, 0, 0)
         pos_wdg_layout.setSpacing(5)
         pos_lbl = QLabel("Segment Positions:")
@@ -177,12 +170,12 @@ class _CellposeSegmentation(QWidget):
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
-        self._run_btn.setIconSize(QSize(25, 25))
+        # self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
-        self._cancel_btn.setIconSize(QSize(25, 25))
+        # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_label = QLabel("[0/0]")
@@ -190,13 +183,19 @@ class _CellposeSegmentation(QWidget):
         self._elapsed_time_label = QLabel("00:00:00")
 
         # STYLING ---------------------------------------------------------------
-        fixed_lbl_width = self._output_path._label.minimumSizeHint().width()
+        fixed_lbl_width = pos_lbl.sizeHint().width()
         self._models_combo_label.setMinimumWidth(fixed_lbl_width)
         self._browse_custom_model._label.setMinimumWidth(fixed_lbl_width)
         self._diameter_label.setMinimumWidth(fixed_lbl_width)
-        pos_lbl.setMinimumWidth(fixed_lbl_width)
 
         # LAYOUT ----------------------------------------------------------------
+        def create_divider_line() -> QFrame:
+            """Create a horizontal divider line."""
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Sunken)
+            return line
+
         progress_layout.addWidget(self._run_btn)
         progress_layout.addWidget(self._cancel_btn)
         progress_layout.addWidget(self._progress_bar)
@@ -207,13 +206,16 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout = QVBoxLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
-        settings_groupbox_layout.addWidget(self._output_path)
-        settings_groupbox_layout.addSpacing(10)
-        settings_groupbox_layout.addWidget(model_wdg)
+        settings_groupbox_layout.addWidget(self._model_wdg)
         settings_groupbox_layout.addWidget(self._browse_custom_model)
-        settings_groupbox_layout.addWidget(diameter_wdg)
-        settings_groupbox_layout.addSpacing(10)
-        settings_groupbox_layout.addWidget(pos_wdg)
+        settings_groupbox_layout.addWidget(self._diameter_wdg)
+        settings_groupbox_layout.addSpacing(3)
+        settings_groupbox_layout.addWidget(create_divider_line())
+        settings_groupbox_layout.addSpacing(3)
+        settings_groupbox_layout.addWidget(self._pos_wdg)
+        settings_groupbox_layout.addSpacing(3)
+        settings_groupbox_layout.addWidget(create_divider_line())
+        settings_groupbox_layout.addSpacing(3)
         settings_groupbox_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -236,12 +238,12 @@ class _CellposeSegmentation(QWidget):
         return self._labels
 
     @property
-    def output_path(self) -> str | None:
-        return self._output_path.value()
+    def labels_path(self) -> str | None:
+        return self._labels_path
 
-    @output_path.setter
-    def output_path(self, analysis_path: str | None) -> None:
-        self._output_path.setValue(analysis_path or "")
+    @labels_path.setter
+    def labels_path(self, labels_path: str | None) -> None:
+        self._labels_path = labels_path
 
     # PUBLIC METHODS ------------------------------------------------------------------
 
@@ -279,23 +281,39 @@ class _CellposeSegmentation(QWidget):
     def _validate_segmentation_setup(self) -> bool:
         """Check if the necessary data is available before segmentation."""
         if self._data is None:
+            show_error_dialog(
+                self,
+                "No data loaded!\n"
+                "Please load a PlateViewer data in "
+                "File > Load Data and Set Directories....",
+            )
             return False
 
-        path = self._output_path.value()
-        if not path:
-            show_error_dialog(self, "Please select a Labels Output Path.")
-            LOGGER.error("No Labels Output Path selected.")
+        if not self._labels_path:
+            LOGGER.error("No Segmentation Path selected.")
+            show_error_dialog(
+                self,
+                "Please select a Segmentation Path.\n"
+                "You can do this in File > Load Data and Set Directories...' "
+                "and set the Segmentation Path'.",
+            )
             return False
 
-        if not Path(path).is_dir():
-            show_error_dialog(self, "The Labels Output Path is not a valid directory!")
-            LOGGER.error("Invalid Labels Output Path.")
+        if not Path(self._labels_path).is_dir():
+            LOGGER.error("Invalid Segmentation Path.")
+            show_error_dialog(
+                self,
+                "The Segmentation Path is not a valid directory!\n"
+                "Please select a valid directory "
+                "in File > Load Data and Set Directories....",
+            )
             return False
 
         sequence = self._data.sequence
         if sequence is None:
-            show_error_dialog(self, "No useq.MDAsequence found!")
-            LOGGER.error("No sequence found.")
+            msg = "No useq.MDAsequence found!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return False
 
         return True
@@ -311,21 +329,22 @@ class _CellposeSegmentation(QWidget):
 
         positions = parse_lineedit_text(self._pos_le.text())
         if not positions or max(positions) >= len(sequence.stage_positions):
-            show_error_dialog(self, "Invalid or out-of-range Positions provided!")
-            LOGGER.error("Invalid or out-of-range Positions.")
+            msg = "Invalid or out-of-range Positions provided!"
+            LOGGER.error(msg)
+            show_error_dialog(self, msg)
             return None
 
         return positions
 
     def _handle_existing_labels(self) -> bool:
         """Check if label files exist and ask the user for overwrite confirmation."""
-        path = self._output_path.value()
+        if not (path := self._labels_path):
+            # at this point, the path should always be set, adding for typing
+            return False
         if list(Path(path).glob("*.tif")):
             response = self._overwrite_msgbox()
             if response == QMessageBox.StandardButton.No:
                 return False
-
-        self._update_plate_viewer_labels_path(path)
         return True
 
     # RUN THE SEGMENTATION ------------------------------------------------------------
@@ -342,7 +361,7 @@ class _CellposeSegmentation(QWidget):
 
         self._worker = create_worker(
             self._segment,
-            path=self._output_path.value(),
+            path=self._labels_path,
             model=model,
             diameter=self._diameter_spin.value() or None,
             positions=positions,
@@ -374,7 +393,7 @@ class _CellposeSegmentation(QWidget):
             data, meta = self._data.isel(p=p, metadata=True)
 
             # get position name from metadata (in old metadata, the key was "Event")
-            key = "mda_event" if "mda_event" in meta[0] else "Event"
+            key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             # yield the current position name to update the progress bar
             yield f"[Well {pos_name} p{p} (tot {len(positions)})]"
@@ -409,14 +428,13 @@ class _CellposeSegmentation(QWidget):
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the widgets."""
-        self._models_combo.setEnabled(enable)
+        self._model_wdg.setEnabled(enable)
         self._browse_custom_model.setEnabled(enable)
-        self._output_path.setEnabled(enable)
-        self._pos_le.setEnabled(enable)
+        self._diameter_wdg.setEnabled(enable)
+        self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
             return
-        self._plate_viewer._plate_map_group.setEnabled(enable)
         self._plate_viewer._analysis_wdg.setEnabled(enable)
         # disable graphs tabs
         self._plate_viewer._tab.setTabEnabled(1, enable)
@@ -443,11 +461,6 @@ class _CellposeSegmentation(QWidget):
             return CellposeModel(pretrained_model=custom_model_path, gpu=use_gpu)
 
         return models.Cellpose(gpu=use_gpu, model_type=self._models_combo.currentText())
-
-    def _update_plate_viewer_labels_path(self, path: str) -> None:
-        """Update the labels path of the PlateViewer."""
-        if self._plate_viewer is not None:
-            self._plate_viewer.pv_labels_path = path
 
     def _overwrite_msgbox(self) -> Any:
         """Show a message box to ask the user if wants to overwrite the labels."""
@@ -483,8 +496,8 @@ class _CellposeSegmentation(QWidget):
         """Update the progress label with elapsed time."""
         self._elapsed_time_label.setText(time_str)
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
         if self._worker is not None:
             self._worker.quit()
-        super().closeEvent(event)
+        super().closeEvent(a0)

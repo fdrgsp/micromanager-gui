@@ -33,6 +33,7 @@ SAVE_MAP = {
     "raw_data": {"test_analysis_raw_data.csv"},
     "dff_data": {"test_analysis_dff_data.csv"},
     "dec_dff_data": {"test_analysis_dec_dff_data.csv"},
+    "inferred_spikes_data": {"test_analysis_inferred_spikes_data.csv"},
     "grouped": {
         "test_analysis_amplitude.csv",
         "test_analysis_percentage_active.csv",
@@ -92,8 +93,8 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert pv._image_viewer._viewer.labels_image is None  # No labels image loaded
     assert pv._image_viewer._viewer.contours_image is None  # No contours image loaded
     # plate map
-    assert pv._plate_map_genotype.value() == G_MAP
-    assert pv._plate_map_treatment.value() == T_MAP
+    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
+    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
 
     # trigger well selection
     with qtbot.wait_signal(pv._plate_view.selectionChanged, timeout=2000):
@@ -130,10 +131,10 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     # fmt: off
     genotype_path = Path(TEST_ANALYSIS_PATH) / "genotype_plate_map.json"
     treatment_path = Path(TEST_ANALYSIS_PATH) / "treatment_plate_map.json"
-    pv._plate_map_genotype.setValue(genotype_path)
-    pv._plate_map_treatment.setValue(treatment_path)
-    assert pv._plate_map_genotype.value() == G_MAP
-    assert pv._plate_map_treatment.value() == T_MAP
+    pv._analysis_wdg._plate_map_genotype.setValue(genotype_path)
+    pv._analysis_wdg._plate_map_treatment.setValue(treatment_path)
+    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
+    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
     # fmt: on
 
     # autoselect the only 1 position in the plate map
@@ -146,7 +147,7 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     pv._analysis_wdg._extract_trace_data_per_position(0)
 
     # trigger save to csv
-    save_to_csv(tmp_analysis_path, pv.pv_analysis_data)
+    save_to_csv(tmp_analysis_path, pv._analysis_data)
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]

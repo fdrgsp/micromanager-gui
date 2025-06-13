@@ -12,6 +12,8 @@ from pymmcore_plus.metadata.serialize import json_loads
 from tifffile import imwrite
 from tqdm import tqdm
 
+from micromanager_gui._plate_viewer._util import EVENT_KEY
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -105,7 +107,7 @@ class TensorstoreZarrReader:
         if isinstance(self._metadata, list):
             if len(self._metadata) == 0:
                 return None
-            seq = self._metadata[0].get("mda_event", {}).get("sequence")
+            seq = self._metadata[0].get(EVENT_KEY, {}).get("sequence")
             return useq.MDASequence(**seq) if seq is not None else None
 
         # this is for an older version of the metadata ---------------------------------
@@ -248,7 +250,7 @@ class TensorstoreZarrReader:
         for meta in _meta:
             try:
                 # this is for an older version of the metadata -------------------------
-                event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+                event_index = meta[EVENT_KEY]["index"]  # e.g. {"p": 0, "t": 1}
             except KeyError:
                 event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}
             # --------------------------------------------------------------------------

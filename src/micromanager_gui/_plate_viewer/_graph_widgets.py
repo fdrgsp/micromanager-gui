@@ -122,7 +122,7 @@ class _DisplaySingleWellTraces(QGroupBox):
         table_data = self._graph._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        data = _get_fov_data(table_data, self._graph._plate_viewer._pv_analysis_data)
+        data = _get_fov_data(table_data, self._graph._plate_viewer._analysis_data)
         if data is not None:
             rois = self._get_rois(data, self._graph._combo.currentText())
             if rois is None:
@@ -260,7 +260,7 @@ class _SingleWellGraphWidget(QWidget):
         table_data = self._plate_viewer._fov_table.value()
         if table_data is None:
             return
-        data = _get_fov_data(table_data, self._plate_viewer._pv_analysis_data)
+        data = _get_fov_data(table_data, self._plate_viewer._analysis_data)
         if data is not None:
             plot_single_well_data(self, data, text, rois=None)
             if self._choose_dysplayed_traces.isChecked():
@@ -370,7 +370,7 @@ class _MultilWellGraphWidget(QWidget):
         if text == "None":
             return
 
-        plot_multi_well_data(self, text, self._plate_viewer._pv_analysis_path)
+        plot_multi_well_data(self, text, self._plate_viewer._analysis_path)
 
     def _on_save(self) -> None:
         """Save the current plot as a .png file."""
