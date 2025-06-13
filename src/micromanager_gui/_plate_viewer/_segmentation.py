@@ -170,12 +170,12 @@ class _CellposeSegmentation(QWidget):
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
-        self._run_btn.setIconSize(QSize(25, 25))
+        # self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
-        self._cancel_btn.setIconSize(QSize(25, 25))
+        # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         self._progress_label = QLabel("[0/0]")
@@ -281,15 +281,21 @@ class _CellposeSegmentation(QWidget):
     def _validate_segmentation_setup(self) -> bool:
         """Check if the necessary data is available before segmentation."""
         if self._data is None:
+            show_error_dialog(
+                self,
+                "No data loaded!\n"
+                "Please load a PlateViewer data in "
+                "File > Load Data and Set Directories....",
+            )
             return False
 
         if not self._labels_path:
-            LOGGER.error("No Labels Output Path selected.")
+            LOGGER.error("No Segmentation Path selected.")
             show_error_dialog(
                 self,
-                "Please select a Labels Output Path.\n"
-                "You can do this in `File > Load Data and Set Directories...' "
-                "and set the `Segmentation Path'.",
+                "Please select a Segmentation Path.\n"
+                "You can do this in File > Load Data and Set Directories...' "
+                "and set the Segmentation Path'.",
             )
             return False
 
@@ -297,9 +303,9 @@ class _CellposeSegmentation(QWidget):
             LOGGER.error("Invalid Segmentation Path.")
             show_error_dialog(
                 self,
-                "The `Segmentation Path` is not a valid directory!\n"
+                "The Segmentation Path is not a valid directory!\n"
                 "Please select a valid directory "
-                "in `File > Load Data and Set Directories...`.",
+                "in File > Load Data and Set Directories....",
             )
             return False
 

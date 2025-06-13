@@ -221,6 +221,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._plate_map_btn = QPushButton("Show/Edit Plate Map")
         self._plate_map_btn.setIcon(icon(MDI6.view_comfy))
+        # self._plate_map_btn.setIconSize(QSize(25, 25))
         self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
         self._plate_map_wdg = QWidget()
         plate_map_lbl = QLabel("Plate Map:")
@@ -391,12 +392,12 @@ class _AnalyseCalciumTraces(QWidget):
         self._run_btn = QPushButton("Run")
         self._run_btn.setSizePolicy(*FIXED)
         self._run_btn.setIcon(icon(MDI6.play, color=GREEN))
-        self._run_btn.setIconSize(QSize(25, 25))
+        # self._run_btn.setIconSize(QSize(25, 25))
         self._run_btn.clicked.connect(self.run)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
-        self._cancel_btn.setIconSize(QSize(25, 25))
+        # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
         # STYLING --------------------------------------------------------------------
@@ -629,7 +630,10 @@ class _AnalyseCalciumTraces(QWidget):
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
         if self._data is None or self._labels_path is None:
-            self._show_and_log_error("No Data or valid Segmentation Path provided!")
+            self._show_and_log_error(
+                "No Data or valid Segmentation Path provided!"
+                "Please load data in File > Load Data and Set Directories."
+            )
             return False
 
         if self._data.sequence is None:
