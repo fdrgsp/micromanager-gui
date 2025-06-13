@@ -390,18 +390,20 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
     else:
         p1, p2 = 0.0, 1.0
 
-    stmulations_frames_and_powers: dict[str, int] = {}
+    stimulations_frames_and_powers: dict[str, int] = {}
     # plot each ROI trace with normalized and vertically offset values
     for count, (roi_key, roi_data) in enumerate(sorted_items):
         if roi_data.dec_dff is None:
             continue
-        if not stmulations_frames_and_powers:
-            stmulations_frames_and_powers = roi_data.stmulations_frames_and_powers or {}
+        if not stimulations_frames_and_powers:
+            stimulations_frames_and_powers = (
+                roi_data.stimulations_frames_and_powers or {}
+            )
         trace = _normalize_trace_percentile(roi_data.dec_dff, p1, p2)
         offset = count * 1.1
         trace_offset = np.array(trace) + offset
 
-        if (ttime := roi_data.total_recording_time_in_sec) is not None:
+        if (ttime := roi_data.total_recording_time_sec) is not None:
             rois_rec_time.append(ttime)
 
         color = STIMULATED_COLOR if roi_data.stimulated else NON_STIMULATED_COLOR
@@ -417,7 +419,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
             )
 
     # plot the stimulation frames as vertical lines
-    for frame in stmulations_frames_and_powers:
+    for frame in stimulations_frames_and_powers:
         ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.5)
 
     ax.set_title(

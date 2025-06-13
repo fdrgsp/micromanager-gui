@@ -29,14 +29,14 @@ class TestRasterPlots:
                 raw_trace=[1.0, 2.0, 3.0, 4.0, 5.0],
                 peaks_dec_dff=[1, 3],
                 peaks_amplitudes_dec_dff=[0.5, 0.8],
-                total_recording_time_in_sec=10.0,
+                total_recording_time_sec=10.0,
             ),
             "2": ROIData(
                 well_fov_position="A2",
                 raw_trace=[2.0, 3.0, 4.0, 5.0, 6.0],
                 peaks_dec_dff=[0, 2, 4],
                 peaks_amplitudes_dec_dff=[0.3, 0.6, 0.9],
-                total_recording_time_in_sec=10.0,
+                total_recording_time_sec=10.0,
             ),
         }
 

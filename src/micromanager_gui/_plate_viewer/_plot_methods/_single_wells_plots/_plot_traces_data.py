@@ -74,7 +74,7 @@ def _plot_traces_data(
         if not trace:
             continue
 
-        if (ttime := roi_data.total_recording_time_in_sec) is not None:
+        if (ttime := roi_data.total_recording_time_sec) is not None:
             rois_rec_time.append(ttime)
 
         # plot only active neurons if asked to plot peaks or active only

@@ -10,6 +10,8 @@ import zarr
 from tifffile import imwrite
 from tqdm import tqdm
 
+from micromanager_gui._plate_viewer._util import EVENT_KEY
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -237,7 +239,7 @@ class OMEZarrReader:
         metadata = []
         for meta in self.store[pos_key].attrs.get(FRAME_META, []):
             try:
-                event_index = meta["mda_event"]["index"]  # e.g. {"p": 0, "t": 1}
+                event_index = meta[EVENT_KEY]["index"]  # e.g. {"p": 0, "t": 1}
             # this is for an older version of the metadata
             except KeyError:
                 event_index = meta["Event"]["index"]  # e.g. {"p": 0, "t": 1}

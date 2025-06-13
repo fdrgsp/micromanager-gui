@@ -640,7 +640,8 @@
     "condition_2": "t1",
     "cell_size": 522.21,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 16.205345799999442,
+    "elapsed_time_list_ms": null,
+    "total_recording_time_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -816,7 +817,7 @@
         0.8099628171771499
       ]
     },
-    "stmulations_frames_and_powers": {
+    "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
@@ -1463,7 +1464,8 @@
     "condition_2": "t1",
     "cell_size": 512.9150000000001,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 16.205345799999442,
+    "elapsed_time_list_ms": null,
+    "total_recording_time_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -1639,7 +1641,7 @@
       ]
     },
     "amplitudes_non_stimulated_peaks": null,
-    "stmulations_frames_and_powers": {
+    "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
@@ -2290,7 +2292,8 @@
     "condition_2": "t1",
     "cell_size": 632.9050000000001,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 16.205345799999442,
+    "elapsed_time_list_ms": null,
+    "total_recording_time_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -2468,7 +2471,7 @@
       ]
     },
     "amplitudes_non_stimulated_peaks": null,
-    "stmulations_frames_and_powers": {
+    "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
@@ -3117,7 +3120,8 @@
     "condition_2": "t1",
     "cell_size": 452.07500000000005,
     "cell_size_units": "\u00b5m",
-    "total_recording_time_in_sec": 16.205345799999442,
+    "elapsed_time_list_ms": null,
+    "total_recording_time_sec": 16.205345799999442,
     "active": true,
     "instantaneous_phase": [
       0.0,
@@ -3294,7 +3298,7 @@
         0.34889867287533705
       ]
     },
-    "stmulations_frames_and_powers": {
+    "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6

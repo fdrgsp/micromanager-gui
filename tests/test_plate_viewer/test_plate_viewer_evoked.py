@@ -85,10 +85,10 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
     # fmt: off
     genotype_path = Path(TEST_ANALYSIS_PATH) / "genotype_plate_map.json"
     treatment_path = Path(TEST_ANALYSIS_PATH) / "treatment_plate_map.json"
-    pv._plate_map_genotype.setValue(genotype_path)
-    pv._plate_map_treatment.setValue(treatment_path)
-    assert pv._plate_map_genotype.value() == G_MAP
-    assert pv._plate_map_treatment.value() == T_MAP
+    pv._analysis_wdg._plate_map_genotype.setValue(genotype_path)
+    pv._analysis_wdg._plate_map_treatment.setValue(treatment_path)
+    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
+    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
     # fmt: on
 
     assert pv._analysis_wdg._experiment_type_combo.currentText() == EVOKED
@@ -106,7 +106,7 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
     pv._analysis_wdg._extract_trace_data_per_position(0)
 
     # trigger save to csv
-    save_to_csv(tmp_analysis_path, pv.pv_analysis_data)
+    save_to_csv(tmp_analysis_path, pv._analysis_data)
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]
