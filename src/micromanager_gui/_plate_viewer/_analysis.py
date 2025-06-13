@@ -67,7 +67,6 @@ from ._util import (
     calculate_dff,
     create_stimulation_mask,
     get_iei,
-    get_linear_phase,
     get_overlap_roi_with_stimulated_area,
     parse_lineedit_text,
     show_error_dialog,
@@ -949,7 +948,6 @@ class _AnalyseCalciumTraces(QWidget):
                 fov_name,
                 label_value,
                 label_mask,
-                timepoints,
                 tot_time_sec,
                 evoked_experiment,
                 elapsed_time_list,
@@ -1001,7 +999,6 @@ class _AnalyseCalciumTraces(QWidget):
         fov_name: str,
         label_value: int,
         label_mask: np.ndarray,
-        timepoints: int,
         tot_time_sec: float,
         evoked_exp: bool,
         elapsed_time_list: list[float],
@@ -1125,13 +1122,6 @@ class _AnalyseCalciumTraces(QWidget):
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
 
-        # calculate the linear phase of the peaks in the dec_dff trace
-        instantaneous_phase = (
-            get_linear_phase(timepoints, peaks_dec_dff)
-            if len(peaks_dec_dff) > 0
-            else None
-        )
-
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
@@ -1153,7 +1143,6 @@ class _AnalyseCalciumTraces(QWidget):
             condition_2=condition_2,
             total_recording_time_sec=tot_time_sec,
             active=len(peaks_dec_dff) > 0,
-            instantaneous_phase=instantaneous_phase,
             iei=iei,
             evoked_experiment=evoked_exp,
             stimulated=is_roi_stimulated,

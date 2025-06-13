@@ -7,7 +7,11 @@ import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
-from micromanager_gui._plate_viewer._util import _get_synchrony_matrix, get_synchrony
+from micromanager_gui._plate_viewer._util import (
+    _get_synchrony_matrix,
+    get_linear_phase,
+    get_synchrony,
+)
 
 if TYPE_CHECKING:
     from matplotlib.image import AxesImage
@@ -27,9 +31,26 @@ def _plot_synchrony_data(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    phase_dict = _get_phase_dict_from_rois(data, rois)
-    if phase_dict is None:
+    if rois is None:
+        rois = [int(roi) for roi in data if roi.isdigit()]
+
+    # if less than two rois input, can't calculate synchrony
+    if len(rois) < 2:
         return None
+
+    phase_dict: dict[str, list[float]] = {}
+    for roi, roi_data in data.items():
+        if int(roi) not in rois:
+            continue
+        if (
+            not roi_data.dec_dff
+            or not roi_data.peaks_dec_dff
+            or len(roi_data.peaks_dec_dff) < 1
+        ):
+            continue
+        frames = len(roi_data.dec_dff)
+        peaks = np.array(roi_data.peaks_dec_dff)
+        phase_dict[roi] = get_linear_phase(frames, peaks)
 
     synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
@@ -63,28 +84,6 @@ def _plot_synchrony_data(
     _add_hover_functionality(img, widget, active_rois, synchrony_matrix)
     widget.figure.tight_layout()
     widget.canvas.draw()
-
-
-def _get_phase_dict_from_rois(
-    roi_data_dict: dict[str, ROIData], rois: list[int] | None = None
-) -> dict[str, list[float]] | None:
-    """Get the phase info from the wanted ROIs."""
-    phase_dict: dict[str, list[float]] = {}
-
-    if rois is None:
-        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
-
-    # if less than two rois input, can't calculate synchrony
-    if len(rois) < 2:
-        return None
-
-    for roi, roi_data in roi_data_dict.items():
-        if int(roi) not in rois:
-            continue
-        if (phase_list := roi_data.instantaneous_phase) is not None:
-            phase_dict[roi] = phase_list
-
-    return phase_dict
 
 
 def _add_hover_functionality(
