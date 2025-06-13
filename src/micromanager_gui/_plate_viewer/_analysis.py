@@ -629,10 +629,18 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _validate_input_data(self) -> bool:
         """Check if required input data is available."""
-        if self._data is None or self._labels_path is None:
+        if self._data is None:
             self._show_and_log_error(
-                "No Data or valid Segmentation Path provided!"
-                "Please load data in File > Load Data and Set Directories."
+                "No Data provided!\n"
+                "Please load data in File > Load Data and Set Directories..."
+            )
+            return False
+
+        if self._labels_path is None:
+            self._show_and_log_error(
+                "Please select the Segmentation Path.\n"
+                "You can do this in File > Load Data and Set Directories...' "
+                "and set the Segmentation Path'."
             )
             return False
 
@@ -669,11 +677,19 @@ class _AnalyseCalciumTraces(QWidget):
         if path := self._analysis_path:
             analysis_path = Path(path)
             if not analysis_path.is_dir():
-                self._show_and_log_error("Analysis Path is not a valid directory!")
+                self._show_and_log_error(
+                    "The Analysis Path is not a valid directory!\n"
+                    "Please select a valid path in File > "
+                    "Load Data and Set Directories...' and set a valid Analysis Path'."
+                )
                 return None
             return analysis_path
 
-        self._show_and_log_error("No Analysis Path provided!")
+        self._show_and_log_error(
+            "Please select the Analysis Path.\n"
+            "You can do this in File > Load Data and Set Directories...' "
+            "and set the Analysis Path'."
+        )
         return None
 
     def _is_evoked_experiment(self) -> bool:
