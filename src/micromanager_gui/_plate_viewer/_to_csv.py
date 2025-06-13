@@ -48,32 +48,6 @@ SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY]
 # fmt: on
 
 
-def save_trace_data_to_csv(
-    path: str | Path,
-    analysis_data: dict[str, dict[str, ROIData]] | None,
-) -> None:
-    """Save the trace data as CSV files."""
-    if not analysis_data:
-        return
-    if isinstance(path, str):
-        path = Path(path)
-
-    # Save the data as CSV files
-    msg = f"Exporting data to `{path}`..."
-    LOGGER.info(msg)
-    try:
-        _export_raw_data(path, analysis_data)
-        _export_dff_data(path, analysis_data)
-        _export_dec_dff_data(path, analysis_data)
-        _export_inferred_spikes_data(path, analysis_data)
-    except Exception as e:
-        error_msg = f"Error exporting data to CSV: {e}"
-        LOGGER.error(error_msg)
-        return
-
-    LOGGER.info("Exporting data to CSV: DONE!")
-
-
 def save_to_csv(
     path: str | Path,
     analysis_data: dict[str, dict[str, ROIData]] | None,
@@ -103,6 +77,10 @@ def save_to_csv(
     msg = f"Exporting data to `{path}`..."
     LOGGER.info(msg)
     try:
+        _export_raw_data(path, analysis_data)
+        _export_dff_data(path, analysis_data)
+        _export_dec_dff_data(path, analysis_data)
+        _export_inferred_spikes_data(path, analysis_data)
         _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
         _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
     except Exception as e:

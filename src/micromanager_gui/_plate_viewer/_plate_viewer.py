@@ -261,7 +261,7 @@ class PlateViewer(QMainWindow):
 
         # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
         # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        # self._analysis_path = "/Users/fdrgsp/Desktop/t"
+        # self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
         # self.initialize_widget(data, self._labels_path, self._analysis_path)
         # fmt: on
         # ____________________________________________________________________________
@@ -534,14 +534,14 @@ class PlateViewer(QMainWindow):
         # set the segmentation widget data
         self._segmentation_wdg.data = self._data
         self._segmentation_wdg.labels_path = self._labels_path
-        # set the plate map
-        self._analysis_wdg._load_plate_map(plate)
         # set the analysis widget data
         self._analysis_wdg.data = self._data
         self._analysis_wdg.analysis_data = self._analysis_data
         self._analysis_wdg.analysis_path = self._analysis_path
         self._analysis_wdg.labels_path = self._labels_path
         self._analysis_wdg.update_widget_form_settings()
+        # set the plate map
+        self._analysis_wdg._load_plate_map(plate)
         # set the stimulation mask if it exists
         if self._analysis_wdg.analysis_path:
             # if a file namend "stimulation_mask.tif" exists in the analysis path

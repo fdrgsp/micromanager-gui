@@ -15,7 +15,7 @@ import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
-from qtpy.QtCore import QSize, Signal
+from qtpy.QtCore import Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
@@ -623,7 +623,7 @@ class _AnalyseCalciumTraces(QWidget):
         if self._led_power_equation:
             self._save_led_equation_to_json_settings(eq)
 
-        self._save_noise_multipliers_to_json_settings()
+        self._save_settings_as_json()
 
         return self._get_positions_to_analyze()
 
@@ -1323,7 +1323,7 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             LOGGER.error(f"Failed to save LED power equation: {e}")
 
-    def _save_noise_multipliers_to_json_settings(self) -> None:
+    def _save_settings_as_json(self) -> None:
         """Save the noise multiplier to a JSON file."""
         if not self.analysis_path:
             return
