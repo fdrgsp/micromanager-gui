@@ -167,7 +167,7 @@ class TestCellposeSegmentation:
         qtbot.addWidget(widget)
 
         # Test getter when empty
-        assert widget.labels_path == ""
+        assert widget.labels_path is None
 
         # Test setter
         test_path = str(temp_dir)
@@ -176,7 +176,7 @@ class TestCellposeSegmentation:
 
         # Test setter with None
         widget.labels_path = None
-        assert widget.labels_path == ""
+        assert widget.labels_path is None
 
     def test_model_combo_changed(self, qtbot):
         """Test model combo box changes."""
@@ -399,24 +399,6 @@ class TestCellposeSegmentation:
             assert model is None
             mock_error.assert_called_once()
 
-    def test_update_plate_viewer_labels_path(self, qtbot, mock_plate_viewer):
-        """Test updating plate viewer labels path."""
-        widget = _CellposeSegmentation(parent=mock_plate_viewer)
-        qtbot.addWidget(widget)
-
-        test_path = "/test/path"
-        widget._update_plate_viewer_labels_path(test_path)
-
-        assert mock_plate_viewer.pv_labels_path == test_path
-
-    def test_update_plate_viewer_labels_path_no_parent(self, qtbot):
-        """Test updating labels path when no parent."""
-        widget = _CellposeSegmentation()
-        qtbot.addWidget(widget)
-
-        # Should not raise an error
-        widget._update_plate_viewer_labels_path("/test/path")
-
     def test_enable_disable_widgets(self, qtbot, mock_plate_viewer):
         """Test enabling/disabling widgets."""
         widget = _CellposeSegmentation(parent=mock_plate_viewer)
@@ -424,24 +406,23 @@ class TestCellposeSegmentation:
 
         # Test disabling
         widget._enable(False)
-        assert not widget._models_combo.isEnabled()
+        assert not widget._model_wdg.isEnabled()
         assert not widget._browse_custom_model.isEnabled()
-        assert not widget._labels_path.isEnabled()
-        assert not widget._pos_le.isEnabled()
+        assert not widget._diameter_wdg.isEnabled()
+        assert not widget._pos_wdg.isEnabled()
         assert not widget._run_btn.isEnabled()
 
         # Verify plate viewer widgets are disabled
-        mock_plate_viewer._plate_map_group.setEnabled.assert_called_with(False)
         mock_plate_viewer._analysis_wdg.setEnabled.assert_called_with(False)
         mock_plate_viewer._tab.setTabEnabled.assert_any_call(1, False)
         mock_plate_viewer._tab.setTabEnabled.assert_any_call(2, False)
 
         # Test enabling
         widget._enable(True)
-        assert widget._models_combo.isEnabled()
+        assert widget._model_wdg.isEnabled()
         assert widget._browse_custom_model.isEnabled()
-        assert widget._labels_path.isEnabled()
-        assert widget._pos_le.isEnabled()
+        assert widget._diameter_wdg.isEnabled()
+        assert widget._pos_wdg.isEnabled()
         assert widget._run_btn.isEnabled()
 
     def test_enable_disable_widgets_no_parent(self, qtbot):

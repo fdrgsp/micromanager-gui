@@ -7,7 +7,7 @@ import tifffile
 from cellpose import core, models
 from cellpose.models import CellposeModel
 from fonticon_mdi6 import MDI6
-from qtpy.QtCore import QSize, Signal
+from qtpy.QtCore import Signal
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
