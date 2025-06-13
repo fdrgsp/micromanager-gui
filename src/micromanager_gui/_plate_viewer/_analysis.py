@@ -46,6 +46,7 @@ from ._util import (
     COND1,
     COND2,
     DFF_WINDOW,
+    EVENT_KEY,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
@@ -539,7 +540,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.start()
 
-    def _update_widget_form_settings(self) -> None:
+    def update_widget_form_settings(self) -> None:
         """Update the widget form from the JSON settings."""
         if not self._analysis_path:
             return None
@@ -857,7 +858,7 @@ class _AnalyseCalciumTraces(QWidget):
         data, meta = self._data.isel(p=p, metadata=True)
 
         # the "Event" key was used in the old metadata format
-        event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+        event_key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
 
         # get the fov_name name from metadata
         fov_name = self._get_fov_name(event_key, meta, p)
@@ -1003,7 +1004,7 @@ class _AnalyseCalciumTraces(QWidget):
         roi_trace: np.ndarray = masked_data.mean(axis=1)
         win = self._dff_window_size_spin.value()
         # calculate the dff of the roi trace
-        dff: np.ndarray = calculate_dff(roi_trace, window=win, plot=False)
+        dff = calculate_dff(roi_trace, window=win, plot=False)
 
         # deconvolve the dff trace with adaptive penalty
         dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
@@ -1102,10 +1103,8 @@ class _AnalyseCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            # raw_trace=cast(list[float], roi_trace.tolist()),
-            raw_trace=roi_trace.tolist(),
-            # dff=cast(list[float], dff.tolist()),
-            dff=dff.tolist(),
+            raw_trace=cast(list[float], roi_trace.tolist()),
+            dff=cast(list[float], dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,

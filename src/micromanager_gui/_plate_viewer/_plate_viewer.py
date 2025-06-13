@@ -52,6 +52,7 @@ from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
 from ._to_csv import save_to_csv
 from ._util import (
+    EVENT_KEY,
     GENOTYPE_MAP,
     PLATE_PLAN,
     SETTINGS_PATH,
@@ -253,10 +254,10 @@ class PlateViewer(QMainWindow):
 
         # TO REMOVE, IT IS ONLY TO TEST________________________________________________
         # fmt off
-        data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
-        self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
-        self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
-        self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
+        # data = "tests/test_plate_viewer/data/evoked/evk.tensorstore.zarr"
+        # self._pv_labels_path = "tests/test_plate_viewer/data/evoked/evk_labels"
+        # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
+        # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
         # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
         # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
@@ -345,15 +346,11 @@ class PlateViewer(QMainWindow):
         if self._analysis_path:
             self._load_and_set_analysis_data(self._analysis_path)
 
-        # UPDATE SEGMENTATION AND ANALYSIS WIDGETS-------------------------------------
-
-        self._set_widgets_data()
-
         # LOAD PLATE-------------------------------------------------------------------
         plate = self._load_plate_plan(self._data.sequence.stage_positions)
 
-        # LOAD PLATE MAP---------------------------------------------------------------
-        self._analysis_wdg._load_plate_map(plate)
+        # UPDATE SEGMENTATION AND ANALYSIS WIDGETS-------------------------------------
+        self._set_widgets_data(plate)
 
     # WIDGET INITIALIZATION------------------------------------------------------------
 
@@ -532,17 +529,19 @@ class PlateViewer(QMainWindow):
 
         return filtered_paths
 
-    def _set_widgets_data(self) -> None:
+    def _set_widgets_data(self, plate: useq.WellPlate | None) -> None:
         """Update the segmentation and analysis widgets data."""
         # set the segmentation widget data
         self._segmentation_wdg.data = self._data
         self._segmentation_wdg.labels_path = self._labels_path
-        # set the traces extraction widget data
+        # set the plate map
+        self._analysis_wdg._load_plate_map(plate)
         # set the analysis widget data
         self._analysis_wdg.data = self._data
         self._analysis_wdg.analysis_data = self._analysis_data
         self._analysis_wdg.analysis_path = self._analysis_path
         self._analysis_wdg.labels_path = self._labels_path
+        self._analysis_wdg.update_widget_form_settings()
         # set the stimulation mask if it exists
         if self._analysis_wdg.analysis_path:
             # if a file namend "stimulation_mask.tif" exists in the analysis path
@@ -831,7 +830,7 @@ class PlateViewer(QMainWindow):
         for pos in tqdm(positions, desc="Saving as tiff"):
             data, meta = self._data.isel(p=pos, metadata=True)
             # the "Event" key was used in the old metadata format
-            event_key = "mda_event" if "mda_event" in meta[0] else "Event"
+            event_key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
             # get the well name from metadata
             pos_name = (
                 meta[0].get(event_key, {}).get("pos_name", f"pos_{str(pos).zfill(4)}")

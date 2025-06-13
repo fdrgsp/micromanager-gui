@@ -30,6 +30,7 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._util import (
+    EVENT_KEY,
     GREEN,
     RED,
     _BrowseWidget,
@@ -374,7 +375,7 @@ class _CellposeSegmentation(QWidget):
             data, meta = self._data.isel(p=p, metadata=True)
 
             # get position name from metadata (in old metadata, the key was "Event")
-            key = "mda_event" if "mda_event" in meta[0] else "Event"
+            key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
             pos_name = meta[0].get(key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
             # yield the current position name to update the progress bar
             yield f"[Well {pos_name} p{p} (tot {len(positions)})]"

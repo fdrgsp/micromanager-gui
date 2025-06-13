@@ -50,6 +50,7 @@ EVK_NON_STIM = "evk_non_stim"
 MEAN_SUFFIX = "_Mean"
 SEM_SUFFIX = "_SEM"
 N_SUFFIX = "_N"
+EVENT_KEY = "mda_event"
 
 
 @dataclass
