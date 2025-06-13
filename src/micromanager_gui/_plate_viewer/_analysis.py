@@ -46,6 +46,7 @@ from ._to_csv import save_to_csv
 from ._util import (
     COND1,
     COND2,
+    DECAY_CONSTANT,
     DFF_WINDOW,
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -314,6 +315,25 @@ class _AnalyseCalciumTraces(QWidget):
         dff_layout.addWidget(dff_lbl)
         dff_layout.addWidget(self._dff_window_size_spin)
 
+        # DECONVOLUTION SETTINGS -------------------------------------------------
+        self._dec_wdg = QWidget(self)
+        self._dec_wdg.setToolTip(
+            "Calcium sensor decay constant in secinds.\n"
+            "Insert 0 to let OASIS auto-detect it."
+        )
+        decay_const_lbl = QLabel("Decay Constant (s):")
+        decay_const_lbl.setSizePolicy(*FIXED)
+        self._decay_constant_spin = QDoubleSpinBox(self)
+        dec_wdg_layout = QHBoxLayout(self._dec_wdg)
+        self._decay_constant_spin.setDecimals(2)
+        self._decay_constant_spin.setRange(0.0, 10.0)
+        self._decay_constant_spin.setSingleStep(0.1)
+        self._decay_constant_spin.setSpecialValueText("Auto Detect")
+        dec_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        dec_wdg_layout.setSpacing(5)
+        dec_wdg_layout.addWidget(decay_const_lbl)
+        dec_wdg_layout.addWidget(self._decay_constant_spin)
+
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
 
@@ -409,6 +429,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance_lbl.setFixedWidth(fixed_width)
         dff_lbl.setFixedWidth(fixed_width)
         plate_map_lbl.setFixedWidth(fixed_width)
+        decay_const_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         def create_divider_line() -> QFrame:
@@ -442,6 +463,7 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._dff_wdg)
+        wdg_layout.addWidget(self._dec_wdg)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
@@ -578,6 +600,8 @@ class _AnalyseCalciumTraces(QWidget):
         settings = cast(dict, json.load(f))
         dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
         self._dff_window_size_spin.setValue(dff_window)
+        decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
+        self._decay_constant_spin.setValue(decay)
         pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
         self._led_power_equation_le.setText(pp)
         h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
@@ -1035,10 +1059,22 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the dff of the roi trace
         dff = calculate_dff(roi_trace, window=win, plot=False)
 
+        # compute the decay constant
+        tau = self._decay_constant_spin.value()
+        g: tuple[float, ...] | None = None
+        if tau:
+            fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
+            g = np.exp(-1 / (fs * tau))
+        else:
+            g = None
         # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
         dec_dff = cast(np.ndarray, dec_dff)
         spikes = cast(np.ndarray, spikes)
+        LOGGER.info(
+            f"Decay constant: {t} seconds, "
+            f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
+        )
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1294,6 +1330,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._experiment_type_wdg.setEnabled(enable)
         self._stimulation_area_path.setEnabled(enable)
         self._dff_wdg.setEnabled(enable)
+        self._dec_wdg.setEnabled(enable)
         self._peaks_distance_wdg.setEnabled(enable)
         self._peaks_height_wdg.setEnabled(enable)
         self._peaks_prominence_wdg.setEnabled(enable)
@@ -1348,13 +1385,13 @@ class _AnalyseCalciumTraces(QWidget):
                     settings = json.load(f)
 
             settings[DFF_WINDOW] = self._dff_window_size_spin.value()
-            settings[PEAKS_PROMINENCE_MULTIPLIER] = (
-                self._peaks_prominence_multiplier_spin.value()
-            )
+            settings[DECAY_CONSTANT] = self._decay_constant_spin.value()
             peaks_h_data = self._peaks_height_wdg.value()
             settings[PEAKS_HEIGHT_VALUE] = peaks_h_data.get("value", DEFAULT_HEIGHT)
             settings[PEAKS_HEIGHT_MODE] = peaks_h_data.get("mode", GLOBAL_HEIGHT)
             settings[PEAKS_DISTANCE] = self._peaks_distance_spin.value()
+            prom = self._peaks_prominence_multiplier_spin.value()
+            settings[PEAKS_PROMINENCE_MULTIPLIER] = prom
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

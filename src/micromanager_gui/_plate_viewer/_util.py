@@ -51,6 +51,7 @@ MEAN_SUFFIX = "_Mean"
 SEM_SUFFIX = "_SEM"
 N_SUFFIX = "_N"
 EVENT_KEY = "mda_event"
+DECAY_CONSTANT = "decay constant"
 
 
 @dataclass
@@ -83,7 +84,6 @@ class ROIData(BaseClass):
     elapsed_time_list_ms: list[float] | None = None  # in ms
     total_recording_time_sec: float | None = None  # in seconds
     active: bool | None = None
-    instantaneous_phase: list[float] | None = None
     iei: list[float] | None = None  # interevent interval
     evoked_experiment: bool = False
     stimulated: bool = False
