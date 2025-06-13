@@ -182,8 +182,6 @@ class _ExtractCalciumTraces(QWidget):
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
-        wdg_layout.addWidget(self._analysis_path)
-        wdg_layout.addSpacing(10)
         wdg_layout.addWidget(self._dff_wdg)
         wdg_layout.addSpacing(10)
         wdg_layout.addWidget(self._pos_wdg)

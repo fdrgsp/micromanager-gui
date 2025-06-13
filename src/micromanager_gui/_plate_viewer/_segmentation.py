@@ -417,6 +417,7 @@ class _CellposeSegmentation(QWidget):
         if self._plate_viewer is None:
             return
         self._plate_viewer._analysis_wdg.setEnabled(enable)
+        self._plate_viewer._traces_extraction_wdg.setEnabled(enable)
         # disable graphs tabs
         self._plate_viewer._tab.setTabEnabled(1, enable)
         self._plate_viewer._tab.setTabEnabled(2, enable)
