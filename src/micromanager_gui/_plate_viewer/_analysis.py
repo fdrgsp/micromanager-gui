@@ -318,8 +318,10 @@ class _AnalyseCalciumTraces(QWidget):
         # DECONVOLUTION SETTINGS -------------------------------------------------
         self._dec_wdg = QWidget(self)
         self._dec_wdg.setToolTip(
-            "Calcium sensor decay constant in secinds.\n"
-            "Insert 0 to let OASIS auto-detect it."
+            "Decay constant (tau) for calcium indicator deconvolution.\n"
+            "Set to 0 for automatic estimation by OASIS algorithm.\n\n"
+            "The decay constant represents how quickly the calcium indicator\n"
+            "returns to baseline after a calcium transient."
         )
         decay_const_lbl = QLabel("Decay Constant (s):")
         decay_const_lbl.setSizePolicy(*FIXED)
@@ -328,7 +330,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._decay_constant_spin.setDecimals(2)
         self._decay_constant_spin.setRange(0.0, 10.0)
         self._decay_constant_spin.setSingleStep(0.1)
-        self._decay_constant_spin.setSpecialValueText("Auto Detect")
+        self._decay_constant_spin.setSpecialValueText("Auto")
         dec_wdg_layout.setContentsMargins(0, 0, 0, 0)
         dec_wdg_layout.setSpacing(5)
         dec_wdg_layout.addWidget(decay_const_lbl)
@@ -1062,7 +1064,7 @@ class _AnalyseCalciumTraces(QWidget):
         # compute the decay constant
         tau = self._decay_constant_spin.value()
         g: tuple[float, ...] | None = None
-        if tau:
+        if tau > 0.0:
             fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
             g = np.exp(-1 / (fs * tau))
         else:
