@@ -201,7 +201,11 @@ class TestCellposeSegmentation:
         widget = _CellposeSegmentation()
         qtbot.addWidget(widget)
 
-        assert not widget._validate_segmentation_setup()
+        with patch(
+            "micromanager_gui._plate_viewer._segmentation.show_error_dialog"
+        ) as mock_error:
+            assert not widget._validate_segmentation_setup()
+            mock_error.assert_called_once()
 
     def test_validate_segmentation_setup_no_output_path(self, qtbot, mock_data):
         """Test validation when no output path is set."""
