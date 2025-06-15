@@ -32,7 +32,10 @@ SAVE_MAP = {
     "raw_data": {"test_analysis_raw_data.csv"},
     "dff_data": {"test_analysis_dff_data.csv"},
     "dec_dff_data": {"test_analysis_dec_dff_data.csv"},
-    "inferred_spikes_data": {"test_analysis_inferred_spikes_data.csv"},
+    "inferred_spikes_data": {
+        "test_analysis_inferred_spikes_raw_data.csv",
+        "test_analysis_inferred_spikes_thresholded_data.csv",
+    },
     "grouped": {
         "test_analysis_amplitude.csv",
         "test_analysis_percentage_active.csv",

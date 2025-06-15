@@ -36,9 +36,9 @@ class TestSynchronyPlots:
             ),
         }
 
-    @patch("micromanager_gui._plate_viewer._util.get_linear_phase")
+    @patch("micromanager_gui._plate_viewer._util._get_linear_phase")
     @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
-    @patch("micromanager_gui._plate_viewer._util.get_synchrony")
+    @patch("micromanager_gui._plate_viewer._util._get_synchrony")
     def test_plot_synchrony_data_success(
         self,
         mock_get_synchrony,
@@ -76,7 +76,7 @@ class TestSynchronyPlots:
         assert result is None
         mock_widget.figure.clear.assert_called_once()
 
-    @patch("micromanager_gui._plate_viewer._util.get_linear_phase")
+    @patch("micromanager_gui._plate_viewer._util._get_linear_phase")
     @patch("micromanager_gui._plate_viewer._util._get_synchrony_matrix")
     def test_plot_synchrony_data_no_matrix(
         self, mock_get_matrix, mock_get_linear_phase, mock_widget, sample_roi_data

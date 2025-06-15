@@ -208,29 +208,27 @@ class TestInferredSpikesPlots:
         """Test setting graph title and labels for normalized plot."""
         mock_ax = Mock()
 
-        _set_graph_title_and_labels(mock_ax, normalize=True, thresholds=False)
+        _set_graph_title_and_labels(mock_ax, normalize=True, raw=False)
 
-        mock_ax.set_title.assert_called_once_with("Normalized Inferred Spikes")
+        mock_ax.set_title.assert_called_once_with("Normalized Inferred Spikes (Thresholded)")
         mock_ax.set_ylabel.assert_called_once_with("ROIs")
 
     def test_set_graph_title_and_labels_not_normalized(self):
         """Test setting graph title and labels for non-normalized plot."""
         mock_ax = Mock()
 
-        _set_graph_title_and_labels(mock_ax, normalize=False, thresholds=False)
+        _set_graph_title_and_labels(mock_ax, normalize=False, raw=False)
 
-        mock_ax.set_title.assert_called_once_with("Inferred Spikes")
+        mock_ax.set_title.assert_called_once_with("Inferred Spikes (Thresholded)")
         mock_ax.set_ylabel.assert_called_once_with("Inferred Spikes (magnitude)")
 
-    def test_set_graph_title_and_labels_with_thresholds(self):
-        """Test setting graph title and labels with thresholds enabled."""
+    def test_set_graph_title_and_labels_with_raw_mode(self):
+        """Test setting graph title and labels with raw mode enabled."""
         mock_ax = Mock()
 
-        _set_graph_title_and_labels(
-            mock_ax, normalize=False, thresholds=True, spikes_threshold=0.5
-        )
+        _set_graph_title_and_labels(mock_ax, normalize=False, raw=True)
 
-        mock_ax.set_title.assert_called_once_with("Inferred Spikes (Threshold: 0.5000)")
+        mock_ax.set_title.assert_called_once_with("Inferred Spikes (Raw)")
         mock_ax.set_ylabel.assert_called_once_with("Inferred Spikes (magnitude)")
 
     def test_update_time_axis_with_recording_time(self):
