@@ -55,7 +55,7 @@ INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - Onl
 INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes Thresholded with Deconvolved ΔF/F0 Traces"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes Thresholded Normalized"
 INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes Thresholded Normalized (Active Only)"  # noqa: E501
-INFERRED_SPIKES_SYNCHRONY = "Inferred Spikes Synchrony"
+INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes Thresholded Synchrony"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
@@ -97,7 +97,7 @@ INFERRED_SPIKES_GROUP = {
     INFERRED_SPIKES_THRESHOLDED_NORMALIZED: {"normalize": True},
     INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY: {"normalize": True, "active_only": True},
     INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF: {"dec_dff": True},
-    INFERRED_SPIKES_SYNCHRONY: {},
+    INFERRED_SPIKES_THRESHOLDED_SYNCHRONY: {},
 }
 
 AMPLITUDE_AND_FREQUENCY_GROUP = {
@@ -192,7 +192,7 @@ def plot_single_well_data(
             return _plot_inferred_spikes(
                 widget, data, rois, **INFERRED_SPIKES_GROUP[text]
             )
-        if text == INFERRED_SPIKES_SYNCHRONY:
+        if text == INFERRED_SPIKES_THRESHOLDED_SYNCHRONY:
             return _plot_spike_synchrony_data(
                 widget, data, rois, **INFERRED_SPIKES_GROUP[text]
             )
