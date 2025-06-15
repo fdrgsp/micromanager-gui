@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import mplcursors
 import numpy as np
 
@@ -83,7 +83,7 @@ def _plot_spike_synchrony_data(
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
+        cm.ScalarMappable(cmap="viridis", norm=mcolors.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Spike Synchrony Index")
@@ -126,15 +126,20 @@ def _get_spike_trains_from_rois(
     if len(rois) < 2:
         return None
 
-    for roi, roi_data in roi_data_dict.items():
-        if int(roi) not in rois or not roi_data.active:
+    for roi_key, roi_data in roi_data_dict.items():
+        try:
+            roi_id = int(roi_key)
+            if roi_id not in rois or not roi_data.active:
+                continue
+        except ValueError:
+            # Skip non-numeric ROI keys when rois filter is specified
             continue
 
         if (spike_probs := roi_data.inferred_spikes) is not None:
             # Convert spike probabilities to binary spike train
             spike_train = np.array(spike_probs) > 0.0
             if np.sum(spike_train) > 0:  # Only include ROIs with at least one spike
-                spike_trains[roi] = spike_train
+                spike_trains[roi_key] = spike_train
 
     return spike_trains if len(spike_trains) >= 2 else None
 
@@ -206,9 +211,7 @@ def _calculate_spike_synchrony_matrix(
             phase_dict[roi_name] = get_linear_phase(len(spike_train), spike_indices)
 
     # Use existing PLV-based synchrony matrix calculation
-    synchrony_matrix = _get_synchrony_matrix(phase_dict)
-
-    return synchrony_matrix
+    return _get_synchrony_matrix(phase_dict)
 
 
 def _add_hover_functionality(
