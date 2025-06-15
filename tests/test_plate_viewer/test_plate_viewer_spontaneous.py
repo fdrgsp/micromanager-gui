@@ -176,9 +176,9 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     )
     with open(reference_settings_file) as file1:
         reference_settings_data = cast(dict, json.load(file1))
-    assert settings_data == reference_settings_data, (
-        f"Settings data mismatch: {settings_data} != {reference_settings_data}"
-    )
+    assert (
+        settings_data == reference_settings_data
+    ), f"Settings data mismatch: {settings_data} != {reference_settings_data}"
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
