@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pprint import pp
 from typing import TYPE_CHECKING, cast
 
 import mplcursors
@@ -152,25 +153,27 @@ def _plot_trace(
             # Position the vertical lines at x=0 (left side of plot)
             if roi_data.peaks_height_dec_dff is not None:
                 # Vertical line from 0 to height threshold value
+                ph = roi_data.peaks_height_dec_dff
                 ax.plot(
                     [-3, -3],
-                    [0, roi_data.peaks_height_dec_dff],
+                    [0, ph],
                     color="black",
                     linestyle="-",
                     linewidth=3,
                     alpha=0.8,
-                    label="Peaks Height Threshold",
+                    label=f"Peaks Height threshold\n(ROI {roi_key} - {ph:.4f})",
                 )
             if roi_data.peaks_prominence_dec_dff is not None:
                 # Vertical line from 0 to prominence threshold value
+                pp = roi_data.peaks_prominence_dec_dff
                 ax.plot(
                     [-1, -1],
-                    [0, roi_data.peaks_prominence_dec_dff],
+                    [0, pp],
                     color="orange",
                     linestyle="-",
                     linewidth=3,
                     alpha=0.8,
-                    label="Peaks Prominence Threshold",
+                    label=f"Peaks Prominence Threshold \n(ROI {roi_key} - {pp:.4f})",
                 )
 
 
