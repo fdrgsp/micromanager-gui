@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
-from sympy import li
 import tifffile
 import useq
 from fonticon_mdi6 import MDI6
