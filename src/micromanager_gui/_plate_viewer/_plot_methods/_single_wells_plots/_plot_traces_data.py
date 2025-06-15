@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pprint import pp
 from typing import TYPE_CHECKING, cast
 
 import mplcursors
