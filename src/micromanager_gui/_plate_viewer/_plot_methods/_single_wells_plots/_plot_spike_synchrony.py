@@ -28,7 +28,7 @@ def _plot_spike_synchrony_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    spike_threshold: float = 0.0, # TODO: remove and add parameter for analysis
+    spike_threshold: float = 0.0,  # TODO: remove and add parameter for analysis
 ) -> None:
     """Plot spike-based synchrony analysis.
 
