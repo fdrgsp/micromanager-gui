@@ -270,7 +270,7 @@ class _AnalyseCalciumTraces(QWidget):
             "• Exponential: y = a*exp(b*x) + c (e.g. y = 2*exp(0.1*x) + 1)\n"
             "• Power: y = a*x^b + c (e.g. y = 2*x^0.5 + 1)\n"
             "• Logarithmic: y = a*log(x) + b (e.g. y = 2*log(x) + 1)\n"
-            "Leave empty to use values from metadata (%)."
+            "Leave empty to use values from the acquisition metadata (%)."
         )
         led_lbl = QLabel("LED Power Equation:")
         led_lbl.setSizePolicy(*FIXED)
