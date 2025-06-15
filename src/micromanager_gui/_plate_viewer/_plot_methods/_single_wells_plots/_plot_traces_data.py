@@ -28,11 +28,15 @@ def _plot_traces_data(
     normalize: bool = False,
     with_peaks: bool = False,
     active_only: bool = False,
+    thresholds: bool = False,
 ) -> None:
     """Plot traces data."""
     # clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
+
+    # show peaks thresholds only if only 1 roi is selected
+    thresholds = thresholds if rois and len(rois) == 1 else False
 
     # compute nth and nth percentiles globally
     p1 = p2 = 0.0
@@ -81,7 +85,18 @@ def _plot_traces_data(
         if (with_peaks or active_only) and not roi_data.active:
             continue
 
-        _plot_trace(ax, roi_key, trace, normalize, with_peaks, roi_data, count, p1, p2)
+        _plot_trace(
+            ax,
+            roi_key,
+            trace,
+            normalize,
+            with_peaks,
+            roi_data,
+            count,
+            p1,
+            p2,
+            thresholds,
+        )
         last_trace = trace
         count += COUNT_INCREMENT
 
@@ -115,6 +130,7 @@ def _plot_trace(
     count: int,
     p1: float,
     p2: float,
+    thresholds: bool = False,
 ) -> None:
     """Plot trace data with optional percentile-based normalization and peaks."""
     offset = count * 1.1  # vertical offset
@@ -130,6 +146,32 @@ def _plot_trace(
     if with_peaks and roi_data.peaks_dec_dff:
         peaks_indices = [int(p) for p in roi_data.peaks_dec_dff]
         ax.plot(peaks_indices, np.array(trace)[peaks_indices], "x")
+
+        # Add vertical lines for peaks height and prominence thresholds
+        if thresholds:
+            # Position the vertical lines at x=0 (left side of plot)
+            if roi_data.peaks_height_dec_dff is not None:
+                # Vertical line from 0 to height threshold value
+                ax.plot(
+                    [-3, -3],
+                    [0, roi_data.peaks_height_dec_dff],
+                    color="black",
+                    linestyle="-",
+                    linewidth=3,
+                    alpha=0.8,
+                    label="Peaks Height Threshold",
+                )
+            if roi_data.peaks_prominence_dec_dff is not None:
+                # Vertical line from 0 to prominence threshold value
+                ax.plot(
+                    [-1, -1],
+                    [0, roi_data.peaks_prominence_dec_dff],
+                    color="orange",
+                    linestyle="-",
+                    linewidth=3,
+                    alpha=0.8,
+                    label="Peaks Prominence Threshold",
+                )
 
 
 def _normalize_trace_percentile(

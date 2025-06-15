@@ -42,6 +42,7 @@ DFF_NORMALIZED = "ΔF/F0 Normalized"
 DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved ΔF/F0 Normalized (Active Only)"
 DEC_DFF = "Deconvolved ΔF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved ΔF/F0 with Peaks"
+DEC_DFF_WITH_PEAKS_AND_THRESHOLDS = "Deconvolved ΔF/F0 with Peaks and Thresholds (Only if 1 ROI selected)"  # noqa: E501
 DEC_DFF_NORMALIZED = "Deconvolved ΔF/F0 Normalized"
 DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved ΔF/F0 Normalized with Peaks"
 DEC_DFF_AMPLITUDE = "Deconvolved ΔF/F0 Amplitudes"
@@ -80,10 +81,11 @@ TRACES_GROUP = {
     DFF: {"dff": True},
     DFF_NORMALIZED: {"dff": True, "normalize": True},
     DEC_DFF: {"dec": True},
-    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True,}, # "active_only": True default with "with_peaks" # noqa: E501
+    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True,},
+    DEC_DFF_WITH_PEAKS_AND_THRESHOLDS: {"dec": True, "with_peaks": True, "thresholds": True},  # noqa: E501
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_ACTIVE_ONLY: {"dec": True, "normalize": True, "active_only": True},  # noqa: E501
-    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},  # "active_only": True default with "with_peaks" # noqa: E501
+    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
 }
 
 INFERRED_SPIKES_GROUP = {
