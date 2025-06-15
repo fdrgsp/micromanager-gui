@@ -93,6 +93,11 @@ class ROIData(BaseClass):
     # but are not due to direct light stimulation
     amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
     stimulations_frames_and_powers: dict[str, int] | None = None
+    # Store ROI mask as coordinates (y_coords, x_coords) and shape (height, width)
+    mask_coord_and_shape: tuple[tuple[list[int], list[int]], tuple[int, int]] | None = (
+        None
+    )
+    metadata: dict[str, Any] | None = None
     # ... add whatever other data we need
 
 
@@ -439,30 +444,6 @@ def _get_synchrony_matrix(
         if phase_array.shape[0] < 2:
             return None
 
-    # ------------------OLD INCORRECT CODE v1------------------
-    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # # ensure phase difference is within valid range [0, 2π]
-    # phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-    # # compute cosine and sine of the phase differences
-    # cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
-    # sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
-    # return np.sqrt(cos_mean**2 + sin_mean**2)  # type: ignore
-    # ---------------------------------------------------------
-
-    # ------------------OLD INCORRECT CODE v2------------------
-    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # # compute cosine and sine of the phase differences (no wrapping needed for PLV)
-    # cos_diff = np.cos(phase_diff)
-    # sin_diff = np.sin(phase_diff)
-    # # compute mean cosine and sine over time
-    # cos_mean = np.mean(cos_diff, axis=2)  # shape: (#ROIs, #ROIs)
-    # sin_mean = np.mean(sin_diff, axis=2)  # shape: (#ROIs, #ROIs)
-    # # compute Phase Locking Value (PLV) matrix
-    # synchrony_matrix = np.sqrt(cos_mean**2 + sin_mean**2)
-    # ---------------------------------------------------------
-
     # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
     phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
     # compute Phase-Locking-Value (PLV) matrix directly
@@ -577,3 +558,39 @@ def get_overlap_roi_with_stimulated_area(
     overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
 
     return overlapping_pixels / cell_pixels
+
+
+def mask_to_coordinates(
+    mask: np.ndarray,
+) -> tuple[tuple[list[int], list[int]], tuple[int, int]]:
+    """Convert a 2D boolean mask to sparse coordinates.
+
+    Args:
+        mask: 2D boolean numpy array
+
+    Returns
+    -------
+        Tuple of ((y_coords, x_coords), (height, width))
+    """
+    y_coords, x_coords = np.where(mask)
+    return ((y_coords.tolist(), x_coords.tolist()), (mask.shape[0], mask.shape[1]))
+
+
+def coordinates_to_mask(
+    coordinates: tuple[list[int], list[int]],
+    shape: tuple[int, int],
+) -> np.ndarray:
+    """Convert sparse coordinates back to a 2D boolean mask.
+
+    Args:
+        coordinates: Tuple of (y_coords, x_coords) lists
+        shape: Tuple of (height, width)
+
+    Returns
+    -------
+        2D boolean numpy array
+    """
+    mask = np.zeros(shape, dtype=bool)
+    y_coords, x_coords = coordinates
+    mask[y_coords, x_coords] = True
+    return mask

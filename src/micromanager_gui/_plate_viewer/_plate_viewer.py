@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
+from sympy import im
 import tifffile
 import useq
 from fonticon_mdi6 import MDI6
@@ -50,7 +51,8 @@ from ._old_plate_model import OldPlate
 from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
-from ._to_csv import save_to_csv
+from ._traces_extraction import _ExtractCalciumTraces
+from ._to_csv import save_analysys_data_to_csv
 from ._util import (
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -187,11 +189,14 @@ class PlateViewer(QMainWindow):
 
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
+        self._trace_extraction_wdg = _ExtractCalciumTraces(self)
+
         analysis_layout = QVBoxLayout(self._analysis_tab)
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._segmentation_wdg)
         analysis_layout.addWidget(self._analysis_wdg)
+        analysis_layout.addWidget(self._trace_extraction_wdg)
         analysis_layout.addStretch(1)
 
         # single wells visualization tab
@@ -259,10 +264,11 @@ class PlateViewer(QMainWindow):
         # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
-        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
+        data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
+        self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
         # self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
-        # self.initialize_widget(data, self._labels_path, self._analysis_path)
+        self._analysis_path = "/Users/fdrgsp/Desktop/t"
+        self.initialize_widget(data, self._labels_path, self._analysis_path)
         # fmt: on
         # ____________________________________________________________________________
 
@@ -549,6 +555,12 @@ class PlateViewer(QMainWindow):
             if stim_mask.exists():
                 self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
                 self._analysis_wdg.stimulation_area_path = str(stim_mask)
+        # set traces extraction widget data
+        self._trace_extraction_wdg.data = self._data
+        self._trace_extraction_wdg.analysis_data = self._analysis_data
+        self._trace_extraction_wdg.labels_path = self._labels_path
+        self._trace_extraction_wdg.analysis_path = self._analysis_path
+
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None
@@ -856,7 +868,7 @@ class PlateViewer(QMainWindow):
                 )
                 return
 
-            save_to_csv(path, self._analysis_data)
+            save_analysys_data_to_csv(path, self._analysis_data)
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""

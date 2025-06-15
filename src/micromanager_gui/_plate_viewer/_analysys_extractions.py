@@ -13,7 +13,6 @@ import numpy as np
 import tifffile
 import useq
 from fonticon_mdi6 import MDI6
-from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Signal
 from qtpy.QtGui import QIcon
@@ -48,7 +47,6 @@ from ._util import (
     COND2,
     DECAY_CONSTANT,
     DFF_WINDOW,
-    EVENT_KEY,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
@@ -65,7 +63,7 @@ from ._util import (
     _BrowseWidget,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
-    calculate_dff,
+    coordinates_to_mask,
     create_stimulation_mask,
     get_iei,
     get_overlap_roi_with_stimulated_area,
@@ -96,6 +94,8 @@ DEFAULT_HEIGHT = 0.0075
 GLOBAL_HEIGHT = "global_height"
 MULTIPLIER = "multiplier"
 DEFAULT_WINDOW = 10
+FAILED_POS = "failed_positions"
+FAILED_POS_NAMES = "failed_positions_names"
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -190,20 +190,22 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
+        self._analysis_data: dict[str, dict[str, ROIData]] = {}
         self._analysis_path: str | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._stimulated_area_mask: np.ndarray | None = None
-        self._labels_path: str | None = labels_path
-        self._analysis_data: dict[str, dict[str, ROIData]] = {}
         self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
 
-        # list to store the failed labels if they will not be found during the
-        # analysis. used to show at the end of the analysis to the user which labels
-        # are failed to be found.
-        self._failed_labels: list[str] = []
+        # list to store the failed positions if they will not be found during the
+        # analysis. used to show at the end of the analysis to the user which positions
+        # were not found in the data.
+        self._failed_position: dict[str, list[str]] = {
+            FAILED_POS: [],
+            FAILED_POS_NAMES: [],
+        }
 
         # ELAPSED TIME TIMER ---------------------------------------------------------
         self._elapsed_timer = _ElapsedTimer()
@@ -284,57 +286,6 @@ class _AnalyseCalciumTraces(QWidget):
         led_layout.addWidget(led_lbl)
         led_layout.addWidget(self._led_power_equation_le)
         self._led_power_wdg.hide()
-
-        # DF/F SETTINGS --------------------------------------------------------
-        self._dff_wdg = QWidget(self)
-        self._dff_wdg.setToolTip(
-            "Controls the sliding window size for calculating ΔF/F₀ baseline "
-            "(expressed in frames).\n\n"
-            "The algorithm uses a sliding window to estimate the background "
-            "fluorescence:\n"
-            "• For each timepoint, calculates the 10th percentile within the window\n"
-            "• Window extends from current timepoint backwards by window_size/2 "
-            "frames\n"
-            "• ΔF/F₀ = (fluorescence - background) / background\n\n"
-            "Window size considerations:\n"
-            "• Larger values (200-500): More stable baseline, good for slow drifts\n"
-            "• Smaller values (50-100): More adaptive, follows local fluorescence "
-            "changes\n"
-            "• Too small (<20): May track signal itself, reducing ΔF/F₀ sensitivity\n"
-            "• Too large (>1000): May not adapt to legitimate baseline shifts"
-        )
-        dff_lbl = QLabel("ΔF/F0 Window Size")
-        dff_lbl.setSizePolicy(*FIXED)
-        self._dff_window_size_spin = QSpinBox(self)
-        self._dff_window_size_spin.setRange(0, 10000)
-        self._dff_window_size_spin.setSingleStep(1)
-        self._dff_window_size_spin.setValue(DEFAULT_WINDOW)
-        dff_layout = QHBoxLayout(self._dff_wdg)
-        dff_layout.setContentsMargins(0, 0, 0, 0)
-        dff_layout.setSpacing(5)
-        dff_layout.addWidget(dff_lbl)
-        dff_layout.addWidget(self._dff_window_size_spin)
-
-        # DECONVOLUTION SETTINGS -------------------------------------------------
-        self._dec_wdg = QWidget(self)
-        self._dec_wdg.setToolTip(
-            "Decay constant (tau) for calcium indicator deconvolution.\n"
-            "Set to 0 for automatic estimation by OASIS algorithm.\n\n"
-            "The decay constant represents how quickly the calcium indicator\n"
-            "returns to baseline after a calcium transient."
-        )
-        decay_const_lbl = QLabel("Decay Constant (s):")
-        decay_const_lbl.setSizePolicy(*FIXED)
-        self._decay_constant_spin = QDoubleSpinBox(self)
-        dec_wdg_layout = QHBoxLayout(self._dec_wdg)
-        self._decay_constant_spin.setDecimals(2)
-        self._decay_constant_spin.setRange(0.0, 10.0)
-        self._decay_constant_spin.setSingleStep(0.1)
-        self._decay_constant_spin.setSpecialValueText("Auto")
-        dec_wdg_layout.setContentsMargins(0, 0, 0, 0)
-        dec_wdg_layout.setSpacing(5)
-        dec_wdg_layout.addWidget(decay_const_lbl)
-        dec_wdg_layout.addWidget(self._decay_constant_spin)
 
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
@@ -429,9 +380,7 @@ class _AnalyseCalciumTraces(QWidget):
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
         peaks_distance_lbl.setFixedWidth(fixed_width)
-        dff_lbl.setFixedWidth(fixed_width)
         plate_map_lbl.setFixedWidth(fixed_width)
-        decay_const_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT ---------------------------------------------------------------------
         def create_divider_line() -> QFrame:
@@ -464,8 +413,6 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(self._dff_wdg)
-        wdg_layout.addWidget(self._dec_wdg)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
@@ -506,14 +453,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data = data
 
     @property
-    def labels_path(self) -> str | None:
-        return self._labels_path
-
-    @labels_path.setter
-    def labels_path(self, labels_path: str | None) -> None:
-        self._labels_path = labels_path
-
-    @property
     def analysis_path(self) -> str | None:
         return self._analysis_path
 
@@ -533,7 +472,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
-        self._failed_labels.clear()
+        self._failed_position.clear()
 
         pos = self._prepare_for_running()
 
@@ -600,10 +539,6 @@ class _AnalyseCalciumTraces(QWidget):
     def _update_form_settings(self, f: Any) -> None:
         """Update the widget form from the JSON settings file."""
         settings = cast(dict, json.load(f))
-        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
-        self._dff_window_size_spin.setValue(dff_window)
-        decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
-        self._decay_constant_spin.setValue(decay)
         pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
         self._led_power_equation_le.setText(pp)
         h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
@@ -658,14 +593,6 @@ class _AnalyseCalciumTraces(QWidget):
             self._show_and_log_error(
                 "No Data provided!\n"
                 "Please load data in File > Load Data and Set Directories..."
-            )
-            return False
-
-        if self._labels_path is None:
-            self._show_and_log_error(
-                "Please select the Segmentation Path.\n"
-                "You can do this in File > Load Data and Set Directories...' "
-                "and set the Segmentation Path'."
             )
             return False
 
@@ -910,52 +837,41 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_trace_data_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
-        if self._data is None or self._check_for_abort_requested():
+        if (
+            self._data is None
+            or not self._analysis_path
+            or self._check_for_abort_requested()
+        ):
             return
 
-        # get the data and metadata for the position
-        data, meta = self._data.isel(p=p, metadata=True)
+        p_json = self._find_json_by_number(self._analysis_path, p)
+        if p_json is None:
+            self._failed_position[FAILED_POS].append(str(p))
+            LOGGER.warning(f"No JSON file found for position {p}. Skipping...")
+            return
 
-        # the "Event" key was used in the old metadata format
-        event_key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
-
-        # get the fov_name name from metadata
-        fov_name = self._get_fov_name(event_key, meta, p)
+        fov_name = p_json.name.replace(".json", "")
 
         # create the dict for the fov if it does not exist
         if fov_name not in self._analysis_data:
-            self._analysis_data[fov_name] = {}
-
-        # get the labels file for the position
-        labels_path = self._get_labels_file_for_position(fov_name, p)
-        if labels_path is None:
+            self._failed_position[FAILED_POS_NAMES].append(fov_name)
+            LOGGER.error(
+                f"FOV {fov_name} not found in the analysis data.\n"
+                "Please run 'Extract Calcium Traces' first."
+            )
             return
 
-        # open the labels file and create masks for each label
-        labels = tifffile.imread(labels_path)
-        labels_masks = self._create_label_masks_dict(labels)
-        sequence = cast(useq.MDASequence, self._data.sequence)
-
-        # get the exposure time from the metadata
-        exp_time = meta[0][event_key].get("exposure", 0.0)
-        # get timepoints
-        timepoints = sequence.sizes["t"]
-        # get the elapsed time from the metadata to calculate the total time in seconds
-        elapsed_time_list = self.get_elapsed_time_list(meta)
-        # if the elapsed time is not available or for any reason is different from
-        # the number of timepoints, set it as list of timepoints every exp_time
-        if len(elapsed_time_list) != timepoints:
-            elapsed_time_list = [i * exp_time for i in range(timepoints)]
-        # get the total time in seconds for the recording
-        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0]) / 1000
+        with open(p_json) as f:
+            p_json_data = cast(dict, json.load(f))
 
         # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
 
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
-        if evoked_experiment and (seq := self._data.sequence) is not None:
-            metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
+        sequence = cast(useq.MDASequence, self._data.sequence)
+        if evoked_experiment and sequence is not None:
+            metadata = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
         msg = f"Extracting Traces Data from Well {fov_name}."
@@ -966,8 +882,7 @@ class _AnalyseCalciumTraces(QWidget):
 
             # extract the data
             self._process_roi_trace(
-                data,
-                meta,
+                p_json_data,
                 evoked_experiment_meta,
                 fov_name,
                 label_value,
@@ -983,27 +898,21 @@ class _AnalyseCalciumTraces(QWidget):
         # update the progress bar
         self.progress_bar_updated.emit()
 
+    def _find_json_by_number(self, folder_path: str, n: int) -> Path | None:
+        """Find JSON file ending with repeated digit n."""
+        folder = Path(folder_path)
+
+        # ceate pattern like "*_333.json" for n=3
+        pattern = f"*_{n}.json"
+
+        matches = list(folder.glob(pattern))
+        return matches[0] if matches else None
+
     def _get_fov_name(self, event_key: str, meta: list[dict], p: int) -> str:
         """Retrieve the fov name from metadata."""
         # the "Event" key was used in the old metadata format
         pos_name = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
         return f"{pos_name}_p{p}"
-
-    def _get_labels_file_for_position(self, fov: str, p: int) -> str | None:
-        """Retrieve the labels file for the given position."""
-        # if the fov name does not end with "_p{p}", add it
-        labels_name = f"{fov}.tif" if fov.endswith(f"_p{p}") else f"{fov}_p{p}.tif"
-        labels_path = self._get_labels_file(labels_name)
-        if labels_path is None:
-            self._failed_labels.append(labels_name)
-            LOGGER.error("No labels found for %s!", labels_name)
-        return labels_path
-
-    def _create_label_masks_dict(self, labels: np.ndarray) -> dict[int, np.ndarray]:
-        """Create masks for each label in the labels image."""
-        # get the range of labels and remove the background (0)
-        labels_range = np.unique(labels[labels != 0])
-        return {label_value: (labels == label_value) for label_value in labels_range}
 
     def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
         elapsed_time_list: list[float] = []
@@ -1017,8 +926,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _process_roi_trace(
         self,
-        data: np.ndarray,
-        meta: list[dict],
+        roi_dict: dict,
         evoked_meta: dict[str, Any] | None,
         fov_name: str,
         label_value: int,
@@ -1028,25 +936,12 @@ class _AnalyseCalciumTraces(QWidget):
         elapsed_time_list: list[float],
     ) -> None:
         """Process individual ROI traces."""
-        # get the data for the current label
-        masked_data = data[:, label_mask]
-
-        # get the size of the roi in µm or px if µm is not available
-        roi_size_pixel = masked_data.shape[1]  # area
-        px_keys = ["pixel_size_um", "PixelSizeUm"]
-        px_size = None
-        for key in px_keys:
-            px_size = meta[0].get(key, None)
-            if px_size:
-                break
-        # calculate the size of the roi in µm if px_size is available or not 0,
-        # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
-
-        # exclude small rois, might not be necessary if trained cellpose performs
-        # better
-        if px_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
-            return
+        roi_data = ROIData(**roi_dict)
+        roi_trace = roi_data.raw_trace
+        dff = roi_data.dff
+        dec_dff = roi_data.dec_dff
+        mask_coord, shape = roi_data.mask_coord_and_shape
+        label_mask = coordinates_to_mask(mask_coord, shape)
 
         # check if the roi is stimulated
         roi_stimulation_overlap_ratio = 0.0
@@ -1054,29 +949,6 @@ class _AnalyseCalciumTraces(QWidget):
             roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
                 self._stimulated_area_mask, label_mask
             )
-
-        # compute the mean for each frame
-        roi_trace: np.ndarray = masked_data.mean(axis=1)
-        win = self._dff_window_size_spin.value()
-        # calculate the dff of the roi trace
-        dff = calculate_dff(roi_trace, window=win, plot=False)
-
-        # compute the decay constant
-        tau = self._decay_constant_spin.value()
-        g: tuple[float, ...] | None = None
-        if tau > 0.0:
-            fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
-            g = np.exp(-1 / (fs * tau))
-        else:
-            g = None
-        # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
-        dec_dff = cast(np.ndarray, dec_dff)
-        spikes = cast(np.ndarray, spikes)
-        LOGGER.info(
-            f"Decay constant: {t} seconds, "
-            f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
-        )
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1278,10 +1150,10 @@ class _AnalyseCalciumTraces(QWidget):
             save_analysys_data_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
-        if self._failed_labels:
+        if self._failed_position:
             msg = (
                 "The following labels were not found during the analysis:\n\n"
-                + "\n".join(self._failed_labels)
+                + "\n".join(self._failed_position)
             )
             self._show_and_log_error(msg)
 

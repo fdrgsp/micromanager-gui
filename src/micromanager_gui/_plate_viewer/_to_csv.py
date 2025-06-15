@@ -49,7 +49,34 @@ SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY]
 # fmt: on
 
 
-def save_to_csv(
+def save_trace_data_to_csv(
+    path: str | Path,
+    analysis_data: dict[str, dict[str, ROIData]] | None,
+) -> None:
+    if not analysis_data:
+        return
+
+    LOGGER.info(f"Exporting data to `{path}`...")
+    try:
+        _export_raw_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting RAW DATA to CSV: {e}")
+    try:
+        _export_dff_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error( f"Error exporting dFF DATA to CSV: {e}")
+    try:
+        _export_dec_dff_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting DEC_DFF DATA to CSV: {e}")
+    try:
+        _export_inferred_spikes_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting INFERRED SPIKES DATA to CSV: {e}")
+    LOGGER.info("Exporting data to CSV: DONE!")
+
+
+def save_analysys_data_to_csv(
     path: str | Path,
     analysis_data: dict[str, dict[str, ROIData]] | None,
 ) -> None:
@@ -59,38 +86,36 @@ def save_to_csv(
     if isinstance(path, str):
         path = Path(path)
 
+    rearrange_cond, rearrange_cond_evk = _rearrange_data(analysis_data)
+
+    msg = f"Exporting data to `{path}`..."
+    LOGGER.info(msg)
+    try:
+        _export_to_csv_mean_values_grouped_by_condition(path, rearrange_cond)
+    except Exception as e:
+        LOGGER.error(f"Error exporting spontanoous analysys data to CSV: {e}")
+    try:
+        _export_to_csv_mean_values_evk_parameters(path, rearrange_cond_evk)
+    except Exception as e:
+        LOGGER.error(f"Error exporting evoked analysys data to CSV: {e}")
+    LOGGER.info("Exporting data to CSV: DONE!")
+
+
+def _rearrange_data(analysis_data: dict[str, dict[str, ROIData]]) -> tuple:
+    """Rearrange the analysis data by condition and parameter."""
     # Rearrange the data by condition
     fov_by_condition, evk_conditions = _rearrange_fov_by_conditions(analysis_data)
-
     # Rearrange fov_by_condition by parameter
     fov_by_condition_by_parameter = {
         parameter: _rearrange_by_parameter(fov_by_condition, parameter)
         for parameter in CSV_PARAMETERS.values()
     }
-
+    # Rearrange fov_by_condition by evoked parameters
     fov_by_condition_by_parameter_evk = {
         parameter: _rearrange_by_parameter_evk(evk_conditions, parameter)
         for parameter in CSV_PARAMETERS_EVK.values()
     }
-
-    # fmt: off
-    # Save the data as CSV files
-    msg = f"Exporting data to `{path}`..."
-    LOGGER.info(msg)
-    try:
-        _export_raw_data(path, analysis_data)
-        _export_dff_data(path, analysis_data)
-        _export_dec_dff_data(path, analysis_data)
-        _export_inferred_spikes_data(path, analysis_data)
-        _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
-        _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
-    except Exception as e:
-        error_msg = f"Error exporting data to CSV: {e}"
-        LOGGER.error(error_msg)
-        return
-
-    LOGGER.info("Exporting data to CSV: DONE!")
-    # fmt: on
+    return fov_by_condition_by_parameter, fov_by_condition_by_parameter_evk
 
 
 def _rearrange_fov_by_conditions(
