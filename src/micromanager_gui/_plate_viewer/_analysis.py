@@ -42,10 +42,11 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._plate_map import PlateMapWidget
-from ._to_csv import save_to_csv
+from ._to_csv import save_analysis_data_to_csv, save_trace_data_to_csv
 from ._util import (
     COND1,
     COND2,
+    DECAY_CONSTANT,
     DFF_WINDOW,
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -58,6 +59,8 @@ from ._util import (
     PEAKS_PROMINENCE_MULTIPLIER,
     RED,
     SETTINGS_PATH,
+    SPIKE_THRESHOLD_MODE,
+    SPIKE_THRESHOLD_VALUE,
     STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
@@ -91,10 +94,12 @@ EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
 MAX_FRAMES_AFTER_STIMULATION = 5
-DEFAULT_HEIGHT = 0.0075
+DEFAULT_HEIGHT = 3
+DEFAULT_SPIKE_THRESHOLD = 3
 GLOBAL_HEIGHT = "global_height"
+GLOBAL_SPIKE_THRESHOLD = "global_spike_threshold"
 MULTIPLIER = "multiplier"
-DEFAULT_WINDOW = 10
+DEFAULT_WINDOW = 30
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -103,6 +108,13 @@ def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarra
 
 class _PeaksHeightData(TypedDict):
     """TypedDict to store the peaks height data."""
+
+    value: float
+    mode: str
+
+
+class _SpikeThresholdData(TypedDict):
+    """TypedDict to store the spike threshold data."""
 
     value: float
     mode: str
@@ -120,10 +132,12 @@ class _PeaksHeightWidget(QWidget):
             "Two modes:\n"
             "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
             "ALL FOVs. Peaks below this value are rejected everywhere.\n\n"
-            "• Height Multiplier: Adaptive threshold computed individually for EACH "
+            "• Noise Multiplier: Adaptive threshold computed individually for EACH "
             "ROI in EACH FOV.\n"
             "  Threshold = noise_level * multiplier, where noise_level "
-            "is calculated per ROI using Median Absolute Deviation (MAD)."
+            "is calculated per ROI using Median Absolute Deviation (MAD).\n\n"
+            "For example, a multiplier of 3.0 can be use to detect events 3 standard "
+            "deviations above noise."
         )
 
         self._peaks_height_lbl = QLabel("Minimum Peaks Height:")
@@ -136,17 +150,17 @@ class _PeaksHeightWidget(QWidget):
         self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
 
         self._global_peaks_height = QRadioButton("Use as Global Minimum Peaks Height")
-        self._global_peaks_height.setChecked(True)
 
-        self._height_multiplier = QRadioButton("Use as Peaks Height Multiplier")
+        self._height_multiplier = QRadioButton("Use as Noise Level Multiplier")
+        self._height_multiplier.setChecked(True)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
         layout.addWidget(self._peaks_height_lbl)
         layout.addWidget(self._peaks_height_spin, 1)
-        layout.addWidget(self._global_peaks_height, 0)
         layout.addWidget(self._height_multiplier, 0)
+        layout.addWidget(self._global_peaks_height, 0)
 
     def value(self) -> _PeaksHeightData:
         """Return the value of the peaks height multiplier."""
@@ -169,6 +183,73 @@ class _PeaksHeightWidget(QWidget):
             # default values
             self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
             self._global_peaks_height.setChecked(True)
+
+
+class _SpikeThresholdWidget(QWidget):
+    """Widget to select the spike threshold multiplier."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        self.setToolTip(
+            "Spike detection threshold for identifying spikes in deconvolved "
+            "spike traces from CaImAn's OASIS algorithm.\n\n"
+            "Two modes:\n"
+            "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
+            "ALL FOVs. Spikes below this value are rejected everywhere (set to 0).\n\n"
+            "• Noise Multiplier: Adaptive threshold computed individually for EACH "
+            "ROI in EACH FOV.\n"
+            "  Threshold = noise_level * multiplier, where noise_level "
+            "is calculated per ROI using Median Absolute Deviation (MAD).\n\n"
+            "For example, a multiplier of 3.0 can be use to detect events 3 standard "
+            "deviations above noise."
+        )
+
+        self._spike_threshold_lbl = QLabel("Spike Detection Threshold:")
+        self._spike_threshold_lbl.setSizePolicy(*FIXED)
+
+        self._spike_threshold_spin = QDoubleSpinBox(self)
+        self._spike_threshold_spin.setDecimals(4)
+        self._spike_threshold_spin.setRange(0.0, 10000.0)
+        self._spike_threshold_spin.setSingleStep(0.1)
+        self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
+
+        self._global_spike_threshold = QRadioButton("Use as Global Minimum Threshold")
+
+        self._threshold_multiplier = QRadioButton("Use as Noise Level Multiplier")
+        self._threshold_multiplier.setChecked(True)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        layout.addWidget(self._spike_threshold_lbl)
+        layout.addWidget(self._spike_threshold_spin, 1)
+        layout.addWidget(self._threshold_multiplier, 0)
+        layout.addWidget(self._global_spike_threshold, 0)
+
+    def value(self) -> _SpikeThresholdData:
+        """Return the value of the spike threshold."""
+        return {
+            "value": self._spike_threshold_spin.value(),
+            "mode": (
+                GLOBAL_SPIKE_THRESHOLD
+                if self._global_spike_threshold.isChecked()
+                else MULTIPLIER
+            ),
+        }
+
+    def setValue(self, value: _SpikeThresholdData) -> None:
+        """Set the value of the spike threshold widget."""
+        if isinstance(value, dict):
+            self._spike_threshold_spin.setValue(value["value"])
+            if value["mode"] == GLOBAL_SPIKE_THRESHOLD:
+                self._global_spike_threshold.setChecked(True)
+            else:
+                self._threshold_multiplier.setChecked(True)
+        else:
+            # default values
+            self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
+            self._threshold_multiplier.setChecked(True)
 
 
 class _AnalyseCalciumTraces(QWidget):
@@ -314,6 +395,27 @@ class _AnalyseCalciumTraces(QWidget):
         dff_layout.addWidget(dff_lbl)
         dff_layout.addWidget(self._dff_window_size_spin)
 
+        # DECONVOLUTION SETTINGS -------------------------------------------------
+        self._dec_wdg = QWidget(self)
+        self._dec_wdg.setToolTip(
+            "Decay constant (tau) for calcium indicator deconvolution.\n"
+            "Set to 0 for automatic estimation by OASIS algorithm.\n\n"
+            "The decay constant represents how quickly the calcium indicator\n"
+            "returns to baseline after a calcium transient."
+        )
+        decay_const_lbl = QLabel("Decay Constant (s):")
+        decay_const_lbl.setSizePolicy(*FIXED)
+        self._decay_constant_spin = QDoubleSpinBox(self)
+        dec_wdg_layout = QHBoxLayout(self._dec_wdg)
+        self._decay_constant_spin.setDecimals(2)
+        self._decay_constant_spin.setRange(0.0, 10.0)
+        self._decay_constant_spin.setSingleStep(0.1)
+        self._decay_constant_spin.setSpecialValueText("Auto")
+        dec_wdg_layout.setContentsMargins(0, 0, 0, 0)
+        dec_wdg_layout.setSpacing(5)
+        dec_wdg_layout.addWidget(decay_const_lbl)
+        dec_wdg_layout.addWidget(self._decay_constant_spin)
+
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
 
@@ -323,7 +425,7 @@ class _AnalyseCalciumTraces(QWidget):
             "Prominence measures how much a peak stands out from surrounding\n"
             "baseline, helping distinguish real calcium events from noise.\n\n"
             "Prominence threshold = noise_level * multiplier\n\n"
-            "• Value of 1.0: Uses noise level as prominence threshold (recommended)\n"
+            "• Value of 1.0: Uses noise level as prominence threshold\n"
             "• Values >1.0: Requires peaks to be more prominent than noise level\n"
             "• Values <1.0: More lenient, allows peaks closer to noise level\n\n"
             "Increase if detecting too many noise artifacts as peaks."
@@ -341,7 +443,6 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
         peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
-        # PEAKS DISTANCE WIDGET -------------------------------------------------------
         self._peaks_distance_wdg = QWidget(self)
         self._peaks_distance_wdg.setToolTip(
             "Minimum distance between peaks in frames.\n"
@@ -364,7 +465,10 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
-        # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
+        # SPIKES SETTINGS ----------------------------------------------------------
+        self._spike_threshold_wdg = _SpikeThresholdWidget(self)
+
+        # WIDGET TO SELECT THE POSITIONS TO ANALYZE --------------------------------
         self._pos_wdg = QWidget(self)
         self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
@@ -382,7 +486,7 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # PROGRESS BAR -------------------------------------------
+        # PROGRESS BAR -------------------------------------------------------------
         self._progress_bar = QProgressBar(self)
         self._progress_pos_label = QLabel()
         self._elapsed_time_label = QLabel("00:00:00")
@@ -399,18 +503,25 @@ class _AnalyseCalciumTraces(QWidget):
         # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
-        # STYLING --------------------------------------------------------------------
+        # STYLING ------------------------------------------------------------------
         fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
+        self._spike_threshold_wdg._spike_threshold_lbl.setFixedWidth(fixed_width)
         peaks_distance_lbl.setFixedWidth(fixed_width)
         dff_lbl.setFixedWidth(fixed_width)
         plate_map_lbl.setFixedWidth(fixed_width)
+        decay_const_lbl.setFixedWidth(fixed_width)
+        self._spike_threshold_wdg._spike_threshold_lbl.setFixedWidth(fixed_width)
 
-        # LAYOUT ---------------------------------------------------------------------
+        self._spike_threshold_wdg._global_spike_threshold.setFixedWidth(
+            self._peaks_height_wdg._global_peaks_height.sizeHint().width()
+        )
+
+        # LAYOUT -------------------------------------------------------------------
         def create_divider_line() -> QFrame:
             """Create a horizontal divider line."""
             line = QFrame()
@@ -442,9 +553,11 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._dff_wdg)
+        wdg_layout.addWidget(self._dec_wdg)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
+        wdg_layout.addWidget(self._spike_threshold_wdg)
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
@@ -460,7 +573,7 @@ class _AnalyseCalciumTraces(QWidget):
             text="Stopping all the Tasks..."
         )
 
-        # CONNECTIONS ---------------------------------------------------------------
+        # CONNECTIONS --------------------------------------------------------------
         self.progress_bar_updated.connect(self._update_progress_bar)
 
     @property
@@ -578,19 +691,28 @@ class _AnalyseCalciumTraces(QWidget):
         settings = cast(dict, json.load(f))
         dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
         self._dff_window_size_spin.setValue(dff_window)
+        decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
+        self._decay_constant_spin.setValue(decay)
         pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
         self._led_power_equation_le.setText(pp)
         h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
-        h_mode = cast(str, settings.get(GLOBAL_HEIGHT, GLOBAL_HEIGHT))
+        h_mode = cast(str, settings.get(PEAKS_HEIGHT_MODE, GLOBAL_HEIGHT))
         self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
+        spike_thresh_val = cast(
+            float, settings.get(SPIKE_THRESHOLD_VALUE, DEFAULT_SPIKE_THRESHOLD)
+        )
+        spike_thresh_mode = cast(str, settings.get(SPIKE_THRESHOLD_MODE, MULTIPLIER))
+        self._spike_threshold_wdg.setValue(
+            {"mode": spike_thresh_mode, "value": spike_thresh_val}
+        )
         prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
         self._peaks_prominence_multiplier_spin.setValue(prom_mult)
         peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
         self._peaks_distance_spin.setValue(peaks_distance)
 
-    # PRIVATE METHODS -----------------------------------------------------------------
+    # PRIVATE METHODS --------------------------------------------------------------
 
-    # PREPARATION FOR RUNNING ---------------------------------------------------------
+    # PREPARATION FOR RUNNING ------------------------------------------------------
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -912,10 +1034,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the exposure time from the metadata
         exp_time = meta[0][event_key].get("exposure", 0.0)
-
         # get timepoints
         timepoints = sequence.sizes["t"]
-
         # get the elapsed time from the metadata to calculate the total time in seconds
         elapsed_time_list = self.get_elapsed_time_list(meta)
         # if the elapsed time is not available or for any reason is different from
@@ -1037,10 +1157,22 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the dff of the roi trace
         dff = calculate_dff(roi_trace, window=win, plot=False)
 
+        # compute the decay constant
+        tau = self._decay_constant_spin.value()
+        g: tuple[float, ...] | None = None
+        if tau > 0.0:
+            fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
+            g = np.exp(-1 / (fs * tau))
+        else:
+            g = None
         # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, _, _ = deconvolve(dff, penalty=1)
+        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
         dec_dff = cast(np.ndarray, dec_dff)
         spikes = cast(np.ndarray, spikes)
+        LOGGER.info(
+            f"Decay constant: {t} seconds, "
+            f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
+        )
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1062,7 +1194,24 @@ class _AnalyseCalciumTraces(QWidget):
         noise_level_dec_dff = float(
             np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
         )
+        noise_level_spikes = float(
+            np.median(np.abs(spikes - np.median(spikes))) / 0.6745
+        )
 
+        # Use the spike threshold widget to get the spike detection threshold
+        spike_threshold_data = self._spike_threshold_wdg.value()
+        spike_threshold_value = spike_threshold_data["value"]
+        if spike_threshold_data["mode"] == GLOBAL_SPIKE_THRESHOLD:
+            spike_detection_threshold = spike_threshold_value
+        else:  # MULTIPLIER
+            spike_detection_threshold = noise_level_spikes * spike_threshold_value
+
+        spike_thresholded: list[float] = []
+        for s in spikes:
+            if s > spike_detection_threshold:
+                spike_thresholded.append(s)
+            else:
+                spike_thresholded.append(0.0)
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
@@ -1136,7 +1285,8 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
             peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
-            inferred_spikes=spikes.tolist(),
+            inferred_spikes=spike_thresholded,
+            inferred_spikes_threshold=spike_detection_threshold,
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
             condition_1=condition_1,
@@ -1238,7 +1388,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         # save the analysis data to a JSON file
         if self._analysis_path:
-            save_to_csv(self._analysis_path, self._analysis_data)
+            save_trace_data_to_csv(self._analysis_path, self._analysis_data)
+            save_analysis_data_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:
@@ -1274,7 +1425,7 @@ class _AnalyseCalciumTraces(QWidget):
                 indent=2,
             )
 
-    # WIDGET --------------------------------------------------------------------------
+    # WIDGET -----------------------------------------------------------------------
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
@@ -1289,8 +1440,10 @@ class _AnalyseCalciumTraces(QWidget):
         self._experiment_type_wdg.setEnabled(enable)
         self._stimulation_area_path.setEnabled(enable)
         self._dff_wdg.setEnabled(enable)
+        self._dec_wdg.setEnabled(enable)
         self._peaks_distance_wdg.setEnabled(enable)
         self._peaks_height_wdg.setEnabled(enable)
+        self._spike_threshold_wdg.setEnabled(enable)
         self._peaks_prominence_wdg.setEnabled(enable)
         self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
@@ -1343,13 +1496,18 @@ class _AnalyseCalciumTraces(QWidget):
                     settings = json.load(f)
 
             settings[DFF_WINDOW] = self._dff_window_size_spin.value()
-            settings[PEAKS_PROMINENCE_MULTIPLIER] = (
-                self._peaks_prominence_multiplier_spin.value()
-            )
+            settings[DECAY_CONSTANT] = self._decay_constant_spin.value()
             peaks_h_data = self._peaks_height_wdg.value()
             settings[PEAKS_HEIGHT_VALUE] = peaks_h_data.get("value", DEFAULT_HEIGHT)
             settings[PEAKS_HEIGHT_MODE] = peaks_h_data.get("mode", GLOBAL_HEIGHT)
+            spike_thresh_data = self._spike_threshold_wdg.value()
+            settings[SPIKE_THRESHOLD_VALUE] = spike_thresh_data.get(
+                "value", DEFAULT_SPIKE_THRESHOLD
+            )
+            settings[SPIKE_THRESHOLD_MODE] = spike_thresh_data.get("mode", MULTIPLIER)
             settings[PEAKS_DISTANCE] = self._peaks_distance_spin.value()
+            prom = self._peaks_prominence_multiplier_spin.value()
+            settings[PEAKS_PROMINENCE_MULTIPLIER] = prom
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

@@ -20,6 +20,8 @@ from ._single_wells_plots._plot_correlation import (
     _plot_hierarchical_clustering_data,
 )
 from ._single_wells_plots._plot_iei_data import _plot_iei_data
+from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
+from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_data
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
@@ -40,12 +42,19 @@ DFF_NORMALIZED = "ΔF/F0 Normalized"
 DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved ΔF/F0 Normalized (Active Only)"
 DEC_DFF = "Deconvolved ΔF/F0"
 DEC_DFF_WITH_PEAKS = "Deconvolved ΔF/F0 with Peaks"
+DEC_DFF_WITH_PEAKS_AND_THRESHOLDS = "Deconvolved ΔF/F0 with Peaks and Thresholds (Only if 1 ROI selected)"  # noqa: E501
 DEC_DFF_NORMALIZED = "Deconvolved ΔF/F0 Normalized"
 DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved ΔF/F0 Normalized with Peaks"
 DEC_DFF_AMPLITUDE = "Deconvolved ΔF/F0 Amplitudes"
 DEC_DFF_FREQUENCY = "Deconvolved ΔF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved ΔF/F0 Amplitudes vs Frequencies"
 DEC_DFF_IEI = "Deconvolved ΔF/F0 Inter-event Interval"
+INFERRED_SPIKES = "Inferred Spikes"
+INFERRED_SPIKES_WITH_THRESHOLD = "Inferred Spikes with Thresholds (Only if 1 ROI selected)"  # noqa: E501
+INFERRED_SPIKES_WITH_DEC_DFF = "Inferred Spikes with Deconvolved ΔF/F0 Traces"
+INFERRED_SPIKES_NORMALIZED = "Inferred Spikes Normalized"
+INFERRED_SPIKES_ACTIVE_ONLY = "Inferred Spikes Normalized (Active Only)"
+INFERRED_SPIKES_SYNCHRONY = "Inferred Spikes Synchrony"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
@@ -73,12 +82,21 @@ TRACES_GROUP = {
     DFF: {"dff": True},
     DFF_NORMALIZED: {"dff": True, "normalize": True},
     DEC_DFF: {"dec": True},
-    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True,}, # "active_only": True default with "with_peaks" # noqa: E501
+    DEC_DFF_WITH_PEAKS: {"dec": True, "with_peaks": True,},
+    DEC_DFF_WITH_PEAKS_AND_THRESHOLDS: {"dec": True, "with_peaks": True, "thresholds": True},  # noqa: E501
     DEC_DFF_NORMALIZED: {"dec": True, "normalize": True},
     DEC_DFF_NORMALIZED_ACTIVE_ONLY: {"dec": True, "normalize": True, "active_only": True},  # noqa: E501
-    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},  # "active_only": True default with "with_peaks" # noqa: E501
+    DEC_DFF_NORMALIZED_WITH_PEAKS: {"dec": True, "normalize": True, "with_peaks": True},
 }
 
+INFERRED_SPIKES_GROUP = {
+    INFERRED_SPIKES: {},
+    INFERRED_SPIKES_WITH_THRESHOLD: {"thresholds": True},
+    INFERRED_SPIKES_NORMALIZED: {"normalize": True},
+    INFERRED_SPIKES_ACTIVE_ONLY: {"normalize": True, "active_only": True},
+    INFERRED_SPIKES_WITH_DEC_DFF: {"dec_dff": True},
+    INFERRED_SPIKES_SYNCHRONY: {},
+}
 
 AMPLITUDE_AND_FREQUENCY_GROUP = {
     DEC_DFF_AMPLITUDE: {"amp": True},
@@ -126,6 +144,7 @@ SINGLE_WELL_COMBO_OPTIONS_DICT = {
     "------------Traces---------------------------": TRACES_GROUP.keys(),
     "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
     "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
+    "------------Inferred Spikes------------------": INFERRED_SPIKES_GROUP.keys(),
     "------------Interevent Interval--------------": INTEREVENT_INTERVAL_GROUP.keys(),
     "------------Cell Size------------------------": CELL_SIZE_GROUP.keys(),
     "------------Correlation----------------------": CORRELATION_GROUP.keys(),
@@ -158,10 +177,26 @@ def plot_single_well_data(
     if text in RASTER_PLOT_GROUP:
         return _generate_raster_plot(widget, data, rois, **RASTER_PLOT_GROUP[text])
 
+    # INFERRED SPIKES GROUP
+    if text in INFERRED_SPIKES_GROUP:
+        if text in {
+            INFERRED_SPIKES,
+            INFERRED_SPIKES_WITH_THRESHOLD,
+            INFERRED_SPIKES_NORMALIZED,
+            INFERRED_SPIKES_ACTIVE_ONLY,
+            INFERRED_SPIKES_WITH_DEC_DFF,
+        }:
+            return _plot_inferred_spikes(
+                widget, data, rois, **INFERRED_SPIKES_GROUP[text]
+            )
+        if text == INFERRED_SPIKES_SYNCHRONY:
+            return _plot_spike_synchrony_data(
+                widget, data, rois, **INFERRED_SPIKES_GROUP[text]
+            )
+
     # INTEREVENT_INTERVAL GROUP
     if text in INTEREVENT_INTERVAL_GROUP:
-        if text in {DEC_DFF_IEI}:
-            return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text])
+        return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text])
 
     # CELL SIZE GROUP
     if text in CELL_SIZE_GROUP:

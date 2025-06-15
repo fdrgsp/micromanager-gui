@@ -9,7 +9,10 @@ import pytest
 from micromanager_gui import PlateViewer
 from micromanager_gui._plate_viewer._analysis import EVOKED
 from micromanager_gui._plate_viewer._plate_map import PlateMapData
-from micromanager_gui._plate_viewer._to_csv import save_to_csv
+from micromanager_gui._plate_viewer._to_csv import (
+    save_analysis_data_to_csv,
+    save_trace_data_to_csv,
+)
 from micromanager_gui._plate_viewer._util import ROIData
 
 if TYPE_CHECKING:
@@ -106,7 +109,8 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
     pv._analysis_wdg._extract_trace_data_per_position(0)
 
     # trigger save to csv
-    save_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_trace_data_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_analysis_data_to_csv(tmp_analysis_path, pv._analysis_data)
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]
@@ -118,6 +122,19 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         "stimulation_mask.tif",
         "settings.json",
     }, f"Expected files not found. Found: {set(files)}"
+
+    # compare settings.json with the reference file
+    settings_file = tmp_analysis_path / "settings.json"
+    with open(settings_file) as file:
+        settings_data = cast(dict, json.load(file))
+    reference_settings_file = (
+        Path(__file__).parent / "data" / "evoked" / "evk_analysis" / "settings.json"
+    )
+    with open(reference_settings_file) as file1:
+        reference_settings_data = cast(dict, json.load(file1))
+    assert (
+        settings_data == reference_settings_data
+    ), f"Settings data mismatch: {settings_data} != {reference_settings_data}"
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]

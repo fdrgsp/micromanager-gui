@@ -42,6 +42,8 @@ PLATE_PLAN = "plate_plan"
 LED_POWER_EQUATION = "led_power_equation"
 PEAKS_HEIGHT_VALUE = "peaks_height_value"
 PEAKS_HEIGHT_MODE = "peaks_height_mode"
+SPIKE_THRESHOLD_VALUE = "spike_threshold_value"
+SPIKE_THRESHOLD_MODE = "spike_threshold_mode"
 PEAKS_PROMINENCE_MULTIPLIER = "peaks_prominence_multiplier"
 PEAKS_DISTANCE = "peaks_distance"
 DFF_WINDOW = "dff_window"
@@ -51,6 +53,7 @@ MEAN_SUFFIX = "_Mean"
 SEM_SUFFIX = "_SEM"
 N_SUFFIX = "_N"
 EVENT_KEY = "mda_event"
+DECAY_CONSTANT = "decay constant"
 
 
 @dataclass
@@ -75,6 +78,7 @@ class ROIData(BaseClass):
     peaks_prominence_dec_dff: float | None = None
     peaks_height_dec_dff: float | None = None
     inferred_spikes: list[float] | None = None
+    inferred_spikes_threshold: float | None = None
     dec_dff_frequency: float | None = None  # Hz
     condition_1: str | None = None
     condition_2: str | None = None
