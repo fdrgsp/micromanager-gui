@@ -50,7 +50,7 @@ from ._old_plate_model import OldPlate
 from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
-from ._to_csv import save_to_csv
+from ._to_csv import save_analysys_data_to_csv, save_trace_data_to_csv
 from ._util import (
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -259,10 +259,11 @@ class PlateViewer(QMainWindow):
         # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
-        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
+        data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
+        self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
         # self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
-        # self.initialize_widget(data, self._labels_path, self._analysis_path)
+        self._analysis_path = "/Users/fdrgsp/Desktop/t/"
+        self.initialize_widget(data, self._labels_path, self._analysis_path)
         # fmt: on
         # ____________________________________________________________________________
 
@@ -856,7 +857,8 @@ class PlateViewer(QMainWindow):
                 )
                 return
 
-            save_to_csv(path, self._analysis_data)
+            save_trace_data_to_csv(path, self._analysis_data)
+            save_analysys_data_to_csv(path, self._analysis_data)
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""
