@@ -151,26 +151,25 @@ def _plot_trace(
         if thresholds:
             # Position the vertical lines at x=0 (left side of plot)
             if roi_data.peaks_height_dec_dff is not None:
-                # Vertical line from 0 to height threshold value
+                # Horizontal dashed line for height threshold
                 ph = roi_data.peaks_height_dec_dff
-                ax.plot(
-                    [-3, -3],
-                    [0, ph],
+                ax.axhline(
+                    y=ph,
                     color="black",
-                    linestyle="-",
-                    linewidth=3,
-                    alpha=0.8,
+                    linestyle="--",
+                    linewidth=2,
+                    alpha=0.6,
                     label=f"Peaks Height threshold\n(ROI {roi_key} - {ph:.4f})",
                 )
             if roi_data.peaks_prominence_dec_dff is not None:
                 # Vertical line from 0 to prominence threshold value
                 pp = roi_data.peaks_prominence_dec_dff
                 ax.plot(
-                    [-1, -1],
+                    [-3, -3],
                     [0, pp],
                     color="orange",
                     linestyle="-",
-                    linewidth=3,
+                    linewidth=5,
                     alpha=0.8,
                     label=f"Peaks Prominence Threshold \n(ROI {roi_key} - {pp:.4f})",
                 )

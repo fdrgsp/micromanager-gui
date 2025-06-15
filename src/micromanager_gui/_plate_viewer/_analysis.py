@@ -192,17 +192,17 @@ class _SpikeThresholdWidget(QWidget):
         super().__init__(parent)
 
         self.setToolTip(
-            "Spike detection threshold for identifying spikes in deconvolved "
-            "spike traces from CaImAn's OASIS algorithm.\n\n"
+            "Spike detection threshold for identifying spikes in OASIS-deconvolved "
+            "inferred spike traces.\n\n"
             "Two modes:\n"
             "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
-            "ALL FOVs. Spikes below this value are rejected everywhere (set to 0).\n\n"
+            "ALL FOVs. Spike amplitudes below this value are rejected (set to 0) "
+            "everywhere.\n\n"
             "• Noise Multiplier: Adaptive threshold computed individually for EACH "
             "ROI in EACH FOV.\n"
-            "  Threshold = noise_level * multiplier, where noise_level "
-            "is calculated per ROI using Median Absolute Deviation (MAD).\n\n"
-            "For example, a multiplier of 3.0 can be use to detect events 3 standard "
-            "deviations above noise."
+            "  For ROIs with ≥10 detected spikes: "
+            "Threshold = 10th_percentile_of_spikes * multiplier\n"
+            "  For ROIs with <10 spikes: Threshold = 0.01 * multiplier (fallback)"
         )
 
         self._spike_threshold_lbl = QLabel("Spike Detection Threshold:")
@@ -1174,6 +1174,31 @@ class _AnalyseCalciumTraces(QWidget):
             f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
         )
 
+        # for spike amplitudes use percentile-based approach to determine noise level
+        non_zero_spikes = spikes[spikes > 0]
+        # need sufficient data for reliable percentile
+        if len(non_zero_spikes) > 10:
+            # Use 10th percentile of non-zero spikes as noise reference
+            spike_noise_reference = float(np.percentile(non_zero_spikes, 10))
+        else:
+            # fallback to default
+            spike_noise_reference = 0.01
+
+        # Use the spike threshold widget to get the spike detection threshold
+        spike_threshold_data = self._spike_threshold_wdg.value()
+        spike_threshold_value = spike_threshold_data["value"]
+        if spike_threshold_data["mode"] == GLOBAL_SPIKE_THRESHOLD:
+            spike_detection_threshold = spike_threshold_value
+        else:  # MULTIPLIER
+            spike_detection_threshold = spike_noise_reference * spike_threshold_value
+
+        spike_thresholded: list[float] = []
+        for s in spikes:
+            if s > spike_detection_threshold:
+                spike_thresholded.append(s)
+            else:
+                spike_thresholded.append(0.0)
+
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
         # median is the “middle” value of the dataset when sorted, which is robust
@@ -1194,24 +1219,7 @@ class _AnalyseCalciumTraces(QWidget):
         noise_level_dec_dff = float(
             np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
         )
-        noise_level_spikes = float(
-            np.median(np.abs(spikes - np.median(spikes))) / 0.6745
-        )
 
-        # Use the spike threshold widget to get the spike detection threshold
-        spike_threshold_data = self._spike_threshold_wdg.value()
-        spike_threshold_value = spike_threshold_data["value"]
-        if spike_threshold_data["mode"] == GLOBAL_SPIKE_THRESHOLD:
-            spike_detection_threshold = spike_threshold_value
-        else:  # MULTIPLIER
-            spike_detection_threshold = noise_level_spikes * spike_threshold_value
-
-        spike_thresholded: list[float] = []
-        for s in spikes:
-            if s > spike_detection_threshold:
-                spike_thresholded.append(s)
-            else:
-                spike_thresholded.append(0.0)
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()

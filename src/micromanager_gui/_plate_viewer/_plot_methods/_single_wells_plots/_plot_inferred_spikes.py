@@ -125,15 +125,14 @@ def _plot_trace(
     else:
         ax.plot(spikes, label=f"ROI {roi_key}")
 
-    # Add vertical line for spike detection threshold
+    # Add horizontal line for spike detection threshold
     if thresholds and spikes_threshold is not None and spikes_threshold > 0.0:
-        ax.plot(
-            [0, 0],
-            [0, spikes_threshold],
+        ax.axhline(
+            y=spikes_threshold,
             color="black",
-            linestyle="-",
-            linewidth=3,
-            alpha=0.8,
+            linestyle="--",
+            linewidth=2,
+            alpha=0.6,
             label=f"Spike threshold (ROI {roi_key})",
         )
 
