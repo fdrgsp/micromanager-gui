@@ -923,7 +923,7 @@ class _AnalyseCalciumTraces(QWidget):
         if len(elapsed_time_list) != timepoints:
             elapsed_time_list = [i * exp_time for i in range(timepoints)]
         # get the total time in seconds for the recording
-        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0] + exp_time) / 1000
+        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0]) / 1000
 
         # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
