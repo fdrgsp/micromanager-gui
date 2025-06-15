@@ -386,7 +386,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
-        # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
+        # WIDGET TO SELECT THE POSITIONS TO ANALYZE --------------------------------
         self._pos_wdg = QWidget(self)
         self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
@@ -404,7 +404,7 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # PROGRESS BAR -------------------------------------------
+        # PROGRESS BAR -------------------------------------------------------------
         self._progress_bar = QProgressBar(self)
         self._progress_pos_label = QLabel()
         self._elapsed_time_label = QLabel("00:00:00")
@@ -421,7 +421,7 @@ class _AnalyseCalciumTraces(QWidget):
         # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
-        # STYLING --------------------------------------------------------------------
+        # STYLING ------------------------------------------------------------------
         fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
@@ -433,7 +433,7 @@ class _AnalyseCalciumTraces(QWidget):
         plate_map_lbl.setFixedWidth(fixed_width)
         decay_const_lbl.setFixedWidth(fixed_width)
 
-        # LAYOUT ---------------------------------------------------------------------
+        # LAYOUT -------------------------------------------------------------------
         def create_divider_line() -> QFrame:
             """Create a horizontal divider line."""
             line = QFrame()
@@ -484,7 +484,7 @@ class _AnalyseCalciumTraces(QWidget):
             text="Stopping all the Tasks..."
         )
 
-        # CONNECTIONS ---------------------------------------------------------------
+        # CONNECTIONS --------------------------------------------------------------
         self.progress_bar_updated.connect(self._update_progress_bar)
 
     @property
@@ -614,9 +614,9 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
         self._peaks_distance_spin.setValue(peaks_distance)
 
-    # PRIVATE METHODS -----------------------------------------------------------------
+    # PRIVATE METHODS --------------------------------------------------------------
 
-    # PREPARATION FOR RUNNING ---------------------------------------------------------
+    # PREPARATION FOR RUNNING ------------------------------------------------------
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -1311,7 +1311,7 @@ class _AnalyseCalciumTraces(QWidget):
                 indent=2,
             )
 
-    # WIDGET --------------------------------------------------------------------------
+    # WIDGET -----------------------------------------------------------------------
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
