@@ -390,7 +390,7 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     return background
 
 
-def get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
+def _get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
     """Calculate the linear phase progression."""
     if not peaks.any():
         return [0.0 for _ in range(frames)]
@@ -478,7 +478,7 @@ def _get_synchrony_matrix(
     return synchrony_matrix  # type: ignore
 
 
-def get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
+def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
     """Calculate global synchrony score from a synchrony matrix."""
     if synchrony_matrix is None or synchrony_matrix.size == 0:
         return None
@@ -580,3 +580,21 @@ def get_overlap_roi_with_stimulated_area(
     overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
 
     return overlapping_pixels / cell_pixels
+
+
+def _get_spikes_over_threshold(
+    roi_data: ROIData, raw: bool = False
+) -> list[float] | None:
+    """Get spikes over threshold from ROI data."""
+    if not roi_data.inferred_spikes or roi_data.inferred_spikes_threshold is None:
+        return None
+    if raw:
+        # Return raw inferred spikes
+        return roi_data.inferred_spikes
+    spikes_thresholded = []
+    for spike in roi_data.inferred_spikes:
+        if spike > roi_data.inferred_spikes_threshold:
+            spikes_thresholded.append(spike)
+        else:
+            spikes_thresholded.append(0.0)
+    return spikes_thresholded

@@ -95,7 +95,7 @@ EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
 MAX_FRAMES_AFTER_STIMULATION = 5
 DEFAULT_HEIGHT = 3
-DEFAULT_SPIKE_THRESHOLD = 3
+DEFAULT_SPIKE_THRESHOLD = 1
 GLOBAL_HEIGHT = "global_height"
 GLOBAL_SPIKE_THRESHOLD = "global_spike_threshold"
 MULTIPLIER = "multiplier"
@@ -1192,12 +1192,12 @@ class _AnalyseCalciumTraces(QWidget):
         else:  # MULTIPLIER
             spike_detection_threshold = spike_noise_reference * spike_threshold_value
 
-        spike_thresholded: list[float] = []
-        for s in spikes:
-            if s > spike_detection_threshold:
-                spike_thresholded.append(s)
-            else:
-                spike_thresholded.append(0.0)
+        # spike_thresholded: list[float] = []
+        # for s in spikes:
+        #     if s > spike_detection_threshold:
+        #         spike_thresholded.append(s)
+        #     else:
+        #         spike_thresholded.append(0.0)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1293,7 +1293,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
             peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
-            inferred_spikes=spike_thresholded,
+            inferred_spikes=spikes.tolist(),
             inferred_spikes_threshold=spike_detection_threshold,
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",

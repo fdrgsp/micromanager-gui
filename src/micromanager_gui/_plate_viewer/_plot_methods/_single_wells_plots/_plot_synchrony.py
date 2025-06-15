@@ -9,9 +9,9 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
+    _get_linear_phase,
+    _get_synchrony,
     _get_synchrony_matrix,
-    get_linear_phase,
-    get_synchrony,
 )
 
 if TYPE_CHECKING:
@@ -55,14 +55,14 @@ def _plot_synchrony_data(
             continue
         frames = len(roi_data.dec_dff)
         peaks = np.array(roi_data.peaks_dec_dff)
-        phase_dict[roi] = get_linear_phase(frames, peaks)
+        phase_dict[roi] = _get_linear_phase(frames, peaks)
 
     synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
     if synchrony_matrix is None:
         return None
 
-    linear_synchrony = get_synchrony(synchrony_matrix)
+    linear_synchrony = _get_synchrony(synchrony_matrix)
 
     title = f"Median Global Synchrony: {linear_synchrony:0.4f}"
 

@@ -49,11 +49,12 @@ DEC_DFF_AMPLITUDE = "Deconvolved ΔF/F0 Amplitudes"
 DEC_DFF_FREQUENCY = "Deconvolved ΔF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved ΔF/F0 Amplitudes vs Frequencies"
 DEC_DFF_IEI = "Deconvolved ΔF/F0 Inter-event Interval"
-INFERRED_SPIKES = "Inferred Spikes"
-INFERRED_SPIKES_WITH_THRESHOLD = "Inferred Spikes with Thresholds (Only if 1 ROI selected)"  # noqa: E501
-INFERRED_SPIKES_WITH_DEC_DFF = "Inferred Spikes with Deconvolved ΔF/F0 Traces"
-INFERRED_SPIKES_NORMALIZED = "Inferred Spikes Normalized"
-INFERRED_SPIKES_ACTIVE_ONLY = "Inferred Spikes Normalized (Active Only)"
+INFERRED_SPIKES_RAW = "Inferred Spikes Raw"
+INFERRED_SPIKES_THRESHOLDED = "Inferred Spikes Thresholded"
+INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - Only if 1 ROI selected)"  # noqa: E501
+INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes Thresholded with Deconvolved ΔF/F0 Traces"  # noqa: E501
+INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes Thresholded Normalized"
+INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes Thresholded Normalized (Active Only)"  # noqa: E501
 INFERRED_SPIKES_SYNCHRONY = "Inferred Spikes Synchrony"
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
@@ -90,11 +91,12 @@ TRACES_GROUP = {
 }
 
 INFERRED_SPIKES_GROUP = {
-    INFERRED_SPIKES: {},
-    INFERRED_SPIKES_WITH_THRESHOLD: {"thresholds": True},
-    INFERRED_SPIKES_NORMALIZED: {"normalize": True},
-    INFERRED_SPIKES_ACTIVE_ONLY: {"normalize": True, "active_only": True},
-    INFERRED_SPIKES_WITH_DEC_DFF: {"dec_dff": True},
+    INFERRED_SPIKES_RAW: {"raw": True},
+    INFERRED_SPIKES_THRESHOLDED: {},
+    INFERRED_SPIKES_RAW_WITH_THRESHOLD: {"raw": True, "thresholds": True},
+    INFERRED_SPIKES_THRESHOLDED_NORMALIZED: {"normalize": True},
+    INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY: {"normalize": True, "active_only": True},
+    INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF: {"dec_dff": True},
     INFERRED_SPIKES_SYNCHRONY: {},
 }
 
@@ -180,11 +182,12 @@ def plot_single_well_data(
     # INFERRED SPIKES GROUP
     if text in INFERRED_SPIKES_GROUP:
         if text in {
-            INFERRED_SPIKES,
-            INFERRED_SPIKES_WITH_THRESHOLD,
-            INFERRED_SPIKES_NORMALIZED,
-            INFERRED_SPIKES_ACTIVE_ONLY,
-            INFERRED_SPIKES_WITH_DEC_DFF,
+            INFERRED_SPIKES_RAW,
+            INFERRED_SPIKES_THRESHOLDED,
+            INFERRED_SPIKES_RAW_WITH_THRESHOLD,
+            INFERRED_SPIKES_THRESHOLDED_NORMALIZED,
+            INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY,
+            INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF,
         }:
             return _plot_inferred_spikes(
                 widget, data, rois, **INFERRED_SPIKES_GROUP[text]

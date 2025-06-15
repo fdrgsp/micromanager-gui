@@ -11,9 +11,10 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
+    _get_linear_phase,
+    _get_spikes_over_threshold,
+    _get_synchrony,
     _get_synchrony_matrix,
-    get_linear_phase,
-    get_synchrony,
 )
 
 if TYPE_CHECKING:
@@ -72,13 +73,13 @@ def _plot_spike_synchrony_data(
         return
 
     # Calculate global synchrony metric using existing function
-    global_synchrony = get_synchrony(synchrony_matrix)
+    global_synchrony = _get_synchrony(synchrony_matrix)
     if global_synchrony is None:
         global_synchrony = 0.0
 
     title = (
         f"Spike-based Global Synchrony (Median: {global_synchrony:.3f})\n"
-        f"(window={time_window*1000:.1f}ms)\n"
+        f"(User Thresholded - window={time_window*1000:.1f}ms)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
@@ -134,7 +135,7 @@ def _get_spike_trains_from_rois(
             # Skip non-numeric ROI keys when rois filter is specified
             continue
 
-        if (spike_probs := roi_data.inferred_spikes) is not None:
+        if (spike_probs := _get_spikes_over_threshold(roi_data)) is not None:
             # Convert spike probabilities to binary spike train
             spike_train = np.array(spike_probs) > 0.0
             if np.sum(spike_train) > 0:  # Only include ROIs with at least one spike
@@ -207,7 +208,7 @@ def _calculate_spike_synchrony_matrix(
             phase_dict[roi_name] = [0.0] * len(spike_train)
         else:
             # Use existing get_linear_phase function to create phase from spikes
-            phase_dict[roi_name] = get_linear_phase(len(spike_train), spike_indices)
+            phase_dict[roi_name] = _get_linear_phase(len(spike_train), spike_indices)
 
     # Use existing PLV-based synchrony matrix calculation
     return _get_synchrony_matrix(phase_dict)

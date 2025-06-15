@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 import mplcursors
 import numpy as np
 
+from micromanager_gui._plate_viewer._util import _get_spikes_over_threshold
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
@@ -18,6 +20,7 @@ def _plot_inferred_spikes(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
+    raw: bool = False,
     normalize: bool = False,
     active_only: bool = False,
     dec_dff: bool = False,
@@ -44,8 +47,8 @@ def _plot_inferred_spikes(
                 except ValueError:
                     # Skip non-numeric ROI keys when rois filter is specified
                     continue
-            if roi_data.inferred_spikes:
-                all_values.extend(roi_data.inferred_spikes)
+            if the_spikes := _get_spikes_over_threshold(roi_data):
+                all_values.extend(the_spikes)
 
         if all_values:
             percentiles = np.percentile(all_values, [5, 100])
@@ -79,7 +82,7 @@ def _plot_inferred_spikes(
         _plot_trace(
             ax,
             roi_key,
-            roi_data.inferred_spikes,
+            _get_spikes_over_threshold(roi_data, raw),
             normalize,
             count,
             p1,
@@ -92,9 +95,7 @@ def _plot_inferred_spikes(
         last_trace = roi_data.inferred_spikes
         count += 1
 
-    _set_graph_title_and_labels(
-        ax, normalize, thresholds, roi_data.inferred_spikes_threshold
-    )
+    _set_graph_title_and_labels(ax, normalize, raw)
 
     _update_time_axis(ax, rois_rec_time, last_trace)
 
@@ -107,7 +108,7 @@ def _plot_inferred_spikes(
 def _plot_trace(
     ax: Axes,
     roi_key: str,
-    spikes: list[float],
+    trace: list[float] | None,
     normalize: bool,
     count: int,
     p1: float,
@@ -116,14 +117,16 @@ def _plot_trace(
     spikes_threshold: float | None = None,
 ) -> None:
     """Plot inferred spikes trace with optional percentile-based normalization."""
+    if trace is None or not trace:
+        return
     if normalize:
         offset = count * 1.1  # vertical offset
-        spike_trace = _normalize_trace_percentile(spikes, p1, p2) + offset
+        spike_trace = _normalize_trace_percentile(trace, p1, p2) + offset
         ax.plot(spike_trace, label=f"ROI {roi_key}")
         ax.set_yticks([])
         ax.set_yticklabels([])
     else:
-        ax.plot(spikes, label=f"ROI {roi_key}")
+        ax.plot(trace, label=f"ROI {roi_key}")
 
     # Add horizontal line for spike detection threshold
     if thresholds and spikes_threshold is not None and spikes_threshold > 0.0:
@@ -147,13 +150,11 @@ def _normalize_trace_percentile(trace: list[float], p1: float, p2: float) -> np.
     return np.clip(normalized, 0, 1)
 
 
-def _set_graph_title_and_labels(
-    ax: Axes, normalize: bool, thresholds: bool, spikes_threshold: float | None = None
-) -> None:
+def _set_graph_title_and_labels(ax: Axes, normalize: bool, raw: bool) -> None:
     """Set axis labels based on the plotted data."""
-    title = "Normalized Inferred Spikes" if normalize else "Inferred Spikes"
-    if thresholds and spikes_threshold is not None:
-        title += f" (Threshold: {spikes_threshold:.4f})"
+    title = ("Normalized Inferred Spikes" if normalize else "Inferred Spikes") + (
+        " (Raw)" if raw else " (Thresholded)"
+    )
     y_lbl = "ROIs" if normalize else "Inferred Spikes (magnitude)"
 
     ax.set_title(title)

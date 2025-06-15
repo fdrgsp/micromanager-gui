@@ -16,9 +16,10 @@ from ._util import (
     N_SUFFIX,
     SEM_SUFFIX,
     ROIData,
+    _get_linear_phase,
+    _get_spikes_over_threshold,
+    _get_synchrony,
     _get_synchrony_matrix,
-    get_linear_phase,
-    get_synchrony,
 )
 
 # fmt: off
@@ -72,7 +73,11 @@ def save_trace_data_to_csv(
     try:
         _export_inferred_spikes_data(path, analysis_data)
     except Exception as e:
-        LOGGER.error(f"Error exporting INFERRED SPIKES DATA to CSV: {e}")
+        LOGGER.error(f"Error exporting INFERRED RAW SPIKES DATA to CSV: {e}")
+    try:
+        _export_inferred_spikes_data(path, analysis_data, raw=False)
+    except Exception as e:
+        LOGGER.error(f"Error exporting INFERRED THRESHOLDED SPIKES DATA to CSV: {e}")
     LOGGER.info("Exporting data to CSV: DONE!")
 
 
@@ -303,7 +308,7 @@ def _export_dec_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) 
 
 
 def _export_inferred_spikes_data(
-    path: Path | str, data: dict[str, dict[str, ROIData]]
+    path: Path | str, data: dict[str, dict[str, ROIData]], raw: bool = True
 ) -> None:
     """Save the inferred spikes data as CSV files.
 
@@ -318,10 +323,10 @@ def _export_inferred_spikes_data(
     rows = {}
     for well_fov, rois in data.items():
         for roi_key, roi_data in rois.items():
-            if roi_data.inferred_spikes is None:
+            if (spikes := _get_spikes_over_threshold(roi_data, raw)) is None:
                 continue
             row_name = f"{well_fov}_{roi_key}"
-            rows[row_name] = roi_data.inferred_spikes
+            rows[row_name] = spikes
 
     # convert to DataFrame (handles unequal lengths by filling with NaN)
     df = pd.DataFrame.from_dict(rows, orient="index")
@@ -330,7 +335,8 @@ def _export_inferred_spikes_data(
     df.columns = [f"t{i}" for i in range(df.shape[1])]
 
     # save to CSV
-    df.to_csv(folder / f"{exp_name}_inferred_spikes_data.csv", index=True)
+    suffix = "inferred_spikes_raw_data" if raw else "inferred_spikes_thresholded_data"
+    df.to_csv(folder / f"{exp_name}_{suffix}.csv", index=True)
 
 
 def _export_to_csv_mean_values_grouped_by_condition(
@@ -572,11 +578,11 @@ def _get_synchrony_parameter(
                     continue
                 frames = len(roi_data.dec_dff)
                 peaks = np.array(roi_data.peaks_dec_dff)
-                phase_dict[roi_key] = get_linear_phase(frames, peaks)
+                phase_dict[roi_key] = _get_linear_phase(frames, peaks)
 
             synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
-            linear_synchrony = get_synchrony(synchrony_matrix)
+            linear_synchrony = _get_synchrony(synchrony_matrix)
 
             synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
                 linear_synchrony
