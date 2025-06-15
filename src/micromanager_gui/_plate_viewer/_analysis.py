@@ -42,7 +42,7 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._plate_map import PlateMapWidget
-from ._to_csv import save_analysys_data_to_csv, save_trace_data_to_csv
+from ._to_csv import save_analysis_data_to_csv, save_trace_data_to_csv
 from ._util import (
     COND1,
     COND2,
@@ -1275,7 +1275,7 @@ class _AnalyseCalciumTraces(QWidget):
         # save the analysis data to a JSON file
         if self._analysis_path:
             save_trace_data_to_csv(self._analysis_path, self._analysis_data)
-            save_analysys_data_to_csv(self._analysis_path, self._analysis_data)
+            save_analysis_data_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
         if self._failed_labels:

@@ -64,7 +64,7 @@ def save_trace_data_to_csv(
     try:
         _export_dff_data(path, analysis_data)
     except Exception as e:
-        LOGGER.error( f"Error exporting dFF DATA to CSV: {e}")
+        LOGGER.error(f"Error exporting dFF DATA to CSV: {e}")
     try:
         _export_dec_dff_data(path, analysis_data)
     except Exception as e:
@@ -76,7 +76,7 @@ def save_trace_data_to_csv(
     LOGGER.info("Exporting data to CSV: DONE!")
 
 
-def save_analysys_data_to_csv(
+def save_analysis_data_to_csv(
     path: str | Path,
     analysis_data: dict[str, dict[str, ROIData]] | None,
 ) -> None:
@@ -93,11 +93,11 @@ def save_analysys_data_to_csv(
     try:
         _export_to_csv_mean_values_grouped_by_condition(path, rearrange_cond)
     except Exception as e:
-        LOGGER.error(f"Error exporting spontanoous analysys data to CSV: {e}")
+        LOGGER.error(f"Error exporting spontanoous analysis data to CSV: {e}")
     try:
         _export_to_csv_mean_values_evk_parameters(path, rearrange_cond_evk)
     except Exception as e:
-        LOGGER.error(f"Error exporting evoked analysys data to CSV: {e}")
+        LOGGER.error(f"Error exporting evoked analysis data to CSV: {e}")
     LOGGER.info("Exporting data to CSV: DONE!")
 
 
@@ -116,7 +116,6 @@ def _rearrange_data(analysis_data: dict[str, dict[str, ROIData]]) -> tuple:
         for parameter in CSV_PARAMETERS_EVK.values()
     }
     return fov_by_condition_by_parameter, fov_by_condition_by_parameter_evk
-
 
 
 def _rearrange_fov_by_conditions(
