@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
     _get_synchrony_matrix,
     get_linear_phase,
@@ -36,6 +37,10 @@ def _plot_synchrony_data(
 
     # if less than two rois input, can't calculate synchrony
     if len(rois) < 2:
+        LOGGER.warning(
+            "Insufficient ROIs selected for synchrony analysis. "
+            "Please select at least two ROIs."
+        )
         return None
 
     phase_dict: dict[str, list[float]] = {}

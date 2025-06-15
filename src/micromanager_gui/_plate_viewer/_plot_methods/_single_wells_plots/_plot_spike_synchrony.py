@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
     _get_synchrony_matrix,
     get_linear_phase,
@@ -50,15 +51,10 @@ def _plot_spike_synchrony_data(
 
     spike_trains = _get_spike_trains_from_rois(data, rois, spike_threshold)
     if spike_trains is None or len(spike_trains) < 2:
-        ax.text(
-            0.5,
-            0.5,
-            "Insufficient spike data for synchrony analysis",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
+        LOGGER.warning(
+            "Insufficient spike data for synchrony analysis. "
+            "Ensure at least two ROIs with spikes are selected."
         )
-        widget.canvas.draw()
         return
 
     # Get exposure time from data for temporal resolution
