@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (  # noqa: E501
     _calculate_spike_synchrony_matrix,
     _get_exposure_time_from_data,
     _get_spike_trains_from_rois,
@@ -77,7 +77,8 @@ def main():
             print(f"Diagonal values (self-synchrony): {diagonal}")
             print(f"Off-diagonal mean: {np.mean(off_diagonal):.3f}")
             print(
-                f"Off-diagonal range: {np.min(off_diagonal):.3f} to {np.max(off_diagonal):.3f}"
+                f"Off-diagonal range: {np.min(off_diagonal):.3f} "
+                "to {np.max(off_diagonal):.3f}"
             )
         else:
             print("Failed to calculate synchrony matrix")
