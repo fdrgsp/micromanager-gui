@@ -70,8 +70,8 @@ def test_spike_synchrony_analysis():
     rois = list(range(5))  # Test with first 5 ROIs
 
     # Test spike train extraction
-    spike_trains = _get_spike_trains_from_rois(data, rois, spike_threshold=0.5)
-    print(f"Extracted spike trains for {len(spike_trains)} ROIs")
+    spike_trains = _get_spike_trains_from_rois(data, rois)
+    print(f"Extracted spike trains for {len(spike_trains or [])} ROIs")
 
     # Test synchrony matrix calculation
     if spike_trains:
@@ -102,7 +102,7 @@ def test_integration():
     print("Running all analysis methods on the same dataset:")
 
     # 1. Synchrony analysis
-    spike_trains = _get_spike_trains_from_rois(data, rois, spike_threshold=0.5)
+    spike_trains = _get_spike_trains_from_rois(data, rois)
     if spike_trains:
         synchrony_matrix = _calculate_spike_synchrony_matrix(
             spike_trains, time_window=0.1

@@ -112,7 +112,6 @@ def _get_spike_trains_from_rois(
     Args:
         roi_data_dict: Dictionary of ROI data
         rois: List of ROI indices to include, None for all
-        spike_threshold: Threshold for spike detection
 
     Returns
     -------
