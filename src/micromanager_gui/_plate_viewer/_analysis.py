@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
+from sympy import li
 import tifffile
 import useq
 from fonticon_mdi6 import MDI6
@@ -947,7 +948,7 @@ class _AnalyseCalciumTraces(QWidget):
         if len(elapsed_time_list) != timepoints:
             elapsed_time_list = [i * exp_time for i in range(timepoints)]
         # get the total time in seconds for the recording
-        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0] + exp_time) / 1000
+        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0]) / 1000
 
         # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
@@ -1098,7 +1099,15 @@ class _AnalyseCalciumTraces(QWidget):
         noise_level_dec_dff = float(
             np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
         )
-
+        noise_level_spikes = float(
+            np.median(np.abs(spikes - np.median(spikes))) / 0.6745
+        )
+        spike_thresholded: list[float] = []
+        for s in spikes:
+            if s > (noise_level_spikes * 3):
+                spike_thresholded.append(s)
+            else:
+                spike_thresholded.append(0.0)
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = self._peaks_prominence_multiplier_spin.value()
@@ -1172,7 +1181,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_prominence_dec_dff=peaks_prominence_dec_dff,
             peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
-            inferred_spikes=spikes.tolist(),
+            inferred_spikes=spike_thresholded,
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
             condition_1=condition_1,
