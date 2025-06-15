@@ -28,8 +28,7 @@ def _plot_spike_synchrony_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    spike_threshold: float = 0.1,
-    time_window: float = 0.1,  # seconds
+    spike_threshold: float = 0.0, # TODO: remove and add parameter for analysis
 ) -> None:
     """Plot spike-based synchrony analysis.
 
@@ -87,8 +86,8 @@ def _plot_spike_synchrony_data(
         global_synchrony = 0.0
 
     title = (
-        f"Spike-based Synchrony (threshold={spike_threshold:.1f}, "
-        f"window={time_window*1000:.1f}ms)\nMedian Global Synchrony: {global_synchrony:.3f}"
+        f"Spike-based Median Global Synchrony ({global_synchrony:.3f})\n"
+        f"threshold={spike_threshold:.1f}, window={time_window*1000:.1f}ms)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
@@ -143,7 +142,7 @@ def _get_spike_trains_from_rois(
 
         if (spike_probs := roi_data.inferred_spikes) is not None:
             # Convert spike probabilities to binary spike train
-            spike_train = np.array(spike_probs) >= spike_threshold
+            spike_train = np.array(spike_probs) > spike_threshold
             if np.sum(spike_train) > 0:  # Only include ROIs with at least one spike
                 spike_trains[roi] = spike_train
 
