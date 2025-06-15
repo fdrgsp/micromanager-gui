@@ -1,4 +1,4 @@
-FOV,c1_t1_evk_non_stim_15.500mW/cm²_100_Mean,c1_t1_evk_non_stim_15.500mW/cm²_100_SEM,c1_t1_evk_non_stim_15.500mW/cm²_100_N,c1_t1_evk_non_stim_37.520mW/cm²_100_Mean,c1_t1_evk_non_stim_37.520mW/cm²_100_SEM,c1_t1_evk_non_stim_37.520mW/cm²_100_N,c1_t1_evk_non_stim_59.540mW/cm²_100_Mean,c1_t1_evk_non_stim_59.540mW/cm²_100_SEM,c1_t1_evk_non_stim_59.540mW/cm²_100_N
-B5_0000_p0_15.500mW/cm²_100,0.35054,0.12702,2,,,,,,
-B5_0000_p0_37.520mW/cm²_100,,,,0.57229,0.24956,2,,,
-B5_0000_p0_59.540mW/cm²_100,,,,,,,0.57943,0.23053,2
+FOV,c1_t1_evk_non_stim_2_100_Mean,c1_t1_evk_non_stim_2_100_SEM,c1_t1_evk_non_stim_2_100_N,c1_t1_evk_non_stim_4_100_Mean,c1_t1_evk_non_stim_4_100_SEM,c1_t1_evk_non_stim_4_100_N,c1_t1_evk_non_stim_6_100_Mean,c1_t1_evk_non_stim_6_100_SEM,c1_t1_evk_non_stim_6_100_N
+B5_0000_p0_2_100,0.35054,0.12702,2,,,,,,
+B5_0000_p0_4_100,,,,0.57229,0.24956,2,,,
+B5_0000_p0_6_100,,,,,,,0.57943,0.23053,2
