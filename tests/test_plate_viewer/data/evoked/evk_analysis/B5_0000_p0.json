@@ -633,6 +633,7 @@
       0.0016359957556487947,
       0.0
     ],
+    "inferred_spikes_threshold": 0.0,
     "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -1299,6 +1300,7 @@
       0.0,
       3.469446951953614e-18
     ],
+    "inferred_spikes_threshold": 0.0,
     "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -1965,6 +1967,7 @@
       1.734723475976807e-18,
       0.0
     ],
+    "inferred_spikes_threshold": 0.0,
     "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -2633,6 +2636,7 @@
       0.0,
       0.0
     ],
+    "inferred_spikes_threshold": 0.0,
     "dec_dff_frequency": 0.2483647386199021,
     "condition_1": "c1",
     "condition_2": "t1",

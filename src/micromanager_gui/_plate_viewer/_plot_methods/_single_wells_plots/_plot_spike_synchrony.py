@@ -29,7 +29,6 @@ def _plot_spike_synchrony_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    spike_threshold: float = 0.0,  # TODO: remove and add parameter for analysis
 ) -> None:
     """Plot spike-based synchrony analysis.
 
@@ -41,15 +40,11 @@ def _plot_spike_synchrony_data(
         Dictionary of ROI data
     rois: list[int] | None
         List of ROI indices to include, None for all
-    spike_threshold: float
-        Threshold for spike detection (default 0.1)
-    time_window: float
-        Time window for synchrony detection in seconds (default 0.1)
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    spike_trains = _get_spike_trains_from_rois(data, rois, spike_threshold)
+    spike_trains = _get_spike_trains_from_rois(data, rois)
     if spike_trains is None or len(spike_trains) < 2:
         LOGGER.warning(
             "Insufficient spike data for synchrony analysis. "
@@ -83,7 +78,7 @@ def _plot_spike_synchrony_data(
 
     title = (
         f"Spike-based Global Synchrony (Median: {global_synchrony:.3f})\n"
-        f"(threshold={spike_threshold:.1f}, window={time_window*1000:.1f}ms)\n"
+        f"(window={time_window*1000:.1f}ms)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
@@ -111,7 +106,6 @@ def _plot_spike_synchrony_data(
 def _get_spike_trains_from_rois(
     roi_data_dict: dict[str, ROIData],
     rois: list[int] | None = None,
-    spike_threshold: float = 0.5,
 ) -> dict[str, np.ndarray] | None:
     """Extract spike trains from ROI data.
 
@@ -138,7 +132,7 @@ def _get_spike_trains_from_rois(
 
         if (spike_probs := roi_data.inferred_spikes) is not None:
             # Convert spike probabilities to binary spike train
-            spike_train = np.array(spike_probs) > spike_threshold
+            spike_train = np.array(spike_probs) > 0.0
             if np.sum(spike_train) > 0:  # Only include ROIs with at least one spike
                 spike_trains[roi] = spike_train
 

@@ -50,6 +50,7 @@ DEC_DFF_FREQUENCY = "Deconvolved ΔF/F0 Frequencies"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved ΔF/F0 Amplitudes vs Frequencies"
 DEC_DFF_IEI = "Deconvolved ΔF/F0 Inter-event Interval"
 INFERRED_SPIKES = "Inferred Spikes"
+INFERRED_SPIKES_WITH_THRESHOLD = "Inferred Spikes with Thresholds (Only if 1 ROI selected)"  # noqa: E501
 INFERRED_SPIKES_WITH_DEC_DFF = "Inferred Spikes with Deconvolved ΔF/F0 Traces"
 INFERRED_SPIKES_NORMALIZED = "Inferred Spikes Normalized"
 INFERRED_SPIKES_ACTIVE_ONLY = "Inferred Spikes Normalized (Active Only)"
@@ -90,6 +91,7 @@ TRACES_GROUP = {
 
 INFERRED_SPIKES_GROUP = {
     INFERRED_SPIKES: {},
+    INFERRED_SPIKES_WITH_THRESHOLD: {"thresholds": True},
     INFERRED_SPIKES_NORMALIZED: {"normalize": True},
     INFERRED_SPIKES_ACTIVE_ONLY: {"normalize": True, "active_only": True},
     INFERRED_SPIKES_WITH_DEC_DFF: {"dec_dff": True},
@@ -179,6 +181,7 @@ def plot_single_well_data(
     if text in INFERRED_SPIKES_GROUP:
         if text in {
             INFERRED_SPIKES,
+            INFERRED_SPIKES_WITH_THRESHOLD,
             INFERRED_SPIKES_NORMALIZED,
             INFERRED_SPIKES_ACTIVE_ONLY,
             INFERRED_SPIKES_WITH_DEC_DFF,

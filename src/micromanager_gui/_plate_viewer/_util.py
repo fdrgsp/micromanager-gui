@@ -78,6 +78,7 @@ class ROIData(BaseClass):
     peaks_prominence_dec_dff: float | None = None
     peaks_height_dec_dff: float | None = None
     inferred_spikes: list[float] | None = None
+    inferred_spikes_threshold: float | None = None
     dec_dff_frequency: float | None = None  # Hz
     condition_1: str | None = None
     condition_2: str | None = None

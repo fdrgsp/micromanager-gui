@@ -209,8 +209,8 @@ class _SpikeThresholdWidget(QWidget):
         self._spike_threshold_lbl.setSizePolicy(*FIXED)
 
         self._spike_threshold_spin = QDoubleSpinBox(self)
-        self._spike_threshold_spin.setDecimals(2)
-        self._spike_threshold_spin.setRange(0.0, 100.0)
+        self._spike_threshold_spin.setDecimals(4)
+        self._spike_threshold_spin.setRange(0.0, 10000.0)
         self._spike_threshold_spin.setSingleStep(0.1)
         self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
 
@@ -519,7 +519,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._spike_threshold_wdg._global_spike_threshold.setFixedWidth(
             self._peaks_height_wdg._global_peaks_height.sizeHint().width()
-            )
+        )
 
         # LAYOUT -------------------------------------------------------------------
         def create_divider_line() -> QFrame:
@@ -1286,6 +1286,7 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
             inferred_spikes=spike_thresholded,
+            inferred_spikes_threshold=spike_detection_threshold,
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
             condition_1=condition_1,

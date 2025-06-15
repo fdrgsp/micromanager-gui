@@ -13,7 +13,7 @@ from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_infe
     _add_hover_functionality,
     _normalize_trace_percentile,
     _plot_inferred_spikes,
-    _plot_spike_trace,
+    _plot_trace,
     _set_graph_title_and_labels,
     _update_time_axis,
 )
@@ -163,7 +163,7 @@ class TestInferredSpikesPlots:
         mock_ax = Mock()
         spikes = [0.0, 0.2, 0.0, 0.8, 0.3]
 
-        _plot_spike_trace(mock_ax, "1", spikes, normalize=True, count=0, p1=0.0, p2=1.0)
+        _plot_trace(mock_ax, "1", spikes, normalize=True, count=0, p1=0.0, p2=1.0)
 
         mock_ax.plot.assert_called_once()
         mock_ax.set_yticks.assert_called_once_with([])
@@ -174,9 +174,7 @@ class TestInferredSpikesPlots:
         mock_ax = Mock()
         spikes = [0.0, 0.2, 0.0, 0.8, 0.3]
 
-        _plot_spike_trace(
-            mock_ax, "1", spikes, normalize=False, count=0, p1=0.0, p2=1.0
-        )
+        _plot_trace(mock_ax, "1", spikes, normalize=False, count=0, p1=0.0, p2=1.0)
 
         mock_ax.plot.assert_called_once()
         # These should not be called when not normalized

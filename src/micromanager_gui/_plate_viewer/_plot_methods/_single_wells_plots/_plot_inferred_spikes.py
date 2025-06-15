@@ -21,11 +21,15 @@ def _plot_inferred_spikes(
     normalize: bool = False,
     active_only: bool = False,
     dec_dff: bool = False,
+    thresholds: bool = False,
 ) -> None:
     """Plot inferred spikes data."""
     # clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
+
+    # show peaks thresholds only if only 1 roi is selected
+    thresholds = thresholds if rois and len(rois) == 1 else False
 
     # compute percentiles for normalization if needed
     p1 = p2 = 0.0
@@ -72,16 +76,25 @@ def _plot_inferred_spikes(
         # plot only active neurons if asked to plot active only
         if active_only and not roi_data.active:
             continue
-
-        _plot_spike_trace(
-            ax, roi_key, roi_data.inferred_spikes, normalize, count, p1, p2
+        _plot_trace(
+            ax,
+            roi_key,
+            roi_data.inferred_spikes,
+            normalize,
+            count,
+            p1,
+            p2,
+            thresholds,
+            roi_data.inferred_spikes_threshold,
         )
         if dec_dff and roi_data.dec_dff:
-            _plot_spike_trace(ax, roi_key, roi_data.dec_dff, normalize, count, p1, p2)
+            _plot_trace(ax, roi_key, roi_data.dec_dff, normalize, count, p1, p2)
         last_trace = roi_data.inferred_spikes
         count += 1
 
-    _set_graph_title_and_labels(ax, normalize)
+    _set_graph_title_and_labels(
+        ax, normalize, thresholds, roi_data.inferred_spikes_threshold
+    )
 
     _update_time_axis(ax, rois_rec_time, last_trace)
 
@@ -91,7 +104,7 @@ def _plot_inferred_spikes(
     widget.canvas.draw()
 
 
-def _plot_spike_trace(
+def _plot_trace(
     ax: Axes,
     roi_key: str,
     spikes: list[float],
@@ -99,6 +112,8 @@ def _plot_spike_trace(
     count: int,
     p1: float,
     p2: float,
+    thresholds: bool = False,
+    spikes_threshold: float | None = None,
 ) -> None:
     """Plot inferred spikes trace with optional percentile-based normalization."""
     if normalize:
@@ -109,6 +124,18 @@ def _plot_spike_trace(
         ax.set_yticklabels([])
     else:
         ax.plot(spikes, label=f"ROI {roi_key}")
+
+    # Add vertical line for spike detection threshold
+    if thresholds and spikes_threshold is not None and spikes_threshold > 0.0:
+        ax.plot(
+            [0, 0],
+            [0, spikes_threshold],
+            color="black",
+            linestyle="-",
+            linewidth=3,
+            alpha=0.8,
+            label=f"Spike threshold (ROI {roi_key})",
+        )
 
 
 def _normalize_trace_percentile(trace: list[float], p1: float, p2: float) -> np.ndarray:
@@ -121,9 +148,13 @@ def _normalize_trace_percentile(trace: list[float], p1: float, p2: float) -> np.
     return np.clip(normalized, 0, 1)
 
 
-def _set_graph_title_and_labels(ax: Axes, normalize: bool) -> None:
+def _set_graph_title_and_labels(
+    ax: Axes, normalize: bool, thresholds: bool, spikes_threshold: float | None = None
+) -> None:
     """Set axis labels based on the plotted data."""
     title = "Normalized Inferred Spikes" if normalize else "Inferred Spikes"
+    if thresholds and spikes_threshold is not None:
+        title += f" (Threshold: {spikes_threshold:.4f})"
     y_lbl = "ROIs" if normalize else "Inferred Spikes (magnitude)"
 
     ax.set_title(title)
