@@ -171,7 +171,7 @@ class TestIEIPlots:
         _set_graph_title_and_labels(mock_ax)
 
         mock_ax.set_title.assert_called_once_with(
-            "Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
+            "Calcium Peaks Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
         )
         mock_ax.set_ylabel.assert_called_once_with("Inter-event intervals (Sec)")
         mock_ax.set_xlabel.assert_called_once_with("ROIs")
