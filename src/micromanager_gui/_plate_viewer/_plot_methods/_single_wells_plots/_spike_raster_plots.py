@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
@@ -128,10 +129,10 @@ def _generate_spike_raster_plot(
 
     # add the colorbar if amplitude colors are used
     if amplitude_colors and colorbar:
+        # Use the same logic as in color generation
+        vmax = min_amp + (max_amp - min_amp) * 0.6  # Use 50% of the range
         cbar = widget.figure.colorbar(
-            cm.ScalarMappable(
-                norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap="viridis"
-            ),
+            cm.ScalarMappable(norm=Normalize(vmin=min_amp, vmax=vmax), cmap="viridis"),
             ax=ax,
         )
         cbar.set_label("Spike Amplitude")
@@ -148,23 +149,26 @@ def _generate_spike_amplitude_colors(
     max_amp: float,
     colors: list,
 ) -> None:
-    """Assign colors based on spike amplitude for raster plot."""
-    norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp)
+    """Assign colors based on individual spike amplitudes for raster plot."""
+    # Always use a reduced range to make yellow colors more visible
+    # Use the midpoint between min and max as vmax for better color distribution
+    vmax = min_amp + (max_amp - min_amp) * 0.5  # Use 50% of the range
+    norm_amp_color = Normalize(vmin=min_amp, vmax=vmax)
     cmap = colormaps.get_cmap("viridis")
 
     for roi in rois or data.keys():
         roi_data = data[str(roi)]
-        thresholded_spikes = _get_spikes_over_threshold(roi_data)
+        if thresholded_spikes := _get_spikes_over_threshold(roi_data):
+            # Get individual spike amplitudes and create colors for each spike event
+            spike_colors = []
+            for spike_val in thresholded_spikes:
+                if spike_val > 0:  # This is a spike event
+                    # Color each spike based on its individual amplitude
+                    color = cmap(norm_amp_color(spike_val))
+                    spike_colors.append(color)
 
-        if thresholded_spikes:
-            # Get spike amplitudes (values above threshold)
-            spike_amplitudes = [spike for spike in thresholded_spikes if spike > 0]
-
-            if spike_amplitudes:
-                # Use average amplitude for ROI color
-                avg_amp = np.mean(spike_amplitudes)
-                color = cmap(norm_amp_color(avg_amp))
-                colors.append(color)
+            if spike_colors:
+                colors.append(spike_colors)
 
 
 def _add_hover_functionality(
@@ -186,8 +190,8 @@ def _add_hover_functionality(
                 widget.roiSelected.emit(roi_parts[1])
         else:
             # For raster plots, map the position to an ROI
-            if hasattr(sel, "target") and len(active_rois) > 0:
-                try:
+            if hasattr(sel, "target") and active_rois:
+                with contextlib.suppress(ValueError, AttributeError, IndexError):
                     y_pos = int(sel.target[1])  # Get y-coordinate (ROI index)
                     if 0 <= y_pos < len(active_rois):
                         roi_id = active_rois[y_pos]
@@ -195,9 +199,6 @@ def _add_hover_functionality(
                         sel.annotation.set(text=hover_text, fontsize=8, color="black")
                         widget.roiSelected.emit(str(roi_id))
                         return
-                except (ValueError, AttributeError, IndexError):
-                    pass
-
             # Hide the annotation for non-ROI elements
             sel.annotation.set_visible(False)
 
