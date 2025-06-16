@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import _get_spikes_over_threshold
 
 if TYPE_CHECKING:
@@ -92,15 +93,9 @@ def _generate_spike_raster_plot(
             colors.append(f"C{roi_id - 1}")
 
     if not event_data:
-        # No spike data found
-        ax.text(
-            0.5,
-            0.5,
-            "No spike data available",
-            transform=ax.transAxes,
-            ha="center",
-            va="center",
-            fontsize=12,
+        LOGGER.warning(
+            "No spike data available for the selected ROIs. "
+            "Please check the data or ROI selection."
         )
         widget.figure.tight_layout()
         widget.canvas.draw()
