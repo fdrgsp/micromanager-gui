@@ -21,6 +21,10 @@ from ._single_wells_plots._plot_correlation import (
 )
 from ._single_wells_plots._plot_iei_data import _plot_iei_data
 from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
+from ._single_wells_plots._plot_spike_correlation import (
+    _plot_spike_cross_correlation_data,
+    _plot_spike_hierarchical_clustering_data,
+)
 from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_data
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
@@ -56,6 +60,9 @@ INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes Thresholded with Dec
 INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes Thresholded Normalized"
 INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes Thresholded Normalized (Active Only)"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes Thresholded Global Synchrony"
+INFERRED_SPIKE_CROSS_CORRELATION = "Inferred Spikes Thresholded Cross-Correlation"
+INFERRED_SPIKE_CLUSTERING = "Inferred Spikes Thresholded Hierarchical Clustering"
+INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes Thresholded Hierarchical Clustering (Dendrogram)"  # noqa: E501
 RASTER_PLOT = "Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
@@ -97,7 +104,6 @@ INFERRED_SPIKES_GROUP = {
     INFERRED_SPIKES_THRESHOLDED_NORMALIZED: {"normalize": True},
     INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY: {"normalize": True, "active_only": True},
     INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF: {"dec_dff": True},
-    INFERRED_SPIKES_THRESHOLDED_SYNCHRONY: {},
 }
 
 AMPLITUDE_AND_FREQUENCY_GROUP = {
@@ -125,6 +131,10 @@ CORRELATION_GROUP = {
     CROSS_CORRELATION: {},
     CLUSTERING: {},
     CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
+    INFERRED_SPIKES_THRESHOLDED_SYNCHRONY: {},
+    INFERRED_SPIKE_CROSS_CORRELATION: {},
+    INFERRED_SPIKE_CLUSTERING: {},
+    INFERRED_SPIKE_CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
     }
 
 EVOKED_GROUP = {
@@ -143,13 +153,13 @@ EVOKED_GROUP = {
 # Dictionary to group the options in the graph widgets combobox
 # The keys are sections that wont be selectable but are used as dividers
 SINGLE_WELL_COMBO_OPTIONS_DICT = {
-    "------------Traces---------------------------": TRACES_GROUP.keys(),
+    "------------Calcium Traces-------------------": TRACES_GROUP.keys(),
     "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
-    "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
-    "------------Inferred Spikes------------------": INFERRED_SPIKES_GROUP.keys(),
     "------------Interevent Interval--------------": INTEREVENT_INTERVAL_GROUP.keys(),
-    "------------Cell Size------------------------": CELL_SIZE_GROUP.keys(),
+    "------------Inferred Spikes Traces-----------": INFERRED_SPIKES_GROUP.keys(),
+    "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
     "------------Correlation----------------------": CORRELATION_GROUP.keys(),
+    "------------Cell Size------------------------": CELL_SIZE_GROUP.keys(),
     "------------Evoked Experiment----------------": EVOKED_GROUP.keys(),
 }
 
@@ -180,22 +190,15 @@ def plot_single_well_data(
         return _generate_raster_plot(widget, data, rois, **RASTER_PLOT_GROUP[text])
 
     # INFERRED SPIKES GROUP
-    if text in INFERRED_SPIKES_GROUP:
-        if text in {
-            INFERRED_SPIKES_RAW,
-            INFERRED_SPIKES_THRESHOLDED,
-            INFERRED_SPIKES_RAW_WITH_THRESHOLD,
-            INFERRED_SPIKES_THRESHOLDED_NORMALIZED,
-            INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY,
-            INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF,
-        }:
-            return _plot_inferred_spikes(
-                widget, data, rois, **INFERRED_SPIKES_GROUP[text]
-            )
-        if text == INFERRED_SPIKES_THRESHOLDED_SYNCHRONY:
-            return _plot_spike_synchrony_data(
-                widget, data, rois, **INFERRED_SPIKES_GROUP[text]
-            )
+    if text in INFERRED_SPIKES_GROUP and text in {
+        INFERRED_SPIKES_RAW,
+        INFERRED_SPIKES_THRESHOLDED,
+        INFERRED_SPIKES_RAW_WITH_THRESHOLD,
+        INFERRED_SPIKES_THRESHOLDED_NORMALIZED,
+        INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY,
+        INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF,
+    }:
+        return _plot_inferred_spikes(widget, data, rois, **INFERRED_SPIKES_GROUP[text])
 
     # INTEREVENT_INTERVAL GROUP
     if text in INTEREVENT_INTERVAL_GROUP:
@@ -215,6 +218,18 @@ def plot_single_well_data(
             )
         elif text in {CLUSTERING, CLUSTERING_DENDROGRAM}:
             return _plot_hierarchical_clustering_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text == INFERRED_SPIKES_THRESHOLDED_SYNCHRONY:
+            return _plot_spike_synchrony_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text == INFERRED_SPIKE_CROSS_CORRELATION:
+            return _plot_spike_cross_correlation_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text in {INFERRED_SPIKE_CLUSTERING, INFERRED_SPIKE_CLUSTERING_DENDROGRAM}:
+            return _plot_spike_hierarchical_clustering_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
 

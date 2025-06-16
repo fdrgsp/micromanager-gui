@@ -153,7 +153,7 @@ def _normalize_trace_percentile(trace: list[float], p1: float, p2: float) -> np.
 def _set_graph_title_and_labels(ax: Axes, normalize: bool, raw: bool) -> None:
     """Set axis labels based on the plotted data."""
     title = ("Normalized Inferred Spikes" if normalize else "Inferred Spikes") + (
-        " (Raw)" if raw else " (Thresholded)"
+        " (Raw)" if raw else " (Thresholded Spike Data)"
     )
     y_lbl = "ROIs" if normalize else "Inferred Spikes (magnitude)"
 

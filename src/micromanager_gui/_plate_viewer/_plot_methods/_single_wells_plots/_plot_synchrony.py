@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import mplcursors
 import numpy as np
 
@@ -64,11 +64,11 @@ def _plot_synchrony_data(
 
     linear_synchrony = _get_synchrony(synchrony_matrix)
 
-    title = f"Median Global Synchrony: {linear_synchrony:0.4f}"
+    title = f"Global Synchrony (Median: {linear_synchrony:0.4f})"
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
+        cm.ScalarMappable(cmap="viridis", norm=mcolors.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Synchrony index")

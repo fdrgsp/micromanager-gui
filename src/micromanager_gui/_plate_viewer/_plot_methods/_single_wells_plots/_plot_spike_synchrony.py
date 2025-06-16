@@ -78,8 +78,8 @@ def _plot_spike_synchrony_data(
         global_synchrony = 0.0
 
     title = (
-        f"Spike-based Global Synchrony (Median: {global_synchrony:.3f})\n"
-        f"(User Thresholded - window={time_window*1000:.1f}ms)\n"
+        f"Spike-based Global Synchrony (Median: {global_synchrony:.4f})\n"
+        f"(Thresholded Spike Data - window={time_window*1000:.1f}ms)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)

@@ -211,7 +211,7 @@ class TestInferredSpikesPlots:
         _set_graph_title_and_labels(mock_ax, normalize=True, raw=False)
 
         mock_ax.set_title.assert_called_once_with(
-            "Normalized Inferred Spikes (Thresholded)"
+            "Normalized Inferred Spikes (Thresholded Spike Data)"
         )
         mock_ax.set_ylabel.assert_called_once_with("ROIs")
 
@@ -221,7 +221,9 @@ class TestInferredSpikesPlots:
 
         _set_graph_title_and_labels(mock_ax, normalize=False, raw=False)
 
-        mock_ax.set_title.assert_called_once_with("Inferred Spikes (Thresholded)")
+        mock_ax.set_title.assert_called_once_with(
+            "Inferred Spikes (Thresholded Spike Data)"
+        )
         mock_ax.set_ylabel.assert_called_once_with("Inferred Spikes (magnitude)")
 
     def test_set_graph_title_and_labels_with_raw_mode(self):
