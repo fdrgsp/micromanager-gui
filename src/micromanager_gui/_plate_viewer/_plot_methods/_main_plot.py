@@ -29,6 +29,7 @@ from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_dat
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
+from ._single_wells_plots._spike_raster_plots import _generate_spike_raster_plot
 
 if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import (
@@ -66,6 +67,9 @@ INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes Thresholded Hierarchical
 RASTER_PLOT = "Calcium Peaks Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Calcium Peaks Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Calcium Peaks Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
+INFERRED_SPIKE_RASTER_PLOT = "Inferred Spikes Raster plot Colored by ROI"
+INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitude"
+INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
@@ -116,6 +120,9 @@ RASTER_PLOT_GROUP = {
     RASTER_PLOT: {},
     RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
     RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},
+    INFERRED_SPIKE_RASTER_PLOT: {},
+    INFERRED_SPIKE_RASTER_PLOT_AMP: {"amplitude_colors": True, "colorbar": False},
+    INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR: {"amplitude_colors": True, "colorbar": True},  # noqa: E501
 }
 
 INTEREVENT_INTERVAL_GROUP: dict[str, dict] = {
@@ -187,7 +194,12 @@ def plot_single_well_data(
 
     # RASTER PLOT GROUP
     if text in RASTER_PLOT_GROUP:
-        return _generate_raster_plot(widget, data, rois, **RASTER_PLOT_GROUP[text])
+        if text in {RASTER_PLOT, RASTER_PLOT_AMP, RASTER_PLOT_AMP_WITH_COLORBAR}:
+            return _generate_raster_plot(widget, data, rois, **RASTER_PLOT_GROUP[text])
+        else:
+            return _generate_spike_raster_plot(
+                widget, data, rois, **RASTER_PLOT_GROUP[text]
+            )
 
     # INFERRED SPIKES GROUP
     if text in INFERRED_SPIKES_GROUP and text in {
