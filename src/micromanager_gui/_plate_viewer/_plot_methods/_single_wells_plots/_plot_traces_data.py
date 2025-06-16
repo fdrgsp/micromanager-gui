@@ -196,17 +196,19 @@ def _set_graph_title_and_labels(
 ) -> None:
     """Set axis labels based on the plotted data."""
     if dff:
-        title = "Normalized Traces (ΔF/F)" if normalize else "Traces (ΔF/F)"
+        title = (
+            "Normalized Calcium Traces (ΔF/F)" if normalize else "Calcium Traces (ΔF/F)"
+        )
         y_lbl = "ROIs" if normalize else "ΔF/F"
     elif dec:
         title = (
-            "Normalized Traces (Deconvolved ΔF/F)"
+            "Normalized Calcium Traces (Deconvolved ΔF/F)"
             if normalize
-            else "Traces (Deconvolved ΔF/F)"
+            else "Calcium Traces (Deconvolved ΔF/F)"
         )
         y_lbl = "ROIs" if normalize else "Deconvolved ΔF/F"
     else:
-        title = "Normalized Traces" if normalize else "Raw Traces"
+        title = "Normalized Calcium Traces" if normalize else "Raw Calcium Traces"
         y_lbl = "ROIs" if normalize else "Fluorescence Intensity"
     if with_peaks:
         title += " with Peaks"

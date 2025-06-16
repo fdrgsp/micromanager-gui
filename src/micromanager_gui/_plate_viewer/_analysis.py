@@ -1346,6 +1346,8 @@ class _AnalyseCalciumTraces(QWidget):
                 if self._led_power_equation is not None:
                     power = self._led_power_equation(power)
                     power = f"{power:.3f}{MWCM}"
+                else:
+                    power = f"{power}%"
                 col = f"{power}_{pulse_len}"
                 if is_roi_stimulated:
                     amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)

@@ -71,7 +71,7 @@ def _set_graph_title_and_labels(
     ax: Axes,
 ) -> None:
     """Set axis labels based on the plotted data."""
-    title = "Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
+    title = "Calcium Peaks Inter-event intervals (Sec - Mean ± SEM - Deconvolved ΔF/F)"
     x_lbl = "ROIs"
     ax.set_title(title)
     ax.set_ylabel("Inter-event intervals (Sec)")

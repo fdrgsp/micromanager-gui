@@ -1,4 +1,4 @@
-FOV,c1_t1_evk_non_stim_2_100_Mean,c1_t1_evk_non_stim_2_100_SEM,c1_t1_evk_non_stim_2_100_N,c1_t1_evk_non_stim_4_100_Mean,c1_t1_evk_non_stim_4_100_SEM,c1_t1_evk_non_stim_4_100_N,c1_t1_evk_non_stim_6_100_Mean,c1_t1_evk_non_stim_6_100_SEM,c1_t1_evk_non_stim_6_100_N
-B5_0000_p0_2_100,0.37814,0.1441,2,,,,,,
-B5_0000_p0_4_100,,,,0.60592,0.27672,2,,,
-B5_0000_p0_6_100,,,,,,,0.59104,0.23644,2
+FOV,c1_t1_evk_non_stim_2%_100_Mean,c1_t1_evk_non_stim_2%_100_SEM,c1_t1_evk_non_stim_2%_100_N,c1_t1_evk_non_stim_4%_100_Mean,c1_t1_evk_non_stim_4%_100_SEM,c1_t1_evk_non_stim_4%_100_N,c1_t1_evk_non_stim_6%_100_Mean,c1_t1_evk_non_stim_6%_100_SEM,c1_t1_evk_non_stim_6%_100_N
+B5_0000_p0_2%_100,0.37814,0.1441,2,,,,,,
+B5_0000_p0_4%_100,,,,0.60592,0.27672,2,,,
+B5_0000_p0_6%_100,,,,,,,0.59104,0.23644,2

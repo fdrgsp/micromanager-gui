@@ -39,23 +39,23 @@ if TYPE_CHECKING:
 
 # TITLES FOR THE PLOTS THAT WILL BE SHOWN IN THE COMBOBOX
 # fmt: off
-RAW_TRACES = "Raw Traces"
-NORMALIZED_TRACES = "Normalized Traces"
-DFF = "ΔF/F0"
-DFF_NORMALIZED = "ΔF/F0 Normalized"
-DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Deconvolved ΔF/F0 Normalized (Active Only)"
-DEC_DFF = "Deconvolved ΔF/F0"
-DEC_DFF_WITH_PEAKS = "Deconvolved ΔF/F0 with Peaks"
-DEC_DFF_WITH_PEAKS_AND_THRESHOLDS = "Deconvolved ΔF/F0 with Peaks and Thresholds (Only if 1 ROI selected)"  # noqa: E501
-DEC_DFF_NORMALIZED = "Deconvolved ΔF/F0 Normalized"
-DEC_DFF_NORMALIZED_WITH_PEAKS = "Deconvolved ΔF/F0 Normalized with Peaks"
-DEC_DFF_AMPLITUDE = "Deconvolved ΔF/F0 Amplitudes"
-DEC_DFF_FREQUENCY = "Deconvolved ΔF/F0 Frequencies"
-DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Deconvolved ΔF/F0 Amplitudes vs Frequencies"
-DEC_DFF_IEI = "Deconvolved ΔF/F0 Inter-event Interval"
+RAW_TRACES = "Calcium Raw Traces"
+NORMALIZED_TRACES = "Calcium Normalized Traces"
+DFF = "Calcium ΔF/F0 Traces"
+DFF_NORMALIZED = "Calcium ΔF/F0 Normalized  Traces "
+DEC_DFF_NORMALIZED_ACTIVE_ONLY = "Calcium Deconvolved ΔF/F0 Traces Normalized (Active Only)"  # noqa: E501
+DEC_DFF = "Calcium Deconvolved ΔF/F0 Traces"
+DEC_DFF_WITH_PEAKS = "Calcium Deconvolved ΔF/F0 Traces with Peaks"
+DEC_DFF_WITH_PEAKS_AND_THRESHOLDS = "Calcium Deconvolved ΔF/F0 Traces with Peaks and Thresholds (If 1 ROI selected)"  # noqa: E501
+DEC_DFF_NORMALIZED = "Calcium Deconvolved ΔF/F0 Normalized Traces "
+DEC_DFF_NORMALIZED_WITH_PEAKS = "Calcium Deconvolved ΔF/F0 Normalized Traces with Peaks"
+DEC_DFF_AMPLITUDE = "Calcium Peaks Amplitudes (Deconvolved ΔF/F0)"
+DEC_DFF_FREQUENCY = "Calcium Peaks Frequencies (Deconvolved ΔF/F0)"
+DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Calcium Peaks Amplitudes vs Frequencies (Deconvolved ΔF/F0)"  # noqa: E501
+DEC_DFF_IEI = "Calcium Peaks Inter-event Interval (Deconvolved ΔF/F0)"
 INFERRED_SPIKES_RAW = "Inferred Spikes Raw"
 INFERRED_SPIKES_THRESHOLDED = "Inferred Spikes Thresholded"
-INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - Only if 1 ROI selected)"  # noqa: E501
+INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - If 1 ROI selected)"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes Thresholded with Deconvolved ΔF/F0 Traces"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes Thresholded Normalized"
 INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes Thresholded Normalized (Active Only)"  # noqa: E501
@@ -63,24 +63,24 @@ INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes Thresholded Global Sync
 INFERRED_SPIKE_CROSS_CORRELATION = "Inferred Spikes Thresholded Cross-Correlation"
 INFERRED_SPIKE_CLUSTERING = "Inferred Spikes Thresholded Hierarchical Clustering"
 INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes Thresholded Hierarchical Clustering (Dendrogram)"  # noqa: E501
-RASTER_PLOT = "Raster plot Colored by ROI"
-RASTER_PLOT_AMP = "Raster plot Colored by Amplitude"
-RASTER_PLOT_AMP_WITH_COLORBAR = "Raster plot Colored by Amplitude with Colorbar"
-GLOBAL_SYNCHRONY = "Global Synchrony"
-CROSS_CORRELATION = "Cross-Correlation"
-CLUSTERING = "Hierarchical Clustering"
-CLUSTERING_DENDROGRAM = "Hierarchical Clustering (Dendrogram)"
+RASTER_PLOT = "Calcium Peaks Raster plot Colored by ROI"
+RASTER_PLOT_AMP = "Calcium Peaks Raster plot Colored by Amplitude"
+RASTER_PLOT_AMP_WITH_COLORBAR = "Calcium Peaks Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
+GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
+CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
+CLUSTERING = "Calcium Peaks Hierarchical Clustering"
+CLUSTERING_DENDROGRAM = "Calcium Peaks Hierarchical Clustering (Dendrogram)"
 CELL_SIZE = "Cell Size"
 
-STIMULATED_AREA = "Stimulated Area"
-STIMULATED_ROIS = "Stimulated vs Non-Stimulated ROIs"
-STIMULATED_ROIS_WITH_STIMULATED_AREA = "Stimulated vs Non-Stimulated ROIs with Stimulated Area"  # noqa: E501
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = "Stimulated vs Non-Stimulated Normalized (Deconvolved ΔF/F0)"  # noqa: E501
-STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = "Stimulated vs Non-Stimulated Normalized with Peaks (Deconvolved ΔF/F0)"  # noqa: E501
-STIMULATED_PEAKS_AMP = "Stimulated Peaks Amplitudes"
-NON_STIMULATED_PEAKS_AMP = "Non-Stimulated Peaks Amplitudes"
-STIMULATED_PEAKS_FREQ = "Stimulated Peaks Frequencies"
-NON_STIMULATED_PEAKS_FREQ = "Non-Stimulated Peaks Frequencies"
+STIMULATED_AREA = "Stim Area"
+STIMULATED_ROIS = "Stim vs Non-Stim ROIs"
+STIMULATED_ROIS_WITH_STIMULATED_AREA = "Stim vs Non-Stim ROIs with Stim Area"
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED = "Stim vs Non-Stim Normalized Calcium Traces (Deconvolved ΔF/F0)"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS = "Stim vs Non-Stim Normalized Calcium Traces with Peaks (Deconvolved ΔF/F0)"  # noqa: E501
+STIMULATED_PEAKS_AMP = "Stim Calcium Peaks Amplitudes"
+NON_STIMULATED_PEAKS_AMP = "Non-Stim Calcium Peaks Amplitudes"
+STIMULATED_PEAKS_FREQ = "Stim Calcium Peaks Frequencies"
+NON_STIMULATED_PEAKS_FREQ = "Non-Stim Calcium Peaks Frequencies"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
@@ -153,14 +153,14 @@ EVOKED_GROUP = {
 # Dictionary to group the options in the graph widgets combobox
 # The keys are sections that wont be selectable but are used as dividers
 SINGLE_WELL_COMBO_OPTIONS_DICT = {
-    "------------Calcium Traces-------------------": TRACES_GROUP.keys(),
-    "------------Amplitude and Frequency----------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
-    "------------Interevent Interval--------------": INTEREVENT_INTERVAL_GROUP.keys(),
-    "------------Inferred Spikes Traces-----------": INFERRED_SPIKES_GROUP.keys(),
-    "------------Raster Plots---------------------": RASTER_PLOT_GROUP.keys(),
-    "------------Correlation----------------------": CORRELATION_GROUP.keys(),
-    "------------Cell Size------------------------": CELL_SIZE_GROUP.keys(),
-    "------------Evoked Experiment----------------": EVOKED_GROUP.keys(),
+    "----------Calcium Traces-----------------------------------": TRACES_GROUP.keys(),
+    "----------Calcium Peaks Amplitude and Frequency---------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
+    "----------Calcium Peaks Interevent Interval----------------": INTEREVENT_INTERVAL_GROUP.keys(),  # noqa: E501
+    "----------Inferred Spikes Traces---------------------------": INFERRED_SPIKES_GROUP.keys(),  # noqa: E501
+    "----------Raster Plots-------------------------------------": RASTER_PLOT_GROUP.keys(),  # noqa: E501
+    "----------Correlation--------------------------------------": CORRELATION_GROUP.keys(),  # noqa: E501
+    "----------Cell Size----------------------------------------": CELL_SIZE_GROUP.keys(),  # noqa: E501
+    "----------Evoked Experiment------------------------------": EVOKED_GROUP.keys(),
 }
 
 
@@ -259,27 +259,27 @@ def plot_single_well_data(
 # MULTI WELLS PLOTS -------------------------------------------------------------------
 
 # fmt: off
-CSV_BAR_PLOT_AMPLITUDE = "Amplitude Bar Plot"
-CSV_BAR_PLOT_FREQUENCY = "Frequency Bar Plot"
-CSV_BAR_PLOT_IEI = "Inter-event Interval Bar Plot"
+CSV_BAR_PLOT_AMPLITUDE = "Calcium Peaks Amplitude Bar Plot"
+CSV_BAR_PLOT_FREQUENCY = "Calcium Peaks Frequency Bar Plot"
+CSV_BAR_PLOT_IEI = "Calcium Peaks Inter-event Interval Bar Plot"
 CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
-CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Global Synchrony Bar Plot"
-CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells"
-CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Amplitude Bar Plot"
-CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Amplitude Bar Plot"
+CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
+CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
+CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot"
+CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 
 MW_GENERAL_GROUP = {
-    CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_FREQUENCY: {"parameter": "Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
-    CSV_BAR_PLOT_IEI: { "parameter": "Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
+    CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Calcium Peaks Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_FREQUENCY: {"parameter": "Calcium Peaks Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
+    CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
     CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
-    CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active"},  # noqa: E501
+    CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active", "add_to_title": "Based on Calcium Peaks"},  # noqa: E501
 }
 
 MW_EVOKED_GROUP = {
-    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
-    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Non-Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_STIMULATED_AMPLITUDE: {"stimulated": True, "parameter": "Calcium Peaks Amplitude", "suffix": "amplitudes_stimulated_peaks", "add_to_title": " (Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
+    CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE: {"stimulated": False, "parameter": "Calcium Peaks Amplitude", "suffix": "amplitudes_non_stimulated_peaks", "add_to_title": " (Non-Stimulated - Deconvolved ΔF/F)"},  # noqa: E501
 }
 # fmt: on
 

@@ -152,7 +152,9 @@ def _plot_stim_or_not_stim_peaks_amplitude(
         ticks = ax.get_xticks()
         ax.set_xticks(ticks)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    title = "Stimulated" if stimulated else "Non-Stimulated Mean Amplitudes ± SEM"
+    title = (
+        "Stimulated" if stimulated else "Non-Stimulated"
+    ) + " Calcium Peaks Mean Amplitudes ± SEM"
     title += "\n("
     title += "Per LED Intensity - "
     if pulse:
@@ -423,7 +425,8 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
         ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.5)
 
     ax.set_title(
-        "Stimulated vs Non-Stimulated ROIs Traces \n(Normalized Deconvolved ΔF/F)"
+        "Stimulated vs Non-Stimulated ROIs Calcium Traces \n"
+        "(Normalized Deconvolved ΔF/F)"
     )
     ax.set_yticklabels([])
     ax.set_yticks([])
