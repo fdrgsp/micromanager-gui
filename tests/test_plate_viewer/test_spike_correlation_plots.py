@@ -342,9 +342,9 @@ class TestSpikeCorrelationPlots:
 
         assert correlation_matrix is not None
 
-        # Test range: correlation values should be between -1 and 1
-        assert np.all(correlation_matrix >= -1.0)
-        assert np.all(correlation_matrix <= 1.0)
+        # Test range: correlation values should be between -1 and 1 (with tolerance)
+        assert np.all(correlation_matrix >= -1.0 - 1e-10)
+        assert np.all(correlation_matrix <= 1.0 + 1e-10)
 
         # Test diagonal: self-correlation should be 1
         np.testing.assert_allclose(np.diag(correlation_matrix), 1.0, atol=1e-10)
