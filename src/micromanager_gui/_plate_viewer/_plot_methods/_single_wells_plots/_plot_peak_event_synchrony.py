@@ -59,13 +59,9 @@ def _plot_peak_event_synchrony_data(
     synchrony_matrix = _get_peak_event_synchrony_matrix(peak_event_data_dict)
 
     if synchrony_matrix is None:
-        ax.text(
-            0.5,
-            0.5,
-            "Unable to calculate peak event synchrony",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
+        LOGGER.warning(
+            "Failed to calculate synchrony matrix. "
+            "Ensure peak event data is valid and contains sufficient data."
         )
         widget.canvas.draw()
         return
