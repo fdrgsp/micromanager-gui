@@ -270,7 +270,7 @@ def _plot_spike_hierarchical_clustering_dendrogram(
     """
     ax.set_title(
         ""
-        "Spike Cross-Correlation - Hierarchical Clustering Dendrogram\n"
+        "Pairwise Cross-Correlation - Hierarchical Clustering Dendrogram\n"
         "(Thresholded Spike Data)"
     )
     ax.set_ylabel("Distance")
@@ -321,7 +321,7 @@ def _plot_spike_hierarchical_clustering_map(
     reordered_matrix = correlation_matrix[order][:, order]
 
     ax.set_title(
-        "Spike Cross-Correlation - Hierarchical Clustering Map\n"
+        "Pairwise Cross-Correlation - Hierarchical Clustering Map\n"
         "(Thresholded Spike Data)"
     )
     ax.set_ylabel("ROI")
