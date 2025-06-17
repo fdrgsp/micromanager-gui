@@ -156,18 +156,27 @@ def _rearrange_fov_by_conditions(
             conds.setdefault(cond_key, {}).setdefault(well_fov, {})[roi_key] = roi_data
 
             # update the evoked conditions dict
-            if roi_data.stimulated:
-                amps_dict = roi_data.amplitudes_stimulated_peaks
-                stim_label = EVK_STIM
-            else:
-                amps_dict = roi_data.amplitudes_non_stimulated_peaks
-                stim_label = EVK_NON_STIM
-            if amps_dict:
-                for power_and_pulse in amps_dict:
-                    key = f"{cond_key}_{stim_label}_{power_and_pulse}"
-                    evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
-                        roi_key
-                    ] = roi_data
+            if roi_data.evoked_experiment:
+                from ._util import get_stimulated_amplitudes_from_roi_data
+
+                # Compute amplitudes on-demand (without LED power equation for now)
+                amps_stim, amps_non_stim = get_stimulated_amplitudes_from_roi_data(
+                    roi_data, led_power_equation=None
+                )
+
+                if roi_data.stimulated:
+                    amps_dict = amps_stim
+                    stim_label = EVK_STIM
+                else:
+                    amps_dict = amps_non_stim
+                    stim_label = EVK_NON_STIM
+
+                if amps_dict:
+                    for power_and_pulse in amps_dict:
+                        key = f"{cond_key}_{stim_label}_{power_and_pulse}"
+                        evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
+                            roi_key
+                        ] = roi_data
 
     return conds, evoked_conds
 
@@ -669,11 +678,14 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
             continue  # skip unrelated conditions
         for fov, roi_dict in fov_dict.items():
             for roi_data in roi_dict.values():
-                amps = (
-                    roi_data.amplitudes_stimulated_peaks
-                    if stimulated
-                    else roi_data.amplitudes_non_stimulated_peaks
+                from ._util import get_stimulated_amplitudes_from_roi_data
+
+                # Compute amplitudes on-demand
+                amps_stim, amps_non_stim = get_stimulated_amplitudes_from_roi_data(
+                    roi_data, led_power_equation=None
                 )
+
+                amps = amps_stim if stimulated else amps_non_stim
                 if not amps:
                     continue
                 if target_power_pulse not in amps:

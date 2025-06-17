@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import contextlib
+import re
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +23,8 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from skimage import filters, morphology
+
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,6 +57,7 @@ SEM_SUFFIX = "_SEM"
 N_SUFFIX = "_N"
 EVENT_KEY = "mda_event"
 DECAY_CONSTANT = "decay constant"
+MAX_FRAMES_AFTER_STIMULATION = 5
 
 
 @dataclass
@@ -90,12 +94,8 @@ class ROIData(BaseClass):
     iei: list[float] | None = None  # interevent interval
     evoked_experiment: bool = False
     stimulated: bool = False
-    # this is the amp of the peaks of the roi that are due to the stimulation event
-    amplitudes_stimulated_peaks: dict[str, list[float]] | None = None
-    # this is the amp of the peaks of the roi that happens at the stimulation event
-    # but are not due to direct light stimulation
-    amplitudes_non_stimulated_peaks: dict[str, list[float]] | None = None
     stimulations_frames_and_powers: dict[str, int] | None = None
+    led_pulse_duration: str | None = None
     # ... add whatever other data we need
 
 
@@ -489,6 +489,76 @@ def _get_spikes_over_threshold(
     return spikes_thresholded
 
 
+def equation_from_str(equation: str) -> Callable | None:
+    """Parse various equation formats and return a callable function.
+
+    Supported formats:
+    - Linear: y = m*x + q  (e.g. "y = 2*x + 3")
+    - Quadratic: y = a*x^2 + b*x + c  (e.g. "y = 0.5*x^2 + 2*x + 1")
+    - Exponential: y = a*exp(b*x) + c  (e.g. "y = 2*exp(0.1*x) + 1")
+    - Power: y = a*x^b + c  (e.g. "y = 2*x^0.5 + 1")
+    - Logarithmic: y = a*log(x) + b  (e.g. "y = 2*log(x) + 1")
+    """
+    if not equation:
+        return None
+
+    # Remove all whitespace for easier parsing
+    eq = equation.replace(" ", "").lower()
+
+    try:
+        if linear_match := re.match(r"y=([+-]?\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq):
+            m = float(linear_match[1])
+            q = float(linear_match[2])
+            return lambda x: m * x + q
+
+        if quad_match := re.match(
+            r"y=([+-]?\d*\.?\d+)\*x\^2([+-]\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq
+        ):
+            a = float(quad_match[1])
+            b = float(quad_match[2])
+            c = float(quad_match[3])
+            return lambda x: a * x**2 + b * x + c
+
+        if exp_match := re.match(
+            r"y=([+-]?\d*\.?\d+)\*exp\(([+-]?\d*\.?\d+)\*x\)([+-]\d*\.?\d+)",
+            eq,
+        ):
+            a = float(exp_match[1])
+            b = float(exp_match[2])
+            c = float(exp_match[3])
+            return lambda x: a * np.exp(b * x) + c
+
+        if power_match := re.match(
+            r"y=([+-]?\d*\.?\d+)\*x\^([+-]?\d*\.?\d+)([+-]\d*\.?\d+)", eq
+        ):
+            a = float(power_match[1])
+            b = float(power_match[2])
+            c = float(power_match[3])
+            return lambda x: a * (x**b) + c
+
+        if log_match := re.match(r"y=([+-]?\d*\.?\d+)\*log\(x\)([+-]\d*\.?\d+)", eq):
+            a = float(log_match[1])
+            b = float(log_match[2])
+            return lambda x: a * np.log(x) + b
+
+        # If no pattern matches, show error
+        msg = (
+            "Invalid equation format! Using values from the metadata.\n"
+            "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
+            "are supported."
+        )
+        LOGGER.error(msg)
+        return None
+
+    except ValueError as e:
+        msg = (
+            f"Error parsing equation coefficients: {e}\n"
+            "Using values from the metadata."
+        )
+        LOGGER.error(msg)
+        return None
+
+
 # SYNCHRONY FUNCTIONS -----------------------------------------------------------------
 
 
@@ -811,6 +881,107 @@ def _calculate_cross_correlation_synchrony(
         return float(np.clip(max_correlation, 0, 1))
     else:
         return 0.0
+
+
+def separate_stimulated_vs_non_stimulated_peaks(
+    dec_dff: np.ndarray,
+    peaks_dec_dff: np.ndarray,
+    pulse_on_frames_and_powers: dict[str, int],
+    is_roi_stimulated: bool,
+    led_pulse_duration: str = "unknown",
+    led_power_equation: Callable | None = None,
+) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+    """
+    Separate peak amplitudes into stimulated and non-stimulated categories.
+
+    Args:
+        dec_dff: Deconvolved dF/F signal
+        peaks_dec_dff: Array of peak indices
+        pulse_on_frames_and_powers: Dict mapping frame numbers to power values
+        is_roi_stimulated: Whether this ROI is in a stimulated area
+        led_pulse_duration: Duration of LED pulse (for labeling)
+        led_power_equation: Optional function to convert power percentage to mW/cm²
+
+    Returns
+    -------
+        Tuple of (amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks)
+        Each is a dict mapping power_duration strings to lists of amplitudes
+    """
+    import bisect
+
+    amplitudes_stimulated_peaks: dict[str, list[float]] = {}
+    amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
+
+    sorted_peaks_dec_dff = sorted(peaks_dec_dff)
+
+    for frame, power in pulse_on_frames_and_powers.items():
+        stim_frame = int(frame)
+        # Find index of first peak >= stim_frame
+        i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
+
+        # Check if index is valid
+        if i >= len(sorted_peaks_dec_dff):
+            continue
+
+        peak_idx = sorted_peaks_dec_dff[i]
+
+        # Check if peak is within stimulation window
+        if (
+            peak_idx >= stim_frame
+            and peak_idx <= stim_frame + MAX_FRAMES_AFTER_STIMULATION
+        ):
+            amplitude = float(dec_dff[peak_idx])
+
+            # Format power value
+            if led_power_equation is not None:
+                power_val = led_power_equation(power)
+                power_str = f"{power_val:.3f}{MWCM}"
+            else:
+                power_str = f"{power}%"
+
+            # Create column key
+            col = f"{power_str}_{led_pulse_duration}"
+
+            # Categorize based on stimulation status
+            if is_roi_stimulated:
+                amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
+            else:
+                amplitudes_non_stimulated_peaks.setdefault(col, []).append(amplitude)
+
+    return amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks
+
+
+def get_stimulated_amplitudes_from_roi_data(
+    roi_data: ROIData,
+    led_power_equation: Callable | None = None,
+) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+    """
+    Get stimulated and non-stimulated amplitudes from ROIData on-demand.
+
+    Args:
+        roi_data: ROIData object containing the necessary data
+        led_power_equation: Optional function to convert power percentage to mW/cm²
+
+    Returns
+    -------
+        Tuple of (amplitudes_stimulated_peaks, amplitudes_non_stimulated_peaks)
+    """
+    if (
+        not roi_data.evoked_experiment
+        or roi_data.dec_dff is None
+        or roi_data.peaks_dec_dff is None
+        or roi_data.stimulations_frames_and_powers is None
+    ):
+        return {}, {}
+
+    return separate_stimulated_vs_non_stimulated_peaks(
+        dec_dff=np.array(roi_data.dec_dff),
+        peaks_dec_dff=np.array(roi_data.peaks_dec_dff),
+        pulse_on_frames_and_powers=roi_data.stimulations_frames_and_powers,
+        is_roi_stimulated=roi_data.stimulated,
+        led_pulse_duration=roi_data.led_pulse_duration or "unknown",
+        led_power_equation=led_power_equation,
+    )
 
 
 # def _get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import bisect
 import json
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import numpy as np
 import tifffile
@@ -52,7 +50,6 @@ from ._util import (
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
-    MWCM,
     PEAKS_DISTANCE,
     PEAKS_HEIGHT_MODE,
     PEAKS_HEIGHT_VALUE,
@@ -69,6 +66,7 @@ from ._util import (
     _WaitingProgressBarWidget,
     calculate_dff,
     create_stimulation_mask,
+    equation_from_str,
     get_iei,
     get_overlap_roi_with_stimulated_area,
     parse_lineedit_text,
@@ -275,7 +273,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask: np.ndarray | None = None
         self._labels_path: str | None = labels_path
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
-        self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
@@ -740,8 +737,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the LED power equation from the line edit
         eq = self._led_power_equation_le.text()
-        self._led_power_equation = self.equation_from_str(eq)
-        if self._led_power_equation:
+        if equation_from_str(eq):
             self._save_led_equation_to_json_settings(eq)
 
         self._save_settings_as_json()
@@ -830,77 +826,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask = None
         self._show_and_log_error("No Stimulated Area File Provided!")
         return False
-
-    def equation_from_str(self, equation: str) -> Callable | None:
-        """Parse various equation formats and return a callable function.
-
-        Supported formats:
-        - Linear: y = m*x + q  (e.g. "y = 2*x + 3")
-        - Quadratic: y = a*x^2 + b*x + c  (e.g. "y = 0.5*x^2 + 2*x + 1")
-        - Exponential: y = a*exp(b*x) + c  (e.g. "y = 2*exp(0.1*x) + 1")
-        - Power: y = a*x^b + c  (e.g. "y = 2*x^0.5 + 1")
-        - Logarithmic: y = a*log(x) + b  (e.g. "y = 2*log(x) + 1")
-        """
-        if not equation:
-            return None
-
-        # Remove all whitespace for easier parsing
-        eq = equation.replace(" ", "").lower()
-
-        try:
-            if linear_match := re.match(r"y=([+-]?\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq):
-                m = float(linear_match[1])
-                q = float(linear_match[2])
-                return lambda x: m * x + q
-
-            if quad_match := re.match(
-                r"y=([+-]?\d*\.?\d+)\*x\^2([+-]\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq
-            ):
-                a = float(quad_match[1])
-                b = float(quad_match[2])
-                c = float(quad_match[3])
-                return lambda x: a * x**2 + b * x + c
-
-            if exp_match := re.match(
-                r"y=([+-]?\d*\.?\d+)\*exp\(([+-]?\d*\.?\d+)\*x\)([+-]\d*\.?\d+)",
-                eq,
-            ):
-                a = float(exp_match[1])
-                b = float(exp_match[2])
-                c = float(exp_match[3])
-                return lambda x: a * np.exp(b * x) + c
-
-            if power_match := re.match(
-                r"y=([+-]?\d*\.?\d+)\*x\^([+-]?\d*\.?\d+)([+-]\d*\.?\d+)", eq
-            ):
-                a = float(power_match[1])
-                b = float(power_match[2])
-                c = float(power_match[3])
-                return lambda x: a * (x**b) + c
-
-            if log_match := re.match(
-                r"y=([+-]?\d*\.?\d+)\*log\(x\)([+-]\d*\.?\d+)", eq
-            ):
-                a = float(log_match[1])
-                b = float(log_match[2])
-                return lambda x: a * np.log(x) + b
-
-            # If no pattern matches, show error
-            msg = (
-                "Invalid equation format! Using values from the metadata.\n"
-                "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
-                "are supported."
-            )
-            self._show_and_log_error(msg)
-            return None
-
-        except ValueError as e:
-            msg = (
-                f"Error parsing equation coefficients: {e}\n"
-                "Using values from the metadata."
-            )
-            self._show_and_log_error(msg)
-            return None
 
     def _get_positions_to_analyze(self) -> list[int] | None:
         """Get the positions to analyze."""
@@ -1253,21 +1178,15 @@ class _AnalyseCalciumTraces(QWidget):
         # check if the roi is stimulated
         is_roi_stimulated = roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD
 
-        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
-        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
-        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
-        stimulation_frames_and_powers: dict[str, int] = {}
-
-        # if the experiment is evoked, get the amplitudes of the stimulated peaks
-        if evoked_exp and evoked_meta is not None and len(peaks_dec_dff) > 0:
+        # if the experiment is evoked, store the stimulation metadata
+        stimulation_frames_and_powers: dict[str, int] | None = None
+        led_pulse_duration: str | None = None
+        if evoked_exp and evoked_meta is not None:
             # get the stimulation info from the metadata (if any)
-            (
-                amplitudes_stimulated_peaks,
-                amplitudes_non_stimulated_peaks,
-                stimulation_frames_and_powers,
-            ) = self._update_stim_vs_non_stim(
-                evoked_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
+            stimulation_frames_and_powers = cast(
+                dict, evoked_meta.get("pulse_on_frame", {})
             )
+            led_pulse_duration = evoked_meta.get("led_pulse_duration", "unknown")
 
         # calculate the frequency of the peaks in the dec_dff trace
         frequency = (
@@ -1304,61 +1223,8 @@ class _AnalyseCalciumTraces(QWidget):
             iei=iei,
             evoked_experiment=evoked_exp,
             stimulated=is_roi_stimulated,
-            amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
-            amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
-            stimulations_frames_and_powers=stimulation_frames_and_powers or None,
-        )
-
-    def _update_stim_vs_non_stim(
-        self,
-        evoked_experiment_meta: dict[str, Any],
-        dec_dff: np.ndarray,
-        peaks_dec_dff: np.ndarray,
-        is_roi_stimulated: bool,
-    ) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, Any]]:
-        """Update the stimulated and non-stimulated peaks amplitude dict."""
-        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
-        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
-        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
-
-        pulse_on_frames_and_powers = cast(
-            dict, evoked_experiment_meta.get("pulse_on_frame", {})
-        )
-        sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
-
-        for frame, power in pulse_on_frames_and_powers.items():
-            stim_frame = int(frame)
-            # find index of first peak >= stim_frame.
-            i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
-            # Note that if the frame is not found, bisect_left returns the index
-            # where it would be inserted and so the max index + 1. We need to check
-            # if the index is valid and, if not, skip it.
-            if i >= len(sorted_peaks_dec_dff):
-                continue
-            peak_idx = sorted_peaks_dec_dff[i]
-            # check if the peak is on the stimulation frame or in the next 5 frames
-            if (
-                peak_idx >= stim_frame
-                and peak_idx <= stim_frame + MAX_FRAMES_AFTER_STIMULATION
-            ):
-                amplitude = dec_dff[peak_idx]
-                pulse_len = evoked_experiment_meta.get("led_pulse_duration", "unknown")
-                if self._led_power_equation is not None:
-                    power = self._led_power_equation(power)
-                    power = f"{power:.3f}{MWCM}"
-                else:
-                    power = f"{power}%"
-                col = f"{power}_{pulse_len}"
-                if is_roi_stimulated:
-                    amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
-                else:
-                    amplitudes_non_stimulated_peaks.setdefault(col, []).append(
-                        amplitude
-                    )
-        return (
-            amplitudes_stimulated_peaks,
-            amplitudes_non_stimulated_peaks,
-            pulse_on_frames_and_powers,
+            stimulations_frames_and_powers=stimulation_frames_and_powers,
+            led_pulse_duration=led_pulse_duration,
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
@@ -1466,7 +1332,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
-        if not self.analysis_path or not self._led_power_equation:
+        if not self.analysis_path:
             return
 
         settings_json_file = Path(self.analysis_path) / SETTINGS_PATH

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 import mplcursors
 import numpy as np
@@ -14,9 +15,12 @@ from skimage.measure import find_contours
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
+    LED_POWER_EQUATION,
     MWCM,
+    SETTINGS_PATH,
     STIMULATION_MASK,
     _get_spikes_over_threshold,
+    equation_from_str,
 )
 
 if TYPE_CHECKING:
@@ -66,8 +70,22 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
+    # get led_power_equation from the plate viewer
+    led_power_equation: Callable | None = None
+    # get it form the analysis path settings.json file
+    if analysis_path := widget._plate_viewer.analysis_path:
+        settings_json_file = Path(analysis_path) / SETTINGS_PATH
+        if settings_json_file.exists():
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                if eq_str := settings.get(LED_POWER_EQUATION):
+                    led_power_equation = equation_from_str(eq_str)
+    # or from the widget's analysis widget
+    elif eq := widget._plate_viewer._analysis_wdg._led_power_equation_le.text():
+        led_power_equation = equation_from_str(eq)
+
     # get analysis path
-    analysis_path = widget._plate_viewer.pv_analysis_path
+    analysis_path = widget._plate_viewer.analysis_path
     if analysis_path is None:
         return
 
@@ -80,11 +98,16 @@ def _plot_stim_or_not_stim_peaks_amplitude(
         if rois is not None and int(roi_key) not in rois:
             continue
 
-        amplitudes = (
-            roi_data.amplitudes_stimulated_peaks
-            if stimulated
-            else roi_data.amplitudes_non_stimulated_peaks
+        from micromanager_gui._plate_viewer._util import (
+            get_stimulated_amplitudes_from_roi_data,
         )
+
+        # Compute amplitudes on-demand
+        amps_stim, amps_non_stim = get_stimulated_amplitudes_from_roi_data(
+            roi_data, led_power_equation=led_power_equation
+        )
+
+        amplitudes = amps_stim if stimulated else amps_non_stim
 
         if not amplitudes:
             continue
@@ -216,7 +239,7 @@ def _visualize_stimulated_area(
     ax = widget.figure.add_subplot(111)
 
     # get analysis path
-    analysis_path = widget._plate_viewer.pv_analysis_path
+    analysis_path = widget._plate_viewer.analysis_path
     if analysis_path is None:
         return
 

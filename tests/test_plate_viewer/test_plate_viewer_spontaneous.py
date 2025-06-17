@@ -89,7 +89,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert list(pv.data.store.shape) == [1, 153, 1, 256, 256]
     # labels and analysis paths
     assert pv.pv_labels_path == TEST_LABELS_PATH
-    assert pv.pv_analysis_path == TEST_ANALYSIS_PATH
+    assert pv.analysis_path == TEST_ANALYSIS_PATH
     # plate view
     assert pv._plate_view.selectedIndices() == ()  # No wells selected
     assert len(pv._plate_view._well_items) == 96  # 96 well plate

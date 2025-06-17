@@ -281,11 +281,11 @@ class PlateViewer(QMainWindow):
         self._on_fov_table_selection_changed()
 
     @property
-    def pv_analysis_path(self) -> str | None:
+    def analysis_path(self) -> str | None:
         return self._analysis_path
 
-    @pv_analysis_path.setter
-    def pv_analysis_path(self, value: str) -> None:
+    @analysis_path.setter
+    def analysis_path(self, value: str) -> None:
         self._analysis_path = value
         self._analysis_wdg.analysis_path = value
         self._load_and_set_analysis_data(value)
