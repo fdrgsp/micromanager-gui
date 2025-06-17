@@ -1,8 +1,6 @@
-"""Spike-based synchrony analysis for network analysis."""
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
@@ -11,10 +9,9 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
-    _get_linear_phase,
+    _get_spike_synchrony,
+    _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
-    _get_synchrony,
-    _get_synchrony_matrix,
 )
 
 if TYPE_CHECKING:
@@ -53,12 +50,13 @@ def _plot_spike_synchrony_data(
         )
         return
 
-    # Get exposure time from data for temporal resolution
-    exposure_time_ms = _get_exposure_time_from_data(data)
-    # Use exposure time as the synchrony window (convert from ms to seconds)
-    time_window = exposure_time_ms / 1000.0 if exposure_time_ms > 0 else 0.1
+    # Convert spike trains to spike data dict for correlation-based synchrony
+    spike_data_dict = {
+        roi_name: cast(list[float], spike_train.astype(float).tolist())
+        for roi_name, spike_train in spike_trains.items()
+    }
 
-    synchrony_matrix = _calculate_spike_synchrony_matrix(spike_trains, time_window)
+    synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
 
     if synchrony_matrix is None:
         ax.text(
@@ -72,14 +70,14 @@ def _plot_spike_synchrony_data(
         widget.canvas.draw()
         return
 
-    # Calculate global synchrony metric using existing function
-    global_synchrony = _get_synchrony(synchrony_matrix)
+    # Calculate global synchrony metric using spike-specific function
+    global_synchrony = _get_spike_synchrony(synchrony_matrix)
     if global_synchrony is None:
         global_synchrony = 0.0
 
     title = (
         f"Spike-based Global Synchrony (Median: {global_synchrony:.4f})\n"
-        f"(Thresholded Spike Data - window={time_window*1000:.1f}ms)\n"
+        f"(Thresholded Spike Data - Correlation Method)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
@@ -142,76 +140,6 @@ def _get_spike_trains_from_rois(
                 spike_trains[roi_key] = spike_train
 
     return spike_trains if len(spike_trains) >= 2 else None
-
-
-def _get_exposure_time_from_data(roi_data_dict: dict[str, ROIData]) -> float:
-    """Extract exposure time from ROI data.
-
-    Attempts to estimate exposure time from total recording time and number of frames.
-    Falls back to a default if no temporal information is available.
-
-    Args:
-        roi_data_dict: Dictionary of ROI data
-
-    Returns
-    -------
-        Exposure time in milliseconds
-    """
-    for roi_data in roi_data_dict.values():
-        if (
-            roi_data.total_recording_time_sec is not None
-            and roi_data.inferred_spikes is not None
-            and len(roi_data.inferred_spikes) > 0
-        ):
-            total_time_sec = roi_data.total_recording_time_sec
-            n_frames = len(roi_data.inferred_spikes)
-            # Calculate frame interval (exposure + any delay between frames)
-            frame_interval_ms = (total_time_sec * 1000) / n_frames
-            return frame_interval_ms
-
-    # Default fallback (100ms frame interval = 10 Hz)
-    return 100.0
-
-
-def _calculate_spike_synchrony_matrix(
-    spike_trains: dict[str, np.ndarray],
-    time_window: float,
-) -> np.ndarray | None:
-    """Calculate pairwise spike synchrony matrix using PLV approach.
-
-    Converts spike trains to instantaneous phases and uses the existing
-    PLV-based synchrony calculation for consistency with calcium analysis.
-
-    Args:
-        spike_trains: Dictionary of binary spike trains
-        time_window: Time window for synchrony detection (seconds)
-
-    Returns
-    -------
-        Square matrix of synchrony values using PLV method
-    """
-    roi_names = list(spike_trains.keys())
-    n_rois = len(roi_names)
-
-    if n_rois < 2:
-        return None
-
-    # Convert spike trains to phase representations
-    phase_dict = {}
-
-    for roi_name, spike_train in spike_trains.items():
-        # Find spike indices
-        spike_indices = np.where(spike_train)[0]
-
-        if len(spike_indices) == 0:
-            # No spikes - assign zero phase
-            phase_dict[roi_name] = [0.0] * len(spike_train)
-        else:
-            # Use existing get_linear_phase function to create phase from spikes
-            phase_dict[roi_name] = _get_linear_phase(len(spike_train), spike_indices)
-
-    # Use existing PLV-based synchrony matrix calculation
-    return _get_synchrony_matrix(phase_dict)
 
 
 def _add_hover_functionality(

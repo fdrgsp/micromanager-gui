@@ -7,10 +7,9 @@ import numpy as np
 
 # Import the new spike-based analysis modules
 from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (  # noqa: E501
-    _calculate_spike_synchrony_matrix,
     _get_spike_trains_from_rois,
 )
-from micromanager_gui._plate_viewer._util import ROIData
+from micromanager_gui._plate_viewer._util import ROIData, _get_spike_synchrony_matrix
 
 # Add the source directory to Python path for testing
 src_path = Path(__file__).parent.parent.parent.parent / "src"
@@ -73,11 +72,15 @@ def test_spike_synchrony_analysis():
     spike_trains = _get_spike_trains_from_rois(data, rois)
     print(f"Extracted spike trains for {len(spike_trains or [])} ROIs")
 
-    # Test synchrony matrix calculation
+    # Test synchrony matrix calculation using correlation method
     if spike_trains:
-        synchrony_matrix = _calculate_spike_synchrony_matrix(
-            spike_trains, time_window=0.1
-        )
+        # Convert spike trains to spike data dict for correlation analysis
+        spike_data_dict = {
+            roi_name: spike_train.astype(float).tolist()
+            for roi_name, spike_train in spike_trains.items()
+        }
+
+        synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
         if synchrony_matrix is not None:
             print(f"Synchrony matrix shape: {synchrony_matrix.shape}")
             mean_sync = np.mean(
@@ -104,15 +107,21 @@ def test_integration():
     # 1. Synchrony analysis
     spike_trains = _get_spike_trains_from_rois(data, rois)
     if spike_trains:
-        synchrony_matrix = _calculate_spike_synchrony_matrix(
-            spike_trains, time_window=0.1
-        )
-        mean_sync = np.mean(
-            synchrony_matrix[np.triu_indices_from(synchrony_matrix, k=1)]
-        )
-        print(
-            f"  Synchrony: {len(spike_trains)} ROIs, mean synchrony = {mean_sync:.3f}"
-        )
+        # Convert spike trains to spike data dict for correlation analysis
+        spike_data_dict = {
+            roi_name: spike_train.astype(float).tolist()
+            for roi_name, spike_train in spike_trains.items()
+        }
+
+        synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
+        if synchrony_matrix is not None:
+            mean_sync = np.mean(
+                synchrony_matrix[np.triu_indices_from(synchrony_matrix, k=1)]
+            )
+            print(
+                f"  Synchrony: {len(spike_trains)} ROIs, "
+                f"mean synchrony = {mean_sync:.3f}"
+            )
 
     print("✓ Integration test completed\n")
 

@@ -598,3 +598,75 @@ def _get_spikes_over_threshold(
         else:
             spikes_thresholded.append(0.0)
     return spikes_thresholded
+
+
+def _get_spike_synchrony_matrix(
+    spike_data_dict: dict[str, list[float]],
+) -> np.ndarray | None:
+    """Compute pairwise spike synchrony from spike amplitude data."""
+    active_rois = list(spike_data_dict.keys())
+    if len(active_rois) < 2:
+        return None
+
+    try:
+        # Convert spike data into a NumPy array of shape (#ROIs, #Timepoints)
+        spike_array = np.array(
+            [spike_data_dict[roi] for roi in active_rois], dtype=np.float32
+        )
+    except ValueError:
+        return None
+
+    if spike_array.shape[0] < 2:
+        return None
+
+    # Create binary spike matrices (1 where spike > 0, 0 otherwise)
+    binary_spikes = (spike_array > 0).astype(np.float32)
+
+    # Calculate pairwise synchrony using correlation of binary spike trains
+    n_rois = binary_spikes.shape[0]
+    synchrony_matrix = np.zeros((n_rois, n_rois))
+
+    for i in range(n_rois):
+        for j in range(n_rois):
+            if i == j:
+                synchrony_matrix[i, j] = 1.0  # Perfect self-synchrony
+            else:
+                # Calculate correlation between binary spike trains
+                spikes_i = binary_spikes[i]
+                spikes_j = binary_spikes[j]
+
+                # Handle case where one or both ROIs have no spikes
+                if np.sum(spikes_i) == 0 or np.sum(spikes_j) == 0:
+                    synchrony_matrix[i, j] = 0.0
+                else:
+                    # Calculate Pearson correlation coefficient
+                    correlation = np.corrcoef(spikes_i, spikes_j)[0, 1]
+                    # Handle NaN case (constant arrays)
+                    synchrony_matrix[i, j] = (
+                        0.0 if np.isnan(correlation) else abs(correlation)
+                    )
+    return synchrony_matrix
+
+
+def _get_spike_synchrony(spike_synchrony_matrix: np.ndarray | None) -> float | None:
+    """Calculate global spike synchrony score from a spike synchrony matrix."""
+    if spike_synchrony_matrix is None or spike_synchrony_matrix.size == 0:
+        return None
+    # Ensure the matrix is at least 2x2 and square
+    if (
+        spike_synchrony_matrix.shape[0] < 2
+        or spike_synchrony_matrix.shape[0] != spike_synchrony_matrix.shape[1]
+    ):
+        return None
+
+    # Calculate the sum of each row, excluding the diagonal
+    n_rois = spike_synchrony_matrix.shape[0]
+    off_diagonal_sum = np.sum(spike_synchrony_matrix, axis=1) - np.diag(
+        spike_synchrony_matrix
+    )
+
+    # Normalize by the number of off-diagonal elements per row
+    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
+
+    # Return the median synchrony across all ROIs
+    return float(np.median(mean_synchrony_per_roi))

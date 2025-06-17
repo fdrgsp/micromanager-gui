@@ -4,6 +4,7 @@ import pytest
 
 from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._spike_raster_plots import (  # noqa: E501
     _generate_spike_raster_plot,
+    _plot_stimulated_vs_non_stimulated_spike_traces,
 )
 from micromanager_gui._plate_viewer._util import ROIData
 
@@ -137,6 +138,67 @@ class TestSpikeRasterPlots:
         )
 
         # Verify the widget methods were called
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+        mock_widget.figure.tight_layout.assert_called_once()
+        mock_widget.canvas.draw.assert_called_once()
+
+    def test_plot_stimulated_vs_non_stimulated_spike_traces(self, mock_widget):
+        """Test stimulated vs non-stimulated spike traces plot."""
+        # Create data with stimulation timing
+        data = {
+            "1": ROIData(
+                raw_trace=[1.0, 2.0, 3.0, 2.0, 1.0],
+                inferred_spikes=[0.1, 0.8, 0.2, 0.1, 0.0],
+                inferred_spikes_threshold=0.5,
+                total_recording_time_sec=5.0,
+                stimulations_frames_and_powers={"1": 50, "3": 80},
+                stimulated=True,
+                active=True,
+            ),
+            "2": ROIData(
+                raw_trace=[2.0, 1.0, 3.0, 4.0, 2.0],
+                inferred_spikes=[0.2, 0.0, 0.7, 1.1, 0.3],
+                inferred_spikes_threshold=0.5,
+                total_recording_time_sec=5.0,
+                stimulations_frames_and_powers={"1": 50, "3": 80},
+                stimulated=False,
+                active=True,
+            ),
+        }
+
+        mock_ax = Mock()
+        mock_widget.figure.add_subplot.return_value = mock_ax
+
+        _plot_stimulated_vs_non_stimulated_spike_traces(mock_widget, data, rois=None)
+
+        # Verify the widget methods were called
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+        mock_widget.figure.tight_layout.assert_called_once()
+        mock_widget.canvas.draw.assert_called_once()
+
+    def test_plot_stimulated_vs_non_stimulated_spike_traces_no_stimulation(
+        self, mock_widget
+    ):
+        """Test stimulated vs non-stimulated spike traces plot with no stimulation."""
+        data = {
+            "1": ROIData(
+                raw_trace=[1.0, 2.0, 3.0, 2.0, 1.0],
+                inferred_spikes=[0.1, 0.8, 0.2, 0.1, 0.0],
+                inferred_spikes_threshold=0.5,
+                total_recording_time_sec=5.0,
+                active=True,
+                # No stimulations_frames_and_powers attribute
+            )
+        }
+
+        mock_ax = Mock()
+        mock_widget.figure.add_subplot.return_value = mock_ax
+
+        _plot_stimulated_vs_non_stimulated_spike_traces(mock_widget, data, rois=None)
+
+        # Should still work, just no green coloring
         mock_widget.figure.clear.assert_called_once()
         mock_widget.figure.add_subplot.assert_called_once_with(111)
         mock_widget.figure.tight_layout.assert_called_once()

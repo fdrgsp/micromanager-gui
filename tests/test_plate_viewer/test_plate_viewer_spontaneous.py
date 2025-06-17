@@ -47,6 +47,7 @@ SAVE_MAP = {
         "test_analysis_iei.csv",
         "test_analysis_frequency.csv",
         "test_analysis_synchrony.csv",
+        "test_analysis_spike_synchrony.csv",
     },
 }
 

@@ -29,7 +29,10 @@ from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_dat
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
 from ._single_wells_plots._raster_plots import _generate_raster_plot
-from ._single_wells_plots._spike_raster_plots import _generate_spike_raster_plot
+from ._single_wells_plots._spike_raster_plots import (
+    _generate_spike_raster_plot,
+    _plot_stimulated_vs_non_stimulated_spike_traces,
+)
 
 if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import (
@@ -70,6 +73,7 @@ RASTER_PLOT_AMP_WITH_COLORBAR = "Calcium Peaks Raster plot Colored by Amplitude 
 INFERRED_SPIKE_RASTER_PLOT = "Inferred Spikes Raster plot Colored by ROI"
 INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitude"
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
+STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
 GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
@@ -152,6 +156,7 @@ EVOKED_GROUP = {
     NON_STIMULATED_PEAKS_AMP: {},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED: {},
     STIMULATED_VS_NON_STIMULATED_DEC_DFF_NORMALIZED_WITH_PEAKS: {"with_peaks": True},
+    STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES: {},
 }
 # fmt: on
 
@@ -264,6 +269,11 @@ def plot_single_well_data(
 
         elif text in {STIMULATED_PEAKS_AMP, NON_STIMULATED_PEAKS_AMP}:
             return _plot_stim_or_not_stim_peaks_amplitude(
+                widget, data, rois, **EVOKED_GROUP[text]
+            )
+
+        elif text == STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES:
+            return _plot_stimulated_vs_non_stimulated_spike_traces(
                 widget, data, rois, **EVOKED_GROUP[text]
             )
 

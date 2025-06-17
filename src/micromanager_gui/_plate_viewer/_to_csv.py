@@ -17,6 +17,8 @@ from ._util import (
     SEM_SUFFIX,
     ROIData,
     _get_linear_phase,
+    _get_spike_synchrony,
+    _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
     _get_synchrony,
     _get_synchrony_matrix,
@@ -26,6 +28,7 @@ from ._util import (
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
+SPIKE_SYNCHRONY = "spike_synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
 AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
 CSV_PARAMETERS: dict[str, str] = {
@@ -35,6 +38,7 @@ CSV_PARAMETERS: dict[str, str] = {
     "iei": "iei",
     "percentage_active": PERCENTAGE_ACTIVE,
     "synchrony": SYNCHRONY,
+    "spike_synchrony": SPIKE_SYNCHRONY,
 }
 CSV_PARAMETERS_EVK = {
     "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
@@ -46,7 +50,7 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY]
+SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY]
 # fmt: on
 
 
@@ -184,6 +188,12 @@ def _rearrange_by_parameter(
             return _get_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating synchrony: {e}")
+            return {}
+    if parameter == SPIKE_SYNCHRONY:
+        try:
+            return _get_spike_synchrony_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating spike synchrony: {e}")
             return {}
     try:
         return _get_parameter(data, parameter)
@@ -588,6 +598,31 @@ def _get_synchrony_parameter(
                 linear_synchrony
             )
     return synchrony_dict
+
+
+def _get_spike_synchrony_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by spike synchrony."""
+    spike_synchrony_dict: dict[str, dict[str, list[Any]]] = {}
+    for condition, key_dict in sorted(data.items()):
+        for well_fov, roi_dict in key_dict.items():
+            spike_dict: dict[str, list[float]] = {}
+            for roi_key, roi_data in roi_dict.items():
+                if thresholded_spikes := _get_spikes_over_threshold(roi_data):
+                    spike_dict[roi_key] = thresholded_spikes
+
+            # Calculate spike synchrony matrix
+            spike_synchrony_matrix = _get_spike_synchrony_matrix(spike_dict)
+
+            # Calculate global spike synchrony
+            global_spike_synchrony = _get_spike_synchrony(spike_synchrony_matrix)
+
+            spike_synchrony_dict.setdefault(condition, {}).setdefault(
+                well_fov, []
+            ).append(global_spike_synchrony)
+
+    return spike_synchrony_dict
 
 
 def _get_parameter(

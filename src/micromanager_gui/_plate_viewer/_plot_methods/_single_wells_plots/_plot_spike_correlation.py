@@ -1,5 +1,3 @@
-"""Spike-based correlation analysis for network analysis."""
-
 from __future__ import annotations
 
 import itertools
