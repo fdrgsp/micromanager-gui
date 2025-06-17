@@ -5,7 +5,7 @@ import pytest
 from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plolt_evoked_experiment_data_plots import (  # noqa: E501
     _plot_stimulated_vs_non_stimulated_spike_traces,
 )
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._spike_raster_plots import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_inferred_spike_raster_plots import (  # noqa: E501
     _generate_spike_raster_plot,
 )
 from micromanager_gui._plate_viewer._util import ROIData

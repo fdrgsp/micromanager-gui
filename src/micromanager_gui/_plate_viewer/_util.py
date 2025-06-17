@@ -390,117 +390,6 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     return background
 
 
-def _get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
-    """Calculate the linear phase progression."""
-    if not peaks.any():
-        return [0.0 for _ in range(frames)]
-    peaks_list = [int(peak) for peak in peaks]
-
-    if any(p < 0 or p >= frames for p in peaks):
-        raise ValueError("All peaks must be within the range of frames.")
-
-    peaks_list = [int(peak) for peak in peaks]
-    if peaks_list[0] != 0:
-        peaks_list.insert(0, 0)
-    if peaks_list[-1] != (frames - 1):
-        peaks_list.append(frames - 1)
-
-    phase = [0.0] * frames
-
-    for k in range(len(peaks_list) - 1):
-        start, end = peaks_list[k], peaks_list[k + 1]
-
-        if start == end:
-            continue
-
-        for t in range(start, end):
-            phase[t] = (2 * np.pi) * ((t - start) / (end - start)) + (2 * np.pi * k)
-
-    phase[frames - 1] = 2 * np.pi * (len(peaks_list) - 1)
-
-    return phase
-
-
-def _get_synchrony_matrix(
-    phase_input: dict[str, list[float]] | np.ndarray,
-) -> np.ndarray | None:
-    """Compute pairwise synchrony from a phase_dict or phase array."""
-    if isinstance(phase_input, dict):
-        active_rois = list(phase_input.keys())
-        if len(active_rois) < 2:
-            return None
-        try:
-            # convert phase_dict values into a NumPy array of shape (#ROIs, #Timepoints)
-            phase_array = np.array(
-                [phase_input[roi] for roi in active_rois], dtype=np.float32
-            )
-        except ValueError:
-            return None
-    else:
-        # if phase_input is a NumPy array, ensure it is of type float32
-        phase_array = np.asarray(phase_input, dtype=np.float32)
-        if phase_array.shape[0] < 2:
-            return None
-
-    # ------------------OLD INCORRECT CODE v1------------------
-    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # # ensure phase difference is within valid range [0, 2π]
-    # phase_diff = np.mod(np.abs(phase_diff), 2 * np.pi)
-    # # compute cosine and sine of the phase differences
-    # cos_mean = np.mean(np.cos(phase_diff), axis=2)  # shape: (#ROIs, N)
-    # sin_mean = np.mean(np.sin(phase_diff), axis=2)  # shape: (#ROIs, N)
-    # return np.sqrt(cos_mean**2 + sin_mean**2)  # type: ignore
-    # ---------------------------------------------------------
-
-    # ------------------OLD INCORRECT CODE v2------------------
-    # # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-    # phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # # compute cosine and sine of the phase differences (no wrapping needed for PLV)
-    # cos_diff = np.cos(phase_diff)
-    # sin_diff = np.sin(phase_diff)
-    # # compute mean cosine and sine over time
-    # cos_mean = np.mean(cos_diff, axis=2)  # shape: (#ROIs, #ROIs)
-    # sin_mean = np.mean(sin_diff, axis=2)  # shape: (#ROIs, #ROIs)
-    # # compute Phase Locking Value (PLV) matrix
-    # synchrony_matrix = np.sqrt(cos_mean**2 + sin_mean**2)
-    # ---------------------------------------------------------
-
-    # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
-    phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
-    # compute Phase-Locking-Value (PLV) matrix directly
-    # e^{jΔφ} = cosΔφ + j sinΔφ ; the magnitude of its time-average is the PLV
-    synchrony_matrix = np.abs(np.mean(np.exp(1j * phase_diff), axis=2))
-
-    # ensure diagonal elements are exactly 1 (perfect self-synchrony)
-    np.fill_diagonal(synchrony_matrix, 1.0)
-
-    return synchrony_matrix  # type: ignore
-
-
-def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
-    """Calculate global synchrony score from a synchrony matrix."""
-    if synchrony_matrix is None or synchrony_matrix.size == 0:
-        return None
-    # ensure the matrix is at least 2x2 and square
-    if (
-        synchrony_matrix.shape[0] < 2
-        or synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
-    ):
-        return None
-
-    # calculate the sum of each row, excluding the diagonal
-    # since diagonal elements are 1, we subtract 1 from each row sum
-    n_rois = synchrony_matrix.shape[0]
-    off_diagonal_sum = np.sum(synchrony_matrix, axis=1) - np.diag(synchrony_matrix)
-
-    # normalize by the number of off-diagonal elements per row
-    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
-
-    # return the median synchrony across all ROIs
-    return float(np.median(mean_synchrony_per_roi))
-
-
 def get_iei(peaks: np.ndarray, elapsed_time_list_ms: list[float]) -> list[float] | None:
     """Calculate the interevent interval."""
     # if less than 2 peaks or framerate is negative
@@ -600,79 +489,10 @@ def _get_spikes_over_threshold(
     return spikes_thresholded
 
 
-def _get_spike_synchrony_matrix(
-    spike_data_dict: dict[str, list[float]],
-) -> np.ndarray | None:
-    """Compute pairwise spike synchrony from spike amplitude data."""
-    active_rois = list(spike_data_dict.keys())
-    if len(active_rois) < 2:
-        return None
-
-    try:
-        # Convert spike data into a NumPy array of shape (#ROIs, #Timepoints)
-        spike_array = np.array(
-            [spike_data_dict[roi] for roi in active_rois], dtype=np.float32
-        )
-    except ValueError:
-        return None
-
-    if spike_array.shape[0] < 2:
-        return None
-
-    # Create binary spike matrices (1 where spike > 0, 0 otherwise)
-    binary_spikes = (spike_array > 0).astype(np.float32)
-
-    # Calculate pairwise synchrony using correlation of binary spike trains
-    n_rois = binary_spikes.shape[0]
-    synchrony_matrix = np.zeros((n_rois, n_rois))
-
-    for i in range(n_rois):
-        for j in range(n_rois):
-            if i == j:
-                synchrony_matrix[i, j] = 1.0  # Perfect self-synchrony
-            else:
-                # Calculate correlation between binary spike trains
-                spikes_i = binary_spikes[i]
-                spikes_j = binary_spikes[j]
-
-                # Handle case where one or both ROIs have no spikes
-                if np.sum(spikes_i) == 0 or np.sum(spikes_j) == 0:
-                    synchrony_matrix[i, j] = 0.0
-                else:
-                    # Calculate Pearson correlation coefficient
-                    correlation = np.corrcoef(spikes_i, spikes_j)[0, 1]
-                    # Handle NaN case (constant arrays)
-                    synchrony_matrix[i, j] = (
-                        0.0 if np.isnan(correlation) else abs(correlation)
-                    )
-    return synchrony_matrix
+# SYNCHRONY FUNCTIONS -----------------------------------------------------------------
 
 
-def _get_spike_synchrony(spike_synchrony_matrix: np.ndarray | None) -> float | None:
-    """Calculate global spike synchrony score from a spike synchrony matrix."""
-    if spike_synchrony_matrix is None or spike_synchrony_matrix.size == 0:
-        return None
-    # Ensure the matrix is at least 2x2 and square
-    if (
-        spike_synchrony_matrix.shape[0] < 2
-        or spike_synchrony_matrix.shape[0] != spike_synchrony_matrix.shape[1]
-    ):
-        return None
-
-    # Calculate the sum of each row, excluding the diagonal
-    n_rois = spike_synchrony_matrix.shape[0]
-    off_diagonal_sum = np.sum(spike_synchrony_matrix, axis=1) - np.diag(
-        spike_synchrony_matrix
-    )
-
-    # Normalize by the number of off-diagonal elements per row
-    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
-
-    # Return the median synchrony across all ROIs
-    return float(np.median(mean_synchrony_per_roi))
-
-
-def _get_peak_events_from_rois(
+def _get_calcium_peaks_events_from_rois(
     roi_data_dict: dict[str, ROIData],
     rois: list[int] | None = None,
 ) -> dict[str, np.ndarray] | None:
@@ -724,13 +544,31 @@ def _get_peak_events_from_rois(
     return peak_trains if len(peak_trains) >= 2 else None
 
 
-def _get_peak_event_synchrony_matrix(
+def _get_calcium_peaks_event_synchrony_matrix(
     peak_event_dict: dict[str, list[float]],
+    method: str = "correlation",
+    jitter_window: int = 2,
+    max_lag: int = 5,
 ) -> np.ndarray | None:
-    """Compute pairwise peak event synchrony using correlation method.
+    """Compute pairwise peak event synchrony using robust methods.
 
-    This function reuses the same approach as spike synchrony but for calcium
-    peak events.
+    Handles timing jitter better than simple correlation.
+
+    Parameters
+    ----------
+    peak_event_dict : dict
+        Dictionary mapping ROI names to binary peak event arrays
+    method : str
+        Method to use - "jitter_window", "cross_correlation", or "correlation"
+    jitter_window : int
+        Tolerance window for peak coincidence (frames)
+    max_lag : int
+        Maximum lag for cross-correlation method (frames)
+
+    Returns
+    -------
+    np.ndarray or None
+        Synchrony matrix robust to small temporal shifts
     """
     active_rois = list(peak_event_dict.keys())
     if len(active_rois) < 2:
@@ -747,7 +585,6 @@ def _get_peak_event_synchrony_matrix(
     if peak_array.shape[0] < 2:
         return None
 
-    # Calculate pairwise synchrony using correlation of binary peak event trains
     n_rois = peak_array.shape[0]
     synchrony_matrix = np.zeros((n_rois, n_rois))
 
@@ -756,7 +593,6 @@ def _get_peak_event_synchrony_matrix(
             if i == j:
                 synchrony_matrix[i, j] = 1.0  # Perfect self-synchrony
             else:
-                # Calculate correlation between binary peak event trains
                 events_i = peak_array[i]
                 events_j = peak_array[j]
 
@@ -764,16 +600,25 @@ def _get_peak_event_synchrony_matrix(
                 if np.sum(events_i) == 0 or np.sum(events_j) == 0:
                     synchrony_matrix[i, j] = 0.0
                 else:
-                    # Calculate Pearson correlation coefficient
-                    correlation = np.corrcoef(events_i, events_j)[0, 1]
-                    # Handle NaN case (constant arrays)
-                    synchrony_matrix[i, j] = (
-                        0.0 if np.isnan(correlation) else abs(correlation)
-                    )
+                    if method == "jitter_window":
+                        sync_value = _calculate_jitter_window_synchrony(
+                            events_i, events_j, jitter_window
+                        )
+                    elif method == "cross_correlation":
+                        sync_value = _calculate_cross_correlation_synchrony(
+                            events_i, events_j, max_lag
+                        )
+                    else:
+                        # Fallback to original correlation method (default)
+                        correlation = np.corrcoef(events_i, events_j)[0, 1]
+                        sync_value = 0.0 if np.isnan(correlation) else abs(correlation)
+
+                    synchrony_matrix[i, j] = sync_value
+
     return synchrony_matrix
 
 
-def _get_peak_event_synchrony(
+def _get_calcium_peaks_event_synchrony(
     peak_event_synchrony_matrix: np.ndarray | None,
 ) -> float | None:
     """Calculate global peak event synchrony score from a peak event synchrony matrix.
@@ -800,3 +645,256 @@ def _get_peak_event_synchrony(
 
     # Return the median synchrony across all ROIs
     return float(np.median(mean_synchrony_per_roi))
+
+
+def _get_spike_synchrony_matrix(
+    spike_data_dict: dict[str, list[float]],
+    method: str = "correlation",
+    jitter_window: int = 2,
+    max_lag: int = 5,
+) -> np.ndarray | None:
+    """Compute pairwise spike synchrony from spike amplitude data.
+
+    Parameters
+    ----------
+    spike_data_dict : dict
+        Dictionary mapping ROI names to spike amplitude arrays
+    method : str
+        Method to use - "jitter_window", "cross_correlation", or "correlation"
+    jitter_window : int
+        Tolerance window for spike coincidence (frames)
+    max_lag : int
+        Maximum lag for cross-correlation method (frames)
+
+    Returns
+    -------
+    np.ndarray or None
+        Synchrony matrix robust to small temporal shifts
+    """
+    active_rois = list(spike_data_dict.keys())
+    if len(active_rois) < 2:
+        return None
+
+    try:
+        # Convert spike data into a NumPy array of shape (#ROIs, #Timepoints)
+        spike_array = np.array(
+            [spike_data_dict[roi] for roi in active_rois], dtype=np.float32
+        )
+    except ValueError:
+        return None
+
+    if spike_array.shape[0] < 2:
+        return None
+
+    # Create binary spike matrices (1 where spike > 0, 0 otherwise)
+    binary_spikes = (spike_array > 0).astype(np.float32)
+
+    # Calculate pairwise synchrony using correlation of binary spike trains
+    n_rois = binary_spikes.shape[0]
+    synchrony_matrix = np.zeros((n_rois, n_rois))
+
+    for i in range(n_rois):
+        for j in range(n_rois):
+            if i == j:
+                synchrony_matrix[i, j] = 1.0  # Perfect self-synchrony
+            else:
+                # Calculate correlation between binary spike trains
+                spikes_i = binary_spikes[i]
+                spikes_j = binary_spikes[j]
+
+                # Handle case where one or both ROIs have no spikes
+                if np.sum(spikes_i) == 0 or np.sum(spikes_j) == 0:
+                    synchrony_matrix[i, j] = 0.0
+                else:
+                    if method == "jitter_window":
+                        sync_value = _calculate_jitter_window_synchrony(
+                            spikes_i, spikes_j, jitter_window
+                        )
+                    elif method == "cross_correlation":
+                        sync_value = _calculate_cross_correlation_synchrony(
+                            spikes_i, spikes_j, max_lag
+                        )
+                    else:
+                        # Fallback to original correlation method (default)
+                        correlation = np.corrcoef(spikes_i, spikes_j)[0, 1]
+                        sync_value = 0.0 if np.isnan(correlation) else abs(correlation)
+
+                    synchrony_matrix[i, j] = sync_value
+
+    return synchrony_matrix
+
+
+def _get_spike_synchrony(spike_synchrony_matrix: np.ndarray | None) -> float | None:
+    """Calculate global spike synchrony score from a spike synchrony matrix."""
+    if spike_synchrony_matrix is None or spike_synchrony_matrix.size == 0:
+        return None
+    # Ensure the matrix is at least 2x2 and square
+    if (
+        spike_synchrony_matrix.shape[0] < 2
+        or spike_synchrony_matrix.shape[0] != spike_synchrony_matrix.shape[1]
+    ):
+        return None
+
+    # Calculate the sum of each row, excluding the diagonal
+    n_rois = spike_synchrony_matrix.shape[0]
+    off_diagonal_sum = np.sum(spike_synchrony_matrix, axis=1) - np.diag(
+        spike_synchrony_matrix
+    )
+
+    # Normalize by the number of off-diagonal elements per row
+    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
+
+    # Return the median synchrony across all ROIs
+    return float(np.median(mean_synchrony_per_roi))
+
+
+def _calculate_jitter_window_synchrony(
+    events_i: np.ndarray, events_j: np.ndarray, jitter_window: int
+) -> float:
+    """Calculate synchrony allowing for temporal jitter within a window.
+
+    For each peak in ROI i, check if there's a peak in ROI j within ±jitter_window.
+    """
+    peaks_i = np.where(events_i > 0)[0]
+    peaks_j = np.where(events_j > 0)[0]
+
+    if len(peaks_i) == 0 or len(peaks_j) == 0:
+        return 0.0
+
+    # Count coincident peaks (bidirectional)
+    coincidences_i_to_j = 0
+    for peak_i in peaks_i:
+        # Check if any peak in j is within jitter window of peak_i
+        distances = np.abs(peaks_j - peak_i)
+        if np.any(distances <= jitter_window):
+            coincidences_i_to_j += 1
+
+    coincidences_j_to_i = 0
+    for peak_j in peaks_j:
+        # Check if any peak in i is within jitter window of peak_j
+        distances = np.abs(peaks_i - peak_j)
+        if np.any(distances <= jitter_window):
+            coincidences_j_to_i += 1
+
+    # Calculate symmetric synchrony measure
+    total_peaks = len(peaks_i) + len(peaks_j)
+    total_coincidences = coincidences_i_to_j + coincidences_j_to_i
+
+    return total_coincidences / total_peaks if total_peaks > 0 else 0.0
+
+
+def _calculate_cross_correlation_synchrony(
+    events_i: np.ndarray, events_j: np.ndarray, max_lag: int
+) -> float:
+    """Calculate synchrony using maximum cross-correlation within lag range."""
+    from scipy.signal import correlate
+
+    # Cross-correlation
+    xcorr = correlate(events_i, events_j, mode="full")
+
+    # Get the center (zero-lag) position
+    center = len(events_i) - 1
+
+    # Extract correlations within max_lag range
+    start_idx = max(0, center - max_lag)
+    end_idx = min(len(xcorr), center + max_lag + 1)
+
+    local_xcorr = xcorr[start_idx:end_idx]
+
+    # Normalize by the geometric mean of autocorrelations
+    auto_i = np.sum(events_i * events_i)
+    auto_j = np.sum(events_j * events_j)
+
+    if auto_i > 0 and auto_j > 0:
+        normalization = np.sqrt(auto_i * auto_j)
+        max_correlation = np.max(local_xcorr) / normalization
+        return float(np.clip(max_correlation, 0, 1))
+    else:
+        return 0.0
+
+
+# def _get_linear_phase(frames: int, peaks: np.ndarray) -> list[float]:
+#     """Calculate the linear phase progression."""
+#     if not peaks.any():
+#         return [0.0 for _ in range(frames)]
+#     peaks_list = [int(peak) for peak in peaks]
+
+#     if any(p < 0 or p >= frames for p in peaks):
+#         raise ValueError("All peaks must be within the range of frames.")
+
+#     peaks_list = [int(peak) for peak in peaks]
+#     if peaks_list[0] != 0:
+#         peaks_list.insert(0, 0)
+#     if peaks_list[-1] != (frames - 1):
+#         peaks_list.append(frames - 1)
+
+#     phase = [0.0] * frames
+
+#     for k in range(len(peaks_list) - 1):
+#         start, end = peaks_list[k], peaks_list[k + 1]
+
+#         if start == end:
+#             continue
+
+#         for t in range(start, end):
+#             phase[t] = (2 * np.pi) * ((t - start) / (end - start)) + (2 * np.pi * k)
+
+#     phase[frames - 1] = 2 * np.pi * (len(peaks_list) - 1)
+
+#     return phase
+
+
+# def _get_synchrony_matrix(
+#     phase_input: dict[str, list[float]] | np.ndarray,
+# ) -> np.ndarray | None:
+#     """Compute pairwise synchrony from a phase_dict or phase array."""
+#     if isinstance(phase_input, dict):
+#         active_rois = list(phase_input.keys())
+#         if len(active_rois) < 2:
+#             return None
+#         try:
+#             # convert phase_dict values into NumPy array of shape (#ROIs, #Timepoints)
+#             phase_array = np.array(
+#                 [phase_input[roi] for roi in active_rois], dtype=np.float32
+#             )
+#         except ValueError:
+#             return None
+#     else:
+#         # if phase_input is a NumPy array, ensure it is of type float32
+#         phase_array = np.asarray(phase_input, dtype=np.float32)
+#         if phase_array.shape[0] < 2:
+#             return None
+
+#     # compute pairwise phase difference (shape: (#ROIs, #ROIs, #Timepoints))
+#     phase_diff = phase_array[:, None, :] - phase_array[None, :, :]
+#     # compute Phase-Locking-Value (PLV) matrix directly
+#     # e^{jΔφ} = cosΔφ + j sinΔφ ; the magnitude of its time-average is the PLV
+#     synchrony_matrix = np.abs(np.mean(np.exp(1j * phase_diff), axis=2))
+
+#     # ensure diagonal elements are exactly 1 (perfect self-synchrony)
+#     np.fill_diagonal(synchrony_matrix, 1.0)
+
+#     return synchrony_matrix  # type: ignore
+
+
+# def _get_synchrony(synchrony_matrix: np.ndarray | None) -> float | None:
+#     """Calculate global synchrony score from a synchrony matrix."""
+#     if synchrony_matrix is None or synchrony_matrix.size == 0:
+#         return None
+#     # ensure the matrix is at least 2x2 and square
+#     if (
+#         synchrony_matrix.shape[0] < 2
+#         or synchrony_matrix.shape[0] != synchrony_matrix.shape[1]
+#     ):
+#         return None
+
+#     # calculate the sum of each row, excluding the diagonal
+#     # since diagonal elements are 1, we subtract 1 from each row sum
+#     n_rois = synchrony_matrix.shape[0]
+#     off_diagonal_sum = np.sum(synchrony_matrix, axis=1) - np.diag(synchrony_matrix)
+
+#     # normalize by the number of off-diagonal elements per row
+#     mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
+
+#     # return the median synchrony across all ROIs
+#     return float(np.median(mean_synchrony_per_roi))

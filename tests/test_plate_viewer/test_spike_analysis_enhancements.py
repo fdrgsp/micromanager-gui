@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 # Import the new spike-based analysis modules
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_inferred_spike_synchrony import (  # noqa: E501
     _get_spike_trains_from_rois,
 )
 from micromanager_gui._plate_viewer._util import ROIData, _get_spike_synchrony_matrix

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_correlation import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_inferred_spike_correlation import (  # noqa: E501
     _add_hover_functionality_spike_clustering,
     _add_hover_functionality_spike_corr,
     _calculate_spike_cross_correlation,

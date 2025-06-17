@@ -12,28 +12,31 @@ from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
     _plot_stimulated_vs_non_stimulated_spike_traces,
     _visualize_stimulated_area,
 )
-from ._single_wells_plots._plot_amplitudes_and_frequencies_data import (
+from ._single_wells_plots._plot_calcium_amplitudes_and_frequencies_data import (
     _plot_amplitude_and_frequency_data,
 )
-from ._single_wells_plots._plot_cell_size import _plot_cell_size_data
-from ._single_wells_plots._plot_correlation import (
+from ._single_wells_plots._plot_calcium_peaks_correlation import (
     _plot_cross_correlation_data,
     _plot_hierarchical_clustering_data,
 )
-from ._single_wells_plots._plot_iei_data import _plot_iei_data
-from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
-from ._single_wells_plots._plot_peak_event_synchrony import (
+from ._single_wells_plots._plot_calcium_peaks_iei_data import _plot_iei_data
+from ._single_wells_plots._plot_calcium_peaks_raster_plots import _generate_raster_plot
+from ._single_wells_plots._plot_calcium_peaks_synchrony import (
     _plot_peak_event_synchrony_data,
 )
-from ._single_wells_plots._plot_spike_correlation import (
+from ._single_wells_plots._plot_calcium_traces_data import _plot_traces_data
+from ._single_wells_plots._plot_cell_size import _plot_cell_size_data
+from ._single_wells_plots._plot_inferred_spike_correlation import (
     _plot_spike_cross_correlation_data,
     _plot_spike_hierarchical_clustering_data,
 )
-from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_data
-from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
-from ._single_wells_plots._plot_traces_data import _plot_traces_data
-from ._single_wells_plots._raster_plots import _generate_raster_plot
-from ._single_wells_plots._spike_raster_plots import _generate_spike_raster_plot
+from ._single_wells_plots._plot_inferred_spike_raster_plots import (
+    _generate_spike_raster_plot,
+)
+from ._single_wells_plots._plot_inferred_spike_synchrony import (
+    _plot_spike_synchrony_data,
+)
+from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
 
 if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import (
@@ -59,15 +62,15 @@ DEC_DFF_FREQUENCY = "Calcium Peaks Frequencies (Deconvolved ΔF/F0)"
 DEC_DFF_AMPLITUDE_VS_FREQUENCY = "Calcium Peaks Amplitudes vs Frequencies (Deconvolved ΔF/F0)"  # noqa: E501
 DEC_DFF_IEI = "Calcium Peaks Inter-event Interval (Deconvolved ΔF/F0)"
 INFERRED_SPIKES_RAW = "Inferred Spikes Raw"
-INFERRED_SPIKES_THRESHOLDED = "Inferred Spikes Thresholded"
+INFERRED_SPIKES_THRESHOLDED = "Inferred Spikes (Thresholded)"
 INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - If 1 ROI selected)"  # noqa: E501
-INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes Thresholded with Deconvolved ΔF/F0 Traces"  # noqa: E501
-INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes Thresholded Normalized"
-INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes Thresholded Normalized (Active Only)"  # noqa: E501
-INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes Thresholded Global Synchrony"
-INFERRED_SPIKE_CROSS_CORRELATION = "Inferred Spikes Thresholded Cross-Correlation"
-INFERRED_SPIKE_CLUSTERING = "Inferred Spikes Thresholded Hierarchical Clustering"
-INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes Thresholded Hierarchical Clustering (Dendrogram)"  # noqa: E501
+INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes (Thresholded) with Deconvolved ΔF/F0 Traces"  # noqa: E501
+INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes (Thresholded) Normalized"
+INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes (Thresholded) Normalized (Active Only)"  # noqa: E501
+INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes (Thresholded) Global Synchrony"
+INFERRED_SPIKE_CROSS_CORRELATION = "Inferred Spikes (Thresholded) Cross-Correlation"
+INFERRED_SPIKE_CLUSTERING = "Inferred Spikes (Thresholded) Hierarchical Clustering"
+INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes (Thresholded) Hierarchical Clustering (Dendrogram)"  # noqa: E501
 RASTER_PLOT = "Calcium Peaks Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Calcium Peaks Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Calcium Peaks Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
@@ -75,7 +78,7 @@ INFERRED_SPIKE_RASTER_PLOT = "Inferred Spikes Raster plot Colored by ROI"
 INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitude"
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
-GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony (PLV)"
+# GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony (PLV)"
 CALCIUM_PEAKS_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
@@ -94,7 +97,7 @@ NON_STIMULATED_PEAKS_FREQ = "Non-Stim Calcium Peaks Frequencies"
 
 
 # GROUPS OF PLOTTING OPTIONS (SEE `SINGLE_WELL_COMBO_OPTIONS_DICT` BELOW)
-TRACES_GROUP = {
+CALCIUM_TRACES_GROUP = {
     RAW_TRACES: {},
     NORMALIZED_TRACES: {"normalize": True},
     DFF: {"dff": True},
@@ -140,7 +143,7 @@ CELL_SIZE_GROUP: dict[str, dict] = {
     }
 
 CORRELATION_GROUP = {
-    GLOBAL_SYNCHRONY: {},
+    # GLOBAL_SYNCHRONY: {},
     CALCIUM_PEAKS_GLOBAL_SYNCHRONY: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
@@ -168,12 +171,12 @@ EVOKED_GROUP = {
 # Dictionary to group the options in the graph widgets combobox
 # The keys are sections that wont be selectable but are used as dividers
 SINGLE_WELL_COMBO_OPTIONS_DICT = {
-    "----------Calcium Traces-----------------------------------": TRACES_GROUP.keys(),
+    "----------Calcium Traces-----------------------------------": CALCIUM_TRACES_GROUP.keys(),  # noqa: E501
     "----------Calcium Peaks Amplitude and Frequency---------": AMPLITUDE_AND_FREQUENCY_GROUP.keys(),  # noqa: E501
     "----------Calcium Peaks Interevent Interval----------------": INTEREVENT_INTERVAL_GROUP.keys(),  # noqa: E501
     "----------Inferred Spikes Traces---------------------------": INFERRED_SPIKES_GROUP.keys(),  # noqa: E501
     "----------Raster Plots-------------------------------------": RASTER_PLOT_GROUP.keys(),  # noqa: E501
-    "----------Correlation--------------------------------------": CORRELATION_GROUP.keys(),  # noqa: E501
+    "----------Correlation Analysis-----------------------------": CORRELATION_GROUP.keys(),  # noqa: E501
     "----------Cell Size----------------------------------------": CELL_SIZE_GROUP.keys(),  # noqa: E501
     "----------Evoked Experiment------------------------------": EVOKED_GROUP.keys(),
 }
@@ -191,8 +194,8 @@ def plot_single_well_data(
         return
 
     # TRACES GROUP
-    if text in TRACES_GROUP:
-        return _plot_traces_data(widget, data, rois, **TRACES_GROUP[text])
+    if text in CALCIUM_TRACES_GROUP:
+        return _plot_traces_data(widget, data, rois, **CALCIUM_TRACES_GROUP[text])
 
     # AMPLITUDE AND FREQUENCY GROUP
     if text in AMPLITUDE_AND_FREQUENCY_GROUP:
@@ -230,9 +233,9 @@ def plot_single_well_data(
 
     # CORRELATION GROUP
     if text in CORRELATION_GROUP:
-        if text == GLOBAL_SYNCHRONY:
-            return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
-        elif text == CALCIUM_PEAKS_GLOBAL_SYNCHRONY:
+        # if text == GLOBAL_SYNCHRONY:
+        #     return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
+        if text == CALCIUM_PEAKS_GLOBAL_SYNCHRONY:
             return _plot_peak_event_synchrony_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
@@ -292,7 +295,7 @@ CSV_BAR_PLOT_AMPLITUDE = "Calcium Peaks Amplitude Bar Plot"
 CSV_BAR_PLOT_FREQUENCY = "Calcium Peaks Frequency Bar Plot"
 CSV_BAR_PLOT_IEI = "Calcium Peaks Inter-event Interval Bar Plot"
 CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
-CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
+# CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PEAK_EVENT_SYNCHRONY = "Calcium Peak Events Global Synchrony Bar Plot"
 CSV_BAR_PLOT_SPIKE_SYNCHRONY = "Spike-based Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
@@ -300,14 +303,14 @@ CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot
 CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 
 MW_GENERAL_GROUP = {
+    CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
+    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active", "add_to_title": "Based on Calcium Peaks"},  # noqa: E501
     CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Calcium Peaks Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_FREQUENCY: {"parameter": "Calcium Peaks Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
-    CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
-    CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    # CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_PEAK_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median - Event-based Correlation)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_SPIKE_SYNCHRONY: {"parameter": "Spike-based Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Spike Data)",  "units": "Index"},  # noqa: E501
-    CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active", "add_to_title": "Based on Calcium Peaks"},  # noqa: E501
 }
 
 MW_EVOKED_GROUP = {

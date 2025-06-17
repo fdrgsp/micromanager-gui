@@ -9,9 +9,9 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
-    _get_peak_event_synchrony,
-    _get_peak_event_synchrony_matrix,
-    _get_peak_events_from_rois,
+    _get_calcium_peaks_event_synchrony,
+    _get_calcium_peaks_event_synchrony_matrix,
+    _get_calcium_peaks_events_from_rois,
 )
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ def _plot_peak_event_synchrony_data(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    peak_trains = _get_peak_events_from_rois(data, rois)
+    peak_trains = _get_calcium_peaks_events_from_rois(data, rois)
     if peak_trains is None or len(peak_trains) < 2:
         LOGGER.warning(
             "Insufficient peak data for synchrony analysis. "
@@ -56,7 +56,7 @@ def _plot_peak_event_synchrony_data(
         for roi_name, peak_train in peak_trains.items()
     }
 
-    synchrony_matrix = _get_peak_event_synchrony_matrix(peak_event_data_dict)
+    synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(peak_event_data_dict)
 
     if synchrony_matrix is None:
         LOGGER.warning(
@@ -67,7 +67,7 @@ def _plot_peak_event_synchrony_data(
         return
 
     # Calculate global synchrony metric using peak event-specific function
-    global_synchrony = _get_peak_event_synchrony(synchrony_matrix)
+    global_synchrony = _get_calcium_peaks_event_synchrony(synchrony_matrix)
     if global_synchrony is None:
         global_synchrony = 0.0
 

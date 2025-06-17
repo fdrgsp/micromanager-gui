@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_iei_data import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_iei_data import (  # noqa: E501
     _add_hover_functionality,
     _plot_iei_data,
     _plot_metrics,

@@ -21,6 +21,7 @@ from micromanager_gui._plate_viewer._plot_methods import (
 )
 from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     AMPLITUDE_AND_FREQUENCY_GROUP,
+    CALCIUM_TRACES_GROUP,
     CSV_BAR_PLOT_AMPLITUDE,
     CSV_BAR_PLOT_FREQUENCY,
     DEC_DFF,
@@ -37,7 +38,6 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     RASTER_PLOT,
     RAW_TRACES,
     SINGLE_WELL_COMBO_OPTIONS_DICT,
-    TRACES_GROUP,
 )
 from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_plot import (  # noqa: E501
     plot_csv_bar_plot,
@@ -189,7 +189,7 @@ class TestSingleWellPlotMethods:
         # Should call clear but not add_subplot
         mock_widget.figure.clear.assert_called_once()
 
-    @pytest.mark.parametrize("trace_type", list(TRACES_GROUP.keys()))
+    @pytest.mark.parametrize("trace_type", list(CALCIUM_TRACES_GROUP.keys()))
     def test_all_trace_types(self, mock_widget, trace_type):
         """Test all trace types from TRACES_GROUP."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, trace_type)
@@ -437,10 +437,10 @@ class TestPlotMethodConstants:
 
     def test_traces_group_contains_expected_options(self):
         """Test that TRACES_GROUP contains expected plotting options."""
-        assert RAW_TRACES in TRACES_GROUP
-        assert DFF in TRACES_GROUP
-        assert DEC_DFF in TRACES_GROUP
-        assert DEC_DFF_NORMALIZED in TRACES_GROUP
+        assert RAW_TRACES in CALCIUM_TRACES_GROUP
+        assert DFF in CALCIUM_TRACES_GROUP
+        assert DEC_DFF in CALCIUM_TRACES_GROUP
+        assert DEC_DFF_NORMALIZED in CALCIUM_TRACES_GROUP
 
     def test_amplitude_group_contains_expected_options(self):
         """Test that AMPLITUDE_AND_FREQUENCY_GROUP contains expected options."""

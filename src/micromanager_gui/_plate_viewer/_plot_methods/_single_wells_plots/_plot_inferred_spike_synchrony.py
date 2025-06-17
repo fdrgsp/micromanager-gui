@@ -59,13 +59,9 @@ def _plot_spike_synchrony_data(
     synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
 
     if synchrony_matrix is None:
-        ax.text(
-            0.5,
-            0.5,
-            "Unable to calculate spike synchrony",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
+        LOGGER.warning(
+            "Failed to compute synchrony matrix. "
+            "Ensure spike data is valid and contains sufficient ROIs."
         )
         widget.canvas.draw()
         return

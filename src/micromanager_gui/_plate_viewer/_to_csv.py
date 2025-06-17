@@ -16,15 +16,13 @@ from ._util import (
     N_SUFFIX,
     SEM_SUFFIX,
     ROIData,
-    _get_linear_phase,
-    _get_peak_event_synchrony,
-    _get_peak_event_synchrony_matrix,
-    _get_peak_events_from_rois,
+    # _get_linear_phase,
+    _get_calcium_peaks_event_synchrony,
+    _get_calcium_peaks_event_synchrony_matrix,
+    _get_calcium_peaks_events_from_rois,
     _get_spike_synchrony,
     _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
-    _get_synchrony,
-    _get_synchrony_matrix,
 )
 
 # fmt: off
@@ -32,7 +30,7 @@ NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
 SPIKE_SYNCHRONY = "spike_synchrony"
-PEAK_EVENT_SYNCHRONY = "peak_event_synchrony"
+CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
 AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
 CSV_PARAMETERS: dict[str, str] = {
@@ -43,7 +41,7 @@ CSV_PARAMETERS: dict[str, str] = {
     "percentage_active": PERCENTAGE_ACTIVE,
     "synchrony": SYNCHRONY,
     "spike_synchrony": SPIKE_SYNCHRONY,
-    "peak_event_synchrony": PEAK_EVENT_SYNCHRONY,
+    "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
 }
 CSV_PARAMETERS_EVK = {
     "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
@@ -55,7 +53,7 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY, PEAK_EVENT_SYNCHRONY]
+SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY, CALCIUM_PEAKS_SYNCHRONY]
 # fmt: on
 
 
@@ -188,21 +186,21 @@ def _rearrange_by_parameter(
         except Exception as e:
             LOGGER.error(f"Error calculating percentage active: {e}")
             return {}
-    if parameter == SYNCHRONY:
-        try:
-            return _get_synchrony_parameter(data)
-        except Exception as e:
-            LOGGER.error(f"Error calculating synchrony: {e}")
-            return {}
+    # if parameter == SYNCHRONY:
+    #     try:
+    #         return _get_synchrony_parameter(data)
+    #     except Exception as e:
+    #         LOGGER.error(f"Error calculating synchrony: {e}")
+    #         return {}
     if parameter == SPIKE_SYNCHRONY:
         try:
             return _get_spike_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating spike synchrony: {e}")
             return {}
-    if parameter == PEAK_EVENT_SYNCHRONY:
+    if parameter == CALCIUM_PEAKS_SYNCHRONY:
         try:
-            return _get_peak_event_synchrony_parameter(data)
+            return _get_calcium_peaks_event_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating peak event synchrony: {e}")
             return {}
@@ -582,33 +580,33 @@ def _get_percentage_active_parameter(
     return percentage_active_dict
 
 
-def _get_synchrony_parameter(
-    data: dict[str, dict[str, dict[str, ROIData]]],
-) -> dict[str, dict[str, list[Any]]]:
-    """Group the data by the synchrony."""
-    synchrony_dict: dict[str, dict[str, list[Any]]] = {}
-    for condition, key_dict in sorted(data.items()):
-        for well_fov, roi_dict in key_dict.items():
-            phase_dict: dict[str, list[float]] = {}
-            for roi_key, roi_data in roi_dict.items():
-                if (
-                    not roi_data.dec_dff
-                    or not roi_data.peaks_dec_dff
-                    or len(roi_data.peaks_dec_dff) < 1
-                ):
-                    continue
-                frames = len(roi_data.dec_dff)
-                peaks = np.array(roi_data.peaks_dec_dff)
-                phase_dict[roi_key] = _get_linear_phase(frames, peaks)
+# def _get_synchrony_parameter(
+#     data: dict[str, dict[str, dict[str, ROIData]]],
+# ) -> dict[str, dict[str, list[Any]]]:
+#     """Group the data by the synchrony."""
+#     synchrony_dict: dict[str, dict[str, list[Any]]] = {}
+#     for condition, key_dict in sorted(data.items()):
+#         for well_fov, roi_dict in key_dict.items():
+#             phase_dict: dict[str, list[float]] = {}
+#             for roi_key, roi_data in roi_dict.items():
+#                 if (
+#                     not roi_data.dec_dff
+#                     or not roi_data.peaks_dec_dff
+#                     or len(roi_data.peaks_dec_dff) < 1
+#                 ):
+#                     continue
+#                 frames = len(roi_data.dec_dff)
+#                 peaks = np.array(roi_data.peaks_dec_dff)
+#                 phase_dict[roi_key] = _get_linear_phase(frames, peaks)
 
-            synchrony_matrix = _get_synchrony_matrix(phase_dict)
+#             synchrony_matrix = _get_synchrony_matrix(phase_dict)
 
-            linear_synchrony = _get_synchrony(synchrony_matrix)
+#             linear_synchrony = _get_synchrony(synchrony_matrix)
 
-            synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
-                linear_synchrony
-            )
-    return synchrony_dict
+#             synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
+#                 linear_synchrony
+#             )
+#     return synchrony_dict
 
 
 def _get_spike_synchrony_parameter(
@@ -636,7 +634,7 @@ def _get_spike_synchrony_parameter(
     return spike_synchrony_dict
 
 
-def _get_peak_event_synchrony_parameter(
+def _get_calcium_peaks_event_synchrony_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]],
 ) -> dict[str, dict[str, list[Any]]]:
     """Group the data by peak event synchrony."""
@@ -644,7 +642,7 @@ def _get_peak_event_synchrony_parameter(
     for condition, key_dict in sorted(data.items()):
         for well_fov, roi_dict in key_dict.items():
             # Get peak event trains using the existing function
-            peak_trains = _get_peak_events_from_rois(roi_dict, rois=None)
+            peak_trains = _get_calcium_peaks_events_from_rois(roi_dict, rois=None)
 
             if peak_trains is None or len(peak_trains) < 2:
                 continue
@@ -656,12 +654,12 @@ def _get_peak_event_synchrony_parameter(
             }
 
             # Calculate peak event synchrony matrix
-            peak_event_synchrony_matrix = _get_peak_event_synchrony_matrix(
+            peak_event_synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(
                 peak_event_data_dict
             )
 
             # Calculate global peak event synchrony
-            global_peak_event_synchrony = _get_peak_event_synchrony(
+            global_peak_event_synchrony = _get_calcium_peaks_event_synchrony(
                 peak_event_synchrony_matrix
             )
 
