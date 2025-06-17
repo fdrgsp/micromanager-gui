@@ -694,7 +694,6 @@ def _get_peak_events_from_rois(
     if len(rois) < 2:
         return None
 
-    # Determine the maximum number of frames across all ROIs
     max_frames = 0
     for roi_key, roi_data in roi_data_dict.items():
         try:
@@ -704,19 +703,9 @@ def _get_peak_events_from_rois(
         except ValueError:
             continue
 
-        if roi_data.dec_dff and len(roi_data.dec_dff) > max_frames:
-            max_frames = len(roi_data.dec_dff)
-
-    if max_frames == 0:
-        return None
-
-    for roi_key, roi_data in roi_data_dict.items():
-        try:
-            roi_id = int(roi_key)
-            if roi_id not in rois or not roi_data.active:
-                continue
-        except ValueError:
-            continue
+        max_frames = len(roi_data.raw_trace) if roi_data.raw_trace else 0
+        if max_frames == 0:
+            return None
 
         if (
             roi_data.dec_dff
