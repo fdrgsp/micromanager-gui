@@ -9,6 +9,7 @@ from ._multi_wells_plots._csv_bar_plot import plot_csv_bar_plot
 from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
     _plot_stim_or_not_stim_peaks_amplitude,
     _plot_stimulated_vs_non_stimulated_roi_amp,
+    _plot_stimulated_vs_non_stimulated_spike_traces,
     _visualize_stimulated_area,
 )
 from ._single_wells_plots._plot_amplitudes_and_frequencies_data import (
@@ -28,9 +29,6 @@ from ._single_wells_plots._plot_spike_correlation import (
 from ._single_wells_plots._plot_spike_synchrony import _plot_spike_synchrony_data
 from ._single_wells_plots._plot_synchrony import _plot_synchrony_data
 from ._single_wells_plots._plot_traces_data import _plot_traces_data
-from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
-    _plot_stimulated_vs_non_stimulated_spike_traces,
-)
 from ._single_wells_plots._raster_plots import _generate_raster_plot
 from ._single_wells_plots._spike_raster_plots import _generate_spike_raster_plot
 

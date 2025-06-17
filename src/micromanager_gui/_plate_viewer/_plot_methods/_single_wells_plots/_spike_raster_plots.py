@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import _SingleWellGraphWidget
     from micromanager_gui._plate_viewer._util import ROIData
 
+
 def _generate_spike_raster_plot(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
