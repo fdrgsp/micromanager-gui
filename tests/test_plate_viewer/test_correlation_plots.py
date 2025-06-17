@@ -156,7 +156,7 @@ class TestCorrelationPlots:
         assert rois_idxs is None
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_correlation._add_hover_functionality_cross_corr"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation._add_hover_functionality_cross_corr"
     )
     def test_plot_cross_correlation_data_success(
         self, mock_hover, mock_widget, sample_roi_data_active
@@ -174,7 +174,9 @@ class TestCorrelationPlots:
         mock_widget.canvas.draw.assert_called_once()
 
         # Verify axis configuration
-        mock_ax.set_title.assert_called_once_with("Pairwise Cross-Correlation Matrix")
+        mock_ax.set_title.assert_called_once_with(
+            "Pairwise Cross-Correlation Matrix\n(Calcium Peaks Events)"
+        )
         mock_ax.set_xlabel.assert_called_once_with("ROI")
         mock_ax.set_ylabel.assert_called_once_with("ROI")
         mock_ax.set_box_aspect.assert_called_once_with(1)
@@ -227,7 +229,7 @@ class TestCorrelationPlots:
         mock_cursor_obj.connect.assert_called_once_with("add")
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_correlation._plot_hierarchical_clustering_map"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation._plot_hierarchical_clustering_map"
     )
     def test_plot_hierarchical_clustering_data_map_mode(
         self, mock_plot_map, mock_widget, sample_roi_data_active
@@ -243,7 +245,7 @@ class TestCorrelationPlots:
         mock_widget.canvas.draw.assert_called_once()
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_correlation._plot_hierarchical_clustering_dendrogram"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation._plot_hierarchical_clustering_dendrogram"
     )
     def test_plot_hierarchical_clustering_data_dendrogram_mode(
         self, mock_plot_dendro, mock_widget, sample_roi_data_active
@@ -288,14 +290,15 @@ class TestCorrelationPlots:
         _plot_hierarchical_clustering_dendrogram(ax, correlation_matrix, rois_idxs)
 
         # Verify the basic axis properties were set
-        assert (
-            ax.get_title()
-            == "Pairwise Cross-Correlation (Hierarchical Clustering Dendrogram)"
+        expected_title = (
+            "Pairwise Cross-Correlation - Hierarchical Clustering Dendrogram\n"
+            "(Calcium Peaks Events)"
         )
+        assert ax.get_title() == expected_title
         assert ax.get_ylabel() == "Distance"
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_correlation._add_hover_functionality_clustering"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation._add_hover_functionality_clustering"
     )
     @patch("scipy.cluster.hierarchy.leaves_list")
     @patch("scipy.cluster.hierarchy.linkage")
@@ -320,9 +323,11 @@ class TestCorrelationPlots:
         )
 
         # Verify axis configuration
-        mock_ax.set_title.assert_called_once_with(
-            "Pairwise Cross-Correlation (Hierarchical Clustering Map)"
+        expected_title = (
+            "Pairwise Cross-Correlation - Hierarchical Clustering Map\n"
+            "(Calcium Peaks Events)"
         )
+        mock_ax.set_title.assert_called_once_with(expected_title)
         mock_ax.set_ylabel.assert_called_once_with("ROI")
 
         # Verify imshow was called
@@ -465,7 +470,7 @@ class TestCorrelationPlots:
         assert rois_idxs is None
 
     @patch(
-        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_correlation._calculate_cross_correlation"
+        "micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation._calculate_cross_correlation"
     )
     def test_plot_functions_handle_none_correlation(self, mock_calc, mock_widget):
         """Test that plot functions handle None correlation matrix gracefully."""

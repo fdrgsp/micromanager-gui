@@ -213,7 +213,7 @@ class TestSpikeCorrelationPlots:
 
     @patch(
         "micromanager_gui._plate_viewer._plot_methods._single_wells_plots."
-        "_plot_spike_correlation.mplcursors"
+        "_plot_inferred_spike_correlation.mplcursors"
     )
     def test_add_hover_functionality_spike_cross_corr(
         self, mock_mplcursors, mock_widget
@@ -246,7 +246,7 @@ class TestSpikeCorrelationPlots:
 
     @patch(
         "micromanager_gui._plate_viewer._plot_methods._single_wells_plots."
-        "_plot_spike_correlation.dendrogram"
+        "_plot_inferred_spike_correlation.dendrogram"
     )
     def test_plot_spike_hierarchical_clustering_data_dendrogram_mode(
         self, mock_dendrogram, mock_widget, sample_spike_data_active
@@ -276,7 +276,7 @@ class TestSpikeCorrelationPlots:
 
     @patch(
         "micromanager_gui._plate_viewer._plot_methods._single_wells_plots."
-        "_plot_spike_correlation.dendrogram"
+        "_plot_inferred_spike_correlation.dendrogram"
     )
     def test_plot_spike_hierarchical_clustering_dendrogram(
         self, mock_dendrogram, mock_widget, sample_spike_data_active
@@ -315,7 +315,7 @@ class TestSpikeCorrelationPlots:
 
     @patch(
         "micromanager_gui._plate_viewer._plot_methods._single_wells_plots."
-        "_plot_spike_correlation.mplcursors"
+        "_plot_inferred_spike_correlation.mplcursors"
     )
     def test_add_hover_functionality_spike_clustering(
         self, mock_mplcursors, mock_widget
