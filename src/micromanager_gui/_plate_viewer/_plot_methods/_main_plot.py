@@ -284,6 +284,7 @@ CSV_BAR_PLOT_FREQUENCY = "Calcium Peaks Frequency Bar Plot"
 CSV_BAR_PLOT_IEI = "Calcium Peaks Inter-event Interval Bar Plot"
 CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
 CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
+CSV_BAR_PLOT_SPIKE_SYNCHRONY = "Spike-based Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot"
 CSV_BAR_PLOT_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
@@ -294,6 +295,7 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
     CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
     CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_SPIKE_SYNCHRONY: {"parameter": "Spike-based Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Spike Data)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active", "add_to_title": "Based on Calcium Peaks"},  # noqa: E501
 }
 
@@ -376,7 +378,7 @@ def _plot_csv_bar_plot_data(
     }
 
     # Special handling for certain plot types that don't use mean_n_sem
-    if "synchrony" in suffix:
+    if "synchrony" in suffix or "spike_synchrony" in suffix:
         return plot_csv_bar_plot(
             widget,
             csv_file,
