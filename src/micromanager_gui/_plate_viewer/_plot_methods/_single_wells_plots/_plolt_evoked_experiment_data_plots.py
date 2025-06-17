@@ -429,7 +429,7 @@ def _plot_stimulated_vs_non_stimulated_roi_amp(
 
     # plot the stimulation frames as vertical lines
     for frame in stimulations_frames_and_powers:
-        ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.5)
+        ax.axvline(x=float(frame) - 0.5, color="blue", linestyle="--", alpha=0.5)
 
     ax.set_title(
         "Stimulated vs Non-Stimulated ROIs Calcium Traces \n"
@@ -585,7 +585,9 @@ def _plot_stimulated_vs_non_stimulated_spike_traces(
 
     # Plot stimulation frames as vertical lines
     for frame in stimulations_frames_and_powers:
-        ax.axvline(x=int(frame), color="blue", linestyle="--", alpha=0.7, linewidth=2)
+        ax.axvline(
+            x=float(frame) - 0.5, color="blue", linestyle="--", alpha=0.7, linewidth=2
+        )
 
     ax.set_title(
         "Stimulated vs Non-Stimulated ROIs Spike Traces\n"

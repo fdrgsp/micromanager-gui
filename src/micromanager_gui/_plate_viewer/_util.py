@@ -670,3 +670,144 @@ def _get_spike_synchrony(spike_synchrony_matrix: np.ndarray | None) -> float | N
 
     # Return the median synchrony across all ROIs
     return float(np.median(mean_synchrony_per_roi))
+
+
+def _get_peak_events_from_rois(
+    roi_data_dict: dict[str, ROIData],
+    rois: list[int] | None = None,
+) -> dict[str, np.ndarray] | None:
+    """Extract binary peak event trains from ROI data.
+
+    Args:
+        roi_data_dict: Dictionary of ROI data
+        rois: List of ROI indices to include, None for all
+
+    Returns
+    -------
+        Dictionary mapping ROI names to binary peak event arrays
+    """
+    peak_trains: dict[str, np.ndarray] = {}
+
+    if rois is None:
+        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
+
+    if len(rois) < 2:
+        return None
+
+    # Determine the maximum number of frames across all ROIs
+    max_frames = 0
+    for roi_key, roi_data in roi_data_dict.items():
+        try:
+            roi_id = int(roi_key)
+            if roi_id not in rois or not roi_data.active:
+                continue
+        except ValueError:
+            continue
+
+        if roi_data.dec_dff and len(roi_data.dec_dff) > max_frames:
+            max_frames = len(roi_data.dec_dff)
+
+    if max_frames == 0:
+        return None
+
+    for roi_key, roi_data in roi_data_dict.items():
+        try:
+            roi_id = int(roi_key)
+            if roi_id not in rois or not roi_data.active:
+                continue
+        except ValueError:
+            continue
+
+        if (
+            roi_data.dec_dff
+            and roi_data.peaks_dec_dff
+            and len(roi_data.peaks_dec_dff) > 0
+        ):
+            # Create binary peak event train
+            peak_train = np.zeros(max_frames, dtype=np.float32)
+            for peak_frame in roi_data.peaks_dec_dff:
+                if 0 <= int(peak_frame) < max_frames:
+                    peak_train[int(peak_frame)] = 1.0
+
+            if np.sum(peak_train) > 0:  # Only include ROIs with at least one peak
+                peak_trains[roi_key] = peak_train
+
+    return peak_trains if len(peak_trains) >= 2 else None
+
+
+def _get_peak_event_synchrony_matrix(
+    peak_event_dict: dict[str, list[float]],
+) -> np.ndarray | None:
+    """Compute pairwise peak event synchrony using correlation method.
+
+    This function reuses the same approach as spike synchrony but for calcium
+    peak events.
+    """
+    active_rois = list(peak_event_dict.keys())
+    if len(active_rois) < 2:
+        return None
+
+    try:
+        # Convert peak event data into a NumPy array of shape (#ROIs, #Timepoints)
+        peak_array = np.array(
+            [peak_event_dict[roi] for roi in active_rois], dtype=np.float32
+        )
+    except ValueError:
+        return None
+
+    if peak_array.shape[0] < 2:
+        return None
+
+    # Calculate pairwise synchrony using correlation of binary peak event trains
+    n_rois = peak_array.shape[0]
+    synchrony_matrix = np.zeros((n_rois, n_rois))
+
+    for i in range(n_rois):
+        for j in range(n_rois):
+            if i == j:
+                synchrony_matrix[i, j] = 1.0  # Perfect self-synchrony
+            else:
+                # Calculate correlation between binary peak event trains
+                events_i = peak_array[i]
+                events_j = peak_array[j]
+
+                # Handle case where one or both ROIs have no peaks
+                if np.sum(events_i) == 0 or np.sum(events_j) == 0:
+                    synchrony_matrix[i, j] = 0.0
+                else:
+                    # Calculate Pearson correlation coefficient
+                    correlation = np.corrcoef(events_i, events_j)[0, 1]
+                    # Handle NaN case (constant arrays)
+                    synchrony_matrix[i, j] = (
+                        0.0 if np.isnan(correlation) else abs(correlation)
+                    )
+    return synchrony_matrix
+
+
+def _get_peak_event_synchrony(
+    peak_event_synchrony_matrix: np.ndarray | None,
+) -> float | None:
+    """Calculate global peak event synchrony score from a peak event synchrony matrix.
+
+    This function reuses the same approach as spike synchrony.
+    """
+    if peak_event_synchrony_matrix is None or peak_event_synchrony_matrix.size == 0:
+        return None
+    # Ensure the matrix is at least 2x2 and square
+    if (
+        peak_event_synchrony_matrix.shape[0] < 2
+        or peak_event_synchrony_matrix.shape[0] != peak_event_synchrony_matrix.shape[1]
+    ):
+        return None
+
+    # Calculate the sum of each row, excluding the diagonal
+    n_rois = peak_event_synchrony_matrix.shape[0]
+    off_diagonal_sum = np.sum(peak_event_synchrony_matrix, axis=1) - np.diag(
+        peak_event_synchrony_matrix
+    )
+
+    # Normalize by the number of off-diagonal elements per row
+    mean_synchrony_per_roi = off_diagonal_sum / (n_rois - 1)
+
+    # Return the median synchrony across all ROIs
+    return float(np.median(mean_synchrony_per_roi))

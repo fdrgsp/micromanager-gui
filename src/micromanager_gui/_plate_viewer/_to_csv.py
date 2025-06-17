@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,9 @@ from ._util import (
     SEM_SUFFIX,
     ROIData,
     _get_linear_phase,
+    _get_peak_event_synchrony,
+    _get_peak_event_synchrony_matrix,
+    _get_peak_events_from_rois,
     _get_spike_synchrony,
     _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
@@ -29,6 +32,7 @@ NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
 SYNCHRONY = "synchrony"
 SPIKE_SYNCHRONY = "spike_synchrony"
+PEAK_EVENT_SYNCHRONY = "peak_event_synchrony"
 AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
 AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
 CSV_PARAMETERS: dict[str, str] = {
@@ -39,6 +43,7 @@ CSV_PARAMETERS: dict[str, str] = {
     "percentage_active": PERCENTAGE_ACTIVE,
     "synchrony": SYNCHRONY,
     "spike_synchrony": SPIKE_SYNCHRONY,
+    "peak_event_synchrony": PEAK_EVENT_SYNCHRONY,
 }
 CSV_PARAMETERS_EVK = {
     "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
@@ -50,7 +55,7 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY]
+SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY, PEAK_EVENT_SYNCHRONY]
 # fmt: on
 
 
@@ -194,6 +199,12 @@ def _rearrange_by_parameter(
             return _get_spike_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating spike synchrony: {e}")
+            return {}
+    if parameter == PEAK_EVENT_SYNCHRONY:
+        try:
+            return _get_peak_event_synchrony_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating peak event synchrony: {e}")
             return {}
     try:
         return _get_parameter(data, parameter)
@@ -623,6 +634,43 @@ def _get_spike_synchrony_parameter(
             ).append(global_spike_synchrony)
 
     return spike_synchrony_dict
+
+
+def _get_peak_event_synchrony_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by peak event synchrony."""
+    peak_event_synchrony_dict: dict[str, dict[str, list[Any]]] = {}
+    for condition, key_dict in sorted(data.items()):
+        for well_fov, roi_dict in key_dict.items():
+            # Get peak event trains using the existing function
+            peak_trains = _get_peak_events_from_rois(roi_dict, rois=None)
+
+            if peak_trains is None or len(peak_trains) < 2:
+                continue
+
+            # Convert to the format expected by the synchrony matrix function
+            peak_event_data_dict = {
+                roi_name: cast(list[float], peak_train.astype(float).tolist())
+                for roi_name, peak_train in peak_trains.items()
+            }
+
+            # Calculate peak event synchrony matrix
+            peak_event_synchrony_matrix = _get_peak_event_synchrony_matrix(
+                peak_event_data_dict
+            )
+
+            # Calculate global peak event synchrony
+            global_peak_event_synchrony = _get_peak_event_synchrony(
+                peak_event_synchrony_matrix
+            )
+
+            if global_peak_event_synchrony is not None:
+                peak_event_synchrony_dict.setdefault(condition, {}).setdefault(
+                    well_fov, []
+                ).append(global_peak_event_synchrony)
+
+    return peak_event_synchrony_dict
 
 
 def _get_parameter(

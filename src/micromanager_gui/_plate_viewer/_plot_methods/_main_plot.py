@@ -22,6 +22,9 @@ from ._single_wells_plots._plot_correlation import (
 )
 from ._single_wells_plots._plot_iei_data import _plot_iei_data
 from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
+from ._single_wells_plots._plot_peak_event_synchrony import (
+    _plot_peak_event_synchrony_data,
+)
 from ._single_wells_plots._plot_spike_correlation import (
     _plot_spike_cross_correlation_data,
     _plot_spike_hierarchical_clustering_data,
@@ -72,7 +75,8 @@ INFERRED_SPIKE_RASTER_PLOT = "Inferred Spikes Raster plot Colored by ROI"
 INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitude"
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
-GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
+GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony (PLV)"
+CALCIUM_PEAKS_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
 CLUSTERING_DENDROGRAM = "Calcium Peaks Hierarchical Clustering (Dendrogram)"
@@ -137,6 +141,7 @@ CELL_SIZE_GROUP: dict[str, dict] = {
 
 CORRELATION_GROUP = {
     GLOBAL_SYNCHRONY: {},
+    CALCIUM_PEAKS_GLOBAL_SYNCHRONY: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
     CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
@@ -227,6 +232,10 @@ def plot_single_well_data(
     if text in CORRELATION_GROUP:
         if text == GLOBAL_SYNCHRONY:
             return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
+        elif text == CALCIUM_PEAKS_GLOBAL_SYNCHRONY:
+            return _plot_peak_event_synchrony_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
         elif text == CROSS_CORRELATION:
             return _plot_cross_correlation_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
@@ -284,6 +293,7 @@ CSV_BAR_PLOT_FREQUENCY = "Calcium Peaks Frequency Bar Plot"
 CSV_BAR_PLOT_IEI = "Calcium Peaks Inter-event Interval Bar Plot"
 CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
 CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
+CSV_BAR_PLOT_PEAK_EVENT_SYNCHRONY = "Calcium Peak Events Global Synchrony Bar Plot"
 CSV_BAR_PLOT_SPIKE_SYNCHRONY = "Spike-based Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot"
@@ -295,6 +305,7 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
     CSV_BAR_PLOT_CELL_SIZE: { "parameter": "Cell Size",  "suffix": "cell_size",  "units": "μm²"},  # noqa: E501
     CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_PEAK_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median - Event-based Correlation)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_SPIKE_SYNCHRONY: {"parameter": "Spike-based Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Spike Data)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS: {"parameter": "Percentage of Active Cells", "suffix": "percentage_active", "add_to_title": "Based on Calcium Peaks"},  # noqa: E501
 }
@@ -378,7 +389,8 @@ def _plot_csv_bar_plot_data(
     }
 
     # Special handling for certain plot types that don't use mean_n_sem
-    if "synchrony" in suffix or "spike_synchrony" in suffix:
+    synchrony_suffixes = ["synchrony", "spike_synchrony", "peak_event_synchrony"]
+    if any(sync_suffix in suffix for sync_suffix in synchrony_suffixes):
         return plot_csv_bar_plot(
             widget,
             csv_file,
