@@ -28,24 +28,24 @@ from ._util import (
 # fmt: off
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
-SYNCHRONY = "synchrony"
+# SYNCHRONY = "synchrony"
 SPIKE_SYNCHRONY = "spike_synchrony"
 CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
-AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
-AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
+AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
+AMP_NON_STIMULATED_PEAKS = "calcium_peaks_amplitudes_non_stimulated"
 CSV_PARAMETERS: dict[str, str] = {
-    "amplitude": "peaks_amplitudes_dec_dff",
-    "frequency": "dec_dff_frequency",
+    "calcium_peaks_amplitude": "peaks_amplitudes_dec_dff",
+    "calcium_peaks_frequency": "dec_dff_frequency",
     "cell_size": "cell_size",
-    "iei": "iei",
+    "calcium_peaks_iei": "iei",
     "percentage_active": PERCENTAGE_ACTIVE,
-    "synchrony": SYNCHRONY,
-    "spike_synchrony": SPIKE_SYNCHRONY,
+    # "synchrony": SYNCHRONY,
     "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
+    "spike_synchrony": SPIKE_SYNCHRONY,
 }
 CSV_PARAMETERS_EVK = {
-    "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
-    "amplitudes_non_stimulated_peaks": AMP_NON_STIMULATED_PEAKS
+    "calcium_peaks_amplitudes_stimulated": AMP_STIMULATED_PEAKS,
+    "calcium_peaks_amplitudes_non_stimulated": AMP_NON_STIMULATED_PEAKS
 }
 
 PARAMETER_TO_KEY: dict[str, str] = {
@@ -53,7 +53,7 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY, SPIKE_SYNCHRONY, CALCIUM_PEAKS_SYNCHRONY]
+SINGLE_VALUES = [PERCENTAGE_ACTIVE, SPIKE_SYNCHRONY, CALCIUM_PEAKS_SYNCHRONY]
 # fmt: on
 
 
