@@ -635,13 +635,13 @@
       -2.168404344971009e-19,
       0.0
     ],
-    "dec_dff_frequency": 0.2613354240167255,
+    "dec_dff_frequency": 0.2630540576088386,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 522.21,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
-    "total_recording_time_sec": 15.306,
+    "total_recording_time_sec": 15.206,
     "active": true,
     "iei": [
       4.302,
@@ -1294,13 +1294,13 @@
       0.0,
       0.0
     ],
-    "dec_dff_frequency": 0.39200313602508824,
+    "dec_dff_frequency": 0.39458108641325795,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 512.9150000000001,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
-    "total_recording_time_sec": 15.306,
+    "total_recording_time_sec": 15.206,
     "active": true,
     "iei": [
       4.302,
@@ -1951,13 +1951,13 @@
       0.0,
       -2.168404344971009e-19
     ],
-    "dec_dff_frequency": 0.2613354240167255,
+    "dec_dff_frequency": 0.2630540576088386,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 632.9050000000001,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
-    "total_recording_time_sec": 15.306,
+    "total_recording_time_sec": 15.206,
     "active": true,
     "iei": [
       4.402,
@@ -2606,13 +2606,13 @@
       0.0,
       -2.168404344971009e-19
     ],
-    "dec_dff_frequency": 0.2613354240167255,
+    "dec_dff_frequency": 0.2630540576088386,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 452.07500000000005,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
-    "total_recording_time_sec": 15.306,
+    "total_recording_time_sec": 15.206,
     "active": true,
     "iei": [
       4.302,
