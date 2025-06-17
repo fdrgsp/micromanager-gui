@@ -72,7 +72,7 @@ def _plot_spike_synchrony_data(
         global_synchrony = 0.0
 
     title = (
-        f"Spike-based Global Synchrony (Median: {global_synchrony:.4f})\n"
+        f"Global Synchrony (Median: {global_synchrony:.4f})\n"
         f"(Thresholded Spike Data - Correlation Method)\n"
     )
 

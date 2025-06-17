@@ -143,7 +143,7 @@ def _plot_spike_cross_correlation_data(
         widget.canvas.draw()
         return
 
-    ax.set_title("Pairwise Spike Cross-Correlation Matrix\n(Thresholded Spike Data)")
+    ax.set_title("Pairwise Cross-Correlation Matrix\n(Thresholded Spike Data)")
     ax.set_xlabel("ROI")
     ax.set_xticks([])
     ax.set_xticklabels([])
@@ -270,7 +270,7 @@ def _plot_spike_hierarchical_clustering_dendrogram(
     """
     ax.set_title(
         ""
-        "Spike Cross-Correlation (Hierarchical Clustering Dendrogram)\n"
+        "Spike Cross-Correlation - Hierarchical Clustering Dendrogram\n"
         "(Thresholded Spike Data)"
     )
     ax.set_ylabel("Distance")
@@ -321,7 +321,7 @@ def _plot_spike_hierarchical_clustering_map(
     reordered_matrix = correlation_matrix[order][:, order]
 
     ax.set_title(
-        "Spike Cross-Correlation (Hierarchical Clustering Map)\n"
+        "Spike Cross-Correlation - Hierarchical Clustering Map\n"
         "(Thresholded Spike Data)"
     )
     ax.set_ylabel("ROI")

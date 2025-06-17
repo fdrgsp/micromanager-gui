@@ -72,8 +72,8 @@ def _plot_peak_event_synchrony_data(
         global_synchrony = 0.0
 
     title = (
-        f"Peak Event-based Global Synchrony (Median: {global_synchrony:.4f})\n"
-        f"(Calcium Peak Events - Correlation Method)\n"
+        f"Global Synchrony (Median: {global_synchrony:.4f})\n"
+        f"(Calcium Peaks Events - Correlation Method)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
