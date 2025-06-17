@@ -78,7 +78,6 @@ INFERRED_SPIKE_RASTER_PLOT = "Inferred Spikes Raster plot Colored by ROI"
 INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitude"
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
-# GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony (PLV)"
 CALCIUM_PEAKS_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
@@ -295,7 +294,6 @@ CSV_BAR_PLOT_AMPLITUDE = "Calcium Peaks Amplitude Bar Plot"
 CSV_BAR_PLOT_FREQUENCY = "Calcium Peaks Frequency Bar Plot"
 CSV_BAR_PLOT_IEI = "Calcium Peaks Inter-event Interval Bar Plot"
 CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
-# CSV_BAR_PLOT_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony Bar Plot"
 CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY = "Calcium Peaks Events Global Synchrony Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY = "Inferred Spikes Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
@@ -308,7 +306,6 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Calcium Peaks Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_FREQUENCY: {"parameter": "Calcium Peaks Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
-    # CSV_BAR_PLOT_GLOBAL_SYNCHRONY: {"parameter": "Calcium Peaks Global Synchrony",  "suffix": "synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY: {"parameter": "Inferred Spikes Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Data)",  "units": "Index"},  # noqa: E501
 }

@@ -16,7 +16,6 @@ from ._util import (
     N_SUFFIX,
     SEM_SUFFIX,
     ROIData,
-    # _get_linear_phase,
     _get_calcium_peaks_event_synchrony,
     _get_calcium_peaks_event_synchrony_matrix,
     _get_calcium_peaks_events_from_rois,
@@ -28,7 +27,6 @@ from ._util import (
 # fmt: off
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
-# SYNCHRONY = "synchrony"
 SPIKE_SYNCHRONY = "spike_synchrony"
 CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
 AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
@@ -39,7 +37,6 @@ CSV_PARAMETERS: dict[str, str] = {
     "cell_size": "cell_size",
     "calcium_peaks_iei": "iei",
     "percentage_active": PERCENTAGE_ACTIVE,
-    # "synchrony": SYNCHRONY,
     "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
     "spike_synchrony": SPIKE_SYNCHRONY,
 }
@@ -186,12 +183,6 @@ def _rearrange_by_parameter(
         except Exception as e:
             LOGGER.error(f"Error calculating percentage active: {e}")
             return {}
-    # if parameter == SYNCHRONY:
-    #     try:
-    #         return _get_synchrony_parameter(data)
-    #     except Exception as e:
-    #         LOGGER.error(f"Error calculating synchrony: {e}")
-    #         return {}
     if parameter == SPIKE_SYNCHRONY:
         try:
             return _get_spike_synchrony_parameter(data)
@@ -578,35 +569,6 @@ def _get_percentage_active_parameter(
             ).append((percentage_active, total))
 
     return percentage_active_dict
-
-
-# def _get_synchrony_parameter(
-#     data: dict[str, dict[str, dict[str, ROIData]]],
-# ) -> dict[str, dict[str, list[Any]]]:
-#     """Group the data by the synchrony."""
-#     synchrony_dict: dict[str, dict[str, list[Any]]] = {}
-#     for condition, key_dict in sorted(data.items()):
-#         for well_fov, roi_dict in key_dict.items():
-#             phase_dict: dict[str, list[float]] = {}
-#             for roi_key, roi_data in roi_dict.items():
-#                 if (
-#                     not roi_data.dec_dff
-#                     or not roi_data.peaks_dec_dff
-#                     or len(roi_data.peaks_dec_dff) < 1
-#                 ):
-#                     continue
-#                 frames = len(roi_data.dec_dff)
-#                 peaks = np.array(roi_data.peaks_dec_dff)
-#                 phase_dict[roi_key] = _get_linear_phase(frames, peaks)
-
-#             synchrony_matrix = _get_synchrony_matrix(phase_dict)
-
-#             linear_synchrony = _get_synchrony(synchrony_matrix)
-
-#             synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
-#                 linear_synchrony
-#             )
-#     return synchrony_dict
 
 
 def _get_spike_synchrony_parameter(
