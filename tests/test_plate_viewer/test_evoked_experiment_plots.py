@@ -21,7 +21,7 @@ class TestEvokedExperimentPlots:
         widget.canvas = Mock()
         widget.canvas.draw = Mock()
         widget._plate_viewer = Mock()
-        widget._plate_viewer.pv_analysis_path = None
+        widget._plate_viewer.analysis_path = "/fake/analysis/path"
         return widget
 
     @pytest.fixture
@@ -81,15 +81,13 @@ class TestEvokedExperimentPlots:
     def test_plot_stim_or_not_stim_peaks_amplitude(self, mock_widget, sample_roi_data):
         """Test plotting stimulated vs non-stimulated peaks amplitude."""
         # Set up analysis path to avoid early return
-        mock_widget._plate_viewer.pv_analysis_path = "/fake/path"
+        mock_widget._plate_viewer.analysis_path = "/fake/path"
 
         # Create data with required amplitude data
         test_data = {
             "1": ROIData(
                 well_fov_position="A1",
                 active=True,
-                amplitudes_stimulated_peaks={"10_100": [0.5, 0.6]},
-                amplitudes_non_stimulated_peaks={"10_100": [0.3, 0.4]},
             )
         }
 

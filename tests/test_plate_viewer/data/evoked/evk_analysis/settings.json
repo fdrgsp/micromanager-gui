@@ -6,5 +6,6 @@
   "spike_threshold_value": 1.0,
   "spike_threshold_mode": "multiplier",
   "peaks_distance": 2,
-  "peaks_prominence_multiplier": 1.0
+  "peaks_prominence_multiplier": 1.0,
+  "led_power_equation": "y = 11 * x - 6"
 }

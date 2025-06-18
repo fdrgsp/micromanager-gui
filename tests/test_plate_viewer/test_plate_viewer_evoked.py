@@ -177,6 +177,15 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         for attr, value in roi_data.__dict__.items():
             reference_value = roi_data1.__dict__[attr]
 
+            # Special handling for led_pulse_duration - convert both to strings
+            if attr == "led_pulse_duration":
+                value_str = str(value) if value is not None else None
+                ref_str = str(reference_value) if reference_value is not None else None
+                assert (
+                    value_str == ref_str
+                ), f"ROI {roi_id} mismatch in {attr}: {value_str} != {ref_str}"
+                continue
+
             # Round numeric values for comparison
             value_rounded, ref_rounded = _round_numeric_values(value, reference_value)
 

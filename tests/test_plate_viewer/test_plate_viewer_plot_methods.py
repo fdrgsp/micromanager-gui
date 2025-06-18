@@ -69,8 +69,6 @@ SAMPLE_ROI_DATA = {
         cell_size=150.5,
         evoked_experiment=False,
         stimulated=False,
-        amplitudes_stimulated_peaks={"stim1": [0.15, 0.25, 0.20]},
-        amplitudes_non_stimulated_peaks={"stim1": [0.02, 0.04, 0.03]},
         active=True,
     ),
     "2": ROIData(
@@ -86,8 +84,6 @@ SAMPLE_ROI_DATA = {
         cell_size=140.2,
         evoked_experiment=False,
         stimulated=False,
-        amplitudes_stimulated_peaks={"stim1": [0.12, 0.22, 0.18]},
-        amplitudes_non_stimulated_peaks={"stim1": [0.015, 0.030, 0.025]},
         active=True,
     ),
 }
@@ -300,12 +296,6 @@ class TestPlotMethodsWithRealData:
                 cell_size=roi_info.get("cell_size", 0.0),
                 evoked_experiment=roi_info.get("evoked_experiment", False),
                 stimulated=roi_info.get("stimulated", False),
-                amplitudes_stimulated_peaks=roi_info.get(
-                    "amplitudes_stimulated_peaks", {}
-                ),
-                amplitudes_non_stimulated_peaks=roi_info.get(
-                    "amplitudes_non_stimulated_peaks", {}
-                ),
                 active=roi_info.get("active", True),
             )
 
@@ -413,8 +403,6 @@ class TestPlotMethodsErrorHandling:
                 cell_size=0.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -584,8 +572,6 @@ class TestPlotMethodsPerformance:
                 cell_size=100.0 + np.random.rand() * 50,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         return large_data
@@ -666,8 +652,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=150.5,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -690,8 +674,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=0.0,  # Zero cell size
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -714,8 +696,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=120.5,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -738,8 +718,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=180.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -762,8 +740,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=180.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -805,8 +781,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -830,8 +804,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=False,  # Inactive ROI
             ),
             "2": ROIData(
@@ -846,8 +818,6 @@ class TestPlotMethodsRegression:
                 cell_size=140.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=False,  # Inactive ROI
             ),
         }
@@ -873,8 +843,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }

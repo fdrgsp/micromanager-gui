@@ -648,23 +648,12 @@
     ],
     "evoked_experiment": true,
     "stimulated": false,
-    "amplitudes_stimulated_peaks": null,
-    "amplitudes_non_stimulated_peaks": {
-      "2%_100": [
-        0.5222479334770127
-      ],
-      "4%_100": [
-        0.8826441853428321
-      ],
-      "6%_100": [
-        0.8274789707114378
-      ]
-    },
     "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
-    }
+    },
+    "led_pulse_duration": "100"
   },
   "2": {
     "well_fov_position": "B5_0000_p0",
@@ -1315,23 +1304,12 @@
     ],
     "evoked_experiment": true,
     "stimulated": true,
-    "amplitudes_stimulated_peaks": {
-      "2%_100": [
-        0.17637659498317362
-      ],
-      "4%_100": [
-        0.4687574092760547
-      ],
-      "6%_100": [
-        0.5776284830744445
-      ]
-    },
-    "amplitudes_non_stimulated_peaks": null,
     "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
-    }
+    },
+    "led_pulse_duration": "100"
   },
   "3": {
     "well_fov_position": "B5_0000_p0",
@@ -1982,23 +1960,12 @@
     ],
     "evoked_experiment": true,
     "stimulated": true,
-    "amplitudes_stimulated_peaks": {
-      "2%_100": [
-        0.24319984721753232
-      ],
-      "4%_100": [
-        0.15983308648845176
-      ],
-      "6%_100": [
-        0.3976299931972932
-      ]
-    },
-    "amplitudes_non_stimulated_peaks": null,
     "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
-    }
+    },
+    "led_pulse_duration": "100"
   },
   "4": {
     "well_fov_position": "B5_0000_p0",
@@ -2652,22 +2619,11 @@
     ],
     "evoked_experiment": true,
     "stimulated": false,
-    "amplitudes_stimulated_peaks": null,
-    "amplitudes_non_stimulated_peaks": {
-      "2%_100": [
-        0.23403843818562095
-      ],
-      "4%_100": [
-        0.3292051633191625
-      ],
-      "6%_100": [
-        0.3546076936045398
-      ]
-    },
     "stimulations_frames_and_powers": {
       "3": 2,
       "53": 4,
       "103": 6
-    }
+    },
+    "led_pulse_duration": "100"
   }
 }
