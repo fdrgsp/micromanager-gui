@@ -785,12 +785,15 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
         self._peaks_distance_spin.setValue(peaks_distance)
 
-        burst_the = cast(float, settings.get(BURST_THRESHOLD, DEFAULT_SPIKE_THRESHOLD))
+        burst_the = cast(float, settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))
         burst_d = cast(
             int, settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
         )
         burst_g = cast(
             float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
+        )
+        print(
+            f"burst_the: {burst_the}, burst_d: {burst_d}, burst_g: {burst_g}"
         )
         self._burst_wdg.setValue(
             {
