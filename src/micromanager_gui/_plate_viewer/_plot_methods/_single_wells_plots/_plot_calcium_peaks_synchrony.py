@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib.cm as cm
@@ -9,6 +11,9 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
+    CALCIUM_SYNC_JITTER_WINDOW,
+    DEFAULT_CALCIUM_SYNC_JITTER_WINDOW,
+    SETTINGS_PATH,
     _get_calcium_peaks_event_synchrony,
     _get_calcium_peaks_event_synchrony_matrix,
     _get_calcium_peaks_events_from_rois,
@@ -50,6 +55,23 @@ def _plot_peak_event_synchrony_data(
         )
         return
 
+    # get parameters form the analysis path settings.json file
+    jit: int = DEFAULT_CALCIUM_SYNC_JITTER_WINDOW
+    if analysis_path := widget._plate_viewer.analysis_path:
+        settings_json_file = Path(analysis_path) / SETTINGS_PATH
+        if settings_json_file.exists():
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                jit = cast(
+                    int,
+                    settings.get(
+                        CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW
+                    ),
+                )
+    # or from the widget's analysis widget
+    else:
+        jit = widget._plate_viewer._analysis_wdg._calcium_synchrony_jitter_spin.value()
+
     # Convert peak trains to peak event data dict for correlation-based synchrony
     peak_event_data_dict = {
         roi_name: cast(list[float], peak_train.astype(float).tolist())
@@ -59,7 +81,7 @@ def _plot_peak_event_synchrony_data(
     # Use jitter window method for calcium peaks - better suited for discrete
     # events with inherent timing uncertainty due to biology and frame rate limits
     synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(
-        peak_event_data_dict, method="jitter_window", jitter_window=2
+        peak_event_data_dict, method="jitter_window", jitter_window=jit
     )
 
     if synchrony_matrix is None:

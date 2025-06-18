@@ -84,7 +84,7 @@ def _plot_inferred_spike_burst_activity(
         burst_threshold, min_burst_duration, smoothing_sigma = values
 
     # Get spike trains and calculate population activity
-    spike_trains, roi_names, time_axis = _get_population_spike_data(data, rois)
+    spike_trains, _, time_axis = _get_population_spike_data(data, rois)
 
     if spike_trains is None or len(spike_trains) < 2:
         ax = widget.figure.add_subplot(111)
@@ -395,67 +395,3 @@ def _add_burst_statistics_legend(
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightblue", "alpha": 0.8},
         wrap=True,
     )
-
-
-def _calculate_network_burst_metrics(
-    spike_trains: np.ndarray,
-    bursts: list[tuple[int, int]],
-    time_axis: np.ndarray,
-) -> dict[str, float]:
-    """Calculate comprehensive network burst metrics.
-
-    Parameters
-    ----------
-    spike_trains : np.ndarray
-        Array of spike trains (n_rois, n_samples)
-    bursts : list[tuple[int, int]]
-        List of burst periods
-    time_axis : np.ndarray
-        Time axis in seconds
-
-    Returns
-    -------
-    dict[str, float]
-        Dictionary of network state metrics
-    """
-    total_time = time_axis[-1] - time_axis[0]
-
-    # Calculate burst-related metrics
-    burst_count = len(bursts)
-
-    if burst_count > 0:
-        burst_durations = [
-            time_axis[end - 1] - time_axis[start]
-            for start, end in bursts
-            if end > start
-        ]
-        avg_burst_duration = np.mean(burst_durations)
-        total_burst_time = np.sum(burst_durations)
-        burst_fraction = total_burst_time / total_time
-
-        if burst_count > 1:
-            intervals = [
-                time_axis[bursts[i][0]] - time_axis[bursts[i - 1][1] - 1]
-                for i in range(1, burst_count)
-            ]
-            avg_burst_interval = np.mean(intervals)
-        else:
-            avg_burst_interval = 0
-    else:
-        avg_burst_duration = 0
-        burst_fraction = 0
-        avg_burst_interval = 0
-
-    # Calculate participation metrics
-    total_spikes = np.sum(spike_trains)
-    avg_firing_rate = total_spikes / (spike_trains.shape[0] * total_time)
-
-    return {
-        "burst_count": burst_count,
-        "burst_rate": float(burst_count / (total_time / 60)),  # bursts per minute
-        "avg_burst_duration": float(avg_burst_duration),
-        "avg_burst_interval": float(avg_burst_interval),
-        "burst_fraction": float(burst_fraction),
-        "avg_firing_rate": float(avg_firing_rate),
-        "total_spikes": float(total_spikes),
-    }

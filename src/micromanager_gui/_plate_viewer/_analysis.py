@@ -45,12 +45,18 @@ from ._util import (
     BURST_GAUSSIAN_SIGMA,
     BURST_MIN_DURATION,
     BURST_THRESHOLD,
+    CALCIUM_SYNC_JITTER_WINDOW,
     COND1,
     COND2,
     DECAY_CONSTANT,
     DEFAULT_BURST_GAUSS_SIGMA,
     DEFAULT_BURST_THRESHOLD,
+    DEFAULT_CALCIUM_SYNC_JITTER_WINDOW,
+    DEFAULT_DFF_WINDOW,
+    DEFAULT_HEIGHT,
     DEFAULT_MIN_BURST_DURATION,
+    DEFAULT_SPIKE_SYNCHRONY_MAX_LAG,
+    DEFAULT_SPIKE_THRESHOLD,
     DFF_WINDOW,
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -64,6 +70,7 @@ from ._util import (
     SETTINGS_PATH,
     SPIKE_THRESHOLD_MODE,
     SPIKE_THRESHOLD_VALUE,
+    SPIKES_SYNC_CROSS_CORR_MAX_LAG,
     STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
@@ -98,13 +105,9 @@ SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
-MAX_FRAMES_AFTER_STIMULATION = 5
-DEFAULT_HEIGHT = 3
-DEFAULT_SPIKE_THRESHOLD = 1
 GLOBAL_HEIGHT = "global_height"
 GLOBAL_SPIKE_THRESHOLD = "global_spike_threshold"
 MULTIPLIER = "multiplier"
-DEFAULT_WINDOW = 30
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -269,6 +272,32 @@ class _BurstWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
+        self.setToolTip(
+            "Settings to control the detection of network bursts in population "
+            "activity.\n\n"
+            "• Burst Threshold:\n"
+            "   Minimum percentage of ROIs that must be active simultaneously to "
+            "detect a network burst.\n"
+            "   Population activity above this threshold is considered burst activity."
+            "   \nHigher values (50-80%) detect only strong network-wide events.\n"
+            "   Lower values (10-30%) capture weaker coordinated activity.\n\n"
+            "• Burst Min Duration (frames):\n"
+            "   Minimum duration (in frames) for a detected burst to be "
+            "considered valid.\n"
+            "   Filters out brief spikes that don't represent sustained "
+            "network activity.\n"
+            "   Higher values ensure only sustained bursts are detected.\n\n"
+            "• Burst Gaussian Blur Sigma:\n"
+            "   Gaussian smoothing applied to population activity before "
+            "burst detection.\n"
+            "   Reduces noise and connects nearby activity peaks into "
+            "coherent bursts.\n"
+            "   Higher values (2-5) provide more smoothing, merging closer events.\n"
+            "   Lower values (0.5-1) preserve temporal precision but may "
+            "fragment bursts.\n"
+            "   Set to 0 to disable smoothing."
+        )
+
         self._burst_threshold_lbl = QLabel("Burst Threshold (%):")
         self._burst_threshold_lbl.setSizePolicy(*FIXED)
         self._burst_threshold = QDoubleSpinBox(self)
@@ -276,27 +305,13 @@ class _BurstWidget(QWidget):
         self._burst_threshold.setRange(0.0, 100.0)
         self._burst_threshold.setSingleStep(1)
         self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
-        self._burst_threshold.setToolTip(
-            "Minimum percentage of ROIs that must be active simultaneously to "
-            "detect a network burst.\n"
-            "Population activity above this threshold is considered burst activity.\n"
-            "Higher values (50-80%) detect only strong network-wide events.\n"
-            "Lower values (10-30%) capture weaker coordinated activity."
-        )
 
-        self._burst_min_threshold_label = QLabel("Min Burst Duration (frames):")
+        self._burst_min_threshold_label = QLabel("Burst Min Duration (frames):")
         self._burst_min_threshold_label.setSizePolicy(*FIXED)
         self._burst_min_duration_frames = QSpinBox(self)
         self._burst_min_duration_frames.setRange(0, 100)
         self._burst_min_duration_frames.setSingleStep(1)
         self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
-        self._burst_min_duration_frames.setToolTip(
-            "Minimum duration (in frames) for a detected burst to be "
-            "considered valid.\n"
-            "Filters out brief spikes that don't represent sustained "
-            "network activity.\n"
-            "Higher values ensure only sustained bursts are detected."
-        )
 
         self._burst_blur_label = QLabel("Burst Gaussian Blur Sigma:")
         self._burst_blur_label.setSizePolicy(*FIXED)
@@ -305,16 +320,6 @@ class _BurstWidget(QWidget):
         self._burst_blur_sigma.setRange(0.0, 100.0)
         self._burst_blur_sigma.setSingleStep(0.5)
         self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
-        self._burst_blur_sigma.setToolTip(
-            "Gaussian smoothing applied to population activity before "
-            "burst detection.\n"
-            "Reduces noise and connects nearby activity peaks into "
-            "coherent bursts.\n"
-            "Higher values (2-5) provide more smoothing, merging closer events.\n"
-            "Lower values (0.5-1) preserve temporal precision but may "
-            "fragment bursts.\n"
-            "Set to 0 to disable smoothing."
-        )
 
         burst_layout = QGridLayout(self)
         burst_layout.setContentsMargins(0, 0, 0, 0)
@@ -482,7 +487,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._dff_window_size_spin = QSpinBox(self)
         self._dff_window_size_spin.setRange(0, 10000)
         self._dff_window_size_spin.setSingleStep(1)
-        self._dff_window_size_spin.setValue(DEFAULT_WINDOW)
+        self._dff_window_size_spin.setValue(DEFAULT_DFF_WINDOW)
         dff_layout = QHBoxLayout(self._dff_wdg)
         dff_layout.setContentsMargins(0, 0, 0, 0)
         dff_layout.setSpacing(5)
@@ -559,8 +564,63 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
+        self._calcium_synchrony_wdg = QWidget(self)
+        self._calcium_synchrony_wdg.setToolTip(
+            "Calcium Peak Synchrony Analysis Settings\n\n"
+            "Jitter Window Parameter:\n"
+            "Controls the temporal tolerance for detecting synchronous "
+            "calcium peaks.\n\n"
+            "What the value means:\n"
+            "• Value = 2: Peaks within ±2 frames are considered synchronous\n"
+            "• Larger values detect more synchrony but may include false positives\n"
+            "• Smaller values are more strict but may miss genuine synchrony\n\n"
+            "Example with Jitter = 2:\n"
+            "ROI 1 peaks: [10, 25, 40]  ROI 2 peaks: [12, 24, 41]\n"
+            "Result: All pairs are synchronous (differences ≤ 2 frames)"
+        )
+        calcium_jitter_window_lbl = QLabel("Synchrony Jitter (frames):")
+        calcium_jitter_window_lbl.setSizePolicy(*FIXED)
+        self._calcium_synchrony_jitter_spin = QSpinBox(self)
+        self._calcium_synchrony_jitter_spin.setRange(0, 100)
+        self._calcium_synchrony_jitter_spin.setSingleStep(1)
+        self._calcium_synchrony_jitter_spin.setValue(DEFAULT_CALCIUM_SYNC_JITTER_WINDOW)
+        calcium_synchrony_layout = QHBoxLayout(self._calcium_synchrony_wdg)
+        calcium_synchrony_layout.setContentsMargins(0, 0, 0, 0)
+        calcium_synchrony_layout.setSpacing(5)
+        calcium_synchrony_layout.addWidget(calcium_jitter_window_lbl)
+        calcium_synchrony_layout.addWidget(self._calcium_synchrony_jitter_spin)
+
         # SPIKES SETTINGS ----------------------------------------------------------
         self._spike_threshold_wdg = _SpikeThresholdWidget(self)
+
+        self._spike_synchrony_wdg = QWidget(self)
+        self._spike_synchrony_wdg.setToolTip(
+            "Inferred Spike Synchrony Analysis Settings\n\n"
+            "Max Lag Parameter:\n"
+            "Controls the maximum temporal offset for cross-correlation analysis.\n\n"
+            "What the value means:\n"
+            "• Value = 5: Checks correlations within ±5 frames window\n"
+            "• Algorithm slides one spike train over another, looking for "
+            "best match within this range\n"
+            "• Takes the MAXIMUM correlation found within the lag window\n"
+            "• Larger values are more permissive, smaller values more strict\n\n"
+            "Example with Max Lag = 5:\n"
+            "ROI 1 spikes: [10, 25, 40]  ROI 2 spikes: [12, 24, 41]\n"
+            "Algorithm finds high correlation at lag +2 and -1 frames\n"
+            "Result: High synchrony score based on best alignment"
+        )
+        spikes_sync_cross_corr_lag = QLabel("Synchrony Lag (frames):")
+        spikes_sync_cross_corr_lag.setSizePolicy(*FIXED)
+        self._spikes_sync_cross_corr_max_lag = QSpinBox(self)
+        self._spikes_sync_cross_corr_max_lag.setRange(0, 100)
+        self._spikes_sync_cross_corr_max_lag.setSingleStep(1)
+        self._spikes_sync_cross_corr_max_lag.setValue(5)
+        spikes_sync_cross_corr_layout = QHBoxLayout(self._spike_synchrony_wdg)
+        spikes_sync_cross_corr_layout.setContentsMargins(0, 0, 0, 0)
+        spikes_sync_cross_corr_layout.setSpacing(DEFAULT_SPIKE_SYNCHRONY_MAX_LAG)
+        spikes_sync_cross_corr_layout.addWidget(spikes_sync_cross_corr_lag)
+        spikes_sync_cross_corr_layout.addWidget(self._spikes_sync_cross_corr_max_lag)
+
         self._burst_wdg = _BurstWidget(self)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE --------------------------------
@@ -617,6 +677,8 @@ class _AnalyseCalciumTraces(QWidget):
         self._burst_wdg._burst_threshold_lbl.setFixedWidth(fixed_width)
         self._burst_wdg._burst_min_threshold_label.setFixedWidth(fixed_width)
         self._burst_wdg._burst_blur_label.setFixedWidth(fixed_width)
+        spikes_sync_cross_corr_lag.setFixedWidth(fixed_width)
+        calcium_jitter_window_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT -------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -646,15 +708,17 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.addWidget(self._dff_wdg)
         wdg_layout.addWidget(self._dec_wdg)
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Calcium Peaks Detection"))
+        wdg_layout.addWidget(create_divider_line("Calcium Peaks"))
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
+        wdg_layout.addWidget(self._calcium_synchrony_wdg)
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Spike and Burst Detection"))
+        wdg_layout.addWidget(create_divider_line("Spikes and Bursts"))
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._spike_threshold_wdg)
+        wdg_layout.addWidget(self._spike_synchrony_wdg)
         wdg_layout.addWidget(self._burst_wdg)
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line("Positions to Analyze"))
@@ -788,7 +852,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _update_form_settings(self, f: Any) -> None:
         """Update the widget form from the JSON settings file."""
         settings = cast(dict, json.load(f))
-        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_WINDOW))
+        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_DFF_WINDOW))
         self._dff_window_size_spin.setValue(dff_window)
         decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
         self._decay_constant_spin.setValue(decay)
@@ -816,7 +880,6 @@ class _AnalyseCalciumTraces(QWidget):
         burst_g = cast(
             float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
         )
-        print(f"burst_the: {burst_the}, burst_d: {burst_d}, burst_g: {burst_g}")
         self._burst_wdg.setValue(
             {
                 "burst_threshold": burst_the,
@@ -824,6 +887,20 @@ class _AnalyseCalciumTraces(QWidget):
                 "burst_gauss_sigma": burst_g,
             }
         )
+        spike_sync_lag = cast(
+            int,
+            settings.get(
+                SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
+            ),
+        )
+        self._spikes_sync_cross_corr_max_lag.setValue(spike_sync_lag)
+        calcium_jitter = cast(
+            int,
+            settings.get(
+                CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW
+            ),
+        )
+        self._calcium_synchrony_jitter_spin.setValue(calcium_jitter)
 
     # PRIVATE METHODS --------------------------------------------------------------
 
@@ -1439,6 +1516,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_height_wdg.setEnabled(enable)
         self._spike_threshold_wdg.setEnabled(enable)
         self._peaks_prominence_wdg.setEnabled(enable)
+        self._spike_synchrony_wdg.setEnabled(enable)
+        self._calcium_synchrony_wdg.setEnabled(enable)
+        self._burst_wdg.setEnabled(enable)
         self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
@@ -1506,6 +1586,13 @@ class _AnalyseCalciumTraces(QWidget):
             settings[BURST_THRESHOLD] = burst_the
             settings[BURST_MIN_DURATION] = burst_d
             settings[BURST_GAUSSIAN_SIGMA] = burst_g
+
+            settings[SPIKES_SYNC_CROSS_CORR_MAX_LAG] = (
+                self._spikes_sync_cross_corr_max_lag.value()
+            )
+            settings[CALCIUM_SYNC_JITTER_WINDOW] = (
+                self._calcium_synchrony_jitter_spin.value()
+            )
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

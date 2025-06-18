@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib.cm as cm
@@ -9,6 +11,9 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
+    DEFAULT_SPIKE_SYNCHRONY_MAX_LAG,
+    SETTINGS_PATH,
+    SPIKES_SYNC_CROSS_CORR_MAX_LAG,
     _get_spike_synchrony,
     _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
@@ -50,6 +55,23 @@ def _plot_spike_synchrony_data(
         )
         return
 
+    # get parameters form the analysis path settings.json file
+    lag: int = DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
+    if analysis_path := widget._plate_viewer.analysis_path:
+        settings_json_file = Path(analysis_path) / SETTINGS_PATH
+        if settings_json_file.exists():
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                lag = cast(
+                    int,
+                    settings.get(
+                        SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
+                    ),
+                )
+    # or from the widget's analysis widget
+    else:
+        lag = widget._plate_viewer._analysis_wdg._spikes_sync_cross_corr_max_lag.value()
+
     # Convert spike trains to spike data dict for correlation-based synchrony
     spike_data_dict = {
         roi_name: cast(list[float], spike_train.astype(float).tolist())
@@ -59,7 +81,7 @@ def _plot_spike_synchrony_data(
     # Use cross-correlation method for inferred spikes - better suited for
     # signal-like data that may have temporal artifacts from deconvolution
     synchrony_matrix = _get_spike_synchrony_matrix(
-        spike_data_dict, method="cross_correlation", max_lag=5
+        spike_data_dict, method="cross_correlation", max_lag=lag
     )
 
     if synchrony_matrix is None:
