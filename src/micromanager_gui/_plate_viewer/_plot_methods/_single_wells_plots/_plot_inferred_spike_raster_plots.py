@@ -31,11 +31,7 @@ def _generate_spike_raster_plot(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    ax.set_title(
-        "Inferred Spikes Raster Plot Colored by Amplitude"
-        if amplitude_colors
-        else "Inferred Spikes Raster Plot"
-    )
+    ax.set_title("Inferred Spikes Raster Plot")
 
     # initialize required lists and variables
     event_data: list[list[int]] = []
@@ -97,8 +93,6 @@ def _generate_spike_raster_plot(
             "No spike data available for the selected ROIs. "
             "Please check the data or ROI selection."
         )
-        widget.figure.tight_layout()
-        widget.canvas.draw()
         return
 
     # create the color palette for the raster plot

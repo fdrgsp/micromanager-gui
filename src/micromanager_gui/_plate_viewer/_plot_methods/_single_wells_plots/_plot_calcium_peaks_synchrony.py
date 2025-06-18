@@ -63,7 +63,6 @@ def _plot_peak_event_synchrony_data(
             "Failed to calculate synchrony matrix. "
             "Ensure peak event data is valid and contains sufficient data."
         )
-        widget.canvas.draw()
         return
 
     # Calculate global synchrony metric using peak event-specific function

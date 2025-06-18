@@ -26,6 +26,9 @@ from ._single_wells_plots._plot_calcium_peaks_synchrony import (
 )
 from ._single_wells_plots._plot_calcium_traces_data import _plot_traces_data
 from ._single_wells_plots._plot_cell_size import _plot_cell_size_data
+from ._single_wells_plots._plot_inferred_spike_burst_activity import (
+    _plot_inferred_spike_burst_activity,
+)
 from ._single_wells_plots._plot_inferred_spike_correlation import (
     _plot_spike_cross_correlation_data,
     _plot_spike_hierarchical_clustering_data,
@@ -36,7 +39,10 @@ from ._single_wells_plots._plot_inferred_spike_raster_plots import (
 from ._single_wells_plots._plot_inferred_spike_synchrony import (
     _plot_spike_synchrony_data,
 )
-from ._single_wells_plots._plot_inferred_spikes import _plot_inferred_spikes
+from ._single_wells_plots._plot_inferred_spikes import (
+    _plot_inferred_spikes,
+    _plot_inferred_spikes_normalized_with_bursts,
+)
 
 if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._graph_widgets import (
@@ -67,10 +73,12 @@ INFERRED_SPIKES_RAW_WITH_THRESHOLD = "Inferred Spikes Raw (with Thresholds - If 
 INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF = "Inferred Spikes (Thresholded) with Deconvolved ΔF/F0 Traces"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_NORMALIZED = "Inferred Spikes (Thresholded) Normalized"
 INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY = "Inferred Spikes (Thresholded) Normalized (Active Only)"  # noqa: E501
+INFERRED_SPIKES_NORMALIZED_WITH_BURSTS = "Inferred Spikes (Thresholded) Normalized with Network Bursts"  # noqa: E501
 INFERRED_SPIKES_THRESHOLDED_SYNCHRONY = "Inferred Spikes (Thresholded) Global Synchrony"
 INFERRED_SPIKE_CROSS_CORRELATION = "Inferred Spikes (Thresholded) Cross-Correlation"
 INFERRED_SPIKE_CLUSTERING = "Inferred Spikes (Thresholded) Hierarchical Clustering"
 INFERRED_SPIKE_CLUSTERING_DENDROGRAM = "Inferred Spikes (Thresholded) Hierarchical Clustering (Dendrogram)"  # noqa: E501
+INFERRED_SPIKE_BURST_ANALYSIS = "Inferred Spikes (Thresholded) Burst Activity Analysis"
 RASTER_PLOT = "Calcium Peaks Raster plot Colored by ROI"
 RASTER_PLOT_AMP = "Calcium Peaks Raster plot Colored by Amplitude"
 RASTER_PLOT_AMP_WITH_COLORBAR = "Calcium Peaks Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
@@ -115,6 +123,7 @@ INFERRED_SPIKES_GROUP = {
     INFERRED_SPIKES_RAW_WITH_THRESHOLD: {"raw": True, "thresholds": True},
     INFERRED_SPIKES_THRESHOLDED_NORMALIZED: {"normalize": True},
     INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY: {"normalize": True, "active_only": True},
+    INFERRED_SPIKES_NORMALIZED_WITH_BURSTS: {"normalize_with_bursts": True},
     INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF: {"dec_dff": True},
 }
 
@@ -142,7 +151,6 @@ CELL_SIZE_GROUP: dict[str, dict] = {
     }
 
 CORRELATION_GROUP = {
-    # GLOBAL_SYNCHRONY: {},
     CALCIUM_PEAKS_GLOBAL_SYNCHRONY: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
@@ -151,6 +159,7 @@ CORRELATION_GROUP = {
     INFERRED_SPIKE_CROSS_CORRELATION: {},
     INFERRED_SPIKE_CLUSTERING: {},
     INFERRED_SPIKE_CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
+    INFERRED_SPIKE_BURST_ANALYSIS: {},
     }
 
 EVOKED_GROUP = {
@@ -222,6 +231,9 @@ def plot_single_well_data(
     }:
         return _plot_inferred_spikes(widget, data, rois, **INFERRED_SPIKES_GROUP[text])
 
+    if text == INFERRED_SPIKES_NORMALIZED_WITH_BURSTS:
+        return _plot_inferred_spikes_normalized_with_bursts(widget, data, rois)
+
     # INTEREVENT_INTERVAL GROUP
     if text in INTEREVENT_INTERVAL_GROUP:
         return _plot_iei_data(widget, data, rois, **INTEREVENT_INTERVAL_GROUP[text])
@@ -256,6 +268,10 @@ def plot_single_well_data(
             )
         elif text in {INFERRED_SPIKE_CLUSTERING, INFERRED_SPIKE_CLUSTERING_DENDROGRAM}:
             return _plot_spike_hierarchical_clustering_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text == INFERRED_SPIKE_BURST_ANALYSIS:
+            return _plot_inferred_spike_burst_activity(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
 

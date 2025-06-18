@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING
 
 import mplcursors
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import _get_spikes_over_threshold
 
 if TYPE_CHECKING:
@@ -199,3 +201,230 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
         else:
             # Hide the annotation for non-ROI elements
             sel.annotation.set_visible(False)
+
+
+def _plot_inferred_spikes_normalized_with_bursts(
+    widget: _SingleWellGraphWidget,
+    data: dict[str, ROIData],
+    rois: list[int] | None = None,
+    raw: bool = False,
+    active_only: bool = False,
+    burst_threshold: float = 0.3,
+    min_burst_duration: int = 3,
+    smoothing_sigma: float = 2.0,
+) -> None:
+    """Plot normalized inferred spikes with superimposed burst periods.
+
+    This combines the normalized spike traces visualization with burst detection
+    to show when network bursts occur overlaid on the individual ROI traces.
+
+    Parameters
+    ----------
+    widget : _SingleWellGraphWidget
+        Widget to plot on
+    data : dict[str, ROIData]
+        Dictionary of ROI data containing spike information
+    rois : list[int] | None
+        List of ROI indices to include, None for all active ROIs
+    raw : bool
+        Whether to plot raw or thresholded spike data
+    active_only : bool
+        Whether to plot only active ROIs
+    burst_threshold : float
+        Threshold for detecting network bursts in population activity (default 0.3)
+    min_burst_duration : int
+        Minimum duration for a burst in samples (default 3)
+    smoothing_sigma : float
+        Sigma for Gaussian smoothing of population activity (default 2.0)
+    """
+    # Clear the figure
+    widget.figure.clear()
+    ax = widget.figure.add_subplot(111)
+
+    # Get all traces and compute normalization parameters
+    all_values = []
+    valid_rois = []
+    roi_traces = {}
+
+    for roi_key, roi_data in data.items():
+        if rois is not None:
+            try:
+                roi_id = int(roi_key)
+                if roi_id not in rois:
+                    continue
+            except ValueError:
+                continue
+
+        if not roi_data.inferred_spikes:
+            continue
+
+        if active_only and not roi_data.active:
+            continue
+
+        if trace := _get_spikes_over_threshold(roi_data, raw):
+            all_values.extend(trace)
+            valid_rois.append(roi_key)
+            roi_traces[roi_key] = trace
+
+    if not all_values:
+        LOGGER.warning(
+            "No valid spike data found for the specified ROIs. "
+            "Ensure that the ROIs have inferred spikes data."
+        )
+        return
+
+    # Compute normalization percentiles
+    percentiles = np.percentile(all_values, [5, 100])
+    p1, p2 = float(percentiles[0]), float(percentiles[1])
+
+    # Plot normalized traces
+    count = 0
+    rois_rec_time = []
+    last_trace = None
+
+    for roi_key in valid_rois:
+        roi_data = data[roi_key]
+        trace = roi_traces[roi_key]
+
+        if (ttime := roi_data.total_recording_time_sec) is not None:
+            rois_rec_time.append(ttime)
+
+        offset = count * 1.1  # vertical offset
+        normalized_trace = _normalize_trace_percentile(trace, p1, p2) + offset
+        ax.plot(normalized_trace, label=f"ROI {roi_key}", alpha=0.7)
+
+        last_trace = trace
+        count += 1
+
+    # Detect and overlay bursts
+    if len(valid_rois) > 1:  # Only detect bursts if we have multiple ROIs
+        bursts = _detect_bursts_from_traces(
+            roi_traces, burst_threshold, min_burst_duration, smoothing_sigma
+        )
+        _overlay_burst_periods(ax, bursts, count)
+
+    # Set labels and formatting
+    ax.set_title(
+        "Normalized Inferred Spikes with Network Bursts\n" "(Thresholded Spike Data)"
+    )
+    ax.set_ylabel("ROIs")
+    ax.set_yticks([])
+    ax.set_yticklabels([])
+
+    # Update time axis
+    _update_time_axis(ax, rois_rec_time, last_trace)
+
+    # Add hover functionality
+    _add_hover_functionality(ax, widget)
+
+    widget.figure.tight_layout()
+    widget.canvas.draw()
+
+
+def _detect_bursts_from_traces(
+    roi_traces: dict[str, list[float]],
+    burst_threshold: float,
+    min_duration: int,
+    smoothing_sigma: float,
+) -> list[tuple[int, int]]:
+    """Detect bursts from multiple ROI traces.
+
+    Parameters
+    ----------
+    roi_traces : dict[str, list[float]]
+        Dictionary mapping ROI keys to their spike traces
+    burst_threshold : float
+        Threshold for burst detection (0-1)
+    min_duration : int
+        Minimum burst duration in samples
+    smoothing_sigma : float
+        Sigma for Gaussian smoothing
+
+    Returns
+    -------
+    list[tuple[int, int]]
+        List of (start, end) indices for detected bursts
+    """
+    if not roi_traces:
+        return []
+
+    # Get the length of traces (assuming all are same length)
+    trace_length = len(next(iter(roi_traces.values())))
+
+    # Create binary spike matrix
+    spike_matrix = np.zeros((len(roi_traces), trace_length))
+
+    for i, (_, trace) in enumerate(roi_traces.items()):
+        # Convert trace to binary spikes (above some threshold)
+        trace_array = np.array(trace)
+        if len(trace_array) > 0:
+            # Use 75th percentile as spike threshold
+            threshold = np.percentile(trace_array, 75)
+            spike_matrix[i, :] = trace_array > threshold
+
+    # Calculate population activity (fraction of ROIs spiking at each time point)
+    population_activity = np.mean(spike_matrix, axis=0)
+
+    # Smooth the population activity
+    if smoothing_sigma > 0:
+        population_activity = gaussian_filter1d(
+            population_activity, sigma=smoothing_sigma
+        )
+
+    # Detect bursts
+    return _detect_population_bursts(population_activity, burst_threshold, min_duration)
+
+
+def _detect_population_bursts(
+    population_activity: np.ndarray,
+    burst_threshold: float,
+    min_duration: int,
+) -> list[tuple[int, int]]:
+    """Detect population bursts in the smoothed activity."""
+    # Find regions above threshold
+    above_threshold = population_activity > burst_threshold
+
+    # Find start and end points of bursts
+    bursts = []
+    in_burst = False
+    burst_start = 0
+
+    for i, is_active in enumerate(above_threshold):
+        if is_active and not in_burst:
+            # Start of new burst
+            burst_start = i
+            in_burst = True
+        elif not is_active and in_burst:
+            # End of burst
+            burst_duration = i - burst_start
+            if burst_duration >= min_duration:
+                bursts.append((burst_start, i))
+            in_burst = False
+
+    # Handle case where burst extends to the end
+    if in_burst and (len(population_activity) - burst_start) >= min_duration:
+        bursts.append((burst_start, len(population_activity)))
+
+    return bursts
+
+
+def _overlay_burst_periods(
+    ax: Axes, bursts: list[tuple[int, int]], num_rois: int
+) -> None:
+    """Overlay burst periods as shaded regions on the plot.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to plot on
+    bursts : list[tuple[int, int]]
+        List of (start, end) indices for bursts
+    num_rois : int
+        Number of ROIs plotted (for determining y-axis span)
+    """
+    if not bursts:
+        return
+
+    for i, (start, end) in enumerate(bursts):
+        label = "Network Burst" if i == 0 else ""
+        ax.axvspan(start, end, alpha=0.2, color="green", label=label)
