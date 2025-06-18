@@ -199,6 +199,8 @@ class _CellposeSegmentation(QWidget):
         settings_groupbox_layout = QVBoxLayout(self.groupbox)
         settings_groupbox_layout.setContentsMargins(10, 10, 10, 10)
         settings_groupbox_layout.setSpacing(5)
+        settings_groupbox_layout.addWidget(create_divider_line("Select Cellpose Model"))
+        settings_groupbox_layout.addSpacing(3)
         settings_groupbox_layout.addWidget(self._model_wdg)
         settings_groupbox_layout.addWidget(self._browse_custom_model)
         settings_groupbox_layout.addSpacing(3)

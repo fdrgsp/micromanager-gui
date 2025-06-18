@@ -99,10 +99,10 @@ class TestSpikeRasterPlots:
             mock_widget, data, rois=None, amplitude_colors=False, colorbar=False
         )
 
-        # Verify that the function completes without displaying text
+        # Verify that the function returns early without plotting anything
         mock_ax.text.assert_not_called()
-        # Verify canvas is still updated
-        mock_widget.canvas.draw.assert_called_once()
+        # Function should return early without calling canvas.draw()
+        mock_widget.canvas.draw.assert_not_called()
 
     def test_generate_spike_raster_plot_empty_spikes(self, mock_widget):
         """Test spike raster plot when no spikes are above threshold."""
@@ -122,10 +122,10 @@ class TestSpikeRasterPlots:
             mock_widget, data, rois=None, amplitude_colors=False, colorbar=False
         )
 
-        # Verify that the function completes without displaying text
+        # Verify that the function returns early without plotting anything
         mock_ax.text.assert_not_called()
-        # Verify canvas is still updated
-        mock_widget.canvas.draw.assert_called_once()
+        # Function should return early without calling canvas.draw()
+        mock_widget.canvas.draw.assert_not_called()
 
     def test_generate_spike_raster_plot_with_roi_filter(
         self, mock_widget, sample_spike_data

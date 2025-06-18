@@ -1027,6 +1027,8 @@ def create_divider_line(text: str | None = None) -> QWidget:
 def _create_line() -> QFrame:
     """Create a horizontal line frame for use as a divider."""
     result = QFrame()
+    # set color
+    # result.setStyleSheet("color: rgb(0, 183, 0);")
     result.setFrameShape(QFrame.Shape.HLine)
     result.setFrameShadow(QFrame.Shadow.Plain)
     return result

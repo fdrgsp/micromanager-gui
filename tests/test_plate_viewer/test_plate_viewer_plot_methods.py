@@ -102,6 +102,19 @@ class TestSingleWellPlotMethods:
         widget.figure.add_subplot = Mock()
         widget.canvas = Mock()
         widget.canvas.draw = Mock()
+
+        # Mock the _plate_viewer structure for burst parameter access
+        widget._plate_viewer = Mock()
+        widget._plate_viewer.analysis_path = None  # Use widget parameters instead
+        widget._plate_viewer._analysis_wdg = Mock()
+        widget._plate_viewer._analysis_wdg._burst_wdg = Mock()
+        # Mock burst parameter values (threshold, min_duration, smoothing_sigma)
+        widget._plate_viewer._analysis_wdg._burst_wdg.value.return_value = {
+            "burst_threshold": 0.3,
+            "min_burst_duration": 3,
+            "smoothing_sigma": 1.0,
+        }
+
         return widget
 
     def test_plot_traces_raw(self, mock_widget):

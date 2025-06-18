@@ -38,6 +38,19 @@ class TestInferredSpikesBurstActivity:
         widget.canvas.draw = Mock()
         widget.roiSelected = Mock()
         widget.roiSelected.emit = Mock()
+
+        # Mock the _plate_viewer structure for burst parameter access
+        widget._plate_viewer = Mock()
+        widget._plate_viewer.analysis_path = None  # Use widget parameters instead
+        widget._plate_viewer._analysis_wdg = Mock()
+        widget._plate_viewer._analysis_wdg._burst_wdg = Mock()
+        # Mock burst parameter values (threshold, min_duration, smoothing_sigma)
+        widget._plate_viewer._analysis_wdg._burst_wdg.value.return_value = {
+            "burst_threshold": 0.3,
+            "min_burst_duration": 3,
+            "smoothing_sigma": 1.0,
+        }
+
         return widget
 
     @pytest.fixture
@@ -97,9 +110,6 @@ class TestInferredSpikesBurstActivity:
             mock_widget,
             burst_roi_data,
             rois=[1, 2],
-            burst_threshold=0.3,
-            min_burst_duration=3,
-            smoothing_sigma=2.0,
         )
 
         mock_widget.figure.clear.assert_called_once()
@@ -216,11 +226,6 @@ class TestInferredSpikesBurstActivity:
             mock_widget,
             burst_roi_data,
             rois=[1, 2],
-            raw=False,
-            active_only=False,
-            burst_threshold=0.3,
-            min_burst_duration=3,
-            smoothing_sigma=2.0,
         )
 
         mock_widget.figure.clear.assert_called_once()
@@ -289,13 +294,11 @@ class TestInferredSpikesBurstActivity:
         self, mock_widget, burst_roi_data
     ):
         """Test burst activity plotting with different parameter values."""
-        # Test with different burst threshold
+        # Test with different ROI selection
         _plot_inferred_spike_burst_activity(
             mock_widget,
             burst_roi_data,
-            burst_threshold=0.5,
-            min_burst_duration=5,
-            smoothing_sigma=1.0,
+            rois=[1],  # Test with single ROI
         )
 
         assert mock_widget.figure.clear.call_count >= 1
