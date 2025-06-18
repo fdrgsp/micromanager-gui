@@ -56,7 +56,11 @@ def _plot_peak_event_synchrony_data(
         for roi_name, peak_train in peak_trains.items()
     }
 
-    synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(peak_event_data_dict)
+    # Use jitter window method for calcium peaks - better suited for discrete
+    # events with inherent timing uncertainty due to biology and frame rate limits
+    synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(
+        peak_event_data_dict, method="jitter_window", jitter_window=2
+    )
 
     if synchrony_matrix is None:
         LOGGER.warning(
@@ -72,7 +76,7 @@ def _plot_peak_event_synchrony_data(
 
     title = (
         f"Global Synchrony (Median: {global_synchrony:.4f})\n"
-        f"(Calcium Peaks Events - Correlation Method)\n"
+        f"(Calcium Peaks Events - Jitter Window Method)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)

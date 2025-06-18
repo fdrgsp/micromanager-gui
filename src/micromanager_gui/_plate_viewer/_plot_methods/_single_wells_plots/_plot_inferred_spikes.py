@@ -149,7 +149,7 @@ def _plot_trace(
             linestyle="--",
             linewidth=2,
             alpha=0.6,
-            label=f"Spike threshold (ROI {roi_key})",
+            label=f"Spike threshold (ROI {roi_key} - {spikes_threshold:.4f})",
         )
 
 
@@ -203,12 +203,15 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
         # Get the label of the artist
         label = sel.artist.get_label()
 
-        # Only show hover for ROI traces, not for other elements
+        # Show hover for anything with ROI in the label (traces and thresholds)
         if label and "ROI" in label and not label.startswith("_"):
             sel.annotation.set(text=label, fontsize=8, color="black")
-            roi = label.split(" ")[1] if len(label.split(" ")) > 1 else ""
-            if roi.isdigit():
-                widget.roiSelected.emit(roi)
+            # Extract ROI number for selection (works for both traces and thresholds)
+            roi_parts = label.split("ROI ")
+            if len(roi_parts) > 1:
+                roi_num = roi_parts[1].split()[0] if roi_parts[1].split() else ""
+                if roi_num.isdigit():
+                    widget.roiSelected.emit(roi_num)
         else:
             # Hide the annotation for non-ROI elements
             sel.annotation.set_visible(False)

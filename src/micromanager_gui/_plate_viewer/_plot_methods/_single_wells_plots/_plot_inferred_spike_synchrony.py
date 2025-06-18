@@ -56,7 +56,11 @@ def _plot_spike_synchrony_data(
         for roi_name, spike_train in spike_trains.items()
     }
 
-    synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
+    # Use cross-correlation method for inferred spikes - better suited for
+    # signal-like data that may have temporal artifacts from deconvolution
+    synchrony_matrix = _get_spike_synchrony_matrix(
+        spike_data_dict, method="cross_correlation", max_lag=5
+    )
 
     if synchrony_matrix is None:
         LOGGER.warning(
@@ -73,7 +77,7 @@ def _plot_spike_synchrony_data(
 
     title = (
         f"Global Synchrony (Median: {global_synchrony:.4f})\n"
-        f"(Thresholded Spike Data - Correlation Method)\n"
+        f"(Thresholded Spike Data - Cross-Correlation Method)\n"
     )
 
     img = ax.imshow(synchrony_matrix, cmap="viridis", vmin=0, vmax=1)
