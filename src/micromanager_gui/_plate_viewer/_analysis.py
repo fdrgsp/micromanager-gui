@@ -276,6 +276,13 @@ class _BurstWidget(QWidget):
         self._burst_threshold.setRange(0.0, 100.0)
         self._burst_threshold.setSingleStep(1)
         self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
+        self._burst_threshold.setToolTip(
+            "Minimum percentage of ROIs that must be active simultaneously to "
+            "detect a network burst.\n"
+            "Population activity above this threshold is considered burst activity.\n"
+            "Higher values (50-80%) detect only strong network-wide events.\n"
+            "Lower values (10-30%) capture weaker coordinated activity."
+        )
 
         self._burst_min_threshold_label = QLabel("Min Burst Duration (frames):")
         self._burst_min_threshold_label.setSizePolicy(*FIXED)
@@ -283,6 +290,13 @@ class _BurstWidget(QWidget):
         self._burst_min_duration_frames.setRange(0, 100)
         self._burst_min_duration_frames.setSingleStep(1)
         self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
+        self._burst_min_duration_frames.setToolTip(
+            "Minimum duration (in frames) for a detected burst to be "
+            "considered valid.\n"
+            "Filters out brief spikes that don't represent sustained "
+            "network activity.\n"
+            "Higher values ensure only sustained bursts are detected."
+        )
 
         self._burst_blur_label = QLabel("Burst Gaussian Blur Sigma:")
         self._burst_blur_label.setSizePolicy(*FIXED)
@@ -291,6 +305,16 @@ class _BurstWidget(QWidget):
         self._burst_blur_sigma.setRange(0.0, 100.0)
         self._burst_blur_sigma.setSingleStep(0.5)
         self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
+        self._burst_blur_sigma.setToolTip(
+            "Gaussian smoothing applied to population activity before "
+            "burst detection.\n"
+            "Reduces noise and connects nearby activity peaks into "
+            "coherent bursts.\n"
+            "Higher values (2-5) provide more smoothing, merging closer events.\n"
+            "Lower values (0.5-1) preserve temporal precision but may "
+            "fragment bursts.\n"
+            "Set to 0 to disable smoothing."
+        )
 
         burst_layout = QGridLayout(self)
         burst_layout.setContentsMargins(0, 0, 0, 0)
@@ -792,9 +816,7 @@ class _AnalyseCalciumTraces(QWidget):
         burst_g = cast(
             float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
         )
-        print(
-            f"burst_the: {burst_the}, burst_d: {burst_d}, burst_g: {burst_g}"
-        )
+        print(f"burst_the: {burst_the}, burst_d: {burst_d}, burst_g: {burst_g}")
         self._burst_wdg.setValue(
             {
                 "burst_threshold": burst_the,
