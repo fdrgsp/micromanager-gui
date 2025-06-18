@@ -313,7 +313,7 @@ def _plot_inferred_spikes_normalized_with_bursts(
 
         offset = count * 1.1  # vertical offset
         normalized_trace = _normalize_trace_percentile(trace, p1, p2) + offset
-        ax.plot(normalized_trace, label=f"ROI {roi_key}", alpha=0.7)
+        ax.plot(normalized_trace, label=f"ROI {roi_key}", alpha=0.7, color="black")
 
         last_trace = trace
         count += 1

@@ -304,7 +304,7 @@ def _plot_population_activity(
     )
     ax.axhline(
         y=threshold,
-        color="red",
+        color="black",
         linestyle="--",
         label=f"Burst Threshold ({threshold:.2f})",
     )
@@ -315,7 +315,7 @@ def _plot_population_activity(
         t_end = (
             time_axis[burst_end - 1] if burst_end < len(time_axis) else time_axis[-1]
         )
-        ax.axvspan(t_start, t_end, alpha=0.3, color="red")
+        ax.axvspan(t_start, t_end, alpha=0.3, color="green")
 
     ax.set_ylabel("Population Activity")
     ax.set_xlabel("Time (s)")
