@@ -19,7 +19,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
-    QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -42,9 +42,15 @@ from ._logger import LOGGER
 from ._plate_map import PlateMapWidget
 from ._to_csv import save_analysis_data_to_csv, save_trace_data_to_csv
 from ._util import (
+    BURST_GAUSSIAN_SIGMA,
+    BURST_MIN_DURATION,
+    BURST_THRESHOLD,
     COND1,
     COND2,
     DECAY_CONSTANT,
+    DEFAULT_BURST_GAUSS_SIGMA,
+    DEFAULT_BURST_THRESHOLD,
+    DEFAULT_MIN_BURST_DURATION,
     DFF_WINDOW,
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -65,6 +71,7 @@ from ._util import (
     _ElapsedTimer,
     _WaitingProgressBarWidget,
     calculate_dff,
+    create_divider_line,
     create_stimulation_mask,
     equation_from_str,
     get_iei,
@@ -118,6 +125,14 @@ class _SpikeThresholdData(TypedDict):
     mode: str
 
 
+class _BurstData(TypedDict):
+    """TypedDict to store the burst data."""
+
+    burst_threshold: float
+    burst_min_duration_frames: int
+    burst_gauss_sigma: float
+
+
 class _PeaksHeightWidget(QWidget):
     """Widget to select the peaks height multiplier."""
 
@@ -169,7 +184,7 @@ class _PeaksHeightWidget(QWidget):
             ),
         }
 
-    def setValue(self, value: _PeaksHeightData) -> None:
+    def setValue(self, value: _PeaksHeightData | dict) -> None:
         """Set the value of the peaks height widget."""
         if isinstance(value, dict):
             self._peaks_height_spin.setValue(value["value"])
@@ -236,7 +251,7 @@ class _SpikeThresholdWidget(QWidget):
             ),
         }
 
-    def setValue(self, value: _SpikeThresholdData) -> None:
+    def setValue(self, value: _SpikeThresholdData | dict) -> None:
         """Set the value of the spike threshold widget."""
         if isinstance(value, dict):
             self._spike_threshold_spin.setValue(value["value"])
@@ -248,6 +263,64 @@ class _SpikeThresholdWidget(QWidget):
             # default values
             self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
             self._threshold_multiplier.setChecked(True)
+
+
+class _BurstWidget(QWidget):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        burst_threshold_lbl = QLabel("Burst Threshold (%):")
+        burst_threshold_lbl.setSizePolicy(*FIXED)
+        self._burst_threshold = QDoubleSpinBox(self)
+        self._burst_threshold.setDecimals(2)
+        self._burst_threshold.setRange(0.0, 100.0)
+        self._burst_threshold.setSingleStep(1)
+        self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
+
+        burst_min_threshold_label = QLabel("Min Burst Duration (frames):")
+        burst_min_threshold_label.setSizePolicy(*FIXED)
+        self._burst_min_duration_frames = QSpinBox(self)
+        self._burst_min_duration_frames.setRange(0, 100)
+        self._burst_min_duration_frames.setSingleStep(1)
+        self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
+
+        burst_blur_label = QLabel("Burst Gaussian Blur Sigma:")
+        burst_blur_label.setSizePolicy(*FIXED)
+        self._burst_blur_sigma = QDoubleSpinBox(self)
+        self._burst_blur_sigma.setDecimals(2)
+        self._burst_blur_sigma.setRange(0.0, 100.0)
+        self._burst_blur_sigma.setSingleStep(0.5)
+        self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
+
+        burst_layout = QGridLayout(self)
+        burst_layout.setContentsMargins(0, 0, 0, 0)
+        burst_layout.setSpacing(5)
+        burst_layout.addWidget(burst_threshold_lbl, 0, 0)
+        burst_layout.addWidget(self._burst_threshold, 0, 1)
+        burst_layout.addWidget(burst_min_threshold_label, 1, 0)
+        burst_layout.addWidget(self._burst_min_duration_frames, 1, 1)
+        burst_layout.addWidget(burst_blur_label, 2, 0)
+        burst_layout.addWidget(self._burst_blur_sigma, 2, 1)
+
+    def value(self) -> _BurstData:
+        """Return the burst detection parameters."""
+        return {
+            "burst_threshold": self._burst_threshold.value(),
+            "burst_min_duration_frames": self._burst_min_duration_frames.value(),
+            "burst_gauss_sigma": self._burst_blur_sigma.value(),
+        }
+
+    def setValue(self, value: _BurstData | dict) -> None:
+        """Set the value of the burst widget."""
+        if isinstance(value, dict):
+            self._burst_threshold.setValue(value["burst_threshold"])
+            self._burst_min_duration_frames.setValue(value["burst_min_duration_frames"])
+            self._burst_blur_sigma.setValue(value["burst_gauss_sigma"])
+        else:
+            # default values
+            self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
+            self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
+            self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
 
 
 class _AnalyseCalciumTraces(QWidget):
@@ -464,6 +537,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         # SPIKES SETTINGS ----------------------------------------------------------
         self._spike_threshold_wdg = _SpikeThresholdWidget(self)
+        self._burst_wdg = _BurstWidget(self)
 
         # WIDGET TO SELECT THE POSITIONS TO ANALYZE --------------------------------
         self._pos_wdg = QWidget(self)
@@ -513,19 +587,11 @@ class _AnalyseCalciumTraces(QWidget):
         plate_map_lbl.setFixedWidth(fixed_width)
         decay_const_lbl.setFixedWidth(fixed_width)
         self._spike_threshold_wdg._spike_threshold_lbl.setFixedWidth(fixed_width)
-
         self._spike_threshold_wdg._global_spike_threshold.setFixedWidth(
             self._peaks_height_wdg._global_peaks_height.sizeHint().width()
         )
 
         # LAYOUT -------------------------------------------------------------------
-        def create_divider_line() -> QFrame:
-            """Create a horizontal divider line."""
-            line = QFrame()
-            line.setFrameShape(QFrame.Shape.HLine)
-            line.setFrameShadow(QFrame.Shadow.Sunken)
-            return line
-
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -540,24 +606,31 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(self._plate_map_wdg)
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line())
-        wdg_layout.addSpacing(3)
+        wdg_layout.addSpacing(5)
+        wdg_layout.addWidget(create_divider_line("Type of Experiment"))
+        wdg_layout.addSpacing(5)
         wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line())
-        wdg_layout.addSpacing(3)
+        wdg_layout.addSpacing(5)
+        wdg_layout.addWidget(create_divider_line("ΔF/F0 and Deconvolution"))
+        wdg_layout.addSpacing(5)
         wdg_layout.addWidget(self._dff_wdg)
         wdg_layout.addWidget(self._dec_wdg)
+        wdg_layout.addSpacing(5)
+        wdg_layout.addWidget(create_divider_line("Calcium Peaks Detection"))
+        wdg_layout.addSpacing(5)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
+        wdg_layout.addSpacing(5)
+        wdg_layout.addWidget(create_divider_line("Spike and Burst Detection"))
+        wdg_layout.addSpacing(5)
         wdg_layout.addWidget(self._spike_threshold_wdg)
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line())
-        wdg_layout.addSpacing(3)
+        wdg_layout.addWidget(self._burst_wdg)
+        wdg_layout.addSpacing(5)
+        wdg_layout.addWidget(create_divider_line("Positions to Analyze"))
+        wdg_layout.addSpacing(5)
         wdg_layout.addWidget(self._pos_wdg)
         wdg_layout.addWidget(progress_wdg)
 
@@ -706,6 +779,21 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_prominence_multiplier_spin.setValue(prom_mult)
         peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
         self._peaks_distance_spin.setValue(peaks_distance)
+
+        burst_the = cast(float, settings.get(BURST_THRESHOLD, DEFAULT_SPIKE_THRESHOLD))
+        burst_d = cast(
+            int, settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
+        )
+        burst_g = cast(
+            float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
+        )
+        self._burst_wdg.setValue(
+            {
+                "burst_threshold": burst_the,
+                "burst_min_duration_frames": burst_d,
+                "burst_gauss_sigma": burst_g,
+            }
+        )
 
     # PRIVATE METHODS --------------------------------------------------------------
 
@@ -1384,6 +1472,10 @@ class _AnalyseCalciumTraces(QWidget):
             settings[PEAKS_DISTANCE] = self._peaks_distance_spin.value()
             prom = self._peaks_prominence_multiplier_spin.value()
             settings[PEAKS_PROMINENCE_MULTIPLIER] = prom
+            burst_the, burst_d, burst_g = self._burst_wdg.value().values()
+            settings[BURST_THRESHOLD] = burst_the
+            settings[BURST_MIN_DURATION] = burst_d
+            settings[BURST_GAUSSIAN_SIGMA] = burst_g
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

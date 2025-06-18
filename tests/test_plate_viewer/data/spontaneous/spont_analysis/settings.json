@@ -6,5 +6,8 @@
   "spike_threshold_value": 1.0,
   "spike_threshold_mode": "multiplier",
   "peaks_distance": 2,
-  "peaks_prominence_multiplier": 1.0
+  "peaks_prominence_multiplier": 1.0,
+  "burst_threshold": 30.0,
+  "burst_min_duration": 3,
+  "burst_gaussian_sigma": 2.0
 }

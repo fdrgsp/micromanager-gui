@@ -123,7 +123,7 @@ INFERRED_SPIKES_GROUP = {
     INFERRED_SPIKES_RAW_WITH_THRESHOLD: {"raw": True, "thresholds": True},
     INFERRED_SPIKES_THRESHOLDED_NORMALIZED: {"normalize": True},
     INFERRED_SPIKES_THRESHOLDED_ACTIVE_ONLY: {"normalize": True, "active_only": True},
-    INFERRED_SPIKES_NORMALIZED_WITH_BURSTS: {"normalize_with_bursts": True},
+    INFERRED_SPIKES_NORMALIZED_WITH_BURSTS: {},
     INFERRED_SPIKES_THRESHOLDED_WITH_DEC_DFF: {"dec_dff": True},
 }
 
@@ -232,7 +232,9 @@ def plot_single_well_data(
         return _plot_inferred_spikes(widget, data, rois, **INFERRED_SPIKES_GROUP[text])
 
     if text == INFERRED_SPIKES_NORMALIZED_WITH_BURSTS:
-        return _plot_inferred_spikes_normalized_with_bursts(widget, data, rois)
+        return _plot_inferred_spikes_normalized_with_bursts(
+            widget, data, rois, **INFERRED_SPIKES_GROUP[text]
+        )
 
     # INTEREVENT_INTERVAL GROUP
     if text in INTEREVENT_INTERVAL_GROUP:

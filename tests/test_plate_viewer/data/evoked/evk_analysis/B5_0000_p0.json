@@ -653,7 +653,7 @@
       "53": 4,
       "103": 6
     },
-    "led_pulse_duration": "100"
+    "led_pulse_duration": 100
   },
   "2": {
     "well_fov_position": "B5_0000_p0",
@@ -1309,7 +1309,7 @@
       "53": 4,
       "103": 6
     },
-    "led_pulse_duration": "100"
+    "led_pulse_duration": 100
   },
   "3": {
     "well_fov_position": "B5_0000_p0",
@@ -1965,7 +1965,7 @@
       "53": 4,
       "103": 6
     },
-    "led_pulse_duration": "100"
+    "led_pulse_duration": 100
   },
   "4": {
     "well_fov_position": "B5_0000_p0",
@@ -2624,6 +2624,6 @@
       "53": 4,
       "103": 6
     },
-    "led_pulse_duration": "100"
+    "led_pulse_duration": 100
   }
 }

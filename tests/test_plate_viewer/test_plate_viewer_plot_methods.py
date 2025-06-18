@@ -31,6 +31,7 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     DEC_DFF_NORMALIZED_ACTIVE_ONLY,
     DEC_DFF_WITH_PEAKS,
     DFF,
+    INFERRED_SPIKES_NORMALIZED_WITH_BURSTS,
     MULTI_WELL_COMBO_OPTIONS_DICT,
     MW_EVOKED_GROUP,
     MW_GENERAL_GROUP,
@@ -155,6 +156,15 @@ class TestSingleWellPlotMethods:
     def test_plot_raster_plot(self, mock_widget):
         """Test plotting raster plot."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, RASTER_PLOT)
+
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+
+    def test_plot_inferred_spikes_normalized_with_bursts(self, mock_widget):
+        """Test plotting normalized inferred spikes with burst detection."""
+        plot_single_well_data(
+            mock_widget, SAMPLE_ROI_DATA, INFERRED_SPIKES_NORMALIZED_WITH_BURSTS
+        )
 
         mock_widget.figure.clear.assert_called_once()
         mock_widget.figure.add_subplot.assert_called_once_with(111)

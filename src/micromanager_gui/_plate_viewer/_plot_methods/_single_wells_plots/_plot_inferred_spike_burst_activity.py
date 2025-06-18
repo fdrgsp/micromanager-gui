@@ -1,11 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
-from micromanager_gui._plate_viewer._util import _get_spikes_over_threshold
+from micromanager_gui._plate_viewer._util import (
+    BURST_GAUSSIAN_SIGMA,
+    BURST_MIN_DURATION,
+    BURST_THRESHOLD,
+    DEFAULT_BURST_GAUSS_SIGMA,
+    DEFAULT_BURST_THRESHOLD,
+    DEFAULT_MIN_BURST_DURATION,
+    SETTINGS_PATH,
+    _get_spikes_over_threshold,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -20,9 +31,6 @@ def _plot_inferred_spike_burst_activity(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    burst_threshold: float = 0.3,
-    min_burst_duration: int = 3,
-    smoothing_sigma: float = 2.0,
 ) -> None:
     """Plot burst detection and network state analysis for inferred spikes.
 
@@ -48,6 +56,32 @@ def _plot_inferred_spike_burst_activity(
         Sigma for Gaussian smoothing of population activity (default 2.0)
     """
     widget.figure.clear()
+
+    # get parameters form the analysis path settings.json file
+    burst_threshold: float = DEFAULT_BURST_THRESHOLD
+    min_burst_duration: int = DEFAULT_MIN_BURST_DURATION
+    smoothing_sigma: float = DEFAULT_BURST_GAUSS_SIGMA
+    if analysis_path := widget._plate_viewer.analysis_path:
+        settings_json_file = Path(analysis_path) / SETTINGS_PATH
+        if settings_json_file.exists():
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                burst_threshold = float(
+                    settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD)
+                )
+                min_burst_duration = int(
+                    settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
+                )
+                smoothing_sigma = float(
+                    settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
+                )
+    # or from the widget's analysis widget
+    else:
+        values = cast(
+            tuple[float, int, float],
+            tuple(widget._plate_viewer._analysis_wdg._burst_wdg.value().values()),
+        )
+        burst_threshold, min_burst_duration, smoothing_sigma = values
 
     # Get spike trains and calculate population activity
     spike_trains, roi_names, time_axis = _get_population_spike_data(data, rois)
@@ -76,7 +110,7 @@ def _plot_inferred_spike_burst_activity(
 
     # Detect bursts
     bursts = _detect_population_bursts(
-        smoothed_activity, burst_threshold, min_burst_duration
+        smoothed_activity, burst_threshold / 100, min_burst_duration
     )
 
     # Create single plot layout
@@ -85,7 +119,12 @@ def _plot_inferred_spike_burst_activity(
 
     # Plot population activity with burst detection
     _plot_population_activity(
-        ax, population_activity, smoothed_activity, time_axis, bursts, burst_threshold
+        ax,
+        population_activity,
+        smoothed_activity,
+        time_axis,
+        bursts,
+        burst_threshold / 100,
     )
 
     # Add statistics legend below the plot

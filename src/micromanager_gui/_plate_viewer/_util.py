@@ -12,6 +12,7 @@ from qtpy.QtCore import QElapsedTimer, QObject, Qt, QTimer, Signal
 from qtpy.QtWidgets import (
     QDialog,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -50,6 +51,9 @@ SPIKE_THRESHOLD_MODE = "spike_threshold_mode"
 PEAKS_PROMINENCE_MULTIPLIER = "peaks_prominence_multiplier"
 PEAKS_DISTANCE = "peaks_distance"
 DFF_WINDOW = "dff_window"
+BURST_THRESHOLD = "burst_threshold"
+BURST_MIN_DURATION = "burst_min_duration"
+BURST_GAUSSIAN_SIGMA = "burst_gaussian_sigma"
 EVK_STIM = "evk_stim"
 EVK_NON_STIM = "evk_non_stim"
 MEAN_SUFFIX = "_Mean"
@@ -58,6 +62,9 @@ N_SUFFIX = "_N"
 EVENT_KEY = "mda_event"
 DECAY_CONSTANT = "decay constant"
 MAX_FRAMES_AFTER_STIMULATION = 5
+DEFAULT_BURST_THRESHOLD = 30.0
+DEFAULT_MIN_BURST_DURATION = 3
+DEFAULT_BURST_GAUSS_SIGMA = 2.0
 
 
 @dataclass
@@ -982,3 +989,44 @@ def get_stimulated_amplitudes_from_roi_data(
         led_pulse_duration=roi_data.led_pulse_duration or "unknown",
         led_power_equation=led_power_equation,
     )
+
+
+def create_divider_line(text: str | None = None) -> QWidget:
+    """Create a horizontal divider line, optionally with text.
+
+    Parameters
+    ----------
+    text : str | None
+        Optional text to display in front of the divider line
+
+    Returns
+    -------
+    QWidget
+        Widget containing the divider line and optional text
+    """
+    if text is None:
+        return _create_line()
+    # Create container widget for text + line
+    container = QWidget()
+    layout = QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(10)
+
+    # Add text label
+    label = QLabel(text)
+    # make bold and increase font size
+    label.setStyleSheet("font-weight: bold; font-size: 14px; color: rgb(0, 183, 0);")
+    layout.addWidget(label)
+
+    line = _create_line()
+    layout.addWidget(line, 1)  # Give line stretch factor of 1
+
+    return container
+
+
+def _create_line() -> QFrame:
+    """Create a horizontal line frame for use as a divider."""
+    result = QFrame()
+    result.setFrameShape(QFrame.Shape.HLine)
+    result.setFrameShadow(QFrame.Shadow.Plain)
+    return result

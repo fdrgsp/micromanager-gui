@@ -1,13 +1,24 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import mplcursors
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
-from micromanager_gui._plate_viewer._util import _get_spikes_over_threshold
+from micromanager_gui._plate_viewer._util import (
+    BURST_GAUSSIAN_SIGMA,
+    BURST_MIN_DURATION,
+    BURST_THRESHOLD,
+    DEFAULT_BURST_GAUSS_SIGMA,
+    DEFAULT_BURST_THRESHOLD,
+    DEFAULT_MIN_BURST_DURATION,
+    SETTINGS_PATH,
+    _get_spikes_over_threshold,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -207,11 +218,6 @@ def _plot_inferred_spikes_normalized_with_bursts(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    raw: bool = False,
-    active_only: bool = False,
-    burst_threshold: float = 0.3,
-    min_burst_duration: int = 3,
-    smoothing_sigma: float = 2.0,
 ) -> None:
     """Plot normalized inferred spikes with superimposed burst periods.
 
@@ -226,20 +232,36 @@ def _plot_inferred_spikes_normalized_with_bursts(
         Dictionary of ROI data containing spike information
     rois : list[int] | None
         List of ROI indices to include, None for all active ROIs
-    raw : bool
-        Whether to plot raw or thresholded spike data
-    active_only : bool
-        Whether to plot only active ROIs
-    burst_threshold : float
-        Threshold for detecting network bursts in population activity (default 0.3)
-    min_burst_duration : int
-        Minimum duration for a burst in samples (default 3)
-    smoothing_sigma : float
-        Sigma for Gaussian smoothing of population activity (default 2.0)
     """
     # Clear the figure
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
+
+    # get parameters form the analysis path settings.json file
+    burst_threshold: float = DEFAULT_BURST_THRESHOLD
+    min_burst_duration: int = DEFAULT_MIN_BURST_DURATION
+    smoothing_sigma: float = DEFAULT_BURST_GAUSS_SIGMA
+    if analysis_path := widget._plate_viewer.analysis_path:
+        settings_json_file = Path(analysis_path) / SETTINGS_PATH
+        if settings_json_file.exists():
+            with open(settings_json_file) as f:
+                settings = cast(dict, json.load(f))
+                burst_threshold = float(
+                    settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD)
+                )
+                min_burst_duration = int(
+                    settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
+                )
+                smoothing_sigma = float(
+                    settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
+                )
+    # or from the widget's analysis widget
+    else:
+        values = cast(
+            tuple[float, int, float],
+            tuple(widget._plate_viewer._analysis_wdg._burst_wdg.value().values()),
+        )
+        burst_threshold, min_burst_duration, smoothing_sigma = values
 
     # Get all traces and compute normalization parameters
     all_values = []
@@ -258,10 +280,10 @@ def _plot_inferred_spikes_normalized_with_bursts(
         if not roi_data.inferred_spikes:
             continue
 
-        if active_only and not roi_data.active:
+        if not roi_data.active:
             continue
 
-        if trace := _get_spikes_over_threshold(roi_data, raw):
+        if trace := _get_spikes_over_threshold(roi_data):
             all_values.extend(trace)
             valid_rois.append(roi_key)
             roi_traces[roi_key] = trace
@@ -299,7 +321,7 @@ def _plot_inferred_spikes_normalized_with_bursts(
     # Detect and overlay bursts
     if len(valid_rois) > 1:  # Only detect bursts if we have multiple ROIs
         bursts = _detect_bursts_from_traces(
-            roi_traces, burst_threshold, min_burst_duration, smoothing_sigma
+            roi_traces, burst_threshold / 100, min_burst_duration, smoothing_sigma
         )
         _overlay_burst_periods(ax, bursts, count)
 
