@@ -278,8 +278,9 @@ class _BurstWidget(QWidget):
             "• Burst Threshold:\n"
             "   Minimum percentage of ROIs that must be active simultaneously to "
             "detect a network burst.\n"
-            "   Population activity above this threshold is considered burst activity."
-            "   \nHigher values (50-80%) detect only strong network-wide events.\n"
+            "   Population activity above this threshold is considered burst "
+            "activity.\n"
+            "   Higher values (50-80%) detect only strong network-wide events.\n"
             "   Lower values (10-30%) capture weaker coordinated activity.\n\n"
             "• Burst Min Duration (frames):\n"
             "   Minimum duration (in frames) for a detected burst to be "
@@ -480,7 +481,7 @@ class _AnalyseCalciumTraces(QWidget):
             "• Smaller values (50-100): More adaptive, follows local fluorescence "
             "changes\n"
             "• Too small (<20): May track signal itself, reducing ΔF/F₀ sensitivity\n"
-            "• Too large (>1000): May not adapt to legitimate baseline shifts"
+            "• Too large (>1000): May not adapt to legitimate baseline shifts."
         )
         dff_lbl = QLabel("ΔF/F0 Window Size")
         dff_lbl.setSizePolicy(*FIXED)
@@ -550,7 +551,7 @@ class _AnalyseCalciumTraces(QWidget):
             "set distance = 2 frames (100ms ÷ 50ms = 2 frames).\n\n"
             "• Higher values: More conservative, fewer detected peaks\n"
             "• Lower values: More sensitive, may detect noise or incomplete decay\n"
-            "• Minimum value: 1 (adjacent frames allowed)"
+            "• Minimum value: 1 (adjacent frames allowed)."
         )
         peaks_distance_lbl = QLabel("Minimum Peaks Distance:")
         peaks_distance_lbl.setSizePolicy(*FIXED)
@@ -576,7 +577,7 @@ class _AnalyseCalciumTraces(QWidget):
             "• Smaller values are more strict but may miss genuine synchrony\n\n"
             "Example with Jitter = 2:\n"
             "ROI 1 peaks: [10, 25, 40]  ROI 2 peaks: [12, 24, 41]\n"
-            "Result: All pairs are synchronous (differences ≤ 2 frames)"
+            "Result: All pairs are synchronous (differences ≤ 2 frames)."
         )
         calcium_jitter_window_lbl = QLabel("Synchrony Jitter (frames):")
         calcium_jitter_window_lbl.setSizePolicy(*FIXED)
@@ -607,7 +608,7 @@ class _AnalyseCalciumTraces(QWidget):
             "Example with Max Lag = 5:\n"
             "ROI 1 spikes: [10, 25, 40]  ROI 2 spikes: [12, 24, 41]\n"
             "Algorithm finds high correlation at lag +2 and -1 frames\n"
-            "Result: High synchrony score based on best alignment"
+            "Result: High synchrony score based on best alignment."
         )
         spikes_sync_cross_corr_lag = QLabel("Synchrony Lag (frames):")
         spikes_sync_cross_corr_lag.setSizePolicy(*FIXED)
