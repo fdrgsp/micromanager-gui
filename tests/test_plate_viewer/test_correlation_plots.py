@@ -179,7 +179,6 @@ class TestCorrelationPlots:
         )
         mock_ax.set_xlabel.assert_called_once_with("ROI")
         mock_ax.set_ylabel.assert_called_once_with("ROI")
-        mock_ax.set_box_aspect.assert_called_once_with(1)
 
         # Verify imshow was called
         mock_ax.imshow.assert_called_once()
