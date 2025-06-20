@@ -2,17 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
 import mplcursors
 import numpy as np
-from scipy import ndimage
+from skimage import measure
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots.\
-_plot_calcium_peaks_correlation import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation import (
     _calculate_cross_correlation,
 )
+from micromanager_gui._plate_viewer._util import coordinates_to_mask
 
 if TYPE_CHECKING:
     from matplotlib.image import AxesImage
@@ -56,44 +54,10 @@ def _create_connectivity_matrix(
     return (correlation_matrix >= threshold).astype(int)
 
 
-def _get_roi_coordinates_from_labels(
-    labels_image: np.ndarray,
-    roi_indices: list[int],
-) -> dict[int, tuple[float, float]]:
-    """Extract ROI centroid coordinates from label image.
-
-    Parameters
-    ----------
-    labels_image : np.ndarray
-        2D label image where each ROI has a unique integer value
-    roi_indices : list[int]
-        List of ROI indices to find coordinates for
-
-    Returns
-    -------
-    dict[int, tuple[float, float]]
-        Dictionary mapping ROI index to (x, y) centroid coordinates
-    """
-    coordinates = {}
-
-    for roi_idx in roi_indices:
-        # Find pixels belonging to this ROI
-        roi_mask = labels_image == roi_idx
-
-        if np.any(roi_mask):
-            # Calculate centroid
-            centroid = ndimage.center_of_mass(roi_mask)
-            # Convert to (x, y) - note that ndimage returns (row, col) = (y, x)
-            coordinates[roi_idx] = (centroid[1], centroid[0])
-
-    return coordinates
-
-
 def _plot_connectivity_network_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
     rois: list[int] | None = None,
-    show_labels_background: bool = True,
 ) -> None:
     """Plot spatial functional connectivity network.
 
@@ -105,8 +69,6 @@ def _plot_connectivity_network_data(
         Dictionary of ROI data
     rois : list[int] | None
         List of ROI indices to include, None for all active ROIs
-    show_labels_background : bool
-        Whether to show the label image as background
     """
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
@@ -119,18 +81,16 @@ def _plot_connectivity_network_data(
             "Insufficient data for network connectivity analysis. "
             "Ensure at least two ROIs with calcium peaks are selected."
         )
-        ax.text(0.5, 0.5, "Insufficient data for network analysis",
-                ha="center", va="center", transform=ax.transAxes)
-        widget.canvas.draw()
         return
 
     # Get network threshold from first available ROI
-    network_threshold = 90.0  # Default
+    network_threshold: float | None = None
     if rois_idxs:
         first_roi_key = str(rois_idxs[0])
-        if (first_roi_key in data and
-            hasattr(data[first_roi_key], 'calcium_network_threshold') and
-            data[first_roi_key].calcium_network_threshold is not None):
+        if (
+            first_roi_key in data
+            and data[first_roi_key].calcium_network_threshold is not None
+        ):
             network_threshold = data[first_roi_key].calcium_network_threshold
 
     # Ensure network_threshold is never None
@@ -142,9 +102,18 @@ def _plot_connectivity_network_data(
         correlation_matrix, network_threshold
     )
 
-    # Try to get spatial coordinates
-    # For now, we'll use a simple grid layout if no spatial data is available
-    coordinates = _create_grid_layout(rois_idxs)
+    # Try to get ROI shapes from mask data
+    roi_shapes = _get_roi_shapes_from_mask_data(data, rois_idxs)
+
+    # If no shape data available, fall back to coordinates only
+    if len(roi_shapes) < len(rois_idxs):
+        LOGGER.warning("Some ROIs do not have mask data.")
+        return
+
+    # Extract coordinates from shape data
+    coordinates = {
+        roi_idx: shape_data["centroid"] for roi_idx, shape_data in roi_shapes.items()
+    }
 
     # Filter out ROIs without coordinates
     valid_indices = []
@@ -170,55 +139,78 @@ def _plot_connectivity_network_data(
         )
         return
 
-    # Draw edges first (so they appear behind nodes)
+    # Create composite ROI image using actual mask coordinates
+    composite_image, image_centroids, image_shape = _create_roi_composite_image(
+        data, rois_idxs
+    )
+
+    if composite_image.size == 0 or not image_centroids:
+        # Fall back to coordinate-based approach if no mask data available
+        LOGGER.info("No mask coordinate data available, using centroids only")
+        return
+
+    # Use image-based approach with actual ROI masks
+    # Create binary image for ROI display (black ROIs on light gray background)
+    roi_display_image = np.ones((*image_shape, 3)) * 0.9  # Light gray background
+
+    valid_indices = []
+    valid_roi_labels = []
+
+    for i, roi_idx in enumerate(rois_idxs):
+        if roi_idx in image_centroids:
+            valid_indices.append(i)
+            valid_roi_labels.append(roi_idx)
+
+            # Color the ROI pixels black
+            roi_mask = composite_image == roi_idx
+            if np.any(roi_mask):
+                roi_display_image[roi_mask] = [0, 0, 0]  # Black color
+
+    # Draw edges using image centroids
     edge_count = 0
+    n_valid = len(valid_roi_labels)
+
     for i in range(n_valid):
         for j in range(i + 1, n_valid):
             orig_i = valid_indices[i]
             orig_j = valid_indices[j]
 
             if connectivity_matrix[orig_i, orig_j] == 1:
-                # Line thickness and alpha based on correlation strength
-                corr_strength = abs(correlation_matrix[orig_i, orig_j])
-                linewidth = 1 + corr_strength * 3  # Scale from 1 to 4
-                alpha = 0.4 + 0.6 * corr_strength  # Scale from 0.4 to 1.0
+                roi_i = valid_roi_labels[i]
+                roi_j = valid_roi_labels[j]
 
-                # Color based on correlation sign
-                color = "green" if correlation_matrix[orig_i, orig_j] > 0 else "red"
+                if roi_i in image_centroids and roi_j in image_centroids:
+                    # Line thickness and alpha based on correlation strength
+                    corr_strength = abs(correlation_matrix[orig_i, orig_j])
+                    linewidth = 1 + corr_strength * 1  # Scale from 1 to 4
+                    alpha = 0.4 + 0.6 * corr_strength  # Scale from 0.4 to 1.0
 
-                ax.plot(
-                    [pos_x[i], pos_x[j]],
-                    [pos_y[i], pos_y[j]],
-                    color=color,
-                    linewidth=linewidth,
-                    alpha=alpha,
-                    zorder=1,
-                )
-                edge_count += 1
+                    # Color based on correlation sign
+                    color = (
+                        "green" if correlation_matrix[orig_i, orig_j] > 0 else "magenta"
+                    )
+                    x1, y1 = image_centroids[roi_i]
+                    x2, y2 = image_centroids[roi_j]
 
-    # Draw nodes
-    scatter = ax.scatter(
-        pos_x,
-        pos_y,
-        s=300,
-        c="yellow",
-        edgecolors="black",
-        linewidth=2,
-        alpha=0.9,
-        zorder=5,
-    )
+                    ax.plot(
+                        [x1, x2],
+                        [y1, y2],
+                        color=color,
+                        linewidth=linewidth,
+                        alpha=alpha,
+                        zorder=3,  # Above image, below labels
+                    )
+                    edge_count += 1
 
-    # Add ROI labels
-    for i, roi_idx in enumerate(valid_roi_labels):
-        ax.annotate(
-            f"{roi_idx}",
-            (pos_x[i], pos_y[i]),
-            ha="center",
-            va="center",
-            fontsize=10,
-            fontweight="bold",
-            zorder=6,
-        )
+    # Display the ROI image
+    im = ax.imshow(roi_display_image, alpha=1.0, zorder=2)
+
+    # Collect ROI centroids for hover functionality (no visual labels)
+    drawn_rois = []
+    for roi_idx in valid_roi_labels:
+        if roi_idx in image_centroids:
+            x, y = image_centroids[roi_idx]
+            drawn_rois.append((roi_idx, x, y))
 
     # Calculate network statistics
     total_possible_edges = n_valid * (n_valid - 1) // 2
@@ -230,107 +222,42 @@ def _plot_connectivity_network_data(
     # Set plot properties
     ax.set_aspect("equal")
     ax.set_title(
-        f"Functional Connectivity Network\n"
+        f"Calcium Peaks Functional Connectivity Network\n"
         f"Threshold: {network_threshold:.1f}% | "
         f"Edges: {edge_count}/{total_possible_edges} | "
-        f"Density: {network_density:.3f}",
+        f"Density: {network_density*100:.1f}%",
         fontsize=12,
-        pad=20
+        pad=20,
     )
-    ax.set_xlabel("X (relative)")
-    ax.set_ylabel("Y (relative)")
+    ax.axis("off")
+    ax.set_xticks([])
+    ax.set_yticks([])
 
-    # Add legend
-    from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], color="green", lw=2, label="Positive correlation"),
-        Line2D([0], [0], color="red", lw=2, label="Negative correlation"),
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="yellow",
-               markersize=10, markeredgecolor="black", label="ROI", linestyle="None"),
-    ]
-    ax.legend(handles=legend_elements, loc="upper right", bbox_to_anchor=(1, 1))
+    # Add simple hover functionality using the composite image
+    _add_hover_functionality(im, composite_image, widget)
 
-    # Add hover functionality
-    _add_hover_functionality_network(
-        scatter, widget, valid_roi_labels, correlation_matrix, valid_indices
-    )
+    # Set axis limits with some padding
+    if drawn_rois:
+        all_x = [x for _, x, _ in drawn_rois]
+        all_y = [y for _, _, y in drawn_rois]
+        x_min, x_max = min(all_x), max(all_x)
+        y_min, y_max = min(all_y), max(all_y)
+
+        # Add padding (10% of range or minimum 10 pixels)
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        x_pad = max(x_range * 0.1, 10)
+        y_pad = max(y_range * 0.1, 10)
+
+        ax.set_xlim(x_min - x_pad, x_max + x_pad)
+        ax.set_ylim(y_min - y_pad, y_max + y_pad)
+
+    # Invert y-axis to match image coordinates (origin at top-left)
+    ax.invert_yaxis()
+    ax.set_aspect("equal", adjustable="box")
 
     widget.figure.tight_layout()
     widget.canvas.draw()
-
-
-def _create_grid_layout(roi_indices: list[int]) -> dict[int, tuple[float, float]]:
-    """Create a grid layout for ROIs when spatial data is not available.
-
-    Parameters
-    ----------
-    roi_indices : list[int]
-        List of ROI indices
-
-    Returns
-    -------
-    dict[int, tuple[float, float]]
-        Dictionary mapping ROI index to (x, y) grid coordinates
-    """
-    n_rois = len(roi_indices)
-
-    # Calculate grid dimensions (approximately square)
-    grid_size = int(np.ceil(np.sqrt(n_rois)))
-
-    coordinates = {}
-    for i, roi_idx in enumerate(roi_indices):
-        row = i // grid_size
-        col = i % grid_size
-        coordinates[roi_idx] = (col, row)
-
-    return coordinates
-
-
-def _add_hover_functionality_network(
-    scatter: Any,
-    widget: _SingleWellGraphWidget,
-    roi_labels: list[int],
-    correlation_matrix: np.ndarray,
-    valid_indices: list[int],
-) -> None:
-    """Add hover functionality to network nodes."""
-    cursor = mplcursors.cursor(scatter, hover=True)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        # Get the index of the clicked point
-        point_idx = sel.target.index
-
-        if point_idx < len(roi_labels):
-            roi_idx = roi_labels[point_idx]
-            orig_idx = valid_indices[point_idx]
-
-            # Calculate node degree (number of connections)
-            # Number of connections (excluding self)
-            connections = np.sum(correlation_matrix[orig_idx, :] > 0) - 1
-
-            # Find strongest connections
-            correlations = correlation_matrix[orig_idx, :]
-            correlations[orig_idx] = 0  # Exclude self-correlation
-            strongest_idx = np.argmax(np.abs(correlations))
-            strongest_corr = correlations[strongest_idx]
-            strongest_idx_int = int(strongest_idx)
-            if strongest_idx_int in valid_indices:
-                strongest_roi = roi_labels[valid_indices.index(strongest_idx_int)]
-            else:
-                strongest_roi = "N/A"
-
-            sel.annotation.set(
-                text=(
-                    f"ROI {roi_idx}\n"
-                    f"Connections: {connections}\n"
-                    f"Strongest: ROI {strongest_roi}\n"
-                    f"Correlation: {strongest_corr:.3f}"
-                ),
-                fontsize=8,
-                color="black",
-            )
-            widget.roiSelected.emit([str(roi_idx)])
 
 
 def _plot_connectivity_matrix_data(
@@ -367,9 +294,10 @@ def _plot_connectivity_matrix_data(
     network_threshold = 90.0  # Default
     if rois_idxs:
         first_roi_key = str(rois_idxs[0])
-        if (first_roi_key in data and
-            hasattr(data[first_roi_key], 'calcium_network_threshold') and
-            data[first_roi_key].calcium_network_threshold is not None):
+        if (
+            first_roi_key in data
+            and data[first_roi_key].calcium_network_threshold is not None
+        ):
             network_threshold = data[first_roi_key].calcium_network_threshold
 
     # Ensure network_threshold is never None
@@ -388,16 +316,7 @@ def _plot_connectivity_matrix_data(
     network_density = n_edges / total_possible_edges if total_possible_edges > 0 else 0
 
     # Plot connectivity matrix
-    img = ax.imshow(connectivity_matrix, cmap="Blues", vmin=0, vmax=1)
-
-    # Add colorbar
-    cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap="Blues", norm=mcolors.Normalize(vmin=0, vmax=1)),
-        ax=ax,
-    )
-    cbar.set_label("Connection Status")
-    cbar.set_ticks([0, 1])
-    cbar.set_ticklabels(["Not Connected", "Connected"])
+    img = ax.imshow(connectivity_matrix, vmin=0, vmax=1)
 
     # Set labels and title
     ax.set_title(
@@ -405,17 +324,8 @@ def _plot_connectivity_matrix_data(
         f"Threshold: {network_threshold:.1f}% | "
         f"Edges: {n_edges // 2} | "  # Divide by 2 since matrix is symmetric
         f"Density: {network_density:.3f}",
-        fontsize=12
+        fontsize=12,
     )
-    ax.set_xlabel("ROI Index")
-    ax.set_ylabel("ROI Index")
-
-    # Set tick labels to ROI indices
-    ax.set_xticks(range(len(rois_idxs)))
-    ax.set_xticklabels([str(roi) for roi in rois_idxs], rotation=45)
-    ax.set_yticks(range(len(rois_idxs)))
-    ax.set_yticklabels([str(roi) for roi in rois_idxs])
-
     # Add hover functionality
     _add_hover_functionality_connectivity_matrix(
         img, widget, rois_idxs, connectivity_matrix, correlation_matrix
@@ -455,3 +365,193 @@ def _add_hover_functionality_connectivity_matrix(
                 color="black",
             )
             widget.roiSelected.emit([str(roi_x), str(roi_y)])
+
+
+def _get_roi_shapes_from_mask_data(
+    data: dict[str, ROIData],
+    roi_indices: list[int],
+) -> dict[int, dict[str, Any]]:
+    """Extract ROI shapes and contours from mask coordinate data.
+
+    Parameters
+    ----------
+    data : dict[str, ROIData]
+        Dictionary containing ROI data with mask_coord_and_shape information
+    roi_indices : list[int]
+        List of ROI indices to extract shapes for
+
+    Returns
+    -------
+    dict[int, dict[str, Any]]
+        Dictionary mapping ROI index to shape data containing:
+        - 'centroid': (x, y) centroid coordinates
+        - 'contours': list of contour arrays for matplotlib Polygon
+        - 'mask': 2D boolean mask array
+        - 'bbox': bounding box (x_min, y_min, x_max, y_max)
+    """
+    roi_shapes = {}
+
+    for roi_idx in roi_indices:
+        roi_key = str(roi_idx)
+        if roi_key in data:
+            roi_data = data[roi_key]
+
+            # Check if mask coordinate and shape data is available
+            if roi_data.mask_coord_and_shape is not None:
+
+                # Extract coordinates and shape
+                (y_coords, x_coords), (height, width) = roi_data.mask_coord_and_shape
+
+                if len(x_coords) > 0 and len(y_coords) > 0:
+                    # Reconstruct the 2D mask
+                    mask = coordinates_to_mask((y_coords, x_coords), (height, width))
+
+                    # Calculate centroid
+                    centroid_x = np.mean(x_coords)
+                    centroid_y = np.mean(y_coords)
+
+                    # Calculate bounding box
+                    x_min, x_max = np.min(x_coords), np.max(x_coords)
+                    y_min, y_max = np.min(y_coords), np.max(y_coords)
+
+                    # Find contours for plotting
+                    contours = measure.find_contours(mask.astype(float), 0.5)
+
+                    # Convert contours to matplotlib format (x, y instead of row, col)
+                    matplotlib_contours = []
+                    for contour in contours:
+                        # Swap row/col to x/y and adjust for plotting
+                        matplotlib_contour = np.column_stack(
+                            [contour[:, 1], contour[:, 0]]
+                        )
+                        matplotlib_contours.append(matplotlib_contour)
+
+                    roi_shapes[roi_idx] = {
+                        "centroid": (centroid_x, centroid_y),
+                        "contours": matplotlib_contours,
+                        "mask": mask,
+                        "bbox": (x_min, y_min, x_max, y_max),
+                    }
+
+    return roi_shapes
+
+
+def _create_roi_composite_image(
+    data: dict[str, ROIData],
+    roi_indices: list[int],
+) -> tuple[np.ndarray, dict[int, tuple[float, float]], tuple[int, int]]:
+    """Create a composite image showing all ROI masks with their actual coordinates.
+
+    Parameters
+    ----------
+    data : dict[str, ROIData]
+        Dictionary containing ROI data with mask_coord_and_shape information
+    roi_indices : list[int]
+        List of ROI indices to include in the image
+
+    Returns
+    -------
+    tuple[np.ndarray, dict[int, tuple[float, float]], tuple[int, int]]
+        - Composite image array with ROI masks (each ROI has unique integer value)
+        - Dictionary mapping ROI index to (x, y) centroid coordinates
+        - Image shape (height, width)
+    """
+    roi_masks = {}
+    centroids = {}
+    original_shape = None
+
+    # First pass: collect all ROI masks and determine original shape
+    for roi_idx in roi_indices:
+        roi_key = str(roi_idx)
+        if roi_key in data:
+            roi_data = data[roi_key]
+
+            # Check if mask coordinate and shape data is available
+            if roi_data.mask_coord_and_shape is not None:
+
+                # Extract coordinates and original shape
+                (y_coords, x_coords), (height, width) = roi_data.mask_coord_and_shape
+
+                if len(x_coords) > 0 and len(y_coords) > 0:
+                    roi_masks[roi_idx] = (y_coords, x_coords)
+
+                    # Calculate centroid
+                    centroid_x = np.mean(x_coords)
+                    centroid_y = np.mean(y_coords)
+                    centroids[roi_idx] = (centroid_x, centroid_y)
+
+                    # Use the original mask shape
+                    if original_shape is None:
+                        original_shape = (height, width)
+
+    if not roi_masks or original_shape is None:
+        # No valid masks found, return empty image
+        return np.zeros((100, 100), dtype=int), {}, (100, 100)
+
+    # Create composite image with original shape
+    img_height, img_width = original_shape
+    composite_image = np.zeros((img_height, img_width), dtype=int)
+
+    # Paint each ROI mask onto the composite image
+    for roi_idx, (y_coords, x_coords) in roi_masks.items():
+        # Ensure coordinates are within bounds
+        y_coords = np.array(y_coords)
+        x_coords = np.array(x_coords)
+
+        valid_mask = (
+            (y_coords >= 0)
+            & (y_coords < img_height)
+            & (x_coords >= 0)
+            & (x_coords < img_width)
+        )
+
+        if np.any(valid_mask):
+            valid_y = y_coords[valid_mask]
+            valid_x = x_coords[valid_mask]
+
+            # Paint ROI with its index value
+            composite_image[valid_y, valid_x] = roi_idx
+
+    return composite_image, centroids, (img_height, img_width)
+
+
+def _add_hover_functionality(
+    image: Any,
+    composite_image: np.ndarray,
+    widget: _SingleWellGraphWidget,
+) -> None:
+    """Add simple hover functionality to show ROI number when mouse is over ROI.
+
+    Parameters
+    ----------
+    image : Any
+        The matplotlib image object
+    composite_image : np.ndarray
+        The composite image array where each ROI has its index as pixel value
+    widget : _SingleWellGraphWidget
+        Widget to emit ROI selection events
+    """
+    cursor = mplcursors.cursor(image, hover=mplcursors.HoverMode.Transient)
+
+    @cursor.connect("add")  # type: ignore [misc]
+    def on_add(sel: mplcursors.Selection) -> None:
+        # Get the pixel coordinates
+        x, y = map(int, np.round([sel.target[0], sel.target[1]]))
+
+        # Check if coordinates are within image bounds
+        if 0 <= y < composite_image.shape[0] and 0 <= x < composite_image.shape[1]:
+            roi_value = composite_image[y, x]
+
+            if roi_value > 0:  # ROI pixel (not background)
+                sel.annotation.set(
+                    text=f"ROI {roi_value}",
+                    fontsize=8,
+                    color="black",
+                )
+                # Emit selection for only the single hovered ROI
+                widget.roiSelected.emit([str(roi_value)])
+            else:
+                # Hide annotation for background pixels
+                sel.annotation.set_visible(False)
+        else:
+            sel.annotation.set_visible(False)

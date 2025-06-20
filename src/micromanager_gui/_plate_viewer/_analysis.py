@@ -85,6 +85,7 @@ from ._util import (
     equation_from_str,
     get_iei,
     get_overlap_roi_with_stimulated_area,
+    mask_to_coordinates,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -1430,7 +1431,11 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
+        # burst detection parameters
         burst_the, burst_min_dur, burst_gauss_sigma = self._burst_wdg.value().values()
+
+        # get mask coords and shape for the ROI
+        mask_coords, mask_shape = mask_to_coordinates(label_mask)
 
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
@@ -1463,6 +1468,7 @@ class _AnalyseCalciumTraces(QWidget):
             spikes_burst_threshold=cast(float, burst_the),
             spikes_burst_min_duration=cast(int, burst_min_dur),
             spikes_burst_gaussian_sigma=cast(float, burst_gauss_sigma),
+            mask_coord_and_shape=(mask_coords, mask_shape),
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:

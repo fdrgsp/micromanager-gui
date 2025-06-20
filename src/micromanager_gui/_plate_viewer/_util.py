@@ -88,6 +88,7 @@ class BaseClass:
         return replace(self, **kwargs)
 
 
+# fmt: off
 @dataclass
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
@@ -122,9 +123,9 @@ class ROIData(BaseClass):
     spikes_burst_threshold: float | None = None  # in percent
     spikes_burst_min_duration: int | None = None  # in seconds
     spikes_burst_gaussian_sigma: float | None = None  # in seconds
-
-    # ... add whatever other data we need
-
+    # store ROI mask as coordinates (y_coords, x_coords) and shape (height, width)
+    mask_coord_and_shape: tuple[tuple[list[int], list[int]], tuple[int, int]] | None = None  # noqa: E501
+# fmt: on
 
 def show_error_dialog(parent: QWidget, message: str) -> None:
     """Show an error dialog with the given message."""
@@ -1052,3 +1053,39 @@ def _create_line() -> QFrame:
     result.setFrameShape(QFrame.Shape.HLine)
     result.setFrameShadow(QFrame.Shadow.Plain)
     return result
+
+
+def mask_to_coordinates(
+    mask: np.ndarray,
+) -> tuple[tuple[list[int], list[int]], tuple[int, int]]:
+    """Convert a 2D boolean mask to sparse coordinates.
+
+    Args:
+        mask: 2D boolean numpy array
+
+    Returns
+    -------
+        Tuple of ((y_coords, x_coords), (height, width))
+    """
+    y_coords, x_coords = np.where(mask)
+    return ((y_coords.tolist(), x_coords.tolist()), (mask.shape[0], mask.shape[1]))
+
+
+def coordinates_to_mask(
+    coordinates: tuple[list[int], list[int]],
+    shape: tuple[int, int],
+) -> np.ndarray:
+    """Convert sparse coordinates back to a 2D boolean mask.
+
+    Args:
+        coordinates: Tuple of (y_coords, x_coords) lists
+        shape: Tuple of (height, width)
+
+    Returns
+    -------
+        2D boolean numpy array
+    """
+    mask = np.zeros(shape, dtype=bool)
+    y_coords, x_coords = coordinates
+    mask[y_coords, x_coords] = True
+    return mask
