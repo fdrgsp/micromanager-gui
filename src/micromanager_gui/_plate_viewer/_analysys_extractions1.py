@@ -1,17 +1,18 @@
 from __future__ import annotations
 
+import bisect
 import json
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
 import tifffile
 import useq
 from fonticon_mdi6 import MDI6
-from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtCore import Signal
 from qtpy.QtGui import QIcon
@@ -19,7 +20,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
-    QGridLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -40,52 +41,32 @@ from tqdm import tqdm
 
 from ._logger import LOGGER
 from ._plate_map import PlateMapWidget
-from ._to_csv import save_analysis_data_to_csv, save_trace_data_to_csv
+from ._to_csv import save_analysys_data_to_csv, save_trace_data_to_csv
 from ._util import (
-    BURST_GAUSSIAN_SIGMA,
-    BURST_MIN_DURATION,
-    BURST_THRESHOLD,
-    CALCIUM_NETWORK_THRESHOLD,
-    CALCIUM_SYNC_JITTER_WINDOW,
     COND1,
     COND2,
     DECAY_CONSTANT,
-    DEFAULT_BURST_GAUSS_SIGMA,
-    DEFAULT_BURST_THRESHOLD,
-    DEFAULT_CALCIUM_NETWORK_THRESHOLD,
-    DEFAULT_CALCIUM_SYNC_JITTER_WINDOW,
-    DEFAULT_DFF_WINDOW,
-    DEFAULT_HEIGHT,
-    DEFAULT_MIN_BURST_DURATION,
-    DEFAULT_SPIKE_SYNCHRONY_MAX_LAG,
-    DEFAULT_SPIKE_THRESHOLD,
     DFF_WINDOW,
-    EVENT_KEY,
     GENOTYPE_MAP,
     GREEN,
     LED_POWER_EQUATION,
+    MWCM,
     PEAKS_DISTANCE,
     PEAKS_HEIGHT_MODE,
     PEAKS_HEIGHT_VALUE,
     PEAKS_PROMINENCE_MULTIPLIER,
     RED,
     SETTINGS_PATH,
-    SPIKE_THRESHOLD_MODE,
-    SPIKE_THRESHOLD_VALUE,
-    SPIKES_SYNC_CROSS_CORR_MAX_LAG,
     STIMULATION_MASK,
     TREATMENT_MAP,
     ROIData,
     _BrowseWidget,
     _ElapsedTimer,
     _WaitingProgressBarWidget,
-    calculate_dff,
-    create_divider_line,
+    coordinates_to_mask,
     create_stimulation_mask,
-    equation_from_str,
     get_iei,
     get_overlap_roi_with_stimulated_area,
-    mask_to_coordinates,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -108,9 +89,13 @@ SPONTANEOUS = "Spontaneous Activity"
 EVOKED = "Evoked Activity"
 EXCLUDE_AREA_SIZE_THRESHOLD = 10
 STIMULATION_AREA_THRESHOLD = 0.1  # 10%
+MAX_FRAMES_AFTER_STIMULATION = 5
+DEFAULT_HEIGHT = 0.0075
 GLOBAL_HEIGHT = "global_height"
-GLOBAL_SPIKE_THRESHOLD = "global_spike_threshold"
 MULTIPLIER = "multiplier"
+DEFAULT_WINDOW = 10
+FAILED_POS = "failed_positions"
+FAILED_POS_NAMES = "failed_positions_names"
 
 
 def single_exponential(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -122,21 +107,6 @@ class _PeaksHeightData(TypedDict):
 
     value: float
     mode: str
-
-
-class _SpikeThresholdData(TypedDict):
-    """TypedDict to store the spike threshold data."""
-
-    value: float
-    mode: str
-
-
-class _BurstData(TypedDict):
-    """TypedDict to store the burst data."""
-
-    burst_threshold: float
-    burst_min_duration_frames: int
-    burst_gauss_sigma: float
 
 
 class _PeaksHeightWidget(QWidget):
@@ -151,12 +121,10 @@ class _PeaksHeightWidget(QWidget):
             "Two modes:\n"
             "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
             "ALL FOVs. Peaks below this value are rejected everywhere.\n\n"
-            "• Noise Multiplier: Adaptive threshold computed individually for EACH "
+            "• Height Multiplier: Adaptive threshold computed individually for EACH "
             "ROI in EACH FOV.\n"
             "  Threshold = noise_level * multiplier, where noise_level "
-            "is calculated per ROI using Median Absolute Deviation (MAD).\n\n"
-            "For example, a multiplier of 3.0 can be use to detect events 3 standard "
-            "deviations above noise."
+            "is calculated per ROI using Median Absolute Deviation (MAD)."
         )
 
         self._peaks_height_lbl = QLabel("Minimum Peaks Height:")
@@ -169,17 +137,17 @@ class _PeaksHeightWidget(QWidget):
         self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
 
         self._global_peaks_height = QRadioButton("Use as Global Minimum Peaks Height")
+        self._global_peaks_height.setChecked(True)
 
-        self._height_multiplier = QRadioButton("Use as Noise Level Multiplier")
-        self._height_multiplier.setChecked(True)
+        self._height_multiplier = QRadioButton("Use as Peaks Height Multiplier")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
         layout.addWidget(self._peaks_height_lbl)
         layout.addWidget(self._peaks_height_spin, 1)
-        layout.addWidget(self._height_multiplier, 0)
         layout.addWidget(self._global_peaks_height, 0)
+        layout.addWidget(self._height_multiplier, 0)
 
     def value(self) -> _PeaksHeightData:
         """Return the value of the peaks height multiplier."""
@@ -190,7 +158,7 @@ class _PeaksHeightWidget(QWidget):
             ),
         }
 
-    def setValue(self, value: _PeaksHeightData | dict) -> None:
+    def setValue(self, value: _PeaksHeightData) -> None:
         """Set the value of the peaks height widget."""
         if isinstance(value, dict):
             self._peaks_height_spin.setValue(value["value"])
@@ -202,158 +170,6 @@ class _PeaksHeightWidget(QWidget):
             # default values
             self._peaks_height_spin.setValue(DEFAULT_HEIGHT)
             self._global_peaks_height.setChecked(True)
-
-
-class _SpikeThresholdWidget(QWidget):
-    """Widget to select the spike threshold multiplier."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-
-        self.setToolTip(
-            "Spike detection threshold for identifying spikes in OASIS-deconvolved "
-            "inferred spike traces.\n\n"
-            "Two modes:\n"
-            "• Global Minimum: Same absolute threshold applied to ALL ROIs across "
-            "ALL FOVs. Spike amplitudes below this value are rejected (set to 0) "
-            "everywhere.\n\n"
-            "• Noise Multiplier: Adaptive threshold computed individually for EACH "
-            "ROI in EACH FOV.\n"
-            "  For ROIs with ≥10 detected spikes: "
-            "Threshold = 10th_percentile_of_spikes * multiplier\n"
-            "  For ROIs with <10 spikes: Threshold = 0.01 * multiplier (fallback)"
-        )
-
-        self._spike_threshold_lbl = QLabel("Spike Detection Threshold:")
-        self._spike_threshold_lbl.setSizePolicy(*FIXED)
-
-        self._spike_threshold_spin = QDoubleSpinBox(self)
-        self._spike_threshold_spin.setDecimals(4)
-        self._spike_threshold_spin.setRange(0.0, 10000.0)
-        self._spike_threshold_spin.setSingleStep(0.1)
-        self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
-
-        self._global_spike_threshold = QRadioButton("Use as Global Minimum Threshold")
-
-        self._threshold_multiplier = QRadioButton("Use as Noise Level Multiplier")
-        self._threshold_multiplier.setChecked(True)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
-        layout.addWidget(self._spike_threshold_lbl)
-        layout.addWidget(self._spike_threshold_spin, 1)
-        layout.addWidget(self._threshold_multiplier, 0)
-        layout.addWidget(self._global_spike_threshold, 0)
-
-    def value(self) -> _SpikeThresholdData:
-        """Return the value of the spike threshold."""
-        return {
-            "value": self._spike_threshold_spin.value(),
-            "mode": (
-                GLOBAL_SPIKE_THRESHOLD
-                if self._global_spike_threshold.isChecked()
-                else MULTIPLIER
-            ),
-        }
-
-    def setValue(self, value: _SpikeThresholdData | dict) -> None:
-        """Set the value of the spike threshold widget."""
-        if isinstance(value, dict):
-            self._spike_threshold_spin.setValue(value["value"])
-            if value["mode"] == GLOBAL_SPIKE_THRESHOLD:
-                self._global_spike_threshold.setChecked(True)
-            else:
-                self._threshold_multiplier.setChecked(True)
-        else:
-            # default values
-            self._spike_threshold_spin.setValue(DEFAULT_SPIKE_THRESHOLD)
-            self._threshold_multiplier.setChecked(True)
-
-
-class _BurstWidget(QWidget):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-
-        self.setToolTip(
-            "Settings to control the detection of network bursts in population "
-            "activity.\n\n"
-            "• Burst Threshold:\n"
-            "   Minimum percentage of ROIs that must be active simultaneously to "
-            "detect a network burst.\n"
-            "   Population activity above this threshold is considered burst "
-            "activity.\n"
-            "   Higher values (50-80%) detect only strong network-wide events.\n"
-            "   Lower values (10-30%) capture weaker coordinated activity.\n\n"
-            "• Burst Min Duration (frames):\n"
-            "   Minimum duration (in frames) for a detected burst to be "
-            "considered valid.\n"
-            "   Filters out brief spikes that don't represent sustained "
-            "network activity.\n"
-            "   Higher values ensure only sustained bursts are detected.\n\n"
-            "• Burst Gaussian Blur Sigma:\n"
-            "   Gaussian smoothing applied to population activity before "
-            "burst detection.\n"
-            "   Reduces noise and connects nearby activity peaks into "
-            "coherent bursts.\n"
-            "   Higher values (2-5) provide more smoothing, merging closer events.\n"
-            "   Lower values (0.5-1) preserve temporal precision but may "
-            "fragment bursts.\n"
-            "   Set to 0 to disable smoothing."
-        )
-
-        self._burst_threshold_lbl = QLabel("Burst Threshold (%):")
-        self._burst_threshold_lbl.setSizePolicy(*FIXED)
-        self._burst_threshold = QDoubleSpinBox(self)
-        self._burst_threshold.setDecimals(2)
-        self._burst_threshold.setRange(0.0, 100.0)
-        self._burst_threshold.setSingleStep(1)
-        self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
-
-        self._burst_min_threshold_label = QLabel("Burst Min Duration (frames):")
-        self._burst_min_threshold_label.setSizePolicy(*FIXED)
-        self._burst_min_duration_frames = QSpinBox(self)
-        self._burst_min_duration_frames.setRange(0, 100)
-        self._burst_min_duration_frames.setSingleStep(1)
-        self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
-
-        self._burst_blur_label = QLabel("Burst Gaussian Blur Sigma:")
-        self._burst_blur_label.setSizePolicy(*FIXED)
-        self._burst_blur_sigma = QDoubleSpinBox(self)
-        self._burst_blur_sigma.setDecimals(2)
-        self._burst_blur_sigma.setRange(0.0, 100.0)
-        self._burst_blur_sigma.setSingleStep(0.5)
-        self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
-
-        burst_layout = QGridLayout(self)
-        burst_layout.setContentsMargins(0, 0, 0, 0)
-        burst_layout.setSpacing(5)
-        burst_layout.addWidget(self._burst_threshold_lbl, 0, 0)
-        burst_layout.addWidget(self._burst_threshold, 0, 1)
-        burst_layout.addWidget(self._burst_min_threshold_label, 1, 0)
-        burst_layout.addWidget(self._burst_min_duration_frames, 1, 1)
-        burst_layout.addWidget(self._burst_blur_label, 2, 0)
-        burst_layout.addWidget(self._burst_blur_sigma, 2, 1)
-
-    def value(self) -> _BurstData:
-        """Return the burst detection parameters."""
-        return {
-            "burst_threshold": self._burst_threshold.value(),
-            "burst_min_duration_frames": self._burst_min_duration_frames.value(),
-            "burst_gauss_sigma": self._burst_blur_sigma.value(),
-        }
-
-    def setValue(self, value: _BurstData | dict) -> None:
-        """Set the value of the burst widget."""
-        if isinstance(value, dict):
-            self._burst_threshold.setValue(value["burst_threshold"])
-            self._burst_min_duration_frames.setValue(value["burst_min_duration_frames"])
-            self._burst_blur_sigma.setValue(value["burst_gauss_sigma"])
-        else:
-            # default values
-            self._burst_threshold.setValue(DEFAULT_BURST_THRESHOLD)
-            self._burst_min_duration_frames.setValue(DEFAULT_MIN_BURST_DURATION)
-            self._burst_blur_sigma.setValue(DEFAULT_BURST_GAUSS_SIGMA)
 
 
 class _AnalyseCalciumTraces(QWidget):
@@ -374,19 +190,22 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._data: TensorstoreZarrReader | OMEZarrReader | None = data
 
+        self._analysis_data: dict[str, dict[str, ROIData]] = {}
         self._analysis_path: str | None = None
         self._plate_map_data: dict[str, dict[str, str]] = {}
         self._stimulated_area_mask: np.ndarray | None = None
-        self._labels_path: str | None = labels_path
-        self._analysis_data: dict[str, dict[str, ROIData]] = {}
+        self._led_power_equation: Callable | None = None
 
         self._worker: GeneratorWorker | None = None
         self._cancelled: bool = False
 
-        # list to store the failed labels if they will not be found during the
-        # analysis. used to show at the end of the analysis to the user which labels
-        # are failed to be found.
-        self._failed_labels: list[str] = []
+        # list to store the failed positions if they will not be found during the
+        # analysis. used to show at the end of the analysis to the user which positions
+        # were not found in the data.
+        self._failed_position: dict[str, list[str]] = {
+            FAILED_POS: [],
+            FAILED_POS_NAMES: [],
+        }
 
         # ELAPSED TIME TIMER ---------------------------------------------------------
         self._elapsed_timer = _ElapsedTimer()
@@ -407,7 +226,7 @@ class _AnalyseCalciumTraces(QWidget):
         # self._plate_map_btn.setIconSize(QSize(25, 25))
         self._plate_map_btn.clicked.connect(self._show_plate_map_dialog)
         self._plate_map_wdg = QWidget()
-        plate_map_lbl = QLabel("Set/Edit Plate Map:")
+        plate_map_lbl = QLabel("Plate Map:")
         plate_map_lbl.setSizePolicy(*FIXED)
         plate_map_group_layout = QHBoxLayout(self._plate_map_wdg)
         plate_map_group_layout.setContentsMargins(0, 0, 0, 0)
@@ -453,13 +272,13 @@ class _AnalyseCalciumTraces(QWidget):
             "• Exponential: y = a*exp(b*x) + c (e.g. y = 2*exp(0.1*x) + 1)\n"
             "• Power: y = a*x^b + c (e.g. y = 2*x^0.5 + 1)\n"
             "• Logarithmic: y = a*log(x) + b (e.g. y = 2*log(x) + 1)\n"
-            "Leave empty to use values from the acquisition metadata (%)."
+            "Leave empty to use values from metadata."
         )
         led_lbl = QLabel("LED Power Equation:")
         led_lbl.setSizePolicy(*FIXED)
         self._led_power_equation_le = QLineEdit(self)
         self._led_power_equation_le.setPlaceholderText(
-            "e.g. y = 2*x + 3 (Leave empty to use values from acquisition metadata)"
+            "e.g. y = 2*x + 3 (Leave empty for metadata)"
         )
         led_layout = QHBoxLayout(self._led_power_wdg)
         led_layout.setContentsMargins(0, 0, 0, 0)
@@ -467,57 +286,6 @@ class _AnalyseCalciumTraces(QWidget):
         led_layout.addWidget(led_lbl)
         led_layout.addWidget(self._led_power_equation_le)
         self._led_power_wdg.hide()
-
-        # DF/F SETTINGS --------------------------------------------------------
-        self._dff_wdg = QWidget(self)
-        self._dff_wdg.setToolTip(
-            "Controls the sliding window size for calculating ΔF/F₀ baseline "
-            "(expressed in frames).\n\n"
-            "The algorithm uses a sliding window to estimate the background "
-            "fluorescence:\n"
-            "• For each timepoint, calculates the 10th percentile within the window\n"
-            "• Window extends from current timepoint backwards by window_size/2 "
-            "frames\n"
-            "• ΔF/F₀ = (fluorescence - background) / background\n\n"
-            "Window size considerations:\n"
-            "• Larger values (200-500): More stable baseline, good for slow drifts\n"
-            "• Smaller values (50-100): More adaptive, follows local fluorescence "
-            "changes\n"
-            "• Too small (<20): May track signal itself, reducing ΔF/F₀ sensitivity\n"
-            "• Too large (>1000): May not adapt to legitimate baseline shifts."
-        )
-        dff_lbl = QLabel("ΔF/F0 Window Size")
-        dff_lbl.setSizePolicy(*FIXED)
-        self._dff_window_size_spin = QSpinBox(self)
-        self._dff_window_size_spin.setRange(0, 10000)
-        self._dff_window_size_spin.setSingleStep(1)
-        self._dff_window_size_spin.setValue(DEFAULT_DFF_WINDOW)
-        dff_layout = QHBoxLayout(self._dff_wdg)
-        dff_layout.setContentsMargins(0, 0, 0, 0)
-        dff_layout.setSpacing(5)
-        dff_layout.addWidget(dff_lbl)
-        dff_layout.addWidget(self._dff_window_size_spin)
-
-        # DECONVOLUTION SETTINGS -------------------------------------------------
-        self._dec_wdg = QWidget(self)
-        self._dec_wdg.setToolTip(
-            "Decay constant (tau) for calcium indicator deconvolution.\n"
-            "Set to 0 for automatic estimation by OASIS algorithm.\n\n"
-            "The decay constant represents how quickly the calcium indicator\n"
-            "returns to baseline after a calcium transient."
-        )
-        decay_const_lbl = QLabel("Decay Constant (s):")
-        decay_const_lbl.setSizePolicy(*FIXED)
-        self._decay_constant_spin = QDoubleSpinBox(self)
-        dec_wdg_layout = QHBoxLayout(self._dec_wdg)
-        self._decay_constant_spin.setDecimals(2)
-        self._decay_constant_spin.setRange(0.0, 10.0)
-        self._decay_constant_spin.setSingleStep(0.1)
-        self._decay_constant_spin.setSpecialValueText("Auto")
-        dec_wdg_layout.setContentsMargins(0, 0, 0, 0)
-        dec_wdg_layout.setSpacing(5)
-        dec_wdg_layout.addWidget(decay_const_lbl)
-        dec_wdg_layout.addWidget(self._decay_constant_spin)
 
         # PEAKS SETTINGS -------------------------------------------------------------
         self._peaks_height_wdg = _PeaksHeightWidget(self)
@@ -528,7 +296,7 @@ class _AnalyseCalciumTraces(QWidget):
             "Prominence measures how much a peak stands out from surrounding\n"
             "baseline, helping distinguish real calcium events from noise.\n\n"
             "Prominence threshold = noise_level * multiplier\n\n"
-            "• Value of 1.0: Uses noise level as prominence threshold\n"
+            "• Value of 1.0: Uses noise level as prominence threshold (recommended)\n"
             "• Values >1.0: Requires peaks to be more prominent than noise level\n"
             "• Values <1.0: More lenient, allows peaks closer to noise level\n\n"
             "Increase if detecting too many noise artifacts as peaks."
@@ -546,6 +314,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_prominence_layout.addWidget(peaks_prominence_lbl)
         peaks_prominence_layout.addWidget(self._peaks_prominence_multiplier_spin)
 
+        # PEAKS DISTANCE WIDGET -------------------------------------------------------
         self._peaks_distance_wdg = QWidget(self)
         self._peaks_distance_wdg.setToolTip(
             "Minimum distance between peaks in frames.\n"
@@ -554,7 +323,7 @@ class _AnalyseCalciumTraces(QWidget):
             "set distance = 2 frames (100ms ÷ 50ms = 2 frames).\n\n"
             "• Higher values: More conservative, fewer detected peaks\n"
             "• Lower values: More sensitive, may detect noise or incomplete decay\n"
-            "• Minimum value: 1 (adjacent frames allowed)."
+            "• Minimum value: 1 (adjacent frames allowed)"
         )
         peaks_distance_lbl = QLabel("Minimum Peaks Distance:")
         peaks_distance_lbl.setSizePolicy(*FIXED)
@@ -568,96 +337,7 @@ class _AnalyseCalciumTraces(QWidget):
         peaks_distance_layout.addWidget(peaks_distance_lbl)
         peaks_distance_layout.addWidget(self._peaks_distance_spin)
 
-        self._calcium_synchrony_wdg = QWidget(self)
-        self._calcium_synchrony_wdg.setToolTip(
-            "Calcium Peak Synchrony Analysis Settings\n\n"
-            "Jitter Window Parameter:\n"
-            "Controls the temporal tolerance for detecting synchronous "
-            "calcium peaks.\n\n"
-            "What the value means:\n"
-            "• Value = 2: Peaks within ±2 frames are considered synchronous\n"
-            "• Larger values detect more synchrony but may include false positives\n"
-            "• Smaller values are more strict but may miss genuine synchrony\n\n"
-            "Example with Jitter = 2:\n"
-            "ROI 1 peaks: [10, 25, 40]  ROI 2 peaks: [12, 24, 41]\n"
-            "Result: All pairs are synchronous (differences ≤ 2 frames)."
-        )
-        calcium_jitter_window_lbl = QLabel("Synchrony Jitter (frames):")
-        calcium_jitter_window_lbl.setSizePolicy(*FIXED)
-        self._calcium_synchrony_jitter_spin = QSpinBox(self)
-        self._calcium_synchrony_jitter_spin.setRange(0, 100)
-        self._calcium_synchrony_jitter_spin.setSingleStep(1)
-        self._calcium_synchrony_jitter_spin.setValue(DEFAULT_CALCIUM_SYNC_JITTER_WINDOW)
-        calcium_synchrony_layout = QHBoxLayout(self._calcium_synchrony_wdg)
-        calcium_synchrony_layout.setContentsMargins(0, 0, 0, 0)
-        calcium_synchrony_layout.setSpacing(5)
-        calcium_synchrony_layout.addWidget(calcium_jitter_window_lbl)
-        calcium_synchrony_layout.addWidget(self._calcium_synchrony_jitter_spin)
-
-        # CALCIUM NETWORK CONNECTIVITY THRESHOLD ----------------------------------
-        self._calcium_network_wdg = QWidget(self)
-        self._calcium_network_wdg.setToolTip(
-            "Network Connectivity Threshold (Percentile)\n\n"
-            "Controls which correlation values become network connections.\n"
-            "Uses PERCENTILE-based thresholding, not absolute correlation values.\n\n"
-            "How it works:\n"
-            "• Calculates percentile of ALL pairwise correlations\n"
-            "• Only correlations above this percentile become connections\n"
-            "• 90th percentile = top 10% of correlations become edges\n"
-            "• 95th percentile = top 5% (more conservative)\n"
-            "• 80th percentile = top 20% (more liberal)\n\n"
-            "Important: A 0.95 correlation may show as 'not connected'\n"
-            "if most correlations in your data are higher (e.g., 0.96-0.99).\n"
-            "This ensures only the STRONGEST connections are shown\n"
-            "relative to your specific dataset."
-        )
-        calcium_network_lbl = QLabel("Network Threshold (%):")
-        calcium_network_lbl.setSizePolicy(*FIXED)
-        self._calcium_network_threshold_spin = QDoubleSpinBox(self)
-        self._calcium_network_threshold_spin.setRange(50.0, 99.9)
-        self._calcium_network_threshold_spin.setSingleStep(5.0)
-        self._calcium_network_threshold_spin.setDecimals(1)
-        self._calcium_network_threshold_spin.setValue(DEFAULT_CALCIUM_NETWORK_THRESHOLD)
-        calcium_network_layout = QHBoxLayout(self._calcium_network_wdg)
-        calcium_network_layout.setContentsMargins(0, 0, 0, 0)
-        calcium_network_layout.setSpacing(5)
-        calcium_network_layout.addWidget(calcium_network_lbl)
-        calcium_network_layout.addWidget(self._calcium_network_threshold_spin)
-
-        # SPIKES SETTINGS ----------------------------------------------------------
-        self._spike_threshold_wdg = _SpikeThresholdWidget(self)
-
-        self._spike_synchrony_wdg = QWidget(self)
-        self._spike_synchrony_wdg.setToolTip(
-            "Inferred Spike Synchrony Analysis Settings\n\n"
-            "Max Lag Parameter:\n"
-            "Controls the maximum temporal offset for cross-correlation analysis.\n\n"
-            "What the value means:\n"
-            "• Value = 5: Checks correlations within ±5 frames window\n"
-            "• Algorithm slides one spike train over another, looking for "
-            "best match within this range\n"
-            "• Takes the MAXIMUM correlation found within the lag window\n"
-            "• Larger values are more permissive, smaller values more strict\n\n"
-            "Example with Max Lag = 5:\n"
-            "ROI 1 spikes: [10, 25, 40]  ROI 2 spikes: [12, 24, 41]\n"
-            "Algorithm finds high correlation at lag +2 and -1 frames\n"
-            "Result: High synchrony score based on best alignment."
-        )
-        spikes_sync_cross_corr_lag = QLabel("Synchrony Lag (frames):")
-        spikes_sync_cross_corr_lag.setSizePolicy(*FIXED)
-        self._spikes_sync_cross_corr_max_lag = QSpinBox(self)
-        self._spikes_sync_cross_corr_max_lag.setRange(0, 100)
-        self._spikes_sync_cross_corr_max_lag.setSingleStep(1)
-        self._spikes_sync_cross_corr_max_lag.setValue(5)
-        spikes_sync_cross_corr_layout = QHBoxLayout(self._spike_synchrony_wdg)
-        spikes_sync_cross_corr_layout.setContentsMargins(0, 0, 0, 0)
-        spikes_sync_cross_corr_layout.setSpacing(DEFAULT_SPIKE_SYNCHRONY_MAX_LAG)
-        spikes_sync_cross_corr_layout.addWidget(spikes_sync_cross_corr_lag)
-        spikes_sync_cross_corr_layout.addWidget(self._spikes_sync_cross_corr_max_lag)
-
-        self._burst_wdg = _BurstWidget(self)
-
-        # WIDGET TO SELECT THE POSITIONS TO ANALYZE --------------------------------
+        # WIDGET TO SELECT THE POSITIONS TO ANALYZE ----------------------------------
         self._pos_wdg = QWidget(self)
         self._pos_wdg.setToolTip(
             "Select the Positions to analyze. Leave blank to analyze all Positions. "
@@ -675,7 +355,7 @@ class _AnalyseCalciumTraces(QWidget):
         pos_wdg_layout.addWidget(pos_lbl)
         pos_wdg_layout.addWidget(self._pos_le)
 
-        # PROGRESS BAR -------------------------------------------------------------
+        # PROGRESS BAR -------------------------------------------
         self._progress_bar = QProgressBar(self)
         self._progress_pos_label = QLabel()
         self._elapsed_time_label = QLabel("00:00:00")
@@ -692,30 +372,24 @@ class _AnalyseCalciumTraces(QWidget):
         # self._cancel_btn.setIconSize(QSize(25, 25))
         self._cancel_btn.clicked.connect(self.cancel)
 
-        # STYLING ------------------------------------------------------------------
+        # STYLING --------------------------------------------------------------------
         fixed_width = peaks_prominence_lbl.sizeHint().width()
         activity_combo_label.setFixedWidth(fixed_width)
         self._stimulation_area_path._label.setFixedWidth(fixed_width)
         led_lbl.setFixedWidth(fixed_width)
         pos_lbl.setFixedWidth(fixed_width)
         self._peaks_height_wdg._peaks_height_lbl.setFixedWidth(fixed_width)
-        self._spike_threshold_wdg._spike_threshold_lbl.setFixedWidth(fixed_width)
         peaks_distance_lbl.setFixedWidth(fixed_width)
-        dff_lbl.setFixedWidth(fixed_width)
         plate_map_lbl.setFixedWidth(fixed_width)
-        decay_const_lbl.setFixedWidth(fixed_width)
-        self._spike_threshold_wdg._spike_threshold_lbl.setFixedWidth(fixed_width)
-        self._spike_threshold_wdg._global_spike_threshold.setFixedWidth(
-            self._peaks_height_wdg._global_peaks_height.sizeHint().width()
-        )
-        self._burst_wdg._burst_threshold_lbl.setFixedWidth(fixed_width)
-        self._burst_wdg._burst_min_threshold_label.setFixedWidth(fixed_width)
-        self._burst_wdg._burst_blur_label.setFixedWidth(fixed_width)
-        spikes_sync_cross_corr_lag.setFixedWidth(fixed_width)
-        calcium_jitter_window_lbl.setFixedWidth(fixed_width)
-        calcium_network_lbl.setFixedWidth(fixed_width)
 
-        # LAYOUT -------------------------------------------------------------------
+        # LAYOUT ---------------------------------------------------------------------
+        def create_divider_line() -> QFrame:
+            """Create a horizontal divider line."""
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Sunken)
+            return line
+
         progress_wdg = QWidget(self)
         progress_wdg_layout = QHBoxLayout(progress_wdg)
         progress_wdg_layout.setContentsMargins(0, 0, 0, 0)
@@ -729,38 +403,23 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout = QVBoxLayout(self.groupbox)
         wdg_layout.setContentsMargins(10, 10, 10, 10)
         wdg_layout.setSpacing(5)
-        wdg_layout.addWidget(create_divider_line("Set the Plate Map"))
         wdg_layout.addWidget(self._plate_map_wdg)
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Type of Experiment"))
+        wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("ΔF/F0 and Deconvolution"))
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(self._dff_wdg)
-        wdg_layout.addWidget(self._dec_wdg)
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Calcium Peaks"))
+        wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
-        wdg_layout.addWidget(self._calcium_synchrony_wdg)
-        wdg_layout.addWidget(self._calcium_network_wdg)
         wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Spikes and Bursts"))
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(self._spike_threshold_wdg)
-        wdg_layout.addWidget(self._spike_synchrony_wdg)
-        wdg_layout.addWidget(self._burst_wdg)
-        wdg_layout.addSpacing(3)
-        wdg_layout.addWidget(create_divider_line("Positions to Analyze"))
+        wdg_layout.addWidget(create_divider_line())
         wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._pos_wdg)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -772,7 +431,7 @@ class _AnalyseCalciumTraces(QWidget):
             text="Stopping all the Tasks..."
         )
 
-        # CONNECTIONS --------------------------------------------------------------
+        # CONNECTIONS ---------------------------------------------------------------
         self.progress_bar_updated.connect(self._update_progress_bar)
 
     @property
@@ -794,14 +453,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data = data
 
     @property
-    def labels_path(self) -> str | None:
-        return self._labels_path
-
-    @labels_path.setter
-    def labels_path(self, labels_path: str | None) -> None:
-        self._labels_path = labels_path
-
-    @property
     def analysis_path(self) -> str | None:
         return self._analysis_path
 
@@ -821,7 +472,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def run(self) -> None:
         """Extract the roi traces in a separate thread."""
-        self._failed_labels.clear()
+        self._failed_position.clear()
 
         pos = self._prepare_for_running()
 
@@ -888,64 +539,19 @@ class _AnalyseCalciumTraces(QWidget):
     def _update_form_settings(self, f: Any) -> None:
         """Update the widget form from the JSON settings file."""
         settings = cast(dict, json.load(f))
-        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_DFF_WINDOW))
-        self._dff_window_size_spin.setValue(dff_window)
-        decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
-        self._decay_constant_spin.setValue(decay)
         pp = cast(str, settings.get(LED_POWER_EQUATION, ""))
         self._led_power_equation_le.setText(pp)
         h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
-        h_mode = cast(str, settings.get(PEAKS_HEIGHT_MODE, GLOBAL_HEIGHT))
+        h_mode = cast(str, settings.get(GLOBAL_HEIGHT, GLOBAL_HEIGHT))
         self._peaks_height_wdg.setValue({"mode": h_mode, "value": h_val})
-        spike_thresh_val = cast(
-            float, settings.get(SPIKE_THRESHOLD_VALUE, DEFAULT_SPIKE_THRESHOLD)
-        )
-        spike_thresh_mode = cast(str, settings.get(SPIKE_THRESHOLD_MODE, MULTIPLIER))
-        self._spike_threshold_wdg.setValue(
-            {"mode": spike_thresh_mode, "value": spike_thresh_val}
-        )
         prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
         self._peaks_prominence_multiplier_spin.setValue(prom_mult)
         peaks_distance = cast(int, settings.get(PEAKS_DISTANCE, 2))
         self._peaks_distance_spin.setValue(peaks_distance)
 
-        burst_the = cast(float, settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))
-        burst_d = cast(
-            int, settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
-        )
-        burst_g = cast(
-            float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
-        )
-        self._burst_wdg.setValue(
-            {
-                "burst_threshold": burst_the,
-                "burst_min_duration_frames": burst_d,
-                "burst_gauss_sigma": burst_g,
-            }
-        )
-        spike_sync_lag = cast(
-            int,
-            settings.get(
-                SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
-            ),
-        )
-        self._spikes_sync_cross_corr_max_lag.setValue(spike_sync_lag)
-        calcium_jitter = cast(
-            int,
-            settings.get(
-                CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW
-            ),
-        )
-        self._calcium_synchrony_jitter_spin.setValue(calcium_jitter)
-        calcium_network_threshold = cast(
-            float,
-            settings.get(CALCIUM_NETWORK_THRESHOLD, DEFAULT_CALCIUM_NETWORK_THRESHOLD),
-        )
-        self._calcium_network_threshold_spin.setValue(calcium_network_threshold)
+    # PRIVATE METHODS -----------------------------------------------------------------
 
-    # PRIVATE METHODS --------------------------------------------------------------
-
-    # PREPARATION FOR RUNNING ------------------------------------------------------
+    # PREPARATION FOR RUNNING ---------------------------------------------------------
 
     def _prepare_for_running(self) -> list[int] | None:
         """Prepare the widget for running.
@@ -973,7 +579,8 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the LED power equation from the line edit
         eq = self._led_power_equation_le.text()
-        if equation_from_str(eq):
+        self._led_power_equation = self.equation_from_str(eq)
+        if self._led_power_equation:
             self._save_led_equation_to_json_settings(eq)
 
         self._save_settings_as_json()
@@ -986,14 +593,6 @@ class _AnalyseCalciumTraces(QWidget):
             self._show_and_log_error(
                 "No Data provided!\n"
                 "Please load data in File > Load Data and Set Directories..."
-            )
-            return False
-
-        if self._labels_path is None:
-            self._show_and_log_error(
-                "Please select the Segmentation Path.\n"
-                "You can do this in File > Load Data and Set Directories...' "
-                "and set the Segmentation Path'."
             )
             return False
 
@@ -1062,6 +661,77 @@ class _AnalyseCalciumTraces(QWidget):
         self._stimulated_area_mask = None
         self._show_and_log_error("No Stimulated Area File Provided!")
         return False
+
+    def equation_from_str(self, equation: str) -> Callable | None:
+        """Parse various equation formats and return a callable function.
+
+        Supported formats:
+        - Linear: y = m*x + q  (e.g. "y = 2*x + 3")
+        - Quadratic: y = a*x^2 + b*x + c  (e.g. "y = 0.5*x^2 + 2*x + 1")
+        - Exponential: y = a*exp(b*x) + c  (e.g. "y = 2*exp(0.1*x) + 1")
+        - Power: y = a*x^b + c  (e.g. "y = 2*x^0.5 + 1")
+        - Logarithmic: y = a*log(x) + b  (e.g. "y = 2*log(x) + 1")
+        """
+        if not equation:
+            return None
+
+        # Remove all whitespace for easier parsing
+        eq = equation.replace(" ", "").lower()
+
+        try:
+            if linear_match := re.match(r"y=([+-]?\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq):
+                m = float(linear_match[1])
+                q = float(linear_match[2])
+                return lambda x: m * x + q
+
+            if quad_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*x\^2([+-]\d*\.?\d+)\*x([+-]\d*\.?\d+)", eq
+            ):
+                a = float(quad_match[1])
+                b = float(quad_match[2])
+                c = float(quad_match[3])
+                return lambda x: a * x**2 + b * x + c
+
+            if exp_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*exp\(([+-]?\d*\.?\d+)\*x\)([+-]\d*\.?\d+)",
+                eq,
+            ):
+                a = float(exp_match[1])
+                b = float(exp_match[2])
+                c = float(exp_match[3])
+                return lambda x: a * np.exp(b * x) + c
+
+            if power_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*x\^([+-]?\d*\.?\d+)([+-]\d*\.?\d+)", eq
+            ):
+                a = float(power_match[1])
+                b = float(power_match[2])
+                c = float(power_match[3])
+                return lambda x: a * (x**b) + c
+
+            if log_match := re.match(
+                r"y=([+-]?\d*\.?\d+)\*log\(x\)([+-]\d*\.?\d+)", eq
+            ):
+                a = float(log_match[1])
+                b = float(log_match[2])
+                return lambda x: a * np.log(x) + b
+
+            # If no pattern matches, show error
+            msg = (
+                "Invalid equation format! Using values from the metadata.\n"
+                "Only Linear, Quadratic, Exponential, Power, and Logarithmic equations "
+                "are supported."
+            )
+            self._show_and_log_error(msg)
+            return None
+
+        except ValueError as e:
+            msg = (
+                f"Error parsing equation coefficients: {e}\n"
+                "Using values from the metadata."
+            )
+            self._show_and_log_error(msg)
+            return None
 
     def _get_positions_to_analyze(self) -> list[int] | None:
         """Get the positions to analyze."""
@@ -1167,52 +837,41 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _extract_trace_data_per_position(self, p: int) -> None:
         """Extract the roi traces for the given position."""
-        if self._data is None or self._check_for_abort_requested():
+        if (
+            self._data is None
+            or not self._analysis_path
+            or self._check_for_abort_requested()
+        ):
             return
 
-        # get the data and metadata for the position
-        data, meta = self._data.isel(p=p, metadata=True)
+        p_json = self._find_json_by_number(self._analysis_path, p)
+        if p_json is None:
+            self._failed_position[FAILED_POS].append(str(p))
+            LOGGER.warning(f"No JSON file found for position {p}. Skipping...")
+            return
 
-        # the "Event" key was used in the old metadata format
-        event_key = EVENT_KEY if EVENT_KEY in meta[0] else "Event"
-
-        # get the fov_name name from metadata
-        fov_name = self._get_fov_name(event_key, meta, p)
+        fov_name = p_json.name.replace(".json", "")
 
         # create the dict for the fov if it does not exist
         if fov_name not in self._analysis_data:
-            self._analysis_data[fov_name] = {}
-
-        # get the labels file for the position
-        labels_path = self._get_labels_file_for_position(fov_name, p)
-        if labels_path is None:
+            self._failed_position[FAILED_POS_NAMES].append(fov_name)
+            LOGGER.error(
+                f"FOV {fov_name} not found in the analysis data.\n"
+                "Please run 'Extract Calcium Traces' first."
+            )
             return
 
-        # open the labels file and create masks for each label
-        labels = tifffile.imread(labels_path)
-        labels_masks = self._create_label_masks_dict(labels)
-        sequence = cast(useq.MDASequence, self._data.sequence)
-
-        # get the exposure time from the metadata
-        exp_time = meta[0][event_key].get("exposure", 0.0)
-        # get timepoints
-        timepoints = sequence.sizes["t"]
-        # get the elapsed time from the metadata to calculate the total time in seconds
-        elapsed_time_list = self.get_elapsed_time_list(meta)
-        # if the elapsed time is not available or for any reason is different from
-        # the number of timepoints, set it as list of timepoints every exp_time
-        if len(elapsed_time_list) != timepoints:
-            elapsed_time_list = [i * exp_time for i in range(timepoints)]
-        # get the total time in seconds for the recording
-        tot_time_sec = (elapsed_time_list[-1] - elapsed_time_list[0]) / 1000
+        with open(p_json) as f:
+            p_json_data = cast(dict, json.load(f))
 
         # check if it is an evoked activity experiment
         evoked_experiment = self._is_evoked_experiment()
 
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
-        if evoked_experiment and (seq := self._data.sequence) is not None:
-            metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
+        sequence = cast(useq.MDASequence, self._data.sequence)
+        if evoked_experiment and sequence is not None:
+            metadata = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
         msg = f"Extracting Traces Data from Well {fov_name}."
@@ -1223,8 +882,7 @@ class _AnalyseCalciumTraces(QWidget):
 
             # extract the data
             self._process_roi_trace(
-                data,
-                meta,
+                p_json_data,
                 evoked_experiment_meta,
                 fov_name,
                 label_value,
@@ -1240,27 +898,21 @@ class _AnalyseCalciumTraces(QWidget):
         # update the progress bar
         self.progress_bar_updated.emit()
 
+    def _find_json_by_number(self, folder_path: str, n: int) -> Path | None:
+        """Find JSON file ending with repeated digit n."""
+        folder = Path(folder_path)
+
+        # ceate pattern like "*_333.json" for n=3
+        pattern = f"*_{n}.json"
+
+        matches = list(folder.glob(pattern))
+        return matches[0] if matches else None
+
     def _get_fov_name(self, event_key: str, meta: list[dict], p: int) -> str:
         """Retrieve the fov name from metadata."""
         # the "Event" key was used in the old metadata format
         pos_name = meta[0].get(event_key, {}).get("pos_name", f"pos_{str(p).zfill(4)}")
         return f"{pos_name}_p{p}"
-
-    def _get_labels_file_for_position(self, fov: str, p: int) -> str | None:
-        """Retrieve the labels file for the given position."""
-        # if the fov name does not end with "_p{p}", add it
-        labels_name = f"{fov}.tif" if fov.endswith(f"_p{p}") else f"{fov}_p{p}.tif"
-        labels_path = self._get_labels_file(labels_name)
-        if labels_path is None:
-            self._failed_labels.append(labels_name)
-            LOGGER.error("No labels found for %s!", labels_name)
-        return labels_path
-
-    def _create_label_masks_dict(self, labels: np.ndarray) -> dict[int, np.ndarray]:
-        """Create masks for each label in the labels image."""
-        # get the range of labels and remove the background (0)
-        labels_range = np.unique(labels[labels != 0])
-        return {label_value: (labels == label_value) for label_value in labels_range}
 
     def get_elapsed_time_list(self, meta: list[dict]) -> list[float]:
         elapsed_time_list: list[float] = []
@@ -1274,8 +926,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _process_roi_trace(
         self,
-        data: np.ndarray,
-        meta: list[dict],
+        roi_dict: dict,
         evoked_meta: dict[str, Any] | None,
         fov_name: str,
         label_value: int,
@@ -1285,25 +936,12 @@ class _AnalyseCalciumTraces(QWidget):
         elapsed_time_list: list[float],
     ) -> None:
         """Process individual ROI traces."""
-        # get the data for the current label
-        masked_data = data[:, label_mask]
-
-        # get the size of the roi in µm or px if µm is not available
-        roi_size_pixel = masked_data.shape[1]  # area
-        px_keys = ["pixel_size_um", "PixelSizeUm"]
-        px_size = None
-        for key in px_keys:
-            px_size = meta[0].get(key, None)
-            if px_size:
-                break
-        # calculate the size of the roi in µm if px_size is available or not 0,
-        # otherwise use the size is in pixels
-        roi_size = roi_size_pixel * (px_size**2) if px_size else roi_size_pixel
-
-        # exclude small rois, might not be necessary if trained cellpose performs
-        # better
-        if px_size and roi_size < EXCLUDE_AREA_SIZE_THRESHOLD:
-            return
+        roi_data = ROIData(**roi_dict)
+        roi_trace = roi_data.raw_trace
+        dff = roi_data.dff
+        dec_dff = roi_data.dec_dff
+        mask_coord, shape = roi_data.mask_coord_and_shape
+        label_mask = coordinates_to_mask(mask_coord, shape)
 
         # check if the roi is stimulated
         roi_stimulation_overlap_ratio = 0.0
@@ -1311,54 +949,6 @@ class _AnalyseCalciumTraces(QWidget):
             roi_stimulation_overlap_ratio = get_overlap_roi_with_stimulated_area(
                 self._stimulated_area_mask, label_mask
             )
-
-        # compute the mean for each frame
-        roi_trace: np.ndarray = masked_data.mean(axis=1)
-        win = self._dff_window_size_spin.value()
-        # calculate the dff of the roi trace
-        dff = calculate_dff(roi_trace, window=win, plot=False)
-
-        # compute the decay constant
-        tau = self._decay_constant_spin.value()
-        g: tuple[float, ...] | None = None
-        if tau > 0.0:
-            fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
-            g = np.exp(-1 / (fs * tau))
-        else:
-            g = None
-        # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
-        dec_dff = cast(np.ndarray, dec_dff)
-        spikes = cast(np.ndarray, spikes)
-        LOGGER.info(
-            f"Decay constant: {t} seconds, "
-            f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
-        )
-
-        # for spike amplitudes use percentile-based approach to determine noise level
-        non_zero_spikes = spikes[spikes > 0]
-        # need sufficient data for reliable percentile
-        if len(non_zero_spikes) > 10:
-            # Use 10th percentile of non-zero spikes as noise reference
-            spike_noise_reference = float(np.percentile(non_zero_spikes, 10))
-        else:
-            # fallback to default
-            spike_noise_reference = 0.01
-
-        # Use the spike threshold widget to get the spike detection threshold
-        spike_threshold_data = self._spike_threshold_wdg.value()
-        spike_threshold_value = spike_threshold_data["value"]
-        if spike_threshold_data["mode"] == GLOBAL_SPIKE_THRESHOLD:
-            spike_detection_threshold = spike_threshold_value
-        else:  # MULTIPLIER
-            spike_detection_threshold = spike_noise_reference * spike_threshold_value
-
-        # spike_thresholded: list[float] = []
-        # for s in spikes:
-        #     if s > spike_detection_threshold:
-        #         spike_thresholded.append(s)
-        #     else:
-        #         spike_thresholded.append(0.0)
 
         # Get noise level from the ΔF/F0 trace using Median Absolute Deviation (MAD)
         # -	Step 1: np.median(dff) -> The median of the dataset dff is computed. The
@@ -1414,15 +1004,21 @@ class _AnalyseCalciumTraces(QWidget):
         # check if the roi is stimulated
         is_roi_stimulated = roi_stimulation_overlap_ratio > STIMULATION_AREA_THRESHOLD
 
-        # if the experiment is evoked, store the stimulation metadata
-        stimulation_frames_and_powers: dict[str, int] | None = None
-        led_pulse_duration: str | None = None
-        if evoked_exp and evoked_meta is not None:
+        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
+        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
+        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
+        stimulation_frames_and_powers: dict[str, int] = {}
+
+        # if the experiment is evoked, get the amplitudes of the stimulated peaks
+        if evoked_exp and evoked_meta is not None and len(peaks_dec_dff) > 0:
             # get the stimulation info from the metadata (if any)
-            stimulation_frames_and_powers = cast(
-                dict, evoked_meta.get("pulse_on_frame", {})
+            (
+                amplitudes_stimulated_peaks,
+                amplitudes_non_stimulated_peaks,
+                stimulation_frames_and_powers,
+            ) = self._update_stim_vs_non_stim(
+                evoked_meta, dec_dff, peaks_dec_dff, is_roi_stimulated
             )
-            led_pulse_duration = evoked_meta.get("led_pulse_duration", "unknown")
 
         # calculate the frequency of the peaks in the dec_dff trace
         frequency = (
@@ -1437,12 +1033,6 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
-        # burst detection parameters
-        burst_the, burst_min_dur, burst_gauss_sigma = self._burst_wdg.value().values()
-
-        # get mask coords and shape for the ROI
-        mask_coords, mask_shape = mask_to_coordinates(label_mask)
-
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
@@ -1455,7 +1045,6 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_height_dec_dff=peaks_height_dec_dff,
             dec_dff_frequency=frequency or None,
             inferred_spikes=spikes.tolist(),
-            inferred_spikes_threshold=spike_detection_threshold,
             cell_size=roi_size,
             cell_size_units="µm" if px_size is not None else "pixel",
             condition_1=condition_1,
@@ -1465,16 +1054,59 @@ class _AnalyseCalciumTraces(QWidget):
             iei=iei,
             evoked_experiment=evoked_exp,
             stimulated=is_roi_stimulated,
-            stimulations_frames_and_powers=stimulation_frames_and_powers,
-            led_pulse_duration=led_pulse_duration,
-            led_power_equation=self._led_power_equation_le.text(),
-            calcium_sync_jitter_window=self._calcium_synchrony_jitter_spin.value(),
-            spikes_sync_cross_corr_lag=self._spikes_sync_cross_corr_max_lag.value(),
-            calcium_network_threshold=self._calcium_network_threshold_spin.value(),
-            spikes_burst_threshold=cast(float, burst_the),
-            spikes_burst_min_duration=cast(int, burst_min_dur),
-            spikes_burst_gaussian_sigma=cast(float, burst_gauss_sigma),
-            mask_coord_and_shape=(mask_coords, mask_shape),
+            amplitudes_stimulated_peaks=amplitudes_stimulated_peaks or None,
+            amplitudes_non_stimulated_peaks=amplitudes_non_stimulated_peaks or None,
+            stimulations_frames_and_powers=stimulation_frames_and_powers or None,
+        )
+
+    def _update_stim_vs_non_stim(
+        self,
+        evoked_experiment_meta: dict[str, Any],
+        dec_dff: np.ndarray,
+        peaks_dec_dff: np.ndarray,
+        is_roi_stimulated: bool,
+    ) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, Any]]:
+        """Update the stimulated and non-stimulated peaks amplitude dict."""
+        # to store the amplitudes as dict: {power_pulselength: [amplitude]}
+        amplitudes_stimulated_peaks: dict[str, list[float]] = {}
+        amplitudes_non_stimulated_peaks: dict[str, list[float]] = {}
+
+        pulse_on_frames_and_powers = cast(
+            dict, evoked_experiment_meta.get("pulse_on_frame", {})
+        )
+        sorted_peaks_dec_dff = list(sorted(peaks_dec_dff))  # noqa: C413
+
+        for frame, power in pulse_on_frames_and_powers.items():
+            stim_frame = int(frame)
+            # find index of first peak >= stim_frame.
+            i = bisect.bisect_left(sorted_peaks_dec_dff, stim_frame)
+            # Note that if the frame is not found, bisect_left returns the index
+            # where it would be inserted and so the max index + 1. We need to check
+            # if the index is valid and, if not, skip it.
+            if i >= len(sorted_peaks_dec_dff):
+                continue
+            peak_idx = sorted_peaks_dec_dff[i]
+            # check if the peak is on the stimulation frame or in the next 5 frames
+            if (
+                peak_idx >= stim_frame
+                and peak_idx <= stim_frame + MAX_FRAMES_AFTER_STIMULATION
+            ):
+                amplitude = dec_dff[peak_idx]
+                pulse_len = evoked_experiment_meta.get("led_pulse_duration", "unknown")
+                if self._led_power_equation is not None:
+                    power = self._led_power_equation(power)
+                    power = f"{power:.3f}{MWCM}"
+                col = f"{power}_{pulse_len}"
+                if is_roi_stimulated:
+                    amplitudes_stimulated_peaks.setdefault(col, []).append(amplitude)
+                else:
+                    amplitudes_non_stimulated_peaks.setdefault(col, []).append(
+                        amplitude
+                    )
+        return (
+            amplitudes_stimulated_peaks,
+            amplitudes_non_stimulated_peaks,
+            pulse_on_frames_and_powers,
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
@@ -1515,13 +1147,13 @@ class _AnalyseCalciumTraces(QWidget):
         # save the analysis data to a JSON file
         if self._analysis_path:
             save_trace_data_to_csv(self._analysis_path, self._analysis_data)
-            save_analysis_data_to_csv(self._analysis_path, self._analysis_data)
+            save_analysys_data_to_csv(self._analysis_path, self._analysis_data)
 
         # show a message box if there are failed labels
-        if self._failed_labels:
+        if self._failed_position:
             msg = (
                 "The following labels were not found during the analysis:\n\n"
-                + "\n".join(self._failed_labels)
+                + "\n".join(self._failed_position)
             )
             self._show_and_log_error(msg)
 
@@ -1551,7 +1183,7 @@ class _AnalyseCalciumTraces(QWidget):
                 indent=2,
             )
 
-    # WIDGET -----------------------------------------------------------------------
+    # WIDGET --------------------------------------------------------------------------
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Override the close event to cancel the worker."""
@@ -1569,12 +1201,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._dec_wdg.setEnabled(enable)
         self._peaks_distance_wdg.setEnabled(enable)
         self._peaks_height_wdg.setEnabled(enable)
-        self._spike_threshold_wdg.setEnabled(enable)
         self._peaks_prominence_wdg.setEnabled(enable)
-        self._spike_synchrony_wdg.setEnabled(enable)
-        self._calcium_synchrony_wdg.setEnabled(enable)
-        self._calcium_network_wdg.setEnabled(enable)
-        self._burst_wdg.setEnabled(enable)
         self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
         if self._plate_viewer is None:
@@ -1586,7 +1213,7 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _save_led_equation_to_json_settings(self, eq: str) -> None:
         """Save the LED power equation to a JSON file."""
-        if not self.analysis_path:
+        if not self.analysis_path or not self._led_power_equation:
             return
 
         settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
@@ -1630,28 +1257,9 @@ class _AnalyseCalciumTraces(QWidget):
             peaks_h_data = self._peaks_height_wdg.value()
             settings[PEAKS_HEIGHT_VALUE] = peaks_h_data.get("value", DEFAULT_HEIGHT)
             settings[PEAKS_HEIGHT_MODE] = peaks_h_data.get("mode", GLOBAL_HEIGHT)
-            spike_thresh_data = self._spike_threshold_wdg.value()
-            settings[SPIKE_THRESHOLD_VALUE] = spike_thresh_data.get(
-                "value", DEFAULT_SPIKE_THRESHOLD
-            )
-            settings[SPIKE_THRESHOLD_MODE] = spike_thresh_data.get("mode", MULTIPLIER)
             settings[PEAKS_DISTANCE] = self._peaks_distance_spin.value()
             prom = self._peaks_prominence_multiplier_spin.value()
             settings[PEAKS_PROMINENCE_MULTIPLIER] = prom
-            burst_the, burst_d, burst_g = self._burst_wdg.value().values()
-            settings[BURST_THRESHOLD] = burst_the
-            settings[BURST_MIN_DURATION] = burst_d
-            settings[BURST_GAUSSIAN_SIGMA] = burst_g
-
-            settings[SPIKES_SYNC_CROSS_CORR_MAX_LAG] = (
-                self._spikes_sync_cross_corr_max_lag.value()
-            )
-            settings[CALCIUM_SYNC_JITTER_WINDOW] = (
-                self._calcium_synchrony_jitter_spin.value()
-            )
-            settings[CALCIUM_NETWORK_THRESHOLD] = (
-                self._calcium_network_threshold_spin.value()
-            )
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:

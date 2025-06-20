@@ -43,6 +43,7 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 from ._analysis import EVOKED, _AnalyseCalciumTraces
+from ._traces_extraction import _ExtractCalciumTraces
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
@@ -202,6 +203,7 @@ class PlateViewer(QMainWindow):
             self._on_fov_table_selection_changed
         )
 
+        self._trace_extraction_wdg = _ExtractCalciumTraces(self)
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
         # Layout for the scrollable content
@@ -209,8 +211,8 @@ class PlateViewer(QMainWindow):
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._segmentation_wdg)
-        analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addWidget(self._trace_extraction_wdg)
+        analysis_layout.addWidget(self._analysis_wdg)
         analysis_layout.addStretch(1)
 
         # single wells visualization tab
