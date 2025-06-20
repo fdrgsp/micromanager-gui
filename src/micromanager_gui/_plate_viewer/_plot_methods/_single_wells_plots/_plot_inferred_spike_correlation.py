@@ -140,7 +140,6 @@ def _plot_spike_cross_correlation_data(
             "Insufficient spike data for cross-correlation analysis. "
             "Ensure at least two ROIs with spikes are selected."
         )
-        widget.canvas.draw()
         return
 
     ax.set_title("Pairwise Cross-Correlation Matrix\n(Thresholded Spike Data)")
@@ -234,7 +233,6 @@ def _plot_spike_hierarchical_clustering_data(
             "Insufficient spike data for hierarchical clustering analysis. "
             "Ensure at least two ROIs with spikes are selected."
         )
-        widget.canvas.draw()
         return
 
     if use_dendrogram:

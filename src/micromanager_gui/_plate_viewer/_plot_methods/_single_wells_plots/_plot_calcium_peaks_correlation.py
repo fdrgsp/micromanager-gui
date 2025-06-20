@@ -12,6 +12,8 @@ from scipy.signal import correlate
 from scipy.spatial.distance import squareform
 from scipy.stats import zscore
 
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.image import AxesImage
@@ -39,6 +41,10 @@ def _calculate_cross_correlation(
         traces.append(roi_data.dec_dff)
 
     if len(rois_idxs) <= 1:
+        LOGGER.warning(
+            "Not enough active ROIs to calculate cross-correlation. "
+            "At least two active ROIs are required."
+        )
         return None, None
 
     traces_array = np.array(traces)  # shape (n_rois, n_frames)
