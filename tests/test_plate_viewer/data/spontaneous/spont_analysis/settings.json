@@ -11,5 +11,6 @@
   "burst_min_duration": 3,
   "burst_gaussian_sigma": 2.0,
   "spikes_sync_cross_corr_lag": 5,
-  "calcium_sync_jitter_window": 2
+  "calcium_sync_jitter_window": 2,
+  "calcium_network_threshold": 90.0
 }
