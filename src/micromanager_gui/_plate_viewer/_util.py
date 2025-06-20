@@ -127,6 +127,7 @@ class ROIData(BaseClass):
     mask_coord_and_shape: tuple[tuple[list[int], list[int]], tuple[int, int]] | None = None  # noqa: E501
 # fmt: on
 
+
 def show_error_dialog(parent: QWidget, message: str) -> None:
     """Show an error dialog with the given message."""
     dialog = QMessageBox(parent)
@@ -1068,7 +1069,9 @@ def mask_to_coordinates(
         Tuple of ((y_coords, x_coords), (height, width))
     """
     y_coords, x_coords = np.where(mask)
-    return ((y_coords.tolist(), x_coords.tolist()), (mask.shape[0], mask.shape[1]))
+    y_coords_list: list[int] = [int(y) for y in y_coords]
+    x_coords_list: list[int] = [int(x) for x in x_coords]
+    return ((y_coords_list, x_coords_list), (mask.shape[0], mask.shape[1]))
 
 
 def coordinates_to_mask(

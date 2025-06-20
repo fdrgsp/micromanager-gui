@@ -599,11 +599,17 @@ class _AnalyseCalciumTraces(QWidget):
         self._calcium_network_wdg.setToolTip(
             "Network Connectivity Threshold (Percentile)\n\n"
             "Controls which correlation values become network connections.\n"
-            "Higher values = fewer, stronger connections.\n"
-            "Lower values = more, weaker connections.\n\n"
-            "90th percentile = top 10% of correlations become edges\n"
-            "95th percentile = top 5% (more conservative)\n"
-            "80th percentile = top 20% (more liberal)"
+            "Uses PERCENTILE-based thresholding, not absolute correlation values.\n\n"
+            "How it works:\n"
+            "• Calculates percentile of ALL pairwise correlations\n"
+            "• Only correlations above this percentile become connections\n"
+            "• 90th percentile = top 10% of correlations become edges\n"
+            "• 95th percentile = top 5% (more conservative)\n"
+            "• 80th percentile = top 20% (more liberal)\n\n"
+            "Important: A 0.95 correlation may show as 'not connected'\n"
+            "if most correlations in your data are higher (e.g., 0.96-0.99).\n"
+            "This ensures only the STRONGEST connections are shown\n"
+            "relative to your specific dataset."
         )
         calcium_network_lbl = QLabel("Network Threshold (%):")
         calcium_network_lbl.setSizePolicy(*FIXED)

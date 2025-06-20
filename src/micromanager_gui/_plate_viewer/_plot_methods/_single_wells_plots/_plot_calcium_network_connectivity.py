@@ -7,7 +7,7 @@ import numpy as np
 from skimage import measure
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation import (
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_correlation import (  # noqa: E501
     _calculate_cross_correlation,
 )
 from micromanager_gui._plate_viewer._util import coordinates_to_mask
@@ -85,19 +85,11 @@ def _plot_connectivity_network_data(
     # Filter out ROIs without coordinates
     valid_indices = []
     valid_roi_labels = []
-    pos_x = []
-    pos_y = []
 
     for i, roi_idx in enumerate(rois_idxs):
         if roi_idx in coordinates:
             valid_indices.append(i)
             valid_roi_labels.append(roi_idx)
-            x, y = coordinates[roi_idx]
-            pos_x.append(x)
-            pos_y.append(y)
-
-    pos_x = np.array(pos_x)
-    pos_y = np.array(pos_y)
     n_valid = len(valid_roi_labels)
 
     if n_valid < 2:
@@ -257,7 +249,7 @@ def _create_connectivity_matrix(
     threshold = np.percentile(off_diagonal_values, threshold_percentile)
 
     # Create binary connectivity matrix
-    return (correlation_matrix >= threshold).astype(int)
+    return (correlation_matrix >= threshold).astype(int)  # type: ignore [no-any-return]
 
 
 def _get_roi_shapes_from_mask_data(
@@ -291,7 +283,6 @@ def _get_roi_shapes_from_mask_data(
 
             # Check if mask coordinate and shape data is available
             if roi_data.mask_coord_and_shape is not None:
-
                 # Extract coordinates and shape
                 (y_coords, x_coords), (height, width) = roi_data.mask_coord_and_shape
 
@@ -361,7 +352,6 @@ def _create_roi_composite_image(
 
             # Check if mask coordinate and shape data is available
             if roi_data.mask_coord_and_shape is not None:
-
                 # Extract coordinates and original shape
                 (y_coords, x_coords), (height, width) = roi_data.mask_coord_and_shape
 
@@ -369,8 +359,8 @@ def _create_roi_composite_image(
                     roi_masks[roi_idx] = (y_coords, x_coords)
 
                     # Calculate centroid
-                    centroid_x = np.mean(x_coords)
-                    centroid_y = np.mean(y_coords)
+                    centroid_x = float(np.mean(x_coords))
+                    centroid_y = float(np.mean(y_coords))
                     centroids[roi_idx] = (centroid_x, centroid_y)
 
                     # Use the original mask shape
@@ -388,19 +378,19 @@ def _create_roi_composite_image(
     # Paint each ROI mask onto the composite image
     for roi_idx, (y_coords, x_coords) in roi_masks.items():
         # Ensure coordinates are within bounds
-        y_coords = np.array(y_coords)
-        x_coords = np.array(x_coords)
+        y_coords_array: np.ndarray = np.array(y_coords)
+        x_coords_array: np.ndarray = np.array(x_coords)
 
         valid_mask = (
-            (y_coords >= 0)
-            & (y_coords < img_height)
-            & (x_coords >= 0)
-            & (x_coords < img_width)
+            (y_coords_array >= 0)
+            & (y_coords_array < img_height)
+            & (x_coords_array >= 0)
+            & (x_coords_array < img_width)
         )
 
         if np.any(valid_mask):
-            valid_y = y_coords[valid_mask]
-            valid_x = x_coords[valid_mask]
+            valid_y = y_coords_array[valid_mask]
+            valid_x = x_coords_array[valid_mask]
 
             # Paint ROI with its index value
             composite_image[valid_y, valid_x] = roi_idx
@@ -450,7 +440,6 @@ def _add_hover_functionality(
             sel.annotation.set_visible(False)
 
 
-
 def _plot_connectivity_matrix_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
@@ -489,7 +478,9 @@ def _plot_connectivity_matrix_data(
             first_roi_key in data
             and data[first_roi_key].calcium_network_threshold is not None
         ):
-            network_threshold = data[first_roi_key].calcium_network_threshold
+            threshold_value = data[first_roi_key].calcium_network_threshold
+            if threshold_value is not None:
+                network_threshold = threshold_value
 
     # Ensure network_threshold is never None
     if network_threshold is None:
