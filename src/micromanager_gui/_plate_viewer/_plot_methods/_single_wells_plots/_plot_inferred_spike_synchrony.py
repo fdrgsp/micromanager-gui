@@ -72,7 +72,6 @@ def _plot_spike_synchrony_data(
             "Failed to compute synchrony matrix. "
             "Ensure spike data is valid and contains sufficient ROIs."
         )
-        widget.canvas.draw()
         return
 
     # Calculate global synchrony metric using spike-specific function
