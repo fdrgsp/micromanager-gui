@@ -1397,6 +1397,8 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
+        burst_the, burst_min_dur, burst_gauss_sigma = self._burst_wdg.value().values()
+
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
@@ -1421,6 +1423,12 @@ class _AnalyseCalciumTraces(QWidget):
             stimulated=is_roi_stimulated,
             stimulations_frames_and_powers=stimulation_frames_and_powers,
             led_pulse_duration=led_pulse_duration,
+            led_power_equation=self._led_power_equation_le.text(),
+            calcium_sync_jitter_window=self._calcium_synchrony_jitter_spin.value(),
+            spikes_sync_cross_corr_lag=self._spikes_sync_cross_corr_max_lag.value(),
+            spikes_burst_threshold=cast(float, burst_the),
+            spikes_burst_min_duration=cast(int, burst_min_dur),
+            spikes_burst_gaussian_sigma=cast(float, burst_gauss_sigma),
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:

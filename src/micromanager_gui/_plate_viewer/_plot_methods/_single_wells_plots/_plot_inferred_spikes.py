@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import mplcursors
 import numpy as np
@@ -10,13 +8,6 @@ from scipy.ndimage import gaussian_filter1d
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
-    BURST_GAUSSIAN_SIGMA,
-    BURST_MIN_DURATION,
-    BURST_THRESHOLD,
-    DEFAULT_BURST_GAUSS_SIGMA,
-    DEFAULT_BURST_THRESHOLD,
-    DEFAULT_MIN_BURST_DURATION,
-    SETTINGS_PATH,
     _get_spikes_over_threshold,
 )
 
@@ -240,31 +231,11 @@ def _plot_inferred_spikes_normalized_with_bursts(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    # get parameters form the analysis path settings.json file
-    burst_threshold: float = DEFAULT_BURST_THRESHOLD
-    min_burst_duration: int = DEFAULT_MIN_BURST_DURATION
-    smoothing_sigma: float = DEFAULT_BURST_GAUSS_SIGMA
-    if analysis_path := widget._plate_viewer.analysis_path:
-        settings_json_file = Path(analysis_path) / SETTINGS_PATH
-        if settings_json_file.exists():
-            with open(settings_json_file) as f:
-                settings = cast(dict, json.load(f))
-                burst_threshold = float(
-                    settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD)
-                )
-                min_burst_duration = int(
-                    settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION)
-                )
-                smoothing_sigma = float(
-                    settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA)
-                )
-    # or from the widget's analysis widget
-    else:
-        values = cast(
-            tuple[float, int, float],
-            tuple(widget._plate_viewer._analysis_wdg._burst_wdg.value().values()),
-        )
-        burst_threshold, min_burst_duration, smoothing_sigma = values
+    burst_params = _get_burst_parameters(data, rois)
+    if burst_params is None:
+        LOGGER.warning("Burst parameters not found in ROI data.")
+        return
+    burst_threshold, min_burst_duration, smoothing_sigma = burst_params
 
     # Get all traces and compute normalization parameters
     all_values = []
@@ -344,6 +315,37 @@ def _plot_inferred_spikes_normalized_with_bursts(
 
     widget.figure.tight_layout()
     widget.canvas.draw()
+
+
+def _get_burst_parameters(
+    roi_data_dict: dict[str, ROIData],
+    rois: list[int] | None = None,
+) -> tuple[float, int, float] | None:
+    """Get burst detection parameters from ROIData."""
+    if rois is None:
+        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
+    # use only the first roi since the burst parameters are the same for all ROIs
+    roi_key = str(rois[0]) if rois else None
+    if roi_key is None or roi_key not in roi_data_dict:
+        LOGGER.warning("No valid ROIs found for burst parameter extraction.")
+        return None
+    roi_data = roi_data_dict[roi_key]
+    burst_threshold = roi_data.spikes_burst_threshold
+    burst_min_duration = roi_data.spikes_burst_min_duration
+    burst_gaussian_sigma = roi_data.spikes_burst_gaussian_sigma
+    # if any is NOne, return None
+    if (
+        burst_threshold is None
+        or burst_min_duration is None
+        or burst_gaussian_sigma is None
+    ):
+        LOGGER.warning("Burst parameters not set in ROI data.")
+        return None
+    return (
+        burst_threshold,
+        burst_min_duration,
+        burst_gaussian_sigma,
+    )
 
 
 def _detect_bursts_from_traces(

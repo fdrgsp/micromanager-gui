@@ -113,6 +113,13 @@ class ROIData(BaseClass):
     stimulated: bool = False
     stimulations_frames_and_powers: dict[str, int] | None = None
     led_pulse_duration: str | None = None
+    led_power_equation: str | None = None  # equation for LED power
+    calcium_sync_jitter_window: int | None = None  # in frames
+    spikes_sync_cross_corr_lag: int | None = None  # in frames
+    spikes_burst_threshold: float | None = None  # in percent
+    spikes_burst_min_duration: int | None = None  # in seconds
+    spikes_burst_gaussian_sigma: float | None = None  # in seconds
+
     # ... add whatever other data we need
 
 

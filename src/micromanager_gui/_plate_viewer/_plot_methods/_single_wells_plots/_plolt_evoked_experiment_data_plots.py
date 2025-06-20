@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, cast
@@ -15,9 +14,7 @@ from skimage.measure import find_contours
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
-    LED_POWER_EQUATION,
     MWCM,
-    SETTINGS_PATH,
     STIMULATION_MASK,
     _get_spikes_over_threshold,
     equation_from_str,
@@ -70,26 +67,14 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     widget.figure.clear()
     ax = widget.figure.add_subplot(111)
 
-    # get led_power_equation from the plate viewer
-    led_power_equation: Callable | None = None
-    # get it form the analysis path settings.json file
-    if analysis_path := widget._plate_viewer.analysis_path:
-        settings_json_file = Path(analysis_path) / SETTINGS_PATH
-        if settings_json_file.exists():
-            with open(settings_json_file) as f:
-                settings = cast(dict, json.load(f))
-                if eq_str := settings.get(LED_POWER_EQUATION):
-                    led_power_equation = equation_from_str(eq_str)
-    # or from the widget's analysis widget
-    elif eq := widget._plate_viewer._analysis_wdg._led_power_equation_le.text():
-        led_power_equation = equation_from_str(eq)
-
     # get analysis path
     analysis_path = widget._plate_viewer.analysis_path
     if analysis_path is None:
         return
 
     pulse: str = ""
+    led_power_equation_str: str = ""
+    led_power_equation: Callable | None = None
     # {power_pulselength: [(ROI1, amp1), (ROI2, amp2), ...]}
     # e.g. {"10_100": [(1, 0.5), (2, 0.6)], "20_200": [(3, 0.7)]}
     # or {"1mW/cm²_100": [(1, 0.5), (2, 0.6)], ...}
@@ -97,6 +82,10 @@ def _plot_stim_or_not_stim_peaks_amplitude(
     for roi_key, roi_data in data.items():
         if rois is not None and int(roi_key) not in rois:
             continue
+
+        if not led_power_equation_str:
+            led_power_equation_str = roi_data.led_power_equation or ""
+            led_power_equation = equation_from_str(led_power_equation_str)
 
         from micromanager_gui._plate_viewer._util import (
             get_stimulated_amplitudes_from_roi_data,

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib.cm as cm
@@ -11,9 +9,6 @@ import numpy as np
 
 from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 from micromanager_gui._plate_viewer._util import (
-    DEFAULT_SPIKE_SYNCHRONY_MAX_LAG,
-    SETTINGS_PATH,
-    SPIKES_SYNC_CROSS_CORR_MAX_LAG,
     _get_spike_synchrony,
     _get_spike_synchrony_matrix,
     _get_spikes_over_threshold,
@@ -55,22 +50,10 @@ def _plot_spike_synchrony_data(
         )
         return
 
-    # get parameters form the analysis path settings.json file
-    lag: int = DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
-    if analysis_path := widget._plate_viewer.analysis_path:
-        settings_json_file = Path(analysis_path) / SETTINGS_PATH
-        if settings_json_file.exists():
-            with open(settings_json_file) as f:
-                settings = cast(dict, json.load(f))
-                lag = cast(
-                    int,
-                    settings.get(
-                        SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG
-                    ),
-                )
-    # or from the widget's analysis widget
-    else:
-        lag = widget._plate_viewer._analysis_wdg._spikes_sync_cross_corr_max_lag.value()
+    lag = _get_lag(data, rois)
+    if lag is None:
+        LOGGER.warning("No valid lag value found for synchrony analysis.")
+        return
 
     # Convert spike trains to spike data dict for correlation-based synchrony
     spike_data_dict = {
@@ -122,6 +105,22 @@ def _plot_spike_synchrony_data(
     _add_hover_functionality(img, widget, active_rois, synchrony_matrix)
     widget.figure.tight_layout()
     widget.canvas.draw()
+
+
+def _get_lag(
+    roi_data_dict: dict[str, ROIData],
+    rois: list[int] | None = None,
+) -> int | None:
+    """Get the lag value for synchrony form ROIData."""
+    if rois is None:
+        rois = [int(roi) for roi in roi_data_dict if roi.isdigit()]
+    # use only the first roi since the burst parameters are the same for all ROIs
+    roi_key = str(rois[0]) if rois else None
+    if roi_key is None or roi_key not in roi_data_dict:
+        LOGGER.warning("No valid ROIs found for synchrony analysis.")
+        return None
+    roi_data = roi_data_dict[roi_key]
+    return roi_data.spikes_sync_cross_corr_lag
 
 
 def _get_spike_trains_from_rois(
