@@ -1,2 +1,2 @@
-c1_t1_Count,c1_t1_Avg_Duration,c1_t1_Avg_Interval,c1_t1_Rate
+c1_t1_count,c1_t1_avg_duration_sec,c1_t1_avg_interval_sec,c1_t1_rate_burst_per_min)
 5,1.3805,1.4256,19.7291

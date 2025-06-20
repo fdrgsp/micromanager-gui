@@ -38,6 +38,11 @@ CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
 AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
 AMP_NON_STIMULATED_PEAKS = "calcium_peaks_amplitudes_non_stimulated"
 BURST_ACTIVITY = "burst_activity"
+COUNT = "count"
+AVE_DURATION = "avg_duration_sec"
+AVE_INTERVAL = "avg_interval_sec"
+RATE = "rate_burst_per_min)"
+
 CSV_PARAMETERS: dict[str, str] = {
     "calcium_peaks_amplitude": "peaks_amplitudes_dec_dff",
     "calcium_peaks_frequency": "dec_dff_frequency",
@@ -74,7 +79,7 @@ def save_trace_data_to_csv(
     if not analysis_data:
         return
 
-    LOGGER.info(f"Exporting data to `{path}`...")
+    LOGGER.info(f"Exporting Traces Data to `{path}`...")
     try:
         _export_raw_data(path, analysis_data)
     except Exception as e:
@@ -95,7 +100,7 @@ def save_trace_data_to_csv(
         _export_inferred_spikes_data(path, analysis_data, raw=False)
     except Exception as e:
         LOGGER.error(f"Error exporting INFERRED THRESHOLDED SPIKES DATA to CSV: {e}")
-    LOGGER.info("Exporting data to CSV: DONE!")
+    LOGGER.info("Exporting Traces Data to CSV: DONE!")
 
 
 def save_analysis_data_to_csv(
@@ -110,7 +115,7 @@ def save_analysis_data_to_csv(
 
     rearrange_cond, rearrange_cond_evk = _rearrange_data(analysis_data)
 
-    msg = f"Exporting data to `{path}`..."
+    msg = f"Exporting Analysis Data to `{path}`..."
     LOGGER.info(msg)
     try:
         _export_to_csv_mean_values_grouped_by_condition(path, rearrange_cond)
@@ -120,7 +125,7 @@ def save_analysis_data_to_csv(
         _export_to_csv_mean_values_evk_parameters(path, rearrange_cond_evk)
     except Exception as e:
         LOGGER.error(f"Error exporting evoked analysis data to CSV: {e}")
-    LOGGER.info("Exporting data to CSV: DONE!")
+    LOGGER.info("Exporting Analysis Data to CSV: DONE!")
 
 
 def _rearrange_data(analysis_data: dict[str, dict[str, ROIData]]) -> tuple:
@@ -717,10 +722,10 @@ def _get_burst_activity_parameter(
             if burst_count == 0:
                 # No bursts detected
                 burst_metrics = {
-                    "Count": 0,
-                    "Avg Duration": 0.0,
-                    "Avg Interval": 0.0,
-                    "Rate": 0.0,
+                    COUNT: 0,
+                    AVE_DURATION: 0.0,
+                    AVE_INTERVAL: 0.0,
+                    RATE: 0.0,
                 }
             else:
                 # Calculate durations and intervals
@@ -749,10 +754,10 @@ def _get_burst_activity_parameter(
                 burst_rate = burst_count / total_time_min if total_time_min > 0 else 0.0
 
                 burst_metrics = {
-                    "Count": burst_count,
-                    "Avg Duration": avg_duration,
-                    "Avg Interval": avg_interval,
-                    "Rate": burst_rate,
+                    COUNT: burst_count,
+                    AVE_DURATION: avg_duration,
+                    AVE_INTERVAL: avg_interval,
+                    RATE: burst_rate,
                 }
 
             # Store the metrics for this well
@@ -833,16 +838,16 @@ def _export_to_csv_burst_activity(
         for _, well_data in fovs.items():
             for metrics in well_data:
                 if isinstance(metrics, dict):
-                    counts.append(metrics.get("Count", 0))
-                    durations.append(metrics.get("Avg Duration", 0.0))
-                    intervals.append(metrics.get("Avg Interval", 0.0))
-                    rates.append(metrics.get("Rate", 0.0))
+                    counts.append(metrics.get(COUNT, 0))
+                    durations.append(metrics.get(AVE_DURATION, 0.0))
+                    intervals.append(metrics.get(AVE_INTERVAL, 0.0))
+                    rates.append(metrics.get(RATE, 0.0))
 
         # Add 4 columns for each condition
-        combined_columns[f"{condition}_Count"] = counts
-        combined_columns[f"{condition}_Avg_Duration"] = durations
-        combined_columns[f"{condition}_Avg_Interval"] = intervals
-        combined_columns[f"{condition}_Rate"] = rates
+        combined_columns[f"{condition}_{COUNT}"] = counts
+        combined_columns[f"{condition}_{AVE_DURATION}"] = durations
+        combined_columns[f"{condition}_{AVE_INTERVAL}"] = intervals
+        combined_columns[f"{condition}_{RATE}"] = rates
 
     # Export CSV with 4 columns per condition
     if combined_columns:
