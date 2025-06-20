@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock
 
 import numpy as np
+import pandas as pd
 import pytest
 from matplotlib.figure import Figure
 
@@ -18,6 +21,10 @@ from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_infe
     _detect_bursts_from_traces,
     _overlay_burst_periods,
     _plot_inferred_spikes_normalized_with_bursts,
+)
+from micromanager_gui._plate_viewer._to_csv import (
+    _export_to_csv_burst_activity,
+    _get_burst_activity_parameter,
 )
 from micromanager_gui._plate_viewer._util import ROIData
 
@@ -339,3 +346,302 @@ class TestInferredSpikesBurstActivity:
             assert time_axis[0] == 0.0
             assert time_axis[-1] <= 10.0  # Recording time is 10 seconds
             assert len(time_axis) == spike_trains.shape[1]
+
+
+class TestBurstActivityCSV:
+    """Test burst activity CSV export functionality."""
+
+    @pytest.fixture
+    def sample_roi_data(self):
+        """Create sample ROI data for testing burst activity CSV export."""
+        roi_data = {}  # Create ROI with mock inferred spikes and timing data
+        roi_data["1"] = ROIData(
+            well_fov_position="A01_f00",
+            inferred_spikes=[0.0, 0.1, 0.2, 0.5, 0.6, 0.7, 1.0, 1.1, 1.2, 1.5],
+            elapsed_time_list_ms=list(range(0, 2000, 100)),  # 0-2s in 100ms steps
+            total_recording_time_sec=2.0,
+            active=True,
+            inferred_spikes_threshold=0.3,  # Required for spike thresholding
+            spikes_burst_threshold=30.0,
+            spikes_burst_min_duration=1,  # 0.1 seconds converted to int
+            spikes_burst_gaussian_sigma=1.0,  # Required parameter
+        )
+
+        roi_data["2"] = ROIData(
+            well_fov_position="A01_f00",
+            inferred_spikes=[0.3, 0.4, 0.8, 0.9, 1.3, 1.4, 1.6, 1.7],
+            elapsed_time_list_ms=list(range(0, 2000, 100)),
+            total_recording_time_sec=2.0,
+            active=True,
+            inferred_spikes_threshold=0.3,  # Required for spike thresholding
+            spikes_burst_threshold=30.0,
+            spikes_burst_min_duration=1,
+            spikes_burst_gaussian_sigma=1.0,  # Required parameter
+        )
+
+        return roi_data
+
+    @pytest.fixture
+    def sample_analysis_data(self, sample_roi_data):
+        """Create sample analysis data structure."""
+        return {
+            "Control": {"A01_f00": sample_roi_data},
+            "Treatment": {"B01_f00": sample_roi_data},
+        }
+
+    def test_get_burst_activity_parameter_basic(self, sample_analysis_data):
+        """Test basic burst activity parameter extraction."""
+        result = _get_burst_activity_parameter(sample_analysis_data)
+
+        # Should have data for both conditions
+        assert "Control" in result
+        assert "Treatment" in result
+
+        # Each condition should have well data
+        assert "A01_f00" in result["Control"]
+        assert "B01_f00" in result["Treatment"]
+
+        # Each well should have burst metrics
+        control_metrics = result["Control"]["A01_f00"][0]
+        assert "count" in control_metrics
+        assert "avg_duration_sec" in control_metrics
+        assert "avg_interval_sec" in control_metrics
+        assert "rate_burst_per_min)" in control_metrics
+
+        # Values should be numeric
+        assert isinstance(control_metrics["count"], (int, float))
+        assert isinstance(control_metrics["avg_duration_sec"], (int, float))
+        assert isinstance(control_metrics["avg_interval_sec"], (int, float))
+        assert isinstance(control_metrics["rate_burst_per_min)"], (int, float))
+
+    def test_get_burst_activity_parameter_no_bursts(self):
+        """Test burst activity parameter extraction when no bursts are detected."""
+        # Create ROI data with sparse spikes (no bursts)
+        roi_data = {
+            "1": ROIData(
+                well_fov_position="A01_f00",
+                inferred_spikes=[0.1, 1.0, 1.9],  # Sparse spikes
+                elapsed_time_list_ms=list(range(0, 2000, 100)),
+                total_recording_time_sec=2.0,
+                active=True,
+                inferred_spikes_threshold=0.05,  # Required for spike thresholding
+                spikes_burst_threshold=80.0,  # High threshold
+                spikes_burst_min_duration=5,  # 0.5 seconds
+                spikes_burst_gaussian_sigma=1.0,  # Required parameter
+            ),
+            "2": ROIData(
+                well_fov_position="A01_f00",
+                inferred_spikes=[0.2, 1.1, 1.8],
+                elapsed_time_list_ms=list(range(0, 2000, 100)),
+                total_recording_time_sec=2.0,
+                active=True,
+                inferred_spikes_threshold=0.05,  # Required for spike thresholding
+                spikes_burst_threshold=80.0,
+                spikes_burst_min_duration=5,
+                spikes_burst_gaussian_sigma=1.0,  # Required parameter
+            ),
+        }
+
+        analysis_data = {"Control": {"A01_f00": roi_data}}
+        result = _get_burst_activity_parameter(analysis_data)
+
+        # Should still have structure but with zero values
+        assert "Control" in result
+        assert "A01_f00" in result["Control"]
+
+        metrics = result["Control"]["A01_f00"][0]
+        assert metrics["count"] == 0
+        assert metrics["avg_duration_sec"] == 0.0
+        assert metrics["avg_interval_sec"] == 0.0
+        assert metrics["rate_burst_per_min)"] == 0.0
+
+    def test_get_burst_activity_parameter_insufficient_rois(self):
+        """Test burst activity parameter extraction with insufficient ROIs."""
+        # Create data with only one ROI
+        roi_data = {
+            "1": ROIData(
+                well_fov_position="A01_f00",
+                inferred_spikes=[0.1, 0.2, 0.3],
+                elapsed_time_list_ms=list(range(0, 1000, 100)),
+                total_recording_time_sec=1.0,
+                active=True,
+                inferred_spikes_threshold=0.05,  # Required for spike thresholding
+                spikes_burst_threshold=30.0,
+                spikes_burst_min_duration=1,
+                spikes_burst_gaussian_sigma=1.0,  # Required parameter
+            )
+        }
+
+        analysis_data = {"Control": {"A01_f00": roi_data}}
+        result = _get_burst_activity_parameter(analysis_data)
+
+        # Should return empty dict for this condition
+        assert result == {}
+
+    def test_export_to_csv_burst_activity(self):
+        """Test CSV export of burst activity data."""
+        # Create sample burst activity data
+        burst_data = {
+            "Control": {
+                "A01_f00": [
+                    {
+                        "count": 3,
+                        "avg_duration_sec": 0.5,
+                        "avg_interval_sec": 1.2,
+                        "rate_burst_per_min)": 90.0,
+                    }
+                ],
+                "A02_f00": [
+                    {
+                        "count": 2,
+                        "avg_duration_sec": 0.3,
+                        "avg_interval_sec": 1.5,
+                        "rate_burst_per_min)": 60.0,
+                    }
+                ],
+            },
+            "Treatment": {
+                "B01_f00": [
+                    {
+                        "count": 5,
+                        "avg_duration_sec": 0.8,
+                        "avg_interval_sec": 0.9,
+                        "rate_burst_per_min)": 150.0,
+                    }
+                ]
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            exp_name = "test_experiment"
+
+            # Export to CSV
+            _export_to_csv_burst_activity(temp_path, exp_name, burst_data)
+
+            # Check if file was created
+            csv_file = temp_path / f"{exp_name}_burst_activity.csv"
+            assert csv_file.exists()
+
+            # Read and verify CSV content
+            df = pd.read_csv(csv_file)
+
+            # Should have 4 columns per condition (8 total)
+            expected_columns = [
+                "Control_count",
+                "Control_avg_duration_sec",
+                "Control_avg_interval_sec",
+                "Control_rate_burst_per_min)",
+                "Treatment_count",
+                "Treatment_avg_duration_sec",
+                "Treatment_avg_interval_sec",
+                "Treatment_rate_burst_per_min)",
+            ]
+            assert list(df.columns) == expected_columns
+
+            # Check values
+            assert df["Control_count"].iloc[0] == 3
+            assert df["Control_count"].iloc[1] == 2
+            assert df["Control_avg_duration_sec"].iloc[0] == 0.5
+            assert df["Control_rate_burst_per_min)"].iloc[0] == 90.0
+
+            assert df["Treatment_count"].iloc[0] == 5
+            assert df["Treatment_avg_duration_sec"].iloc[0] == 0.8
+            assert df["Treatment_rate_burst_per_min)"].iloc[0] == 150.0
+
+            # Second row should have NaN for Treatment (only one well)
+            assert pd.isna(df["Treatment_count"].iloc[1])
+
+    def test_export_to_csv_burst_activity_empty_data(self):
+        """Test CSV export with empty burst activity data."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            exp_name = "test_experiment"
+
+            # Export empty data
+            _export_to_csv_burst_activity(temp_path, exp_name, {})
+
+            # File should not be created for empty data
+            csv_file = temp_path / f"{exp_name}_burst_activity.csv"
+            assert not csv_file.exists()
+
+    def test_export_to_csv_burst_activity_mixed_data(self):
+        """Test CSV export with mixed valid and invalid data."""
+        burst_data = {
+            "Control": {
+                "A01_f00": [
+                    {
+                        "count": 2,
+                        "avg_duration_sec": 0.4,
+                        "avg_interval_sec": 1.0,
+                        "rate_burst_per_min)": 60.0,
+                    }
+                ],
+                "A02_f00": [
+                    # Invalid data (not a dict)
+                    "invalid_data"
+                ],
+            },
+            "Treatment": {
+                "B01_f00": [
+                    {
+                        "count": 1,
+                        "avg_duration_sec": 0.2,
+                        "avg_interval_sec": 0.0,  # No intervals for single burst
+                        "rate_burst_per_min)": 30.0,
+                    }
+                ]
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            exp_name = "test_experiment"
+
+            # Export should handle invalid data gracefully
+            _export_to_csv_burst_activity(temp_path, exp_name, burst_data)
+
+            # Check if file was created
+            csv_file = temp_path / f"{exp_name}_burst_activity.csv"
+            assert csv_file.exists()
+
+            # Read and verify CSV content
+            df = pd.read_csv(csv_file)
+
+            # Should have valid data from Control A01 and Treatment B01
+            assert df["Control_count"].iloc[0] == 2
+            assert df["Treatment_count"].iloc[0] == 1
+
+            # Invalid data should be skipped, so only one row
+            assert len(df) == 1
+
+    def test_integration_get_and_export_burst_activity(self, sample_analysis_data):
+        """Test integration of burst activity parameter extraction and CSV export."""
+        # Extract burst activity parameters
+        burst_params = _get_burst_activity_parameter(sample_analysis_data)
+
+        # Export to CSV
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            exp_name = "integration_test"
+
+            _export_to_csv_burst_activity(temp_path, exp_name, burst_params)
+
+            # Verify file creation and content
+            csv_file = temp_path / f"{exp_name}_burst_activity.csv"
+            assert csv_file.exists()
+
+            df = pd.read_csv(csv_file)
+
+            # Should have columns for both conditions
+            control_cols = [col for col in df.columns if col.startswith("Control_")]
+            treatment_cols = [col for col in df.columns if col.startswith("Treatment_")]
+
+            assert len(control_cols) == 4
+            assert len(treatment_cols) == 4
+
+            # All values should be numeric (not NaN for first row)
+            for col in control_cols + treatment_cols:
+                assert pd.notna(df[col].iloc[0])
+                # Check that it's a numeric type (including numpy types)
+                assert pd.api.types.is_numeric_dtype(df[col])
