@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
 import mplcursors
 import numpy as np
 from scipy.cluster.hierarchy import dendrogram, leaves_list, linkage
@@ -78,10 +77,8 @@ def _plot_cross_correlation_data(
     ax.set_yticks([])
     ax.set_yticklabels([])
 
-    ax.set_box_aspect(1)
-
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
+        cm.ScalarMappable(cmap="viridis", norm=mcolors.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Cross-Correlation Index")

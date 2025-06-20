@@ -150,7 +150,6 @@ def _plot_spike_cross_correlation_data(
     ax.set_ylabel("ROI")
     ax.set_yticks([])
     ax.set_yticklabels([])
-    ax.set_box_aspect(1)
 
     # Create colorbar
     cbar = widget.figure.colorbar(

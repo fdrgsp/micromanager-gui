@@ -99,10 +99,10 @@ def _plot_spike_synchrony_data(
     ax.set_xlabel("ROI")
     ax.set_xticklabels([])
     ax.set_xticks([])
-    ax.set_box_aspect(1)
 
     active_rois = list(spike_trains.keys())
     _add_hover_functionality(img, widget, active_rois, synchrony_matrix)
+
     widget.figure.tight_layout()
     widget.canvas.draw()
 
