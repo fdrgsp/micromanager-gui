@@ -94,15 +94,17 @@ def _set_graph_title_and_labels(
     """Set axis labels based on the plotted data."""
     title = x_lbl = y_lbl = ""
     if amp and freq:
-        title = "ROIs Mean Amplitude ± SEM vs Frequency (Deconvolved ΔF/F)"
+        title = (
+            "ROIs Mean Calcium Peaks Amplitude ± SEM vs Frequency (Deconvolved ΔF/F)"
+        )
         x_lbl = "Amplitude"
         y_lbl = "Frequency (Hz)"
     elif amp:
-        title = "Mean Amplitude ± SEM (Deconvolved ΔF/F)"
+        title = "Calcium Peaks Mean Amplitude ± SEM (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
         y_lbl = "Amplitude"
     elif freq:
-        title = "Frequency (Deconvolved ΔF/F)"
+        title = "Calcium Peaks Frequency (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
         y_lbl = "Frequency (Hz)"
 

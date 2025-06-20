@@ -3,12 +3,10 @@
 
 import numpy as np
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_spike_synchrony import (
-    _calculate_spike_synchrony_matrix,
-    _get_exposure_time_from_data,
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_inferred_spike_synchrony import (  # noqa: E501
     _get_spike_trains_from_rois,
 )
-from micromanager_gui._plate_viewer._util import ROIData
+from micromanager_gui._plate_viewer._util import ROIData, _get_spike_synchrony_matrix
 
 
 def create_test_data_with_temporal_info():
@@ -51,22 +49,19 @@ def main():
     data, expected_exposure_ms = create_test_data_with_temporal_info()
     print(f"Expected exposure time: {expected_exposure_ms:.1f} ms")
 
-    # Test exposure time extraction
-    extracted_exposure_ms = _get_exposure_time_from_data(data)
-    print(f"Extracted exposure time: {extracted_exposure_ms:.1f} ms")
-    print(f"Match: {abs(extracted_exposure_ms - expected_exposure_ms) < 0.1}")
-
-    # Test spike synchrony with automatic exposure time
+    # Test spike synchrony with correlation-based approach
     print("\nTesting Spike Synchrony Analysis:")
-    spike_trains = _get_spike_trains_from_rois(data, spike_threshold=0.5)
+    spike_trains = _get_spike_trains_from_rois(data, rois=None)
     if spike_trains:
         print(f"Extracted {len(spike_trains)} spike trains")
 
-        # Calculate synchrony with exposure time as window
-        time_window = extracted_exposure_ms / 1000.0  # Convert to seconds
-        print(f"Using time window: {time_window*1000:.1f} ms")
+        # Convert spike trains to spike data dict for correlation analysis
+        spike_data_dict = {
+            roi_name: spike_train.astype(float).tolist()
+            for roi_name, spike_train in spike_trains.items()
+        }
 
-        synchrony_matrix = _calculate_spike_synchrony_matrix(spike_trains, time_window)
+        synchrony_matrix = _get_spike_synchrony_matrix(spike_data_dict)
         if synchrony_matrix is not None:
             print(f"Synchrony matrix shape: {synchrony_matrix.shape}")
 
@@ -77,7 +72,8 @@ def main():
             print(f"Diagonal values (self-synchrony): {diagonal}")
             print(f"Off-diagonal mean: {np.mean(off_diagonal):.3f}")
             print(
-                f"Off-diagonal range: {np.min(off_diagonal):.3f} to {np.max(off_diagonal):.3f}"
+                f"Off-diagonal range: {np.min(off_diagonal):.3f} "
+                "to {np.max(off_diagonal):.3f}"
             )
         else:
             print("Failed to calculate synchrony matrix")

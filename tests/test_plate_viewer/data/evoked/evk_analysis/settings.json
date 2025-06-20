@@ -1,8 +1,17 @@
 {
-  "dff_window": 10,
-  "led_power_equation": "y = 11.01*x - 6.52",
+  "led_power_equation": "y = 11 * x - 6",
+  "dff_window": 30,
+  "decay constant": 0.0,
+  "peaks_height_value": 3.0,
+  "peaks_height_mode": "multiplier",
+  "spike_threshold_value": 1.0,
+  "spike_threshold_mode": "multiplier",
+  "peaks_distance": 2,
   "peaks_prominence_multiplier": 1.0,
-  "peaks_height_value": 0.0075,
-  "peaks_height_mode": "global_height",
-  "peaks_distance": 2
+  "burst_threshold": 30.0,
+  "burst_min_duration": 3,
+  "burst_gaussian_sigma": 2.0,
+  "spikes_sync_cross_corr_lag": 5,
+  "calcium_sync_jitter_window": 2,
+  "calcium_network_threshold": 90.0
 }

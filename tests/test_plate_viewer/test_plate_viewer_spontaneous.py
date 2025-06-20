@@ -9,7 +9,10 @@ import pytest
 from micromanager_gui import PlateViewer
 from micromanager_gui._plate_viewer._fov_table import WellInfo
 from micromanager_gui._plate_viewer._plate_map import PlateMapData
-from micromanager_gui._plate_viewer._to_csv import save_analysys_data_to_csv
+from micromanager_gui._plate_viewer._to_csv import (
+    save_analysis_data_to_csv,
+    save_trace_data_to_csv,
+)
 from micromanager_gui._plate_viewer._util import ROIData
 
 if TYPE_CHECKING:
@@ -33,39 +36,49 @@ SAVE_MAP = {
     "raw_data": {"test_analysis_raw_data.csv"},
     "dff_data": {"test_analysis_dff_data.csv"},
     "dec_dff_data": {"test_analysis_dec_dff_data.csv"},
-    "inferred_spikes_data": {"test_analysis_inferred_spikes_data.csv"},
+    "inferred_spikes_data": {
+        "test_analysis_inferred_spikes_raw_data.csv",
+        "test_analysis_inferred_spikes_thresholded_data.csv",
+    },
     "grouped": {
-        "test_analysis_amplitude.csv",
+        "test_analysis_burst_activity.csv",
+        "test_analysis_calcium_network_density.csv",
+        "test_analysis_calcium_peaks_amplitude.csv",
         "test_analysis_percentage_active.csv",
         "test_analysis_cell_size.csv",
-        "test_analysis_iei.csv",
-        "test_analysis_frequency.csv",
-        "test_analysis_synchrony.csv",
+        "test_analysis_calcium_peaks_iei.csv",
+        "test_analysis_calcium_peaks_frequency.csv",
+        "test_analysis_calcium_peaks_synchrony.csv",
+        "test_analysis_spike_synchrony.csv",
     },
 }
 
 
 def _round_numeric_values(value, reference_value):
     """Helper function to round numeric values for comparison."""
+
+    def _round_recursive(obj):
+        """Recursively round numeric values in nested structures."""
+        if isinstance(obj, (int, float)):
+            return round(obj, 2)
+        elif isinstance(obj, list):
+            return [_round_recursive(item) for item in obj]
+        elif isinstance(obj, tuple):
+            return tuple(_round_recursive(item) for item in obj)
+        elif isinstance(obj, dict):
+            return {k: _round_recursive(v) for k, v in obj.items()}
+        else:
+            # Return non-numeric values as-is
+            return obj
+
     if isinstance(value, list):
-        return [round(v, 2) for v in value], [round(v, 2) for v in reference_value]
+        return _round_recursive(value), _round_recursive(reference_value)
     elif isinstance(value, float):
         return round(value, 2), round(reference_value, 2)
     elif isinstance(value, dict):
-        if not value or not isinstance(next(iter(value.values())), list):
-            # Dict with scalar values
-            return (
-                {k: round(v, 2) for k, v in value.items()},
-                {k: round(v, 2) for k, v in reference_value.items()},
-            )
-        # Dict with list values
-        rounded_value = {
-            k: [round(v, 2) for v in v_list] for k, v_list in value.items()
-        }
-        rounded_ref = {
-            k: [round(v, 2) for v in v_list] for k, v_list in reference_value.items()
-        }
-        return rounded_value, rounded_ref
+        return _round_recursive(value), _round_recursive(reference_value)
+    elif isinstance(value, tuple):
+        return _round_recursive(value), _round_recursive(reference_value)
     else:
         return value, reference_value
 
@@ -82,7 +95,7 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert list(pv.data.store.shape) == [1, 153, 1, 256, 256]
     # labels and analysis paths
     assert pv.pv_labels_path == TEST_LABELS_PATH
-    assert pv.pv_analysis_path == TEST_ANALYSIS_PATH
+    assert pv.analysis_path == TEST_ANALYSIS_PATH
     # plate view
     assert pv._plate_view.selectedIndices() == ()  # No wells selected
     assert len(pv._plate_view._well_items) == 96  # 96 well plate
@@ -147,7 +160,8 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     pv._analysis_wdg._extract_trace_data_per_position(0)
 
     # trigger save to csv
-    save_analysys_data_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_trace_data_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_analysis_data_to_csv(tmp_analysis_path, pv._analysis_data)
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]
@@ -158,6 +172,23 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
         "B5_0000_p0.json",
         "settings.json",
     }, f"Expected files not found. Found: {set(files)}"
+
+    # compare settings.json with the reference file
+    settings_file = tmp_analysis_path / "settings.json"
+    with open(settings_file) as file:
+        settings_data = cast(dict, json.load(file))
+    reference_settings_file = (
+        Path(__file__).parent
+        / "data"
+        / "spontaneous"
+        / "spont_analysis"
+        / "settings.json"
+    )
+    with open(reference_settings_file) as file1:
+        reference_settings_data = cast(dict, json.load(file1))
+    assert (
+        settings_data == reference_settings_data
+    ), f"Settings data mismatch: {settings_data} != {reference_settings_data}"
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]

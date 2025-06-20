@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._raster_plots import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_peaks_raster_plots import (  # noqa: E501
     _generate_raster_plot,
 )
 from micromanager_gui._plate_viewer._util import ROIData

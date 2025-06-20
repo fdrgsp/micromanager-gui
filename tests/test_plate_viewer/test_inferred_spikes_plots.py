@@ -13,7 +13,7 @@ from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_infe
     _add_hover_functionality,
     _normalize_trace_percentile,
     _plot_inferred_spikes,
-    _plot_spike_trace,
+    _plot_trace,
     _set_graph_title_and_labels,
     _update_time_axis,
 )
@@ -163,7 +163,7 @@ class TestInferredSpikesPlots:
         mock_ax = Mock()
         spikes = [0.0, 0.2, 0.0, 0.8, 0.3]
 
-        _plot_spike_trace(mock_ax, "1", spikes, normalize=True, count=0, p1=0.0, p2=1.0)
+        _plot_trace(mock_ax, "1", spikes, normalize=True, count=0, p1=0.0, p2=1.0)
 
         mock_ax.plot.assert_called_once()
         mock_ax.set_yticks.assert_called_once_with([])
@@ -174,9 +174,7 @@ class TestInferredSpikesPlots:
         mock_ax = Mock()
         spikes = [0.0, 0.2, 0.0, 0.8, 0.3]
 
-        _plot_spike_trace(
-            mock_ax, "1", spikes, normalize=False, count=0, p1=0.0, p2=1.0
-        )
+        _plot_trace(mock_ax, "1", spikes, normalize=False, count=0, p1=0.0, p2=1.0)
 
         mock_ax.plot.assert_called_once()
         # These should not be called when not normalized
@@ -210,18 +208,31 @@ class TestInferredSpikesPlots:
         """Test setting graph title and labels for normalized plot."""
         mock_ax = Mock()
 
-        _set_graph_title_and_labels(mock_ax, normalize=True)
+        _set_graph_title_and_labels(mock_ax, normalize=True, raw=False)
 
-        mock_ax.set_title.assert_called_once_with("Normalized Inferred Spikes")
+        mock_ax.set_title.assert_called_once_with(
+            "Normalized Inferred Spikes (Thresholded Spike Data)"
+        )
         mock_ax.set_ylabel.assert_called_once_with("ROIs")
 
     def test_set_graph_title_and_labels_not_normalized(self):
         """Test setting graph title and labels for non-normalized plot."""
         mock_ax = Mock()
 
-        _set_graph_title_and_labels(mock_ax, normalize=False)
+        _set_graph_title_and_labels(mock_ax, normalize=False, raw=False)
 
-        mock_ax.set_title.assert_called_once_with("Inferred Spikes")
+        mock_ax.set_title.assert_called_once_with(
+            "Inferred Spikes (Thresholded Spike Data)"
+        )
+        mock_ax.set_ylabel.assert_called_once_with("Inferred Spikes (magnitude)")
+
+    def test_set_graph_title_and_labels_with_raw_mode(self):
+        """Test setting graph title and labels with raw mode enabled."""
+        mock_ax = Mock()
+
+        _set_graph_title_and_labels(mock_ax, normalize=False, raw=True)
+
+        mock_ax.set_title.assert_called_once_with("Inferred Spikes (Raw)")
         mock_ax.set_ylabel.assert_called_once_with("Inferred Spikes (magnitude)")
 
     def test_update_time_axis_with_recording_time(self):
@@ -327,4 +338,33 @@ class TestInferredSpikesPlots:
         mock_widget.figure.clear.assert_called_once()
         mock_widget.figure.add_subplot.assert_called_once_with(111)
         # The function should complete without errors
+        mock_widget.canvas.draw.assert_called_once()
+
+    def test_plot_inferred_spikes_with_thresholds(self, mock_widget, sample_roi_data):
+        """Test plotting inferred spikes with threshold visualization."""
+        # Add threshold data to sample ROI data
+        sample_roi_data["1"].inferred_spikes_threshold = 0.5
+
+        _plot_inferred_spikes(mock_widget, sample_roi_data, rois=[1], thresholds=True)
+
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+        mock_widget.figure.tight_layout.assert_called_once()
+        mock_widget.canvas.draw.assert_called_once()
+
+    def test_plot_inferred_spikes_thresholds_multiple_rois(
+        self, mock_widget, sample_roi_data
+    ):
+        """Test that thresholds are disabled when multiple ROIs are selected."""
+        sample_roi_data["1"].inferred_spikes_threshold = 0.5
+        sample_roi_data["2"].inferred_spikes_threshold = 0.6
+
+        _plot_inferred_spikes(
+            mock_widget, sample_roi_data, rois=[1, 2], thresholds=True
+        )
+
+        # Should still work but without thresholds visualization
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+        mock_widget.figure.tight_layout.assert_called_once()
         mock_widget.canvas.draw.assert_called_once()

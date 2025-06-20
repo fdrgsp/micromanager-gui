@@ -28,7 +28,9 @@ def _generate_raster_plot(
     ax = widget.figure.add_subplot(111)
 
     ax.set_title(
-        "Raster Plot Colored by Amplitude" if amplitude_colors else "Raster Plot"
+        "Calcium Peaks Raster Plot Colored by Amplitude"
+        if amplitude_colors
+        else "Calcium Peaks Raster Plot"
     )
 
     # initialize required lists and variables
