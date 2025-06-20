@@ -7,8 +7,14 @@ from typing import Any, cast
 
 import numpy as np
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
 
 from ._logger import LOGGER
+from ._plot_methods._single_wells_plots._plot_inferred_spike_burst_activity import (
+    _detect_population_bursts,
+    _get_burst_parameters,
+    _get_population_spike_data,
+)
 from ._util import (
     EVK_NON_STIM,
     EVK_STIM,
@@ -31,6 +37,7 @@ SPIKE_SYNCHRONY = "spike_synchrony"
 CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
 AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
 AMP_NON_STIMULATED_PEAKS = "calcium_peaks_amplitudes_non_stimulated"
+BURST_ACTIVITY = "burst_activity"
 CSV_PARAMETERS: dict[str, str] = {
     "calcium_peaks_amplitude": "peaks_amplitudes_dec_dff",
     "calcium_peaks_frequency": "dec_dff_frequency",
@@ -39,6 +46,7 @@ CSV_PARAMETERS: dict[str, str] = {
     "percentage_active": PERCENTAGE_ACTIVE,
     "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
     "spike_synchrony": SPIKE_SYNCHRONY,
+    "burst_activity": BURST_ACTIVITY,
 }
 CSV_PARAMETERS_EVK = {
     "calcium_peaks_amplitudes_stimulated": AMP_STIMULATED_PEAKS,
@@ -50,7 +58,12 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SPIKE_SYNCHRONY, CALCIUM_PEAKS_SYNCHRONY]
+SINGLE_VALUES = [
+    PERCENTAGE_ACTIVE,
+    SPIKE_SYNCHRONY,
+    CALCIUM_PEAKS_SYNCHRONY,
+    BURST_ACTIVITY,
+]
 # fmt: on
 
 
@@ -203,6 +216,12 @@ def _rearrange_by_parameter(
             return _get_calcium_peaks_event_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating peak event synchrony: {e}")
+            return {}
+    if parameter == BURST_ACTIVITY:
+        try:
+            return _get_burst_activity_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating burst activity: {e}")
             return {}
     try:
         return _get_parameter(data, parameter)
@@ -465,6 +484,10 @@ def _export_to_csv_single_values(
         _export_to_csv_percentage_active_n(path, exp_name, data)
         return
 
+    if parameter == BURST_ACTIVITY:
+        _export_to_csv_burst_activity(path, exp_name, data)
+        return
+
     columns = {}
     max_len = 0
     for condition, fovs in sorted(data.items()):
@@ -642,6 +665,104 @@ def _get_calcium_peaks_event_synchrony_parameter(
     return peak_event_synchrony_dict
 
 
+def _get_burst_activity_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by burst activity metrics.
+
+    For each well/condition, calculates 4 burst metrics:
+    - Count: Number of bursts detected
+    - Avg Duration: Average burst duration in seconds
+    - Avg Interval: Average interval between bursts in seconds
+    - Rate: Burst rate (bursts per minute)
+
+    Returns
+    -------
+    dict[str, dict[str, list[Any]]]
+        Dictionary with burst metrics organized by condition and well_fov
+    """
+    burst_activity_dict: dict[str, dict[str, list[Any]]] = {}
+
+    for condition, well_fov_dict in sorted(data.items()):
+        for well_fov, roi_dict in well_fov_dict.items():
+            # Get burst parameters from ROI data
+            burst_params = _get_burst_parameters(roi_dict)
+            if burst_params is None:
+                continue
+
+            burst_threshold, min_burst_duration, smoothing_sigma = burst_params
+
+            # Get spike trains and time axis for population analysis
+            spike_trains, _, time_axis = _get_population_spike_data(roi_dict)
+
+            if spike_trains is None or len(spike_trains) < 2:
+                continue
+
+            # Calculate population activity
+            population_activity = np.mean(spike_trains, axis=0)
+
+            # Smooth population activity for burst detection
+            smoothed_activity = gaussian_filter1d(
+                population_activity, sigma=smoothing_sigma
+            )
+
+            # Detect bursts
+            bursts = _detect_population_bursts(
+                smoothed_activity, burst_threshold / 100, min_burst_duration
+            )
+
+            # Calculate burst statistics
+            burst_count = len(bursts)
+
+            if burst_count == 0:
+                # No bursts detected
+                burst_metrics = {
+                    "Count": 0,
+                    "Avg Duration": 0.0,
+                    "Avg Interval": 0.0,
+                    "Rate": 0.0,
+                }
+            else:
+                # Calculate durations and intervals
+                durations = []
+                intervals = []
+
+                for i, (start, end) in enumerate(bursts):
+                    # Convert indices to time
+                    duration_sec = (end - start) * (time_axis[1] - time_axis[0])
+                    durations.append(duration_sec)
+
+                    # Calculate interval to next burst
+                    if i < len(bursts) - 1:
+                        next_start = bursts[i + 1][0]
+                        interval_sec = (next_start - end) * (
+                            time_axis[1] - time_axis[0]
+                        )
+                        intervals.append(interval_sec)
+
+                # Calculate statistics
+                avg_duration = np.mean(durations) if durations else 0.0
+                avg_interval = np.mean(intervals) if intervals else 0.0
+
+                # Calculate rate (bursts per minute)
+                total_time_min = (time_axis[-1] - time_axis[0]) / 60.0
+                burst_rate = burst_count / total_time_min if total_time_min > 0 else 0.0
+
+                burst_metrics = {
+                    "Count": burst_count,
+                    "Avg Duration": avg_duration,
+                    "Avg Interval": avg_interval,
+                    "Rate": burst_rate,
+                }
+
+            # Store the metrics for this well
+            burst_activity_dict.setdefault(condition, {}).setdefault(
+                well_fov, []
+            ).append(burst_metrics)
+
+    return burst_activity_dict
+
+
 def _get_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]], parameter: str
 ) -> dict[str, dict[str, list[Any]]]:
@@ -695,3 +816,39 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
                     target_power_pulse, []
                 ).extend(values)
     return amps_dict
+
+
+def _export_to_csv_burst_activity(
+    path: Path, exp_name: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export burst activity data to CSV with 4 columns per condition."""
+    combined_columns = {}
+
+    for condition, fovs in sorted(data.items()):
+        counts = []
+        durations = []
+        intervals = []
+        rates = []
+
+        for _, well_data in fovs.items():
+            for metrics in well_data:
+                if isinstance(metrics, dict):
+                    counts.append(metrics.get("Count", 0))
+                    durations.append(metrics.get("Avg Duration", 0.0))
+                    intervals.append(metrics.get("Avg Interval", 0.0))
+                    rates.append(metrics.get("Rate", 0.0))
+
+        # Add 4 columns for each condition
+        combined_columns[f"{condition}_Count"] = counts
+        combined_columns[f"{condition}_Avg_Duration"] = durations
+        combined_columns[f"{condition}_Avg_Interval"] = intervals
+        combined_columns[f"{condition}_Rate"] = rates
+
+    # Export CSV with 4 columns per condition
+    if combined_columns:
+        padded_rows = zip_longest(*combined_columns.values(), fillvalue=float("nan"))
+        df = pd.DataFrame(padded_rows, columns=list(combined_columns.keys()))
+        df = df.round(4)
+
+        csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[BURST_ACTIVITY]}.csv"
+        df.to_csv(csv_path, index=False)

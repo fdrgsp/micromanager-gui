@@ -41,6 +41,7 @@ SAVE_MAP = {
         "test_analysis_inferred_spikes_thresholded_data.csv",
     },
     "grouped": {
+        "test_analysis_burst_activity.csv",
         "test_analysis_calcium_peaks_amplitude.csv",
         "test_analysis_percentage_active.csv",
         "test_analysis_cell_size.csv",
