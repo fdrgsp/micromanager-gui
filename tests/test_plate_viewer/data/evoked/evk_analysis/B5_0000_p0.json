@@ -657,6 +657,7 @@
     "led_power_equation": "y = 11 * x - 6",
     "calcium_sync_jitter_window": 2,
     "spikes_sync_cross_corr_lag": 5,
+    "calcium_network_threshold": 90.0,
     "spikes_burst_threshold": 30.0,
     "spikes_burst_min_duration": 3,
     "spikes_burst_gaussian_sigma": 2.0
@@ -1319,6 +1320,7 @@
     "led_power_equation": "y = 11 * x - 6",
     "calcium_sync_jitter_window": 2,
     "spikes_sync_cross_corr_lag": 5,
+    "calcium_network_threshold": 90.0,
     "spikes_burst_threshold": 30.0,
     "spikes_burst_min_duration": 3,
     "spikes_burst_gaussian_sigma": 2.0
@@ -1981,6 +1983,7 @@
     "led_power_equation": "y = 11 * x - 6",
     "calcium_sync_jitter_window": 2,
     "spikes_sync_cross_corr_lag": 5,
+    "calcium_network_threshold": 90.0,
     "spikes_burst_threshold": 30.0,
     "spikes_burst_min_duration": 3,
     "spikes_burst_gaussian_sigma": 2.0
@@ -2646,6 +2649,7 @@
     "led_power_equation": "y = 11 * x - 6",
     "calcium_sync_jitter_window": 2,
     "spikes_sync_cross_corr_lag": 5,
+    "calcium_network_threshold": 90.0,
     "spikes_burst_threshold": 30.0,
     "spikes_burst_min_duration": 3,
     "spikes_burst_gaussian_sigma": 2.0

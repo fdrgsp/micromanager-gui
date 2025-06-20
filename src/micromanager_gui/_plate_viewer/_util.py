@@ -65,6 +65,7 @@ SPIKE_SYNCHRONY_METHOD = "cross_correlation"
 SPIKES_SYNC_CROSS_CORR_MAX_LAG = "spikes_sync_cross_corr_lag"
 CALCIUM_PEAKS_SYNCHRONY_METHOD = "jitter_window"
 CALCIUM_SYNC_JITTER_WINDOW = "calcium_sync_jitter_window"
+CALCIUM_NETWORK_THRESHOLD = "calcium_network_threshold"
 
 MAX_FRAMES_AFTER_STIMULATION = 5
 DEFAULT_BURST_THRESHOLD = 30.0
@@ -75,6 +76,7 @@ DEFAULT_HEIGHT = 3
 DEFAULT_SPIKE_THRESHOLD = 1
 DEFAULT_SPIKE_SYNCHRONY_MAX_LAG = 5
 DEFAULT_CALCIUM_SYNC_JITTER_WINDOW = 2
+DEFAULT_CALCIUM_NETWORK_THRESHOLD = 90.0
 
 
 @dataclass
@@ -116,6 +118,7 @@ class ROIData(BaseClass):
     led_power_equation: str | None = None  # equation for LED power
     calcium_sync_jitter_window: int | None = None  # in frames
     spikes_sync_cross_corr_lag: int | None = None  # in frames
+    calcium_network_threshold: float | None = None  # percentile (0-100)
     spikes_burst_threshold: float | None = None  # in percent
     spikes_burst_min_duration: int | None = None  # in seconds
     spikes_burst_gaussian_sigma: float | None = None  # in seconds

@@ -15,6 +15,9 @@ from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
 from ._single_wells_plots._plot_calcium_amplitudes_and_frequencies_data import (
     _plot_amplitude_and_frequency_data,
 )
+from ._single_wells_plots._plot_calcium_network_connectivity import (
+    _plot_connectivity_network_data,
+)
 from ._single_wells_plots._plot_calcium_peaks_correlation import (
     _plot_cross_correlation_data,
     _plot_hierarchical_clustering_data,
@@ -87,6 +90,7 @@ INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitu
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
 CALCIUM_PEAKS_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
+CALCIUM_NETWORK_CONNECTIVITY = "Calcium Network Connectivity"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
 CLUSTERING_DENDROGRAM = "Calcium Peaks Hierarchical Clustering (Dendrogram)"
@@ -152,6 +156,7 @@ CELL_SIZE_GROUP: dict[str, dict] = {
 
 CORRELATION_GROUP = {
     CALCIUM_PEAKS_GLOBAL_SYNCHRONY: {},
+    CALCIUM_NETWORK_CONNECTIVITY: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
     CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
@@ -250,6 +255,10 @@ def plot_single_well_data(
         #     return _plot_synchrony_data(widget, data, rois, **CORRELATION_GROUP[text])
         if text == CALCIUM_PEAKS_GLOBAL_SYNCHRONY:
             return _plot_peak_event_synchrony_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text == CALCIUM_NETWORK_CONNECTIVITY:
+            return _plot_connectivity_network_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
         elif text == CROSS_CORRELATION:
