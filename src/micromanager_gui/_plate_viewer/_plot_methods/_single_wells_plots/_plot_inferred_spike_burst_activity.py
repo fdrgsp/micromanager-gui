@@ -293,7 +293,7 @@ def _plot_population_activity(
         Burst detection threshold
     """
     ax.plot(
-        time_axis, raw_activity, "lightgray", alpha=0.7, label="Raw Population Activity"
+        time_axis, raw_activity, "lightgray", label="Raw Population Activity"
     )
     ax.plot(
         time_axis,
