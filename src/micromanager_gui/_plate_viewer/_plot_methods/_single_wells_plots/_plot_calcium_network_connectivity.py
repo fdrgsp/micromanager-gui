@@ -141,7 +141,7 @@ def _plot_connectivity_network_data(
                 if roi_i in image_centroids and roi_j in image_centroids:
                     # Line thickness and alpha based on correlation strength
                     corr_strength = abs(correlation_matrix[orig_i, orig_j])
-                    linewidth = 1 + corr_strength * 1  # Scale from 1 to 4
+                    linewidth = 1 + corr_strength * 2  # Scale from 1 to 4
                     alpha = 0.4 + 0.6 * corr_strength  # Scale from 0.4 to 1.0
 
                     # Color based on correlation sign

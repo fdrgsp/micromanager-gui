@@ -10,6 +10,12 @@ import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 
 from ._logger import LOGGER
+from ._plot_methods._single_wells_plots._plot_calcium_network_connectivity import (
+    _create_connectivity_matrix,
+)
+from ._plot_methods._single_wells_plots._plot_calcium_peaks_correlation import (
+    _calculate_cross_correlation,
+)
 from ._plot_methods._single_wells_plots._plot_inferred_spike_burst_activity import (
     _detect_population_bursts,
     _get_burst_parameters,
@@ -35,6 +41,7 @@ NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
 SPIKE_SYNCHRONY = "spike_synchrony"
 CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
+CALCIUM_NETWORK_DENSITY = "calcium_network_density"
 AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
 AMP_NON_STIMULATED_PEAKS = "calcium_peaks_amplitudes_non_stimulated"
 BURST_ACTIVITY = "burst_activity"
@@ -52,6 +59,7 @@ CSV_PARAMETERS: dict[str, str] = {
     "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
     "spike_synchrony": SPIKE_SYNCHRONY,
     "burst_activity": BURST_ACTIVITY,
+    "calcium_network_density": CALCIUM_NETWORK_DENSITY,
 }
 CSV_PARAMETERS_EVK = {
     "calcium_peaks_amplitudes_stimulated": AMP_STIMULATED_PEAKS,
@@ -67,6 +75,7 @@ SINGLE_VALUES = [
     PERCENTAGE_ACTIVE,
     SPIKE_SYNCHRONY,
     CALCIUM_PEAKS_SYNCHRONY,
+    CALCIUM_NETWORK_DENSITY,
     BURST_ACTIVITY,
 ]
 # fmt: on
@@ -221,6 +230,12 @@ def _rearrange_by_parameter(
             return _get_calcium_peaks_event_synchrony_parameter(data)
         except Exception as e:
             LOGGER.error(f"Error calculating peak event synchrony: {e}")
+            return {}
+    if parameter == CALCIUM_NETWORK_DENSITY:
+        try:
+            return _get_calcium_network_density_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating calcium network density: {e}")
             return {}
     if parameter == BURST_ACTIVITY:
         try:
@@ -575,8 +590,8 @@ def _export_to_csv_mean_values_evk_parameters(
                     sem_val = (
                         np.std(stim_values, ddof=1) / np.sqrt(n_val) if n_val > 1 else 0
                     )
-                    row[f"{cond}{MEAN_SUFFIX}"] = round(mean_val, 5)
-                    row[f"{cond}{SEM_SUFFIX}"] = round(sem_val, 5)
+                    row[f"{cond}{MEAN_SUFFIX}"] = str(round(mean_val, 5))
+                    row[f"{cond}{SEM_SUFFIX}"] = str(round(sem_val, 5))
                     row[f"{cond}{N_SUFFIX}"] = str(n_val)
                 else:
                     row[f"{cond}{MEAN_SUFFIX}"] = ""
@@ -668,6 +683,59 @@ def _get_calcium_peaks_event_synchrony_parameter(
                 ).append(global_peak_event_synchrony)
 
     return peak_event_synchrony_dict
+
+
+def _get_calcium_network_density_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by calcium network density.
+
+    For each well/condition, calculates the network density using the same
+    approach as the network connectivity plot.
+    """
+    network_density_dict: dict[str, dict[str, list[Any]]] = {}
+
+    for condition, key_dict in sorted(data.items()):
+        for well_fov, roi_dict in key_dict.items():
+            # Calculate correlation matrix
+            correlation_matrix, rois_idxs = _calculate_cross_correlation(
+                roi_dict, rois=None
+            )
+
+            if correlation_matrix is None or rois_idxs is None or len(rois_idxs) < 2:
+                continue
+
+            # Get network threshold from first available ROI
+            network_threshold = 90.0  # Default value
+            first_roi_key = str(rois_idxs[0])
+            if (
+                first_roi_key in roi_dict
+                and roi_dict[first_roi_key].calcium_network_threshold is not None
+            ):
+                threshold_value = roi_dict[first_roi_key].calcium_network_threshold
+                if threshold_value is not None:
+                    network_threshold = threshold_value
+
+            # Create connectivity matrix
+            connectivity_matrix = _create_connectivity_matrix(
+                correlation_matrix, network_threshold
+            )
+
+            # Calculate network density as percentage
+            n_nodes = len(rois_idxs)
+            n_edges = np.sum(connectivity_matrix) - n_nodes  # Exclude diagonal
+            total_possible_edges = n_nodes * (n_nodes - 1)
+            if total_possible_edges > 0:
+                # Convert to percentage (0-100%)
+                network_density = (n_edges / total_possible_edges) * 100.0
+            else:
+                network_density = 0.0
+
+            network_density_dict.setdefault(condition, {}).setdefault(
+                well_fov, []
+            ).append(network_density)
+
+    return network_density_dict
 
 
 def _get_burst_activity_parameter(
