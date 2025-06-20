@@ -21,39 +21,6 @@ if TYPE_CHECKING:
     from micromanager_gui._plate_viewer._util import ROIData
 
 
-def _create_connectivity_matrix(
-    correlation_matrix: np.ndarray,
-    threshold_percentile: float = 90.0,
-) -> np.ndarray:
-    """Create binary connectivity matrix from correlation matrix.
-
-    Parameters
-    ----------
-    correlation_matrix : np.ndarray
-        Pairwise correlation matrix
-    threshold_percentile : float
-        Percentile threshold (0-100). Only correlations above this percentile
-        become connections.
-
-    Returns
-    -------
-    np.ndarray
-        Binary connectivity matrix (1 = connected, 0 = not connected)
-    """
-    # Exclude diagonal (self-correlations = 1.0) for threshold calculation
-    off_diagonal_mask = ~np.eye(correlation_matrix.shape[0], dtype=bool)
-    off_diagonal_values = correlation_matrix[off_diagonal_mask]
-
-    if len(off_diagonal_values) == 0:
-        return np.eye(correlation_matrix.shape[0])
-
-    # Calculate threshold
-    threshold = np.percentile(off_diagonal_values, threshold_percentile)
-
-    # Create binary connectivity matrix
-    return (correlation_matrix >= threshold).astype(int)
-
-
 def _plot_connectivity_network_data(
     widget: _SingleWellGraphWidget,
     data: dict[str, ROIData],
@@ -260,111 +227,37 @@ def _plot_connectivity_network_data(
     widget.canvas.draw()
 
 
-def _plot_connectivity_matrix_data(
-    widget: _SingleWellGraphWidget,
-    data: dict[str, ROIData],
-    rois: list[int] | None = None,
-) -> None:
-    """Plot the binary connectivity matrix as a heatmap.
+def _create_connectivity_matrix(
+    correlation_matrix: np.ndarray,
+    threshold_percentile: float = 90.0,
+) -> np.ndarray:
+    """Create binary connectivity matrix from correlation matrix.
 
     Parameters
     ----------
-    widget : _SingleWellGraphWidget
-        Widget to plot on
-    data : dict[str, ROIData]
-        Dictionary of ROI data
-    rois : list[int] | None
-        List of ROI indices to include, None for all active ROIs
+    correlation_matrix : np.ndarray
+        Pairwise correlation matrix
+    threshold_percentile : float
+        Percentile threshold (0-100). Only correlations above this percentile
+        become connections.
+
+    Returns
+    -------
+    np.ndarray
+        Binary connectivity matrix (1 = connected, 0 = not connected)
     """
-    widget.figure.clear()
-    ax = widget.figure.add_subplot(111)
+    # Exclude diagonal (self-correlations = 1.0) for threshold calculation
+    off_diagonal_mask = ~np.eye(correlation_matrix.shape[0], dtype=bool)
+    off_diagonal_values = correlation_matrix[off_diagonal_mask]
 
-    # Calculate correlation matrix
-    correlation_matrix, rois_idxs = _calculate_cross_correlation(data, rois)
+    if len(off_diagonal_values) == 0:
+        return np.eye(correlation_matrix.shape[0])
 
-    if correlation_matrix is None or rois_idxs is None:
-        LOGGER.warning(
-            "Insufficient data for connectivity matrix analysis. "
-            "Ensure at least two ROIs with calcium peaks are selected."
-        )
-        widget.canvas.draw()
-        return
+    # Calculate threshold
+    threshold = np.percentile(off_diagonal_values, threshold_percentile)
 
-    # Get network threshold
-    network_threshold = 90.0  # Default
-    if rois_idxs:
-        first_roi_key = str(rois_idxs[0])
-        if (
-            first_roi_key in data
-            and data[first_roi_key].calcium_network_threshold is not None
-        ):
-            network_threshold = data[first_roi_key].calcium_network_threshold
-
-    # Ensure network_threshold is never None
-    if network_threshold is None:
-        network_threshold = 90.0
-
-    # Create connectivity matrix
-    connectivity_matrix = _create_connectivity_matrix(
-        correlation_matrix, network_threshold
-    )
-
-    # Calculate network statistics
-    n_nodes = len(rois_idxs)
-    n_edges = np.sum(connectivity_matrix) - n_nodes  # Exclude diagonal
-    total_possible_edges = n_nodes * (n_nodes - 1)
-    network_density = n_edges / total_possible_edges if total_possible_edges > 0 else 0
-
-    # Plot connectivity matrix
-    img = ax.imshow(connectivity_matrix, vmin=0, vmax=1)
-
-    # Set labels and title
-    ax.set_title(
-        f"Binary Connectivity Matrix\n"
-        f"Threshold: {network_threshold:.1f}% | "
-        f"Edges: {n_edges // 2} | "  # Divide by 2 since matrix is symmetric
-        f"Density: {network_density:.3f}",
-        fontsize=12,
-    )
-    # Add hover functionality
-    _add_hover_functionality_connectivity_matrix(
-        img, widget, rois_idxs, connectivity_matrix, correlation_matrix
-    )
-
-    widget.figure.tight_layout()
-    widget.canvas.draw()
-
-
-def _add_hover_functionality_connectivity_matrix(
-    image: AxesImage,
-    widget: _SingleWellGraphWidget,
-    rois: list[int],
-    connectivity_matrix: np.ndarray,
-    correlation_matrix: np.ndarray,
-) -> None:
-    """Add hover functionality to connectivity matrix heatmap."""
-    cursor = mplcursors.cursor(image, hover=True)
-
-    @cursor.connect("add")  # type: ignore [misc]
-    def on_add(sel: mplcursors.Selection) -> None:
-        x, y = map(int, np.round(sel.target))
-        if x < len(rois) and y < len(rois):
-            roi_x, roi_y = rois[x], rois[y]
-            is_connected = connectivity_matrix[y, x]
-            correlation = correlation_matrix[y, x]
-
-            status = "Connected" if is_connected else "Not Connected"
-
-            sel.annotation.set(
-                text=(
-                    f"ROI {roi_x} ↔ ROI {roi_y}\n"
-                    f"Status: {status}\n"
-                    f"Correlation: {correlation:.3f}"
-                ),
-                fontsize=8,
-                color="black",
-            )
-            widget.roiSelected.emit([str(roi_x), str(roi_y)])
+    # Create binary connectivity matrix
+    return (correlation_matrix >= threshold).astype(int)
 
 
 def _get_roi_shapes_from_mask_data(
@@ -555,3 +448,117 @@ def _add_hover_functionality(
                 sel.annotation.set_visible(False)
         else:
             sel.annotation.set_visible(False)
+
+
+
+def _plot_connectivity_matrix_data(
+    widget: _SingleWellGraphWidget,
+    data: dict[str, ROIData],
+    rois: list[int] | None = None,
+) -> None:
+    """Plot the binary connectivity matrix as a heatmap.
+
+    Parameters
+    ----------
+    widget : _SingleWellGraphWidget
+        Widget to plot on
+    data : dict[str, ROIData]
+        Dictionary of ROI data
+    rois : list[int] | None
+        List of ROI indices to include, None for all active ROIs
+    """
+    widget.figure.clear()
+    ax = widget.figure.add_subplot(111)
+
+    # Calculate correlation matrix
+    correlation_matrix, rois_idxs = _calculate_cross_correlation(data, rois)
+
+    if correlation_matrix is None or rois_idxs is None:
+        LOGGER.warning(
+            "Insufficient data for connectivity matrix analysis. "
+            "Ensure at least two ROIs with calcium peaks are selected."
+        )
+        widget.canvas.draw()
+        return
+
+    # Get network threshold
+    network_threshold = 90.0  # Default
+    if rois_idxs:
+        first_roi_key = str(rois_idxs[0])
+        if (
+            first_roi_key in data
+            and data[first_roi_key].calcium_network_threshold is not None
+        ):
+            network_threshold = data[first_roi_key].calcium_network_threshold
+
+    # Ensure network_threshold is never None
+    if network_threshold is None:
+        network_threshold = 90.0
+
+    # Create connectivity matrix
+    connectivity_matrix = _create_connectivity_matrix(
+        correlation_matrix, network_threshold
+    )
+
+    # Calculate network statistics
+    n_nodes = len(rois_idxs)
+    n_edges = np.sum(connectivity_matrix) - n_nodes  # Exclude diagonal
+    total_possible_edges = n_nodes * (n_nodes - 1)
+    network_density = n_edges / total_possible_edges if total_possible_edges > 0 else 0
+
+    # Plot connectivity matrix
+    img = ax.imshow(connectivity_matrix, vmin=0, vmax=1)
+
+    # Set labels and title
+    ax.set_title(
+        f"Binary Connectivity Matrix\n"
+        f"Threshold: {network_threshold:.1f}% | "
+        f"Edges: {n_edges // 2} | "  # Divide by 2 since matrix is symmetric
+        f"Density: {network_density:.3f}",
+        fontsize=12,
+    )
+    ax.axis("off")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    # Add hover functionality
+    _add_hover_functionality_connectivity_matrix(
+        img, widget, rois_idxs, connectivity_matrix, correlation_matrix
+    )
+
+    widget.figure.tight_layout()
+    widget.canvas.draw()
+
+
+def _add_hover_functionality_connectivity_matrix(
+    image: AxesImage,
+    widget: _SingleWellGraphWidget,
+    rois: list[int],
+    connectivity_matrix: np.ndarray,
+    correlation_matrix: np.ndarray,
+) -> None:
+    """Add hover functionality to connectivity matrix heatmap."""
+    cursor = mplcursors.cursor(image, hover=True)
+
+    @cursor.connect("add")  # type: ignore [misc]
+    def on_add(sel: mplcursors.Selection) -> None:
+        x, y = map(int, np.round(sel.target))
+        if x < len(rois) and y < len(rois):
+            roi_x, roi_y = rois[x], rois[y]
+            is_connected = connectivity_matrix[y, x]
+            correlation = correlation_matrix[y, x]
+
+            status = "Connected" if is_connected else "Not Connected"
+
+            sel.annotation.set(
+                text=(
+                    f"ROI {roi_x} ↔ ROI {roi_y}\n"
+                    f"Status: {status}\n"
+                    f"Correlation: {correlation:.3f}"
+                ),
+                fontsize=8,
+                color="black",
+            )
+            widget.roiSelected.emit([str(roi_x), str(roi_y)])
