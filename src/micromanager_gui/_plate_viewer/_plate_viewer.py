@@ -24,6 +24,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QMainWindow,
     QMenuBar,
+    QScrollArea,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -180,6 +181,21 @@ class PlateViewer(QMainWindow):
         self._analysis_tab = QWidget()
         self._tab.addTab(self._analysis_tab, "Analysis Tab")
 
+        # Create a scroll area for the analysis tab
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # Create a widget to hold the analysis content
+        analysis_content_widget = QWidget()
+        scroll_area.setWidget(analysis_content_widget)
+
+        # Set up the main layout for the analysis tab
+        analysis_tab_layout = QVBoxLayout(self._analysis_tab)
+        analysis_tab_layout.setContentsMargins(0, 0, 0, 0)
+        analysis_tab_layout.addWidget(scroll_area)
+
         self._segmentation_wdg = _CellposeSegmentation(self)
         self._segmentation_wdg.segmentationFinished.connect(
             self._on_fov_table_selection_changed
@@ -187,7 +203,8 @@ class PlateViewer(QMainWindow):
 
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
-        analysis_layout = QVBoxLayout(self._analysis_tab)
+        # Layout for the scrollable content
+        analysis_layout = QVBoxLayout(analysis_content_widget)
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._segmentation_wdg)
