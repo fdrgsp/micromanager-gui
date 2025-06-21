@@ -65,6 +65,7 @@ SPIKE_SYNCHRONY_METHOD = "cross_correlation"
 SPIKES_SYNC_CROSS_CORR_MAX_LAG = "spikes_sync_cross_corr_lag"
 CALCIUM_PEAKS_SYNCHRONY_METHOD = "jitter_window"
 CALCIUM_SYNC_JITTER_WINDOW = "calcium_sync_jitter_window"
+CALCIUM_NETWORK_THRESHOLD = "calcium_network_threshold"
 
 MAX_FRAMES_AFTER_STIMULATION = 5
 DEFAULT_BURST_THRESHOLD = 30.0
@@ -75,6 +76,7 @@ DEFAULT_HEIGHT = 3
 DEFAULT_SPIKE_THRESHOLD = 1
 DEFAULT_SPIKE_SYNCHRONY_MAX_LAG = 5
 DEFAULT_CALCIUM_SYNC_JITTER_WINDOW = 2
+DEFAULT_CALCIUM_NETWORK_THRESHOLD = 90.0
 
 
 @dataclass
@@ -86,6 +88,7 @@ class BaseClass:
         return replace(self, **kwargs)
 
 
+# fmt: off
 @dataclass
 class ROIData(BaseClass):
     """NamedTuple to store ROI data."""
@@ -116,11 +119,13 @@ class ROIData(BaseClass):
     led_power_equation: str | None = None  # equation for LED power
     calcium_sync_jitter_window: int | None = None  # in frames
     spikes_sync_cross_corr_lag: int | None = None  # in frames
+    calcium_network_threshold: float | None = None  # percentile (0-100)
     spikes_burst_threshold: float | None = None  # in percent
     spikes_burst_min_duration: int | None = None  # in seconds
     spikes_burst_gaussian_sigma: float | None = None  # in seconds
-
-    # ... add whatever other data we need
+    # store ROI mask as coordinates (y_coords, x_coords) and shape (height, width)
+    mask_coord_and_shape: tuple[tuple[list[int], list[int]], tuple[int, int]] | None = None  # noqa: E501
+# fmt: on
 
 
 def show_error_dialog(parent: QWidget, message: str) -> None:
@@ -1049,3 +1054,41 @@ def _create_line() -> QFrame:
     result.setFrameShape(QFrame.Shape.HLine)
     result.setFrameShadow(QFrame.Shadow.Plain)
     return result
+
+
+def mask_to_coordinates(
+    mask: np.ndarray,
+) -> tuple[tuple[list[int], list[int]], tuple[int, int]]:
+    """Convert a 2D boolean mask to sparse coordinates.
+
+    Args:
+        mask: 2D boolean numpy array
+
+    Returns
+    -------
+        Tuple of ((y_coords, x_coords), (height, width))
+    """
+    y_coords, x_coords = np.where(mask)
+    y_coords_list: list[int] = [int(y) for y in y_coords]
+    x_coords_list: list[int] = [int(x) for x in x_coords]
+    return ((y_coords_list, x_coords_list), (mask.shape[0], mask.shape[1]))
+
+
+def coordinates_to_mask(
+    coordinates: tuple[list[int], list[int]],
+    shape: tuple[int, int],
+) -> np.ndarray:
+    """Convert sparse coordinates back to a 2D boolean mask.
+
+    Args:
+        coordinates: Tuple of (y_coords, x_coords) lists
+        shape: Tuple of (height, width)
+
+    Returns
+    -------
+        2D boolean numpy array
+    """
+    mask = np.zeros(shape, dtype=bool)
+    y_coords, x_coords = coordinates
+    mask[y_coords, x_coords] = True
+    return mask

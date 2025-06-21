@@ -97,10 +97,15 @@ def _generate_raster_plot(
 
     # add the colorbar if amplitude colors are used
     if amplitude_colors and colorbar:
+        # Ensure valid normalization range for colorbar
+        vmax = max_amp * 0.5
+        if vmax <= min_amp:
+            vmax = max_amp
+        if vmax <= min_amp:
+            vmax = min_amp + 0.1
+
         cbar = widget.figure.colorbar(
-            cm.ScalarMappable(
-                norm=Normalize(vmin=min_amp, vmax=max_amp * 0.5), cmap="viridis"
-            ),
+            cm.ScalarMappable(norm=Normalize(vmin=min_amp, vmax=vmax), cmap="viridis"),
             ax=ax,
         )
         cbar.set_label("Amplitude")
@@ -118,7 +123,17 @@ def _generate_amplitude_colors(
     colors: list,
 ) -> None:
     """Assign colors based on amplitude for raster plot."""
-    norm_amp_color = Normalize(vmin=min_amp, vmax=max_amp * 0.5)
+    # Ensure valid normalization range
+    vmax = max_amp * 0.5
+    if vmax <= min_amp:
+        # If max_amp * 0.5 is not greater than min_amp, use full range
+        vmax = max_amp
+    # Ensure minimum range for color mapping
+    if vmax <= min_amp:
+        # If still equal, add small offset to create range
+        vmax = min_amp + 0.1
+
+    norm_amp_color = Normalize(vmin=min_amp, vmax=vmax)
     cmap = colormaps.get_cmap("viridis")
     for roi in rois or data.keys():
         roi_data = data[str(roi)]

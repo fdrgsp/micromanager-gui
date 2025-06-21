@@ -38,6 +38,7 @@ SAVE_MAP = {
     },
     "grouped": {
         "test_analysis_burst_activity.csv",
+        "test_analysis_calcium_network_density.csv",
         "test_analysis_calcium_peaks_amplitude.csv",
         "test_analysis_percentage_active.csv",
         "test_analysis_cell_size.csv",
@@ -55,25 +56,29 @@ SAVE_MAP = {
 
 def _round_numeric_values(value, reference_value):
     """Helper function to round numeric values for comparison."""
+
+    def _round_recursive(obj):
+        """Recursively round numeric values in nested structures."""
+        if isinstance(obj, (int, float)):
+            return round(obj, 2)
+        elif isinstance(obj, list):
+            return [_round_recursive(item) for item in obj]
+        elif isinstance(obj, tuple):
+            return tuple(_round_recursive(item) for item in obj)
+        elif isinstance(obj, dict):
+            return {k: _round_recursive(v) for k, v in obj.items()}
+        else:
+            # Return non-numeric values as-is
+            return obj
+
     if isinstance(value, list):
-        return [round(v, 2) for v in value], [round(v, 2) for v in reference_value]
+        return _round_recursive(value), _round_recursive(reference_value)
     elif isinstance(value, float):
         return round(value, 2), round(reference_value, 2)
     elif isinstance(value, dict):
-        if not value or not isinstance(next(iter(value.values())), list):
-            # Dict with scalar values
-            return (
-                {k: round(v, 2) for k, v in value.items()},
-                {k: round(v, 2) for k, v in reference_value.items()},
-            )
-        # Dict with list values
-        rounded_value = {
-            k: [round(v, 2) for v in v_list] for k, v_list in value.items()
-        }
-        rounded_ref = {
-            k: [round(v, 2) for v in v_list] for k, v_list in reference_value.items()
-        }
-        return rounded_value, rounded_ref
+        return _round_recursive(value), _round_recursive(reference_value)
+    elif isinstance(value, tuple):
+        return _round_recursive(value), _round_recursive(reference_value)
     else:
         return value, reference_value
 

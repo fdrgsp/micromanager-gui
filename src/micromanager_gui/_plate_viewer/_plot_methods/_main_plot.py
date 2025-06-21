@@ -15,6 +15,10 @@ from ._single_wells_plots._plolt_evoked_experiment_data_plots import (
 from ._single_wells_plots._plot_calcium_amplitudes_and_frequencies_data import (
     _plot_amplitude_and_frequency_data,
 )
+from ._single_wells_plots._plot_calcium_network_connectivity import (
+    _plot_connectivity_matrix_data,
+    _plot_connectivity_network_data,
+)
 from ._single_wells_plots._plot_calcium_peaks_correlation import (
     _plot_cross_correlation_data,
     _plot_hierarchical_clustering_data,
@@ -87,6 +91,8 @@ INFERRED_SPIKE_RASTER_PLOT_AMP = "Inferred Spikes Raster plot Colored by Amplitu
 INFERRED_SPIKE_RASTER_PLOT_AMP_WITH_COLORBAR = "Inferred Spikes Raster plot Colored by Amplitude with Colorbar"  # noqa: E501
 STIMULATED_VS_NON_STIMULATED_SPIKE_TRACES = "Stimulated vs Non-Stimulated Spike Traces"
 CALCIUM_PEAKS_GLOBAL_SYNCHRONY = "Calcium Peaks Global Synchrony"
+CALCIUM_NETWORK_CONNECTIVITY = "Calcium Network Connectivity"
+CALCIUM_CONNECTIVITY_MATRIX = "Calcium Network Connectivity Matrix"
 CROSS_CORRELATION = "Calcium Peaks Cross-Correlation"
 CLUSTERING = "Calcium Peaks Hierarchical Clustering"
 CLUSTERING_DENDROGRAM = "Calcium Peaks Hierarchical Clustering (Dendrogram)"
@@ -152,6 +158,8 @@ CELL_SIZE_GROUP: dict[str, dict] = {
 
 CORRELATION_GROUP = {
     CALCIUM_PEAKS_GLOBAL_SYNCHRONY: {},
+    CALCIUM_NETWORK_CONNECTIVITY: {},
+    CALCIUM_CONNECTIVITY_MATRIX: {},
     CROSS_CORRELATION: {},
     CLUSTERING: {},
     CLUSTERING_DENDROGRAM: {"use_dendrogram": True},
@@ -252,6 +260,14 @@ def plot_single_well_data(
             return _plot_peak_event_synchrony_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
             )
+        elif text == CALCIUM_NETWORK_CONNECTIVITY:
+            return _plot_connectivity_network_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
+        elif text == CALCIUM_CONNECTIVITY_MATRIX:
+            return _plot_connectivity_matrix_data(
+                widget, data, rois, **CORRELATION_GROUP[text]
+            )
         elif text == CROSS_CORRELATION:
             return _plot_cross_correlation_data(
                 widget, data, rois, **CORRELATION_GROUP[text]
@@ -315,6 +331,7 @@ CSV_BAR_PLOT_CELL_SIZE = "Cell Size Bar Plot"
 CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY = "Calcium Peaks Events Global Synchrony Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY = "Inferred Spikes Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
+CSV_BAR_PLOT_CALCIUM_NETWORK_DENSITY = "Calcium Network Density Bar Plot"
 CSV_BAR_PLOT_CALCIUM_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_CALCIUM_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 
@@ -326,6 +343,7 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
     CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY: {"parameter": "Inferred Spikes Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Data)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_CALCIUM_NETWORK_DENSITY: {"parameter": "Calcium Network Density",  "suffix": "calcium_network_density",  "add_to_title": "(Percentile-Based Threshold)",  "units": "%"},  # noqa: E501
 }
 
 MW_EVOKED_GROUP = {
@@ -407,7 +425,12 @@ def _plot_csv_bar_plot_data(
     }
 
     # Special handling for certain plot types that don't use mean_n_sem
-    synchrony_suffixes = ["synchrony", "spike_synchrony", "peak_event_synchrony"]
+    synchrony_suffixes = [
+        "synchrony",
+        "spike_synchrony",
+        "peak_event_synchrony",
+        "calcium_network_density",
+    ]
     if any(sync_suffix in suffix for sync_suffix in synchrony_suffixes):
         return plot_csv_bar_plot(
             widget,

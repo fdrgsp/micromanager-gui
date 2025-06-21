@@ -45,12 +45,14 @@ from ._util import (
     BURST_GAUSSIAN_SIGMA,
     BURST_MIN_DURATION,
     BURST_THRESHOLD,
+    CALCIUM_NETWORK_THRESHOLD,
     CALCIUM_SYNC_JITTER_WINDOW,
     COND1,
     COND2,
     DECAY_CONSTANT,
     DEFAULT_BURST_GAUSS_SIGMA,
     DEFAULT_BURST_THRESHOLD,
+    DEFAULT_CALCIUM_NETWORK_THRESHOLD,
     DEFAULT_CALCIUM_SYNC_JITTER_WINDOW,
     DEFAULT_DFF_WINDOW,
     DEFAULT_HEIGHT,
@@ -83,6 +85,7 @@ from ._util import (
     equation_from_str,
     get_iei,
     get_overlap_roi_with_stimulated_area,
+    mask_to_coordinates,
     parse_lineedit_text,
     show_error_dialog,
 )
@@ -591,6 +594,36 @@ class _AnalyseCalciumTraces(QWidget):
         calcium_synchrony_layout.addWidget(calcium_jitter_window_lbl)
         calcium_synchrony_layout.addWidget(self._calcium_synchrony_jitter_spin)
 
+        # CALCIUM NETWORK CONNECTIVITY THRESHOLD ----------------------------------
+        self._calcium_network_wdg = QWidget(self)
+        self._calcium_network_wdg.setToolTip(
+            "Network Connectivity Threshold (Percentile)\n\n"
+            "Controls which correlation values become network connections.\n"
+            "Uses PERCENTILE-based thresholding, not absolute correlation values.\n\n"
+            "How it works:\n"
+            "• Calculates percentile of ALL pairwise correlations\n"
+            "• Only correlations above this percentile become connections\n"
+            "• 90th percentile = top 10% of correlations become edges\n"
+            "• 95th percentile = top 5% (more conservative)\n"
+            "• 80th percentile = top 20% (more liberal)\n\n"
+            "Important: A 0.95 correlation may show as 'not connected'\n"
+            "if most correlations in your data are higher (e.g., 0.96-0.99).\n"
+            "This ensures only the STRONGEST connections are shown\n"
+            "relative to your specific dataset."
+        )
+        calcium_network_lbl = QLabel("Network Threshold (%):")
+        calcium_network_lbl.setSizePolicy(*FIXED)
+        self._calcium_network_threshold_spin = QDoubleSpinBox(self)
+        self._calcium_network_threshold_spin.setRange(1.0, 100.0)
+        self._calcium_network_threshold_spin.setSingleStep(5.0)
+        self._calcium_network_threshold_spin.setDecimals(1)
+        self._calcium_network_threshold_spin.setValue(DEFAULT_CALCIUM_NETWORK_THRESHOLD)
+        calcium_network_layout = QHBoxLayout(self._calcium_network_wdg)
+        calcium_network_layout.setContentsMargins(0, 0, 0, 0)
+        calcium_network_layout.setSpacing(5)
+        calcium_network_layout.addWidget(calcium_network_lbl)
+        calcium_network_layout.addWidget(self._calcium_network_threshold_spin)
+
         # SPIKES SETTINGS ----------------------------------------------------------
         self._spike_threshold_wdg = _SpikeThresholdWidget(self)
 
@@ -680,6 +713,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._burst_wdg._burst_blur_label.setFixedWidth(fixed_width)
         spikes_sync_cross_corr_lag.setFixedWidth(fixed_width)
         calcium_jitter_window_lbl.setFixedWidth(fixed_width)
+        calcium_network_lbl.setFixedWidth(fixed_width)
 
         # LAYOUT -------------------------------------------------------------------
         progress_wdg = QWidget(self)
@@ -697,35 +731,25 @@ class _AnalyseCalciumTraces(QWidget):
         wdg_layout.setSpacing(5)
         wdg_layout.addWidget(create_divider_line("Set the Plate Map"))
         wdg_layout.addWidget(self._plate_map_wdg)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line("Type of Experiment"))
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._experiment_type_wdg)
         wdg_layout.addWidget(self._led_power_wdg)
         wdg_layout.addWidget(self._stimulation_area_path)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line("ΔF/F0 and Deconvolution"))
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._dff_wdg)
         wdg_layout.addWidget(self._dec_wdg)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line("Calcium Peaks"))
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._peaks_prominence_wdg)
         wdg_layout.addWidget(self._peaks_distance_wdg)
         wdg_layout.addWidget(self._peaks_height_wdg)
         wdg_layout.addWidget(self._calcium_synchrony_wdg)
-        wdg_layout.addSpacing(3)
+        wdg_layout.addWidget(self._calcium_network_wdg)
         wdg_layout.addWidget(create_divider_line("Spikes and Bursts"))
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._spike_threshold_wdg)
         wdg_layout.addWidget(self._spike_synchrony_wdg)
         wdg_layout.addWidget(self._burst_wdg)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(create_divider_line("Positions to Analyze"))
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(self._pos_wdg)
-        wdg_layout.addSpacing(3)
         wdg_layout.addWidget(progress_wdg)
 
         main_layout = QVBoxLayout(self)
@@ -902,6 +926,11 @@ class _AnalyseCalciumTraces(QWidget):
             ),
         )
         self._calcium_synchrony_jitter_spin.setValue(calcium_jitter)
+        calcium_network_threshold = cast(
+            float,
+            settings.get(CALCIUM_NETWORK_THRESHOLD, DEFAULT_CALCIUM_NETWORK_THRESHOLD),
+        )
+        self._calcium_network_threshold_spin.setValue(calcium_network_threshold)
 
     # PRIVATE METHODS --------------------------------------------------------------
 
@@ -1397,7 +1426,11 @@ class _AnalyseCalciumTraces(QWidget):
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
 
+        # burst detection parameters
         burst_the, burst_min_dur, burst_gauss_sigma = self._burst_wdg.value().values()
+
+        # get mask coords and shape for the ROI
+        mask_coords, mask_shape = mask_to_coordinates(label_mask)
 
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
@@ -1426,9 +1459,11 @@ class _AnalyseCalciumTraces(QWidget):
             led_power_equation=self._led_power_equation_le.text(),
             calcium_sync_jitter_window=self._calcium_synchrony_jitter_spin.value(),
             spikes_sync_cross_corr_lag=self._spikes_sync_cross_corr_max_lag.value(),
+            calcium_network_threshold=self._calcium_network_threshold_spin.value(),
             spikes_burst_threshold=cast(float, burst_the),
             spikes_burst_min_duration=cast(int, burst_min_dur),
             spikes_burst_gaussian_sigma=cast(float, burst_gauss_sigma),
+            mask_coord_and_shape=(mask_coords, mask_shape),
         )
 
     def _get_conditions(self, pos_name: str) -> tuple[str | None, str | None]:
@@ -1527,6 +1562,7 @@ class _AnalyseCalciumTraces(QWidget):
         self._peaks_prominence_wdg.setEnabled(enable)
         self._spike_synchrony_wdg.setEnabled(enable)
         self._calcium_synchrony_wdg.setEnabled(enable)
+        self._calcium_network_wdg.setEnabled(enable)
         self._burst_wdg.setEnabled(enable)
         self._pos_wdg.setEnabled(enable)
         self._run_btn.setEnabled(enable)
@@ -1601,6 +1637,9 @@ class _AnalyseCalciumTraces(QWidget):
             )
             settings[CALCIUM_SYNC_JITTER_WINDOW] = (
                 self._calcium_synchrony_jitter_spin.value()
+            )
+            settings[CALCIUM_NETWORK_THRESHOLD] = (
+                self._calcium_network_threshold_spin.value()
             )
 
             # Write back the complete settings
