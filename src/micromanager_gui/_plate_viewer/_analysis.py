@@ -614,7 +614,7 @@ class _AnalyseCalciumTraces(QWidget):
         calcium_network_lbl = QLabel("Network Threshold (%):")
         calcium_network_lbl.setSizePolicy(*FIXED)
         self._calcium_network_threshold_spin = QDoubleSpinBox(self)
-        self._calcium_network_threshold_spin.setRange(50.0, 99.9)
+        self._calcium_network_threshold_spin.setRange(1.0, 100.0)
         self._calcium_network_threshold_spin.setSingleStep(5.0)
         self._calcium_network_threshold_spin.setDecimals(1)
         self._calcium_network_threshold_spin.setValue(DEFAULT_CALCIUM_NETWORK_THRESHOLD)
