@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_amplitudes_and_frequencies_data import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_amplitudes_and_frequencies_data import (  # noqa: E501
     _plot_amplitude_and_frequency_data,
 )
 from micromanager_gui._plate_viewer._util import ROIData

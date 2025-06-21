@@ -9,7 +9,10 @@ import pytest
 from micromanager_gui import PlateViewer
 from micromanager_gui._plate_viewer._analysis import EVOKED
 from micromanager_gui._plate_viewer._plate_map import PlateMapData
-from micromanager_gui._plate_viewer._to_csv import save_to_csv
+from micromanager_gui._plate_viewer._to_csv import (
+    save_analysis_data_to_csv,
+    save_trace_data_to_csv,
+)
 from micromanager_gui._plate_viewer._util import ROIData
 
 if TYPE_CHECKING:
@@ -29,18 +32,23 @@ SAVE_MAP = {
     "raw_data": {"test_analysis_raw_data.csv"},
     "dff_data": {"test_analysis_dff_data.csv"},
     "dec_dff_data": {"test_analysis_dec_dff_data.csv"},
-    "inferred_spikes_data": {"test_analysis_inferred_spikes_data.csv"},
+    "inferred_spikes_data": {
+        "test_analysis_inferred_spikes_raw_data.csv",
+        "test_analysis_inferred_spikes_thresholded_data.csv",
+    },
     "grouped": {
-        "test_analysis_amplitude.csv",
+        "test_analysis_burst_activity.csv",
+        "test_analysis_calcium_peaks_amplitude.csv",
         "test_analysis_percentage_active.csv",
         "test_analysis_cell_size.csv",
-        "test_analysis_iei.csv",
-        "test_analysis_frequency.csv",
-        "test_analysis_synchrony.csv",
+        "test_analysis_calcium_peaks_iei.csv",
+        "test_analysis_calcium_peaks_frequency.csv",
+        "test_analysis_calcium_peaks_synchrony.csv",
+        "test_analysis_spike_synchrony.csv",
     },
     "grouped_evk": {
-        "test_analysis_amplitudes_stimulated_peaks.csv",
-        "test_analysis_amplitudes_non_stimulated_peaks.csv",
+        "test_analysis_calcium_peaks_amplitudes_stimulated.csv",
+        "test_analysis_calcium_peaks_amplitudes_non_stimulated.csv",
     },
 }
 
@@ -106,7 +114,8 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
     pv._analysis_wdg._extract_trace_data_per_position(0)
 
     # trigger save to csv
-    save_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_trace_data_to_csv(tmp_analysis_path, pv._analysis_data)
+    save_analysis_data_to_csv(tmp_analysis_path, pv._analysis_data)
 
     # assert that the analysis path is created and contains the expected files
     files = [f.name for f in tmp_analysis_path.iterdir() if f.is_file()]
@@ -118,6 +127,19 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         "stimulation_mask.tif",
         "settings.json",
     }, f"Expected files not found. Found: {set(files)}"
+
+    # compare settings.json with the reference file
+    settings_file = tmp_analysis_path / "settings.json"
+    with open(settings_file) as file:
+        settings_data = cast(dict, json.load(file))
+    reference_settings_file = (
+        Path(__file__).parent / "data" / "evoked" / "evk_analysis" / "settings.json"
+    )
+    with open(reference_settings_file) as file1:
+        reference_settings_data = cast(dict, json.load(file1))
+    assert (
+        settings_data == reference_settings_data
+    ), f"Settings data mismatch: {settings_data} != {reference_settings_data}"
 
     # assert that the subfolders are created and contain the expected files
     subfolders = [f.name for f in tmp_analysis_path.iterdir() if f.is_dir()]
@@ -155,6 +177,15 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
         # loop through the ROIData attributes and compare them
         for attr, value in roi_data.__dict__.items():
             reference_value = roi_data1.__dict__[attr]
+
+            # Special handling for led_pulse_duration - convert both to strings
+            if attr == "led_pulse_duration":
+                value_str = str(value) if value is not None else None
+                ref_str = str(reference_value) if reference_value is not None else None
+                assert (
+                    value_str == ref_str
+                ), f"ROI {roi_id} mismatch in {attr}: {value_str} != {ref_str}"
+                continue
 
             # Round numeric values for comparison
             value_rounded, ref_rounded = _round_numeric_values(value, reference_value)

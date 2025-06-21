@@ -4,13 +4,15 @@ import itertools
 from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import mplcursors
 import numpy as np
 from scipy.cluster.hierarchy import dendrogram, leaves_list, linkage
 from scipy.signal import correlate
 from scipy.spatial.distance import squareform
 from scipy.stats import zscore
+
+from micromanager_gui._plate_viewer._logger._pv_logger import LOGGER
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -39,6 +41,10 @@ def _calculate_cross_correlation(
         traces.append(roi_data.dec_dff)
 
     if len(rois_idxs) <= 1:
+        LOGGER.warning(
+            "Not enough active ROIs to calculate cross-correlation. "
+            "At least two active ROIs are required."
+        )
         return None, None
 
     traces_array = np.array(traces)  # shape (n_rois, n_frames)
@@ -69,7 +75,7 @@ def _plot_cross_correlation_data(
     if correlation_matrix is None or rois_idxs is None:
         return
 
-    ax.set_title("Pairwise Cross-Correlation Matrix")
+    ax.set_title("Pairwise Cross-Correlation Matrix\n(Calcium Peaks Events)")
     ax.set_xlabel("ROI")
     ax.set_xticks([])
     ax.set_xticklabels([])
@@ -77,10 +83,8 @@ def _plot_cross_correlation_data(
     ax.set_yticks([])
     ax.set_yticklabels([])
 
-    ax.set_box_aspect(1)
-
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
+        cm.ScalarMappable(cmap="viridis", norm=mcolors.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Cross-Correlation Index")
@@ -146,7 +150,10 @@ def _plot_hierarchical_clustering_dendrogram(
     rois_idxs: list[int],
 ) -> None:
     """Plot the hierarchical clustering dendrogram."""
-    ax.set_title("Pairwise Cross-Correlation (Hierarchical Clustering Dendrogram)")
+    ax.set_title(
+        "Pairwise Cross-Correlation - Hierarchical Clustering Dendrogram\n"
+        "(Calcium Peaks Events)"
+    )
     ax.set_ylabel("Distance")
     correlation_matrix = np.round(correlation_matrix, decimals=8)
     dist_condensed = squareform(1 - np.abs(correlation_matrix))
@@ -166,7 +173,10 @@ def _plot_hierarchical_clustering_map(
     dist_condensed = squareform(1 - np.abs(correlation_matrix))
     order = leaves_list(linkage(dist_condensed, method="complete"))
     reordered_matrix = correlation_matrix[order][:, order]
-    ax.set_title("Pairwise Cross-Correlation (Hierarchical Clustering Map)")
+    ax.set_title(
+        "Pairwise Cross-Correlation - Hierarchical Clustering Map\n"
+        "(Calcium Peaks Events)"
+    )
     ax.set_ylabel("ROI")
     ax.set_yticklabels([])
     ax.set_yticks([])
@@ -175,7 +185,7 @@ def _plot_hierarchical_clustering_map(
     image = ax.imshow(reordered_matrix, cmap="viridis")
 
     cbar = widget.figure.colorbar(
-        cm.ScalarMappable(cmap=cm.viridis, norm=plt.Normalize(vmin=0, vmax=1)),
+        cm.ScalarMappable(cmap="viridis", norm=mcolors.Normalize(vmin=0, vmax=1)),
         ax=ax,
     )
     cbar.set_label("Cross-Correlation Index")

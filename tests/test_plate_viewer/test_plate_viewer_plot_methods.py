@@ -21,6 +21,7 @@ from micromanager_gui._plate_viewer._plot_methods import (
 )
 from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     AMPLITUDE_AND_FREQUENCY_GROUP,
+    CALCIUM_TRACES_GROUP,
     CSV_BAR_PLOT_AMPLITUDE,
     CSV_BAR_PLOT_FREQUENCY,
     DEC_DFF,
@@ -30,6 +31,7 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     DEC_DFF_NORMALIZED_ACTIVE_ONLY,
     DEC_DFF_WITH_PEAKS,
     DFF,
+    INFERRED_SPIKES_NORMALIZED_WITH_BURSTS,
     MULTI_WELL_COMBO_OPTIONS_DICT,
     MW_EVOKED_GROUP,
     MW_GENERAL_GROUP,
@@ -37,7 +39,6 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     RASTER_PLOT,
     RAW_TRACES,
     SINGLE_WELL_COMBO_OPTIONS_DICT,
-    TRACES_GROUP,
 )
 from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_plot import (  # noqa: E501
     plot_csv_bar_plot,
@@ -61,6 +62,7 @@ SAMPLE_ROI_DATA = {
         raw_trace=[100.0, 105.0, 110.0, 115.0, 120.0] * 20,
         dff=[0.0, 0.05, 0.10, 0.15, 0.20] * 20,
         dec_dff=[0.0, 0.04, 0.08, 0.12, 0.16] * 20,
+        inferred_spikes=[0.0, 0.2, 0.0, 0.8, 0.3] * 20,
         peaks_dec_dff=[10, 30, 50, 70, 90],
         peaks_amplitudes_dec_dff=[0.08, 0.12, 0.09, 0.11, 0.10],
         dec_dff_frequency=0.5,
@@ -68,8 +70,6 @@ SAMPLE_ROI_DATA = {
         cell_size=150.5,
         evoked_experiment=False,
         stimulated=False,
-        amplitudes_stimulated_peaks={"stim1": [0.15, 0.25, 0.20]},
-        amplitudes_non_stimulated_peaks={"stim1": [0.02, 0.04, 0.03]},
         active=True,
     ),
     "2": ROIData(
@@ -77,6 +77,7 @@ SAMPLE_ROI_DATA = {
         raw_trace=[95.0, 100.0, 105.0, 110.0, 115.0] * 20,
         dff=[0.0, 0.053, 0.105, 0.158, 0.211] * 20,
         dec_dff=[0.0, 0.042, 0.084, 0.126, 0.168] * 20,
+        inferred_spikes=[0.0, 0.1, 0.0, 0.6, 0.2] * 20,
         peaks_dec_dff=[15, 35, 55, 75, 95],
         peaks_amplitudes_dec_dff=[0.07, 0.11, 0.08, 0.10, 0.09],
         dec_dff_frequency=0.4,
@@ -84,8 +85,6 @@ SAMPLE_ROI_DATA = {
         cell_size=140.2,
         evoked_experiment=False,
         stimulated=False,
-        amplitudes_stimulated_peaks={"stim1": [0.12, 0.22, 0.18]},
-        amplitudes_non_stimulated_peaks={"stim1": [0.015, 0.030, 0.025]},
         active=True,
     ),
 }
@@ -103,6 +102,19 @@ class TestSingleWellPlotMethods:
         widget.figure.add_subplot = Mock()
         widget.canvas = Mock()
         widget.canvas.draw = Mock()
+
+        # Mock the _plate_viewer structure for burst parameter access
+        widget._plate_viewer = Mock()
+        widget._plate_viewer.analysis_path = None  # Use widget parameters instead
+        widget._plate_viewer._analysis_wdg = Mock()
+        widget._plate_viewer._analysis_wdg._burst_wdg = Mock()
+        # Mock burst parameter values (threshold, min_duration, smoothing_sigma)
+        widget._plate_viewer._analysis_wdg._burst_wdg.value.return_value = {
+            "burst_threshold": 0.3,
+            "min_burst_duration": 3,
+            "smoothing_sigma": 1.0,
+        }
+
         return widget
 
     def test_plot_traces_raw(self, mock_widget):
@@ -161,6 +173,15 @@ class TestSingleWellPlotMethods:
         mock_widget.figure.clear.assert_called_once()
         mock_widget.figure.add_subplot.assert_called_once_with(111)
 
+    def test_plot_inferred_spikes_normalized_with_bursts(self, mock_widget):
+        """Test plotting normalized inferred spikes with burst detection."""
+        plot_single_well_data(
+            mock_widget, SAMPLE_ROI_DATA, INFERRED_SPIKES_NORMALIZED_WITH_BURSTS
+        )
+
+        mock_widget.figure.clear.assert_called_once()
+        mock_widget.figure.add_subplot.assert_called_once_with(111)
+
     def test_plot_with_roi_filter(self, mock_widget):
         """Test plotting with ROI filter."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, RAW_TRACES, rois=[1])
@@ -187,7 +208,7 @@ class TestSingleWellPlotMethods:
         # Should call clear but not add_subplot
         mock_widget.figure.clear.assert_called_once()
 
-    @pytest.mark.parametrize("trace_type", list(TRACES_GROUP.keys()))
+    @pytest.mark.parametrize("trace_type", list(CALCIUM_TRACES_GROUP.keys()))
     def test_all_trace_types(self, mock_widget, trace_type):
         """Test all trace types from TRACES_GROUP."""
         plot_single_well_data(mock_widget, SAMPLE_ROI_DATA, trace_type)
@@ -298,12 +319,6 @@ class TestPlotMethodsWithRealData:
                 cell_size=roi_info.get("cell_size", 0.0),
                 evoked_experiment=roi_info.get("evoked_experiment", False),
                 stimulated=roi_info.get("stimulated", False),
-                amplitudes_stimulated_peaks=roi_info.get(
-                    "amplitudes_stimulated_peaks", {}
-                ),
-                amplitudes_non_stimulated_peaks=roi_info.get(
-                    "amplitudes_non_stimulated_peaks", {}
-                ),
                 active=roi_info.get("active", True),
             )
 
@@ -411,8 +426,6 @@ class TestPlotMethodsErrorHandling:
                 cell_size=0.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -435,10 +448,10 @@ class TestPlotMethodConstants:
 
     def test_traces_group_contains_expected_options(self):
         """Test that TRACES_GROUP contains expected plotting options."""
-        assert RAW_TRACES in TRACES_GROUP
-        assert DFF in TRACES_GROUP
-        assert DEC_DFF in TRACES_GROUP
-        assert DEC_DFF_NORMALIZED in TRACES_GROUP
+        assert RAW_TRACES in CALCIUM_TRACES_GROUP
+        assert DFF in CALCIUM_TRACES_GROUP
+        assert DEC_DFF in CALCIUM_TRACES_GROUP
+        assert DEC_DFF_NORMALIZED in CALCIUM_TRACES_GROUP
 
     def test_amplitude_group_contains_expected_options(self):
         """Test that AMPLITUDE_AND_FREQUENCY_GROUP contains expected options."""
@@ -582,8 +595,6 @@ class TestPlotMethodsPerformance:
                 cell_size=100.0 + np.random.rand() * 50,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         return large_data
@@ -664,8 +675,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=150.5,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -688,8 +697,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=0.0,  # Zero cell size
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -712,8 +719,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=120.5,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -736,8 +741,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=180.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -760,8 +763,6 @@ class TestPlotMethodsEdgeCases:
                 cell_size=180.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -803,8 +804,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }
@@ -828,8 +827,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=False,  # Inactive ROI
             ),
             "2": ROIData(
@@ -844,8 +841,6 @@ class TestPlotMethodsRegression:
                 cell_size=140.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=False,  # Inactive ROI
             ),
         }
@@ -871,8 +866,6 @@ class TestPlotMethodsRegression:
                 cell_size=150.0,
                 evoked_experiment=False,
                 stimulated=False,
-                amplitudes_stimulated_peaks={},
-                amplitudes_non_stimulated_peaks={},
                 active=True,
             )
         }

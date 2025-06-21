@@ -16,7 +16,7 @@ from micromanager_gui._plate_viewer._graph_widgets import (
 from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_plot import (  # noqa: E501
     plot_csv_bar_plot,
 )
-from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_traces_data import (  # noqa: E501
+from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_traces_data import (  # noqa: E501
     _plot_traces_data,
 )
 from micromanager_gui._plate_viewer._util import ROIData

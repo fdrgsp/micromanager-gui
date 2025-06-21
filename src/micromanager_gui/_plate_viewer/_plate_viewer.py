@@ -24,6 +24,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QMainWindow,
     QMenuBar,
+    QScrollArea,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -50,7 +51,7 @@ from ._old_plate_model import OldPlate
 from ._plate_plan_wizard import PlatePlanWizard
 from ._save_as_widgets import _SaveAsCSV, _SaveAsTiff
 from ._segmentation import _CellposeSegmentation
-from ._to_csv import save_to_csv
+from ._to_csv import save_analysis_data_to_csv, save_trace_data_to_csv
 from ._util import (
     EVENT_KEY,
     GENOTYPE_MAP,
@@ -180,6 +181,21 @@ class PlateViewer(QMainWindow):
         self._analysis_tab = QWidget()
         self._tab.addTab(self._analysis_tab, "Analysis Tab")
 
+        # Create a scroll area for the analysis tab
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # Create a widget to hold the analysis content
+        analysis_content_widget = QWidget()
+        scroll_area.setWidget(analysis_content_widget)
+
+        # Set up the main layout for the analysis tab
+        analysis_tab_layout = QVBoxLayout(self._analysis_tab)
+        analysis_tab_layout.setContentsMargins(0, 0, 0, 0)
+        analysis_tab_layout.addWidget(scroll_area)
+
         self._segmentation_wdg = _CellposeSegmentation(self)
         self._segmentation_wdg.segmentationFinished.connect(
             self._on_fov_table_selection_changed
@@ -187,7 +203,8 @@ class PlateViewer(QMainWindow):
 
         self._analysis_wdg = _AnalyseCalciumTraces(self)
 
-        analysis_layout = QVBoxLayout(self._analysis_tab)
+        # Layout for the scrollable content
+        analysis_layout = QVBoxLayout(analysis_content_widget)
         analysis_layout.setContentsMargins(10, 10, 10, 10)
         analysis_layout.setSpacing(15)
         analysis_layout.addWidget(self._segmentation_wdg)
@@ -281,11 +298,11 @@ class PlateViewer(QMainWindow):
         self._on_fov_table_selection_changed()
 
     @property
-    def pv_analysis_path(self) -> str | None:
+    def analysis_path(self) -> str | None:
         return self._analysis_path
 
-    @pv_analysis_path.setter
-    def pv_analysis_path(self, value: str) -> None:
+    @analysis_path.setter
+    def analysis_path(self, value: str) -> None:
         self._analysis_path = value
         self._analysis_wdg.analysis_path = value
         self._load_and_set_analysis_data(value)
@@ -856,7 +873,8 @@ class PlateViewer(QMainWindow):
                 )
                 return
 
-            save_to_csv(path, self._analysis_data)
+            save_trace_data_to_csv(path, self._analysis_data)
+            save_analysis_data_to_csv(path, self._analysis_data)
 
     def _update_progress(self, value: int | str) -> None:
         """Update the progress bar value."""

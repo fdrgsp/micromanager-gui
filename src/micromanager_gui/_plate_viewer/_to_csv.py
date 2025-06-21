@@ -3,12 +3,18 @@ from __future__ import annotations
 import re
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
 
 from ._logger import LOGGER
+from ._plot_methods._single_wells_plots._plot_inferred_spike_burst_activity import (
+    _detect_population_bursts,
+    _get_burst_parameters,
+    _get_population_spike_data,
+)
 from ._util import (
     EVK_NON_STIM,
     EVK_STIM,
@@ -16,28 +22,40 @@ from ._util import (
     N_SUFFIX,
     SEM_SUFFIX,
     ROIData,
-    _get_synchrony_matrix,
-    get_linear_phase,
-    get_synchrony,
+    _get_calcium_peaks_event_synchrony,
+    _get_calcium_peaks_event_synchrony_matrix,
+    _get_calcium_peaks_events_from_rois,
+    _get_spike_synchrony,
+    _get_spike_synchrony_matrix,
+    _get_spikes_over_threshold,
 )
 
 # fmt: off
 NUMBER_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 PERCENTAGE_ACTIVE = "percentage_active"
-SYNCHRONY = "synchrony"
-AMP_STIMULATED_PEAKS = "amplitudes_stimulated_peaks"
-AMP_NON_STIMULATED_PEAKS = "amplitudes_non_stimulated_peaks"
+SPIKE_SYNCHRONY = "spike_synchrony"
+CALCIUM_PEAKS_SYNCHRONY = "calcium_peaks_synchrony"
+AMP_STIMULATED_PEAKS = "calcium_peaks_amplitudes_stimulated"
+AMP_NON_STIMULATED_PEAKS = "calcium_peaks_amplitudes_non_stimulated"
+BURST_ACTIVITY = "burst_activity"
+COUNT = "count"
+AVE_DURATION = "avg_duration_sec"
+AVE_INTERVAL = "avg_interval_sec"
+RATE = "rate_burst_per_min)"
+
 CSV_PARAMETERS: dict[str, str] = {
-    "amplitude": "peaks_amplitudes_dec_dff",
-    "frequency": "dec_dff_frequency",
+    "calcium_peaks_amplitude": "peaks_amplitudes_dec_dff",
+    "calcium_peaks_frequency": "dec_dff_frequency",
     "cell_size": "cell_size",
-    "iei": "iei",
+    "calcium_peaks_iei": "iei",
     "percentage_active": PERCENTAGE_ACTIVE,
-    "synchrony": SYNCHRONY,
+    "calcium_peaks_synchrony": CALCIUM_PEAKS_SYNCHRONY,
+    "spike_synchrony": SPIKE_SYNCHRONY,
+    "burst_activity": BURST_ACTIVITY,
 }
 CSV_PARAMETERS_EVK = {
-    "amplitudes_stimulated_peaks": AMP_STIMULATED_PEAKS,
-    "amplitudes_non_stimulated_peaks": AMP_NON_STIMULATED_PEAKS
+    "calcium_peaks_amplitudes_stimulated": AMP_STIMULATED_PEAKS,
+    "calcium_peaks_amplitudes_non_stimulated": AMP_NON_STIMULATED_PEAKS
 }
 
 PARAMETER_TO_KEY: dict[str, str] = {
@@ -45,11 +63,47 @@ PARAMETER_TO_KEY: dict[str, str] = {
     **{v: k for k, v in CSV_PARAMETERS_EVK.items()},
 }
 
-SINGLE_VALUES = [PERCENTAGE_ACTIVE, SYNCHRONY]
+SINGLE_VALUES = [
+    PERCENTAGE_ACTIVE,
+    SPIKE_SYNCHRONY,
+    CALCIUM_PEAKS_SYNCHRONY,
+    BURST_ACTIVITY,
+]
 # fmt: on
 
 
-def save_to_csv(
+def save_trace_data_to_csv(
+    path: str | Path,
+    analysis_data: dict[str, dict[str, ROIData]] | None,
+) -> None:
+    if not analysis_data:
+        return
+
+    LOGGER.info(f"Exporting Traces Data to `{path}`...")
+    try:
+        _export_raw_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting RAW DATA to CSV: {e}")
+    try:
+        _export_dff_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting dFF DATA to CSV: {e}")
+    try:
+        _export_dec_dff_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting DEC_DFF DATA to CSV: {e}")
+    try:
+        _export_inferred_spikes_data(path, analysis_data)
+    except Exception as e:
+        LOGGER.error(f"Error exporting INFERRED RAW SPIKES DATA to CSV: {e}")
+    try:
+        _export_inferred_spikes_data(path, analysis_data, raw=False)
+    except Exception as e:
+        LOGGER.error(f"Error exporting INFERRED THRESHOLDED SPIKES DATA to CSV: {e}")
+    LOGGER.info("Exporting Traces Data to CSV: DONE!")
+
+
+def save_analysis_data_to_csv(
     path: str | Path,
     analysis_data: dict[str, dict[str, ROIData]] | None,
 ) -> None:
@@ -59,38 +113,36 @@ def save_to_csv(
     if isinstance(path, str):
         path = Path(path)
 
+    rearrange_cond, rearrange_cond_evk = _rearrange_data(analysis_data)
+
+    msg = f"Exporting Analysis Data to `{path}`..."
+    LOGGER.info(msg)
+    try:
+        _export_to_csv_mean_values_grouped_by_condition(path, rearrange_cond)
+    except Exception as e:
+        LOGGER.error(f"Error exporting spontanoous analysis data to CSV: {e}")
+    try:
+        _export_to_csv_mean_values_evk_parameters(path, rearrange_cond_evk)
+    except Exception as e:
+        LOGGER.error(f"Error exporting evoked analysis data to CSV: {e}")
+    LOGGER.info("Exporting Analysis Data to CSV: DONE!")
+
+
+def _rearrange_data(analysis_data: dict[str, dict[str, ROIData]]) -> tuple:
+    """Rearrange the analysis data by condition and parameter."""
     # Rearrange the data by condition
     fov_by_condition, evk_conditions = _rearrange_fov_by_conditions(analysis_data)
-
     # Rearrange fov_by_condition by parameter
     fov_by_condition_by_parameter = {
         parameter: _rearrange_by_parameter(fov_by_condition, parameter)
         for parameter in CSV_PARAMETERS.values()
     }
-
+    # Rearrange fov_by_condition by evoked parameters
     fov_by_condition_by_parameter_evk = {
         parameter: _rearrange_by_parameter_evk(evk_conditions, parameter)
         for parameter in CSV_PARAMETERS_EVK.values()
     }
-
-    # fmt: off
-    # Save the data as CSV files
-    msg = f"Exporting data to `{path}`..."
-    LOGGER.info(msg)
-    try:
-        _export_raw_data(path, analysis_data)
-        _export_dff_data(path, analysis_data)
-        _export_dec_dff_data(path, analysis_data)
-        _export_inferred_spikes_data(path, analysis_data)
-        _export_to_csv_mean_values_grouped_by_condition(path, fov_by_condition_by_parameter)  # noqa E501
-        _export_to_csv_mean_values_evk_parameters(path, fov_by_condition_by_parameter_evk)  # noqa E501
-    except Exception as e:
-        error_msg = f"Error exporting data to CSV: {e}"
-        LOGGER.error(error_msg)
-        return
-
-    LOGGER.info("Exporting data to CSV: DONE!")
-    # fmt: on
+    return fov_by_condition_by_parameter, fov_by_condition_by_parameter_evk
 
 
 def _rearrange_fov_by_conditions(
@@ -122,18 +174,27 @@ def _rearrange_fov_by_conditions(
             conds.setdefault(cond_key, {}).setdefault(well_fov, {})[roi_key] = roi_data
 
             # update the evoked conditions dict
-            if roi_data.stimulated:
-                amps_dict = roi_data.amplitudes_stimulated_peaks
-                stim_label = EVK_STIM
-            else:
-                amps_dict = roi_data.amplitudes_non_stimulated_peaks
-                stim_label = EVK_NON_STIM
-            if amps_dict:
-                for power_and_pulse in amps_dict:
-                    key = f"{cond_key}_{stim_label}_{power_and_pulse}"
-                    evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
-                        roi_key
-                    ] = roi_data
+            if roi_data.evoked_experiment:
+                from ._util import get_stimulated_amplitudes_from_roi_data
+
+                # Compute amplitudes on-demand (without LED power equation for now)
+                amps_stim, amps_non_stim = get_stimulated_amplitudes_from_roi_data(
+                    roi_data, led_power_equation=None
+                )
+
+                if roi_data.stimulated:
+                    amps_dict = amps_stim
+                    stim_label = EVK_STIM
+                else:
+                    amps_dict = amps_non_stim
+                    stim_label = EVK_NON_STIM
+
+                if amps_dict:
+                    for power_and_pulse in amps_dict:
+                        key = f"{cond_key}_{stim_label}_{power_and_pulse}"
+                        evoked_conds.setdefault(key, {}).setdefault(well_fov, {})[
+                            roi_key
+                        ] = roi_data
 
     return conds, evoked_conds
 
@@ -149,11 +210,23 @@ def _rearrange_by_parameter(
         except Exception as e:
             LOGGER.error(f"Error calculating percentage active: {e}")
             return {}
-    if parameter == SYNCHRONY:
+    if parameter == SPIKE_SYNCHRONY:
         try:
-            return _get_synchrony_parameter(data)
+            return _get_spike_synchrony_parameter(data)
         except Exception as e:
-            LOGGER.error(f"Error calculating synchrony: {e}")
+            LOGGER.error(f"Error calculating spike synchrony: {e}")
+            return {}
+    if parameter == CALCIUM_PEAKS_SYNCHRONY:
+        try:
+            return _get_calcium_peaks_event_synchrony_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating peak event synchrony: {e}")
+            return {}
+    if parameter == BURST_ACTIVITY:
+        try:
+            return _get_burst_activity_parameter(data)
+        except Exception as e:
+            LOGGER.error(f"Error calculating burst activity: {e}")
             return {}
     try:
         return _get_parameter(data, parameter)
@@ -278,7 +351,7 @@ def _export_dec_dff_data(path: Path | str, data: dict[str, dict[str, ROIData]]) 
 
 
 def _export_inferred_spikes_data(
-    path: Path | str, data: dict[str, dict[str, ROIData]]
+    path: Path | str, data: dict[str, dict[str, ROIData]], raw: bool = True
 ) -> None:
     """Save the inferred spikes data as CSV files.
 
@@ -293,10 +366,10 @@ def _export_inferred_spikes_data(
     rows = {}
     for well_fov, rois in data.items():
         for roi_key, roi_data in rois.items():
-            if roi_data.inferred_spikes is None:
+            if (spikes := _get_spikes_over_threshold(roi_data, raw)) is None:
                 continue
             row_name = f"{well_fov}_{roi_key}"
-            rows[row_name] = roi_data.inferred_spikes
+            rows[row_name] = spikes
 
     # convert to DataFrame (handles unequal lengths by filling with NaN)
     df = pd.DataFrame.from_dict(rows, orient="index")
@@ -305,7 +378,8 @@ def _export_inferred_spikes_data(
     df.columns = [f"t{i}" for i in range(df.shape[1])]
 
     # save to CSV
-    df.to_csv(folder / f"{exp_name}_inferred_spikes_data.csv", index=True)
+    suffix = "inferred_spikes_raw_data" if raw else "inferred_spikes_thresholded_data"
+    df.to_csv(folder / f"{exp_name}_{suffix}.csv", index=True)
 
 
 def _export_to_csv_mean_values_grouped_by_condition(
@@ -413,6 +487,10 @@ def _export_to_csv_single_values(
     """Export single-value data to CSV."""
     if parameter == PERCENTAGE_ACTIVE:
         _export_to_csv_percentage_active_n(path, exp_name, data)
+        return
+
+    if parameter == BURST_ACTIVITY:
+        _export_to_csv_burst_activity(path, exp_name, data)
         return
 
     columns = {}
@@ -530,33 +608,164 @@ def _get_percentage_active_parameter(
     return percentage_active_dict
 
 
-def _get_synchrony_parameter(
+def _get_spike_synchrony_parameter(
     data: dict[str, dict[str, dict[str, ROIData]]],
 ) -> dict[str, dict[str, list[Any]]]:
-    """Group the data by the synchrony."""
-    synchrony_dict: dict[str, dict[str, list[Any]]] = {}
+    """Group the data by spike synchrony."""
+    spike_synchrony_dict: dict[str, dict[str, list[Any]]] = {}
     for condition, key_dict in sorted(data.items()):
         for well_fov, roi_dict in key_dict.items():
-            phase_dict: dict[str, list[float]] = {}
+            spike_dict: dict[str, list[float]] = {}
             for roi_key, roi_data in roi_dict.items():
-                if (
-                    not roi_data.dec_dff
-                    or not roi_data.peaks_dec_dff
-                    or len(roi_data.peaks_dec_dff) < 1
-                ):
-                    continue
-                frames = len(roi_data.dec_dff)
-                peaks = np.array(roi_data.peaks_dec_dff)
-                phase_dict[roi_key] = get_linear_phase(frames, peaks)
+                if thresholded_spikes := _get_spikes_over_threshold(roi_data):
+                    spike_dict[roi_key] = thresholded_spikes
 
-            synchrony_matrix = _get_synchrony_matrix(phase_dict)
+            # Calculate spike synchrony matrix
+            spike_synchrony_matrix = _get_spike_synchrony_matrix(spike_dict)
 
-            linear_synchrony = get_synchrony(synchrony_matrix)
+            # Calculate global spike synchrony
+            global_spike_synchrony = _get_spike_synchrony(spike_synchrony_matrix)
 
-            synchrony_dict.setdefault(condition, {}).setdefault(well_fov, []).append(
-                linear_synchrony
+            spike_synchrony_dict.setdefault(condition, {}).setdefault(
+                well_fov, []
+            ).append(global_spike_synchrony)
+
+    return spike_synchrony_dict
+
+
+def _get_calcium_peaks_event_synchrony_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by peak event synchrony."""
+    peak_event_synchrony_dict: dict[str, dict[str, list[Any]]] = {}
+    for condition, key_dict in sorted(data.items()):
+        for well_fov, roi_dict in key_dict.items():
+            # Get peak event trains using the existing function
+            peak_trains = _get_calcium_peaks_events_from_rois(roi_dict, rois=None)
+
+            if peak_trains is None or len(peak_trains) < 2:
+                continue
+
+            # Convert to the format expected by the synchrony matrix function
+            peak_event_data_dict = {
+                roi_name: cast(list[float], peak_train.astype(float).tolist())
+                for roi_name, peak_train in peak_trains.items()
+            }
+
+            # Calculate peak event synchrony matrix
+            peak_event_synchrony_matrix = _get_calcium_peaks_event_synchrony_matrix(
+                peak_event_data_dict
             )
-    return synchrony_dict
+
+            # Calculate global peak event synchrony
+            global_peak_event_synchrony = _get_calcium_peaks_event_synchrony(
+                peak_event_synchrony_matrix
+            )
+
+            if global_peak_event_synchrony is not None:
+                peak_event_synchrony_dict.setdefault(condition, {}).setdefault(
+                    well_fov, []
+                ).append(global_peak_event_synchrony)
+
+    return peak_event_synchrony_dict
+
+
+def _get_burst_activity_parameter(
+    data: dict[str, dict[str, dict[str, ROIData]]],
+) -> dict[str, dict[str, list[Any]]]:
+    """Group the data by burst activity metrics.
+
+    For each well/condition, calculates 4 burst metrics:
+    - Count: Number of bursts detected
+    - Avg Duration: Average burst duration in seconds
+    - Avg Interval: Average interval between bursts in seconds
+    - Rate: Burst rate (bursts per minute)
+
+    Returns
+    -------
+    dict[str, dict[str, list[Any]]]
+        Dictionary with burst metrics organized by condition and well_fov
+    """
+    burst_activity_dict: dict[str, dict[str, list[Any]]] = {}
+
+    for condition, well_fov_dict in sorted(data.items()):
+        for well_fov, roi_dict in well_fov_dict.items():
+            # Get burst parameters from ROI data
+            burst_params = _get_burst_parameters(roi_dict)
+            if burst_params is None:
+                continue
+
+            burst_threshold, min_burst_duration, smoothing_sigma = burst_params
+
+            # Get spike trains and time axis for population analysis
+            spike_trains, _, time_axis = _get_population_spike_data(roi_dict)
+
+            if spike_trains is None or len(spike_trains) < 2:
+                continue
+
+            # Calculate population activity
+            population_activity = np.mean(spike_trains, axis=0)
+
+            # Smooth population activity for burst detection
+            smoothed_activity = gaussian_filter1d(
+                population_activity, sigma=smoothing_sigma
+            )
+
+            # Detect bursts
+            bursts = _detect_population_bursts(
+                smoothed_activity, burst_threshold / 100, min_burst_duration
+            )
+
+            # Calculate burst statistics
+            burst_count = len(bursts)
+
+            if burst_count == 0:
+                # No bursts detected
+                burst_metrics = {
+                    COUNT: 0,
+                    AVE_DURATION: 0.0,
+                    AVE_INTERVAL: 0.0,
+                    RATE: 0.0,
+                }
+            else:
+                # Calculate durations and intervals
+                durations = []
+                intervals = []
+
+                for i, (start, end) in enumerate(bursts):
+                    # Convert indices to time
+                    duration_sec = (end - start) * (time_axis[1] - time_axis[0])
+                    durations.append(duration_sec)
+
+                    # Calculate interval to next burst
+                    if i < len(bursts) - 1:
+                        next_start = bursts[i + 1][0]
+                        interval_sec = (next_start - end) * (
+                            time_axis[1] - time_axis[0]
+                        )
+                        intervals.append(interval_sec)
+
+                # Calculate statistics
+                avg_duration = np.mean(durations) if durations else 0.0
+                avg_interval = np.mean(intervals) if intervals else 0.0
+
+                # Calculate rate (bursts per minute)
+                total_time_min = (time_axis[-1] - time_axis[0]) / 60.0
+                burst_rate = burst_count / total_time_min if total_time_min > 0 else 0.0
+
+                burst_metrics = {
+                    COUNT: burst_count,
+                    AVE_DURATION: avg_duration,
+                    AVE_INTERVAL: avg_interval,
+                    RATE: burst_rate,
+                }
+
+            # Store the metrics for this well
+            burst_activity_dict.setdefault(condition, {}).setdefault(
+                well_fov, []
+            ).append(burst_metrics)
+
+    return burst_activity_dict
 
 
 def _get_parameter(
@@ -595,11 +804,14 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
             continue  # skip unrelated conditions
         for fov, roi_dict in fov_dict.items():
             for roi_data in roi_dict.values():
-                amps = (
-                    roi_data.amplitudes_stimulated_peaks
-                    if stimulated
-                    else roi_data.amplitudes_non_stimulated_peaks
+                from ._util import get_stimulated_amplitudes_from_roi_data
+
+                # Compute amplitudes on-demand
+                amps_stim, amps_non_stim = get_stimulated_amplitudes_from_roi_data(
+                    roi_data, led_power_equation=None
                 )
+
+                amps = amps_stim if stimulated else amps_non_stim
                 if not amps:
                     continue
                 if target_power_pulse not in amps:
@@ -609,3 +821,39 @@ def _get_amplitude_stim_or_non_stim_peaks_parameter(
                     target_power_pulse, []
                 ).extend(values)
     return amps_dict
+
+
+def _export_to_csv_burst_activity(
+    path: Path, exp_name: str, data: dict[str, dict[str, Any]]
+) -> None:
+    """Export burst activity data to CSV with 4 columns per condition."""
+    combined_columns = {}
+
+    for condition, fovs in sorted(data.items()):
+        counts = []
+        durations = []
+        intervals = []
+        rates = []
+
+        for _, well_data in fovs.items():
+            for metrics in well_data:
+                if isinstance(metrics, dict):
+                    counts.append(metrics.get(COUNT, 0))
+                    durations.append(metrics.get(AVE_DURATION, 0.0))
+                    intervals.append(metrics.get(AVE_INTERVAL, 0.0))
+                    rates.append(metrics.get(RATE, 0.0))
+
+        # Add 4 columns for each condition
+        combined_columns[f"{condition}_{COUNT}"] = counts
+        combined_columns[f"{condition}_{AVE_DURATION}"] = durations
+        combined_columns[f"{condition}_{AVE_INTERVAL}"] = intervals
+        combined_columns[f"{condition}_{RATE}"] = rates
+
+    # Export CSV with 4 columns per condition
+    if combined_columns:
+        padded_rows = zip_longest(*combined_columns.values(), fillvalue=float("nan"))
+        df = pd.DataFrame(padded_rows, columns=list(combined_columns.keys()))
+        df = df.round(4)
+
+        csv_path = path / f"{exp_name}_{PARAMETER_TO_KEY[BURST_ACTIVITY]}.csv"
+        df.to_csv(csv_path, index=False)
