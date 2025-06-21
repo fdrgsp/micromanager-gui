@@ -467,7 +467,6 @@ def _plot_connectivity_matrix_data(
             "Insufficient data for connectivity matrix analysis. "
             "Ensure at least two ROIs with calcium peaks are selected."
         )
-        widget.canvas.draw()
         return
 
     # Get network threshold
