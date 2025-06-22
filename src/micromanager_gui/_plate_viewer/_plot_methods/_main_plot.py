@@ -341,7 +341,7 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Calcium Peaks Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_FREQUENCY: {"parameter": "Calcium Peaks Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
-    CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "calcium_peaks_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY: {"parameter": "Inferred Spikes Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Data)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_CALCIUM_NETWORK_DENSITY: {"parameter": "Calcium Network Density",  "suffix": "calcium_network_density",  "add_to_title": "(Percentile-Based Threshold)",  "units": "%"},  # noqa: E501
 }
@@ -416,6 +416,7 @@ def _plot_csv_bar_plot_data(
     )
 
     if not csv_file:
+        LOGGER.error(f"CSV file for suffix '{suffix}' not found in {csv_path}.")
         widget.figure.clear()
         return
 
@@ -428,8 +429,10 @@ def _plot_csv_bar_plot_data(
     synchrony_suffixes = [
         "synchrony",
         "spike_synchrony",
-        "peak_event_synchrony",
         "calcium_network_density",
+        "calcium_peaks_synchrony"
+        ""
+
     ]
     if any(sync_suffix in suffix for sync_suffix in synchrony_suffixes):
         return plot_csv_bar_plot(
