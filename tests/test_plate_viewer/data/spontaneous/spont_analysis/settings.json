@@ -11,5 +11,6 @@
   "burst_threshold": 30.0,
   "burst_min_duration": 3,
   "burst_gaussian_sigma": 2.0,
-  "spikes_sync_cross_corr_lag": 5
+  "spikes_sync_cross_corr_lag": 5,
+  "led_power_equation": ""
 }

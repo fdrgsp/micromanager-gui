@@ -3,7 +3,7 @@
   "dff_window": 30,
   "decay constant": 0.0,
   "peaks_height_value": 3.0,
-  "peaks_height_mode": "global_height",
+  "peaks_height_mode": "multiplier",
   "peaks_distance": 2,
   "peaks_prominence_multiplier": 1.0,
   "calcium_network_threshold": 90.0,

@@ -466,10 +466,18 @@
       0.13960077983972113,
       0.11915851254091463
     ],
-    "peaks_dec_dff": [],
-    "peaks_amplitudes_dec_dff": [],
+    "peaks_dec_dff": [
+      6,
+      56,
+      105
+    ],
+    "peaks_amplitudes_dec_dff": [
+      0.5222479334770127,
+      0.8826441853428321,
+      0.8274789707114378
+    ],
     "peaks_prominence_dec_dff": 0.07500234849930504,
-    "peaks_height_dec_dff": 3.0,
+    "peaks_height_dec_dff": 0.22500704549791511,
     "inferred_spikes": [
       0.0,
       0.0025237698598202553,
@@ -626,15 +634,18 @@
       0.0
     ],
     "inferred_spikes_threshold": 0.0006736970214998991,
-    "dec_dff_frequency": null,
+    "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 522.21,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
     "total_recording_time_sec": 16.105345799999444,
-    "active": false,
-    "iei": null,
+    "active": true,
+    "iei": [
+      5.301430000000343,
+      5.302005999998481
+    ],
     "evoked_experiment": true,
     "stimulated": false,
     "stimulations_frames_and_powers": {
@@ -3602,10 +3613,18 @@
       0.032378619168510196,
       0.027755302029840657
     ],
-    "peaks_dec_dff": [],
-    "peaks_amplitudes_dec_dff": [],
+    "peaks_dec_dff": [
+      6,
+      56,
+      105
+    ],
+    "peaks_amplitudes_dec_dff": [
+      0.17637659498317362,
+      0.4687574092760547,
+      0.5776284830744445
+    ],
     "peaks_prominence_dec_dff": 0.03155052800406967,
-    "peaks_height_dec_dff": 3.0,
+    "peaks_height_dec_dff": 0.09465158401220901,
     "inferred_spikes": [
       0.0,
       0.001438191306899447,
@@ -3762,15 +3781,18 @@
       3.469446951953614e-18
     ],
     "inferred_spikes_threshold": 0.00034914997081027114,
-    "dec_dff_frequency": null,
+    "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 512.9150000000001,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
     "total_recording_time_sec": 16.105345799999444,
-    "active": false,
-    "iei": null,
+    "active": true,
+    "iei": [
+      5.301430000000343,
+      5.302005999998481
+    ],
     "evoked_experiment": true,
     "stimulated": true,
     "stimulations_frames_and_powers": {
@@ -6694,10 +6716,18 @@
       0.012924934665406876,
       0.011191068893636497
     ],
-    "peaks_dec_dff": [],
-    "peaks_amplitudes_dec_dff": [],
+    "peaks_dec_dff": [
+      6,
+      56,
+      105
+    ],
+    "peaks_amplitudes_dec_dff": [
+      0.24319984721753232,
+      0.15983308648845176,
+      0.3976299931972932
+    ],
     "peaks_prominence_dec_dff": 0.034576256050277615,
-    "peaks_height_dec_dff": 3.0,
+    "peaks_height_dec_dff": 0.10372876815083285,
     "inferred_spikes": [
       0.0,
       0.0007325159701233527,
@@ -6854,15 +6884,18 @@
       0.0
     ],
     "inferred_spikes_threshold": 0.0004869455621014408,
-    "dec_dff_frequency": null,
+    "dec_dff_frequency": 0.18627355396492656,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 632.9050000000001,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
     "total_recording_time_sec": 16.105345799999444,
-    "active": false,
-    "iei": null,
+    "active": true,
+    "iei": [
+      5.301430000000343,
+      5.302005999998481
+    ],
     "evoked_experiment": true,
     "stimulated": true,
     "stimulations_frames_and_powers": {
@@ -10354,10 +10387,20 @@
       0.1215688815185293,
       0.10249261741694086
     ],
-    "peaks_dec_dff": [],
-    "peaks_amplitudes_dec_dff": [],
+    "peaks_dec_dff": [
+      6,
+      56,
+      104,
+      148
+    ],
+    "peaks_amplitudes_dec_dff": [
+      0.23403843818562095,
+      0.3292051633191625,
+      0.3546076936045398,
+      0.15203423871332564
+    ],
     "peaks_prominence_dec_dff": 0.017192290326370926,
-    "peaks_height_dec_dff": 3.0,
+    "peaks_height_dec_dff": 0.051576870979112774,
     "inferred_spikes": [
       0.0,
       0.0014948648236787904,
@@ -10514,15 +10557,19 @@
       -1.3877787807814457e-17
     ],
     "inferred_spikes_threshold": 0.0010309738228512196,
-    "dec_dff_frequency": null,
+    "dec_dff_frequency": 0.2483647386199021,
     "condition_1": "c1",
     "condition_2": "t1",
     "cell_size": 452.07500000000005,
     "cell_size_units": "\u00b5m",
     "elapsed_time_list_ms": null,
     "total_recording_time_sec": 16.105345799999444,
-    "active": false,
-    "iei": null,
+    "active": true,
+    "iei": [
+      5.301430000000343,
+      5.20200599999848,
+      4.402
+    ],
     "evoked_experiment": true,
     "stimulated": false,
     "stimulations_frames_and_powers": {
