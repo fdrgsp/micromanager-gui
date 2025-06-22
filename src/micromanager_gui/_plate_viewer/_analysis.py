@@ -230,9 +230,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_path = analysis_path
 
     @property
-    def stimulation_area_path(self) -> str:
+    def stimulation_area_path(self) -> str | None:
         value = self._analysis_settings_gui._experiment_type_wdg.value()
-        return value.stimulation_area_path or ""
+        return value.stimulation_area_path
 
     @stimulation_area_path.setter
     def stimulation_area_path(self, path: str | None) -> None:
