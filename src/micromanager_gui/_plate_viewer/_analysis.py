@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -146,7 +147,9 @@ class _AnalyseCalciumTraces(QWidget):
         self._analysis_data: dict[str, dict[str, ROIData]] = {}
 
         self._worker: GeneratorWorker | None = None
-        self._cancelled: bool = False
+
+        # Use threading.Event for better cancellation control
+        self._cancellation_event = threading.Event()
 
         # list to store the failed labels if they will not be found during the
         # analysis. used to show at the end of the analysis to the user which labels
@@ -264,7 +267,7 @@ class _AnalyseCalciumTraces(QWidget):
         # start elapsed timer
         self._elapsed_timer.start()
 
-        self._cancelled = False
+        self._cancellation_event.clear()  # Reset cancellation event
 
         self._enable(False)
 
@@ -287,7 +290,7 @@ class _AnalyseCalciumTraces(QWidget):
         if self._worker is None or not self._worker.is_running:
             return
 
-        self._cancelled = True
+        self._cancellation_event.set()  # Signal all threads to stop
         self._worker.quit()
         # stop the elapsed timer
         self._elapsed_timer.stop()
@@ -479,20 +482,33 @@ class _AnalyseCalciumTraces(QWidget):
 
         try:
             with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+                # Check for cancellation before submitting futures
+                if self._cancellation_event.is_set():
+                    LOGGER.info("Cancellation requested before starting thread pool")
+                    return
+
                 futures = [
                     executor.submit(self._extract_trace_data_per_position, p)
                     for p in positions
                 ]
 
                 for idx, future in enumerate(as_completed(futures)):
-                    if self._check_for_abort_requested():
-                        LOGGER.info("Abort requested, cancelling all futures...")
+                    # Check for cancellation at the start of each iteration
+                    if self._cancellation_event.is_set():
+                        LOGGER.info("Cancellation requested, shutting down executor...")
+                        # Cancel pending futures and shutdown executor
                         for f in futures:
                             f.cancel()
+                        executor.shutdown(wait=False, cancel_futures=True)
                         break
                     try:
                         future.result()
                         LOGGER.info(f"Position {positions[idx]} completed.")
+
+                        # Check for cancellation after each completed position
+                        if self._cancellation_event.is_set():
+                            LOGGER.info("Cancellation requested after position")
+                            break
                     except Exception as e:
                         yield f"An error occurred in a position: {e}"
                         break
@@ -503,7 +519,10 @@ class _AnalyseCalciumTraces(QWidget):
             yield f"An error occurred: {e}"
 
     def _check_for_abort_requested(self) -> bool:
-        return bool(self._worker is not None and self._worker.abort_requested)
+        """Check if cancellation has been requested through any mechanism."""
+        return self._cancellation_event.is_set() or (
+            self._worker is not None and self._worker.abort_requested
+        )
 
     def _handle_plate_map(self) -> None:
         if self._plate_viewer is None or not self._analysis_path:
@@ -511,6 +530,11 @@ class _AnalyseCalciumTraces(QWidget):
 
         value = self._get_validated_settings()
         condition_1_plate_map, condition_2_plate_map = value.plate_map_data
+
+        # Check for cancellation before plate map saving
+        if self._cancellation_event.is_set():
+            return
+
         # save plate map
         LOGGER.info("Saving Plate Maps.")
         path = Path(self._analysis_path) / GENOTYPE_MAP
@@ -536,6 +560,10 @@ class _AnalyseCalciumTraces(QWidget):
         if self._data is None or self._check_for_abort_requested():
             return
 
+        # Check for cancellation before data loading
+        if self._check_for_abort_requested():
+            return
+
         # get the data and metadata for the position
         data, meta = self._data.isel(p=p, metadata=True)
 
@@ -556,8 +584,17 @@ class _AnalyseCalciumTraces(QWidget):
 
         # open the labels file and create masks for each label
         labels = tifffile.imread(labels_path)
+
+        # Check for cancellation after file I/O operation
+        if self._check_for_abort_requested():
+            return
+
         labels_masks = self._create_label_masks_dict(labels)
         sequence = cast(useq.MDASequence, self._data.sequence)
+
+        # Check for cancellation after loading and processing labels
+        if self._check_for_abort_requested():
+            return
 
         # get the exposure time from the metadata
         exp_time = meta[0][event_key].get("exposure", 0.0)
@@ -585,6 +622,7 @@ class _AnalyseCalciumTraces(QWidget):
         LOGGER.info(msg)
         for label_value, label_mask in tqdm(labels_masks.items(), desc=msg):
             if self._check_for_abort_requested():
+                LOGGER.info(f"Cancellation requested during processing of {fov_name}")
                 break
 
             # extract the data
@@ -600,11 +638,15 @@ class _AnalyseCalciumTraces(QWidget):
                 elapsed_time_list,
             )
 
-        # save the analysis data for the well
-        self._save_analysis_data(fov_name)
-
-        # update the progress bar
-        self._pbar.updated.emit()
+        # Only save and update progress if not cancelled
+        if not self._check_for_abort_requested():
+            # Check for cancellation before saving
+            if self._check_for_abort_requested():
+                return
+            # save the analysis data for the well
+            self._save_analysis_data(fov_name)
+            # update the progress bar
+            self._pbar.updated.emit()
 
     def _get_fov_name(self, event_key: str, meta: list[dict], p: int) -> str:
         """Retrieve the fov name from metadata."""
@@ -651,6 +693,10 @@ class _AnalyseCalciumTraces(QWidget):
         elapsed_time_list: list[float],
     ) -> None:
         """Process individual ROI traces."""
+        # Early exit if cancellation is requested
+        if self._check_for_abort_requested():
+            return
+
         value = self._get_validated_settings()
 
         # get the data for the current label
@@ -683,8 +729,17 @@ class _AnalyseCalciumTraces(QWidget):
         # compute the mean for each frame
         roi_trace: np.ndarray = masked_data.mean(axis=1)
         win = value.trace_extraction_data.dff_window_size
+
+        # Check for cancellation before DFF calculation
+        if self._check_for_abort_requested():
+            return
+
         # calculate the dff of the roi trace
         dff = calculate_dff(roi_trace, window=win, plot=False)
+
+        # Check for cancellation after DFF calculation
+        if self._check_for_abort_requested():
+            return
 
         # compute the decay constant
         tau = value.trace_extraction_data.decay_constant
@@ -694,13 +749,35 @@ class _AnalyseCalciumTraces(QWidget):
         else:
             g = None
         # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
+        try:
+            if g is not None:
+                result = deconvolve(dff, penalty=1, g=g)
+            else:
+                result = deconvolve(dff, penalty=1)
+
+            if result is None:
+                # Fallback if deconvolve fails
+                dec_dff = np.array(dff)
+                spikes = np.zeros_like(dff)
+                t = 0.0
+            else:
+                dec_dff, spikes, _, t, _ = result
+        except Exception as e:
+            LOGGER.warning(f"Deconvolution failed for ROI {label_value}: {e}")
+            # Fallback to original dff
+            dec_dff = np.array(dff)
+            spikes = np.zeros_like(dff)
+            t = 0.0
         dec_dff = cast(np.ndarray, dec_dff)
         spikes = cast(np.ndarray, spikes)
         LOGGER.info(
             f"Decay constant: {t} seconds, "
             f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
         )
+
+        # Check for cancellation after deconvolution
+        if self._check_for_abort_requested():
+            return
 
         # Use the spike threshold widget to get the spike detection threshold
         spike_threshold_value = value.spikes_data.spike_threshold
@@ -743,6 +820,10 @@ class _AnalyseCalciumTraces(QWidget):
             np.median(np.abs(dec_dff - np.median(dec_dff))) / 0.6745
         )
 
+        # Check for cancellation after noise level calculation
+        if self._check_for_abort_requested():
+            return
+
         # Set prominence threshold (how much peaks must stand out from surroundings)
         # Use a fraction of noise level to be less restrictive than height threshold
         prom_multiplier = value.calcium_peaks_data.peaks_prominence_multiplier
@@ -761,6 +842,10 @@ class _AnalyseCalciumTraces(QWidget):
         # Get minimum distance between peaks from user-specified value
         min_distance_frames = value.calcium_peaks_data.peaks_distance
 
+        # Check for cancellation before peak finding
+        if self._check_for_abort_requested():
+            return
+
         # find peaks in the deconvolved trace
         peaks_dec_dff, _ = find_peaks(
             dec_dff,
@@ -769,6 +854,10 @@ class _AnalyseCalciumTraces(QWidget):
             distance=min_distance_frames,
         )
         peaks_dec_dff = cast(np.ndarray, peaks_dec_dff)
+
+        # Check for cancellation after peak finding
+        if self._check_for_abort_requested():
+            return
 
         # get the amplitudes of the peaks in the dec_dff trace
         peaks_amplitudes_dec_dff = [float(dec_dff[p]) for p in peaks_dec_dff]
@@ -795,6 +884,10 @@ class _AnalyseCalciumTraces(QWidget):
 
         # get the conditions for the well
         condition_1, condition_2 = self._get_conditions(fov_name)
+
+        # Check for cancellation before final data processing and storage
+        if self._check_for_abort_requested():
+            return
 
         # calculate the inter-event interval (IEI) of the peaks in the dec_dff trace
         iei = get_iei(peaks_dec_dff, elapsed_time_list)
@@ -848,12 +941,18 @@ class _AnalyseCalciumTraces(QWidget):
                 condition_1 = condition_2 = None
         return condition_1, condition_2
 
-    def _on_worker_finished(self) -> None:
-        """Called when the data extraction is finished."""
-        LOGGER.info("Traces Analysis Finished.")
+    def _cleanup_after_completion(self) -> None:
+        """Common cleanup operations after worker completion or error."""
         self._enable(True)
         self._elapsed_timer.stop()
         self._cancel_waiting_bar.stop()
+        # Clear cancellation event for next run
+        self._cancellation_event.clear()
+
+    def _on_worker_finished(self) -> None:
+        """Called when the data extraction is finished."""
+        LOGGER.info("Traces Analysis Finished.")
+        self._cleanup_after_completion()
 
         # update the analysis data of the plate viewer
         if self._plate_viewer is not None:
@@ -887,9 +986,7 @@ class _AnalyseCalciumTraces(QWidget):
     def _on_worker_errored(self) -> None:
         """Called when the worker encounters an error."""
         LOGGER.info("Extraction of traces terminated with an error.")
-        self._enable(True)
-        self._elapsed_timer.stop()
-        self._cancel_waiting_bar.stop()
+        self._cleanup_after_completion()
 
     def _save_plate_map(self, path: Path, data: list[PlateMapData]) -> None:
         """Save the plate map data to a JSON file."""
