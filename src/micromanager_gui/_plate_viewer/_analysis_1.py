@@ -467,8 +467,8 @@ class _AnalyseCalciumTraces(QWidget):
         if self._plate_viewer is None:
             return False
 
-        tr_map = self._plate_map_treatment.value()
-        gen_map = self._plate_map_genotype.value()
+        value = self._analysys_settings_gui.value()
+        tr_map, gen_map = value.plate_map_data
 
         if not gen_map and not tr_map:
             msg = "The Plate Map is not set!\n\nDo you want to continue?"
@@ -506,7 +506,8 @@ class _AnalyseCalciumTraces(QWidget):
 
     def _is_evoked_experiment(self) -> bool:
         """Return True if the activity type is evoked."""
-        activity_type = self._experiment_type_combo.currentText()
+        value = self._analysys_settings_gui.value()
+        activity_type = value.experiment_type_data.experiment_type
         return activity_type == EVOKED  # type: ignore
 
     def _prepare_stimulation_mask(self, analysis_path: Path) -> bool:
@@ -1030,33 +1031,6 @@ class _AnalyseCalciumTraces(QWidget):
         self._plate_viewer._tab.setTabEnabled(1, enable)
         self._plate_viewer._tab.setTabEnabled(2, enable)
 
-    def _save_led_equation_to_json_settings(self, eq: str) -> None:
-        """Save the LED power equation to a JSON file."""
-        if not self.analysis_path:
-            return
-
-        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
-
-        try:
-            # Read existing settings if file exists
-            settings = {}
-            if settings_json_file.exists():
-                with open(settings_json_file) as f:
-                    settings = json.load(f)
-
-            # Update the LED power equation
-            settings[LED_POWER_EQUATION] = eq
-
-            # Write back the complete settings
-            with open(settings_json_file, "w") as f:
-                json.dump(
-                    settings,
-                    f,
-                    indent=2,
-                )
-        except Exception as e:
-            LOGGER.error(f"Failed to save LED power equation: {e}")
-
     def _save_settings_as_json(self) -> None:
         """Save the noise multiplier to a JSON file."""
         if not self.analysis_path:
@@ -1090,6 +1064,8 @@ class _AnalyseCalciumTraces(QWidget):
             settings[BURST_GAUSSIAN_SIGMA] = values.spikes_data.burst_blur_sigma
             settings[SPIKES_SYNC_CROSS_CORR_MAX_LAG] = values.spikes_data.synchrony_lag
 
+            self._save_led_equation_to_json_settings(values.experiment_type_data.led_power_equation)
+
             # Write back the complete settings
             with open(settings_json_file, "w") as f:
                 json.dump(
@@ -1100,6 +1076,33 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             LOGGER.error(f"Failed to save noise multiplier: {e}")
         # fmt: on
+
+    def _save_led_equation_to_json_settings(self, eq: str) -> None:
+        """Save the LED power equation to a JSON file."""
+        if not self.analysis_path:
+            return
+
+        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
+
+        try:
+            # Read existing settings if file exists
+            settings = {}
+            if settings_json_file.exists():
+                with open(settings_json_file) as f:
+                    settings = json.load(f)
+
+            # Update the LED power equation
+            settings[LED_POWER_EQUATION] = eq
+
+            # Write back the complete settings
+            with open(settings_json_file, "w") as f:
+                json.dump(
+                    settings,
+                    f,
+                    indent=2,
+                )
+        except Exception as e:
+            LOGGER.error(f"Failed to save LED power equation: {e}")
 
     def _show_and_log_error(self, msg: str) -> None:
         """Log and display an error message."""
