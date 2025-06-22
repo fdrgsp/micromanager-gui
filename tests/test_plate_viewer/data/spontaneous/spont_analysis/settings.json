@@ -3,14 +3,13 @@
   "decay constant": 0.0,
   "peaks_height_value": 3.0,
   "peaks_height_mode": "multiplier",
-  "spike_threshold_value": 1.0,
-  "spike_threshold_mode": "multiplier",
   "peaks_distance": 2,
   "peaks_prominence_multiplier": 1.0,
+  "calcium_network_threshold": 90.0,
+  "spike_threshold_value": 1.0,
+  "spike_threshold_mode": "multiplier",
   "burst_threshold": 30.0,
   "burst_min_duration": 3,
   "burst_gaussian_sigma": 2.0,
-  "spikes_sync_cross_corr_lag": 5,
-  "calcium_sync_jitter_window": 2,
-  "calcium_network_threshold": 90.0
+  "spikes_sync_cross_corr_lag": 5
 }
