@@ -23,6 +23,10 @@ from micromanager_gui._plate_viewer._plot_methods._main_plot import (
     AMPLITUDE_AND_FREQUENCY_GROUP,
     CALCIUM_TRACES_GROUP,
     CSV_BAR_PLOT_AMPLITUDE,
+    CSV_BAR_PLOT_BURST_COUNT,
+    CSV_BAR_PLOT_BURST_DURATION,
+    CSV_BAR_PLOT_BURST_INTERVAL,
+    CSV_BAR_PLOT_BURST_RATE,
     CSV_BAR_PLOT_FREQUENCY,
     DEC_DFF,
     DEC_DFF_AMPLITUDE,
@@ -279,6 +283,60 @@ class TestMultiWellPlotMethods:
             )
             mock_widget.figure.clear.assert_called_once()
 
+    def test_plot_burst_count_bar(self, mock_widget):
+        """Test plotting burst count bar chart."""
+        plot_multi_well_data(mock_widget, CSV_BAR_PLOT_BURST_COUNT, SPONT_ANALYSIS_PATH)
+
+        mock_widget.figure.clear.assert_called_once()
+
+    def test_plot_burst_duration_bar(self, mock_widget):
+        """Test plotting burst duration bar chart."""
+        plot_multi_well_data(
+            mock_widget, CSV_BAR_PLOT_BURST_DURATION, SPONT_ANALYSIS_PATH
+        )
+
+        mock_widget.figure.clear.assert_called_once()
+
+    def test_plot_burst_interval_bar(self, mock_widget):
+        """Test plotting burst interval bar chart."""
+        plot_multi_well_data(
+            mock_widget, CSV_BAR_PLOT_BURST_INTERVAL, SPONT_ANALYSIS_PATH
+        )
+
+        mock_widget.figure.clear.assert_called_once()
+
+    def test_plot_burst_rate_bar(self, mock_widget):
+        """Test plotting burst rate bar chart."""
+        plot_multi_well_data(mock_widget, CSV_BAR_PLOT_BURST_RATE, SPONT_ANALYSIS_PATH)
+
+        mock_widget.figure.clear.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "burst_plot_type,burst_metric",
+        [
+            (CSV_BAR_PLOT_BURST_COUNT, "count"),
+            (CSV_BAR_PLOT_BURST_DURATION, "avg_duration_sec"),
+            (CSV_BAR_PLOT_BURST_INTERVAL, "avg_interval_sec"),
+            (CSV_BAR_PLOT_BURST_RATE, "rate_burst_per_min"),
+        ],
+    )
+    def test_burst_activity_plots_with_metrics(
+        self, mock_widget, burst_plot_type, burst_metric
+    ):
+        """Test that burst activity plots have correct burst_metric configuration."""
+        # Test that the burst plot is properly configured in MW_GENERAL_GROUP
+        assert burst_plot_type in MW_GENERAL_GROUP
+
+        plot_config = MW_GENERAL_GROUP[burst_plot_type]
+        assert "burst_metric" in plot_config
+        assert plot_config["burst_metric"] == burst_metric
+        assert plot_config["suffix"] == "burst_activity"
+
+        # Test that calling plot_multi_well_data doesn't crash (even without CSV file)
+        # This will call widget.figure.clear() when no CSV is found
+        plot_multi_well_data(mock_widget, burst_plot_type, SPONT_ANALYSIS_PATH)
+        mock_widget.figure.clear.assert_called_once()
+
     @pytest.mark.parametrize("plot_type", MULTI_WELL_COMBO_OPTIONS)
     def test_all_multi_well_plot_types(self, mock_widget, plot_type):
         """Test all multi well plot types."""
@@ -473,9 +531,35 @@ class TestPlotMethodConstants:
         assert CSV_BAR_PLOT_AMPLITUDE in MULTI_WELL_COMBO_OPTIONS
         assert CSV_BAR_PLOT_FREQUENCY in MULTI_WELL_COMBO_OPTIONS
 
+        # Test that burst activity plots are included
+        assert CSV_BAR_PLOT_BURST_COUNT in MULTI_WELL_COMBO_OPTIONS
+        assert CSV_BAR_PLOT_BURST_DURATION in MULTI_WELL_COMBO_OPTIONS
+        assert CSV_BAR_PLOT_BURST_INTERVAL in MULTI_WELL_COMBO_OPTIONS
+        assert CSV_BAR_PLOT_BURST_RATE in MULTI_WELL_COMBO_OPTIONS
+
         # Also test the dictionary structure
         assert isinstance(MULTI_WELL_COMBO_OPTIONS_DICT, dict)
         assert len(MULTI_WELL_COMBO_OPTIONS_DICT) > 0
+
+    def test_burst_activity_in_mw_general_group(self):
+        """Test that burst activity plots are properly included in MW_GENERAL_GROUP."""
+        assert CSV_BAR_PLOT_BURST_COUNT in MW_GENERAL_GROUP
+        assert CSV_BAR_PLOT_BURST_DURATION in MW_GENERAL_GROUP
+        assert CSV_BAR_PLOT_BURST_INTERVAL in MW_GENERAL_GROUP
+        assert CSV_BAR_PLOT_BURST_RATE in MW_GENERAL_GROUP
+
+        # Test that each burst plot has required parameters
+        for burst_plot in [
+            CSV_BAR_PLOT_BURST_COUNT,
+            CSV_BAR_PLOT_BURST_DURATION,
+            CSV_BAR_PLOT_BURST_INTERVAL,
+            CSV_BAR_PLOT_BURST_RATE,
+        ]:
+            plot_config = MW_GENERAL_GROUP[burst_plot]
+            assert "parameter" in plot_config
+            assert "suffix" in plot_config
+            assert "burst_metric" in plot_config
+            assert plot_config["suffix"] == "burst_activity"
 
 
 class TestPlotMethodsIntegration:
