@@ -430,9 +430,7 @@ def _plot_csv_bar_plot_data(
         "synchrony",
         "spike_synchrony",
         "calcium_network_density",
-        "calcium_peaks_synchrony"
-        ""
-
+        "calcium_peaks_synchrony" "",
     ]
     if any(sync_suffix in suffix for sync_suffix in synchrony_suffixes):
         return plot_csv_bar_plot(
