@@ -106,8 +106,9 @@ def test_plate_viewer_init(qtbot: QtBot, dummy_data_loader) -> None:
     assert pv._image_viewer._viewer.labels_image is None  # No labels image loaded
     assert pv._image_viewer._viewer.contours_image is None  # No contours image loaded
     # plate map
-    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
-    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
+    plate_map_wdg = pv._analysis_wdg._analysis_settings_gui._plate_map_wdg
+    assert plate_map_wdg._plate_map_genotype.value() == G_MAP
+    assert plate_map_wdg._plate_map_treatment.value() == T_MAP
 
     # trigger well selection
     with qtbot.wait_signal(pv._plate_view.selectionChanged, timeout=2000):
@@ -144,10 +145,11 @@ def test_analysis_code(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -> None:
     # fmt: off
     genotype_path = Path(TEST_ANALYSIS_PATH) / "genotype_plate_map.json"
     treatment_path = Path(TEST_ANALYSIS_PATH) / "treatment_plate_map.json"
-    pv._analysis_wdg._plate_map_genotype.setValue(genotype_path)
-    pv._analysis_wdg._plate_map_treatment.setValue(treatment_path)
-    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
-    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
+    plate_map_wdg = pv._analysis_wdg._analysis_settings_gui._plate_map_wdg
+    plate_map_wdg._plate_map_genotype.setValue(genotype_path)
+    plate_map_wdg._plate_map_treatment.setValue(treatment_path)
+    assert plate_map_wdg._plate_map_genotype.value() == G_MAP
+    assert plate_map_wdg._plate_map_treatment.value() == T_MAP
     # fmt: on
 
     # autoselect the only 1 position in the plate map

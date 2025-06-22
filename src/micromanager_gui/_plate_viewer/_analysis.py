@@ -743,31 +743,14 @@ class _AnalyseCalciumTraces(QWidget):
 
         # compute the decay constant
         tau = value.trace_extraction_data.decay_constant
+        g: tuple[float, ...] | None = None
         if tau > 0.0:
             fs = len(dff) / tot_time_sec  # Sampling frequency (Hz)
             g = np.exp(-1 / (fs * tau))
         else:
             g = None
         # deconvolve the dff trace with adaptive penalty
-        try:
-            if g is not None:
-                result = deconvolve(dff, penalty=1, g=g)
-            else:
-                result = deconvolve(dff, penalty=1)
-
-            if result is None:
-                # Fallback if deconvolve fails
-                dec_dff = np.array(dff)
-                spikes = np.zeros_like(dff)
-                t = 0.0
-            else:
-                dec_dff, spikes, _, t, _ = result
-        except Exception as e:
-            LOGGER.warning(f"Deconvolution failed for ROI {label_value}: {e}")
-            # Fallback to original dff
-            dec_dff = np.array(dff)
-            spikes = np.zeros_like(dff)
-            t = 0.0
+        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
         dec_dff = cast(np.ndarray, dec_dff)
         spikes = cast(np.ndarray, spikes)
         LOGGER.info(
@@ -1039,7 +1022,7 @@ class _AnalyseCalciumTraces(QWidget):
         decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
         # calcium peaks data
         h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
-        h_mode = cast(str, settings.get(PEAKS_HEIGHT_MODE, GLOBAL_HEIGHT))
+        h_mode = cast(str, settings.get(PEAKS_HEIGHT_MODE, MULTIPLIER))
         dist = cast(int, settings.get(PEAKS_DISTANCE, DEFAULT_PEAKS_DISTANCE))
         prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
         jit = cast(int,settings.get(CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW))  # noqa: E501
@@ -1127,6 +1110,7 @@ class _AnalyseCalciumTraces(QWidget):
 
             settings[PEAKS_HEIGHT_VALUE] = values.calcium_peaks_data.peaks_height
             settings[PEAKS_HEIGHT_MODE] = values.calcium_peaks_data.peaks_height_mode
+            print('------------', values.calcium_peaks_data.peaks_height_mode)
             settings[PEAKS_DISTANCE] = values.calcium_peaks_data.peaks_distance
             settings[PEAKS_PROMINENCE_MULTIPLIER] = values.calcium_peaks_data.peaks_prominence_multiplier  # noqa: E501
             settings[CALCIUM_NETWORK_THRESHOLD] = values.calcium_peaks_data.calcium_network_threshold  # noqa: E501
@@ -1139,7 +1123,7 @@ class _AnalyseCalciumTraces(QWidget):
             settings[SPIKES_SYNC_CROSS_CORR_MAX_LAG] = values.spikes_data.synchrony_lag
 
             led_eq = values.experiment_type_data.led_power_equation or ""
-            self._save_led_equation_to_json_settings(led_eq)
+            settings[LED_POWER_EQUATION] = led_eq
 
             # Write back the complete settings
             with open(settings_json_file, "w") as f:
@@ -1151,33 +1135,6 @@ class _AnalyseCalciumTraces(QWidget):
         except Exception as e:
             LOGGER.error(f"Failed to save noise multiplier: {e}")
         # fmt: on
-
-    def _save_led_equation_to_json_settings(self, eq: str) -> None:
-        """Save the LED power equation to a JSON file."""
-        if not self.analysis_path:
-            return
-
-        settings_json_file = Path(self.analysis_path) / SETTINGS_PATH
-
-        try:
-            # Read existing settings if file exists
-            settings = {}
-            if settings_json_file.exists():
-                with open(settings_json_file) as f:
-                    settings = json.load(f)
-
-            # Update the LED power equation
-            settings[LED_POWER_EQUATION] = eq
-
-            # Write back the complete settings
-            with open(settings_json_file, "w") as f:
-                json.dump(
-                    settings,
-                    f,
-                    indent=2,
-                )
-        except Exception as e:
-            LOGGER.error(f"Failed to save LED power equation: {e}")
 
     def _show_and_log_error(self, msg: str) -> None:
         """Log and display an error message."""
