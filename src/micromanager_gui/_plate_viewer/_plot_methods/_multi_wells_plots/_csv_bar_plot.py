@@ -50,7 +50,9 @@ def plot_csv_bar_plot(  # <- new name, call it however you like
     """Load a CSV file and create *bar* plots (mean ± pooled-SEM) per condition."""
     widget.figure.clear()
 
-    if value_n:
+    if burst_metric := info.get("burst_metric"):
+        _create_bar_plot_burst_activity(widget, csv_path, info, burst_metric)
+    elif value_n:
         _create_bar_plot_percentage_n_format(widget, csv_path, info)
     elif mean_n_sem:
         _create_bar_plot_mean_and_pooled_sem(widget, csv_path, info)
@@ -463,4 +465,96 @@ def _parse_csv_percentage_n_format(
         sems=sems,
         fov_values_list=fov_values_list,
         pulse_length=pulse_length,
+    )
+
+
+def _create_bar_plot_burst_activity(
+    widget: _MultilWellGraphWidget,
+    csv_path: str | Path,
+    info: dict[str, str],
+    burst_metric: str,
+) -> None:
+    """
+    Load a CSV and plot burst activity metric as bar plot with mean ± SEM per condition.
+
+    The burst activity CSV has multiple metrics per condition: count, avg_duration_sec,
+    avg_interval_sec, and rate_burst_per_min. This function extracts columns for a
+    specific metric and creates a bar plot.
+    """
+    # parse data for burst activity format
+    data = _parse_csv_burst_activity_format(csv_path, burst_metric)
+    if data is None:
+        return
+
+    # create the plot using shared plotting logic
+    _create_shared_bar_plot(
+        widget=widget,
+        info=info,
+        conditions=data["conditions"],
+        means=data["means"],
+        sems=data["sems"],
+        fov_values_list=data["fov_values_list"],
+        pulse_length=data["pulse_length"],
+        bar_label="Mean ± SEM",
+    )
+
+
+def _parse_csv_burst_activity_format(
+    csv_path: str | Path, burst_metric: str
+) -> PlotData | None:
+    """Parse CSV with burst activity format (multiple metrics per condition)."""
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return None
+
+    if df.empty:
+        return None
+
+    # Find all columns that match the burst metric pattern
+    metric_columns = [col for col in df.columns if col.endswith(f"_{burst_metric}")]
+
+    if not metric_columns:
+        print(f"No columns found for burst metric '{burst_metric}' in CSV")
+        return None
+
+    conditions = []
+    means = []
+    sems = []
+    fov_values_list = []
+
+    for col in metric_columns:
+        vals = df[col].dropna().to_numpy()
+        if vals.size == 0:
+            continue
+
+        mean = float(vals.mean())
+        sem = float(vals.std(ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else 0.0
+
+        # Extract condition name by removing the metric suffix
+        condition_name = col.replace(f"_{burst_metric}", "")
+
+        # Handle evoked experiment naming
+        if EVK_STIM in condition_name or EVK_NON_STIM in condition_name:
+            condition_name = condition_name.replace(f"_{EVK_STIM}", "").replace(
+                f"_{EVK_NON_STIM}", ""
+            )
+            parts = condition_name.split("_")
+            condition_name = "_".join(parts)
+
+        conditions.append(condition_name)
+        means.append(mean)
+        sems.append(sem)
+        fov_values_list.append(vals)
+
+    if not conditions:
+        return None
+
+    return PlotData(
+        conditions=conditions,
+        means=means,
+        sems=sems,
+        fov_values_list=fov_values_list,
+        pulse_length=None,
     )

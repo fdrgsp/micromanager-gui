@@ -406,13 +406,13 @@ class TestBurstActivityCSV:
         assert "count" in control_metrics
         assert "avg_duration_sec" in control_metrics
         assert "avg_interval_sec" in control_metrics
-        assert "rate_burst_per_min)" in control_metrics
+        assert "rate_burst_per_min" in control_metrics
 
         # Values should be numeric
         assert isinstance(control_metrics["count"], (int, float))
         assert isinstance(control_metrics["avg_duration_sec"], (int, float))
         assert isinstance(control_metrics["avg_interval_sec"], (int, float))
-        assert isinstance(control_metrics["rate_burst_per_min)"], (int, float))
+        assert isinstance(control_metrics["rate_burst_per_min"], (int, float))
 
     def test_get_burst_activity_parameter_no_bursts(self):
         """Test burst activity parameter extraction when no bursts are detected."""
@@ -453,7 +453,7 @@ class TestBurstActivityCSV:
         assert metrics["count"] == 0
         assert metrics["avg_duration_sec"] == 0.0
         assert metrics["avg_interval_sec"] == 0.0
-        assert metrics["rate_burst_per_min)"] == 0.0
+        assert metrics["rate_burst_per_min"] == 0.0
 
     def test_get_burst_activity_parameter_insufficient_rois(self):
         """Test burst activity parameter extraction with insufficient ROIs."""
@@ -488,7 +488,7 @@ class TestBurstActivityCSV:
                         "count": 3,
                         "avg_duration_sec": 0.5,
                         "avg_interval_sec": 1.2,
-                        "rate_burst_per_min)": 90.0,
+                        "rate_burst_per_min": 90.0,
                     }
                 ],
                 "A02_f00": [
@@ -496,7 +496,7 @@ class TestBurstActivityCSV:
                         "count": 2,
                         "avg_duration_sec": 0.3,
                         "avg_interval_sec": 1.5,
-                        "rate_burst_per_min)": 60.0,
+                        "rate_burst_per_min": 60.0,
                     }
                 ],
             },
@@ -506,7 +506,7 @@ class TestBurstActivityCSV:
                         "count": 5,
                         "avg_duration_sec": 0.8,
                         "avg_interval_sec": 0.9,
-                        "rate_burst_per_min)": 150.0,
+                        "rate_burst_per_min": 150.0,
                     }
                 ]
             },
@@ -531,11 +531,11 @@ class TestBurstActivityCSV:
                 "Control_count",
                 "Control_avg_duration_sec",
                 "Control_avg_interval_sec",
-                "Control_rate_burst_per_min)",
+                "Control_rate_burst_per_min",
                 "Treatment_count",
                 "Treatment_avg_duration_sec",
                 "Treatment_avg_interval_sec",
-                "Treatment_rate_burst_per_min)",
+                "Treatment_rate_burst_per_min",
             ]
             assert list(df.columns) == expected_columns
 
@@ -543,11 +543,11 @@ class TestBurstActivityCSV:
             assert df["Control_count"].iloc[0] == 3
             assert df["Control_count"].iloc[1] == 2
             assert df["Control_avg_duration_sec"].iloc[0] == 0.5
-            assert df["Control_rate_burst_per_min)"].iloc[0] == 90.0
+            assert df["Control_rate_burst_per_min"].iloc[0] == 90.0
 
             assert df["Treatment_count"].iloc[0] == 5
             assert df["Treatment_avg_duration_sec"].iloc[0] == 0.8
-            assert df["Treatment_rate_burst_per_min)"].iloc[0] == 150.0
+            assert df["Treatment_rate_burst_per_min"].iloc[0] == 150.0
 
             # Second row should have NaN for Treatment (only one well)
             assert pd.isna(df["Treatment_count"].iloc[1])
@@ -574,7 +574,7 @@ class TestBurstActivityCSV:
                         "count": 2,
                         "avg_duration_sec": 0.4,
                         "avg_interval_sec": 1.0,
-                        "rate_burst_per_min)": 60.0,
+                        "rate_burst_per_min": 60.0,
                     }
                 ],
                 "A02_f00": [
@@ -588,7 +588,7 @@ class TestBurstActivityCSV:
                         "count": 1,
                         "avg_duration_sec": 0.2,
                         "avg_interval_sec": 0.0,  # No intervals for single burst
-                        "rate_burst_per_min)": 30.0,
+                        "rate_burst_per_min": 30.0,
                     }
                 ]
             },

@@ -14,6 +14,7 @@ from micromanager_gui._plate_viewer._graph_widgets import (
     _SingleWellGraphWidget,
 )
 from micromanager_gui._plate_viewer._plot_methods._multi_wells_plots._csv_bar_plot import (  # noqa: E501
+    _create_bar_plot_burst_activity,
     plot_csv_bar_plot,
 )
 from micromanager_gui._plate_viewer._plot_methods._single_wells_plots._plot_calcium_traces_data import (  # noqa: E501
@@ -207,6 +208,77 @@ B6_0000_p0,0.06421,0.01234,25,0.07892,0.01654,20
 
         # Should handle gracefully
         plot_csv_bar_plot(mock_widget, invalid_csv, info, mean_n_sem=True)
+
+        mock_widget.figure.clear.assert_called_once()
+
+    @pytest.fixture
+    def temp_burst_csv_file(self, tmp_path) -> Path:
+        """Create a temporary burst activity CSV file for testing."""
+        csv_content = (
+            "c1_t1_count,c1_t1_avg_duration_sec,c1_t1_avg_interval_sec,"
+            "c1_t1_rate_burst_per_min,c2_t2_count,c2_t2_avg_duration_sec,"
+            "c2_t2_avg_interval_sec,c2_t2_rate_burst_per_min\n"
+            "5,2.5,15.3,0.8,3,3.2,20.1,0.6\n"
+            "7,1.8,12.4,1.2,4,2.9,18.5,0.7\n"
+            "6,2.1,14.7,0.9,5,3.5,22.3,0.5\n"
+        )
+        csv_file = tmp_path / "test_burst_activity.csv"
+        csv_file.write_text(csv_content)
+        return csv_file
+
+    @pytest.mark.parametrize(
+        "burst_metric,expected_conditions",
+        [
+            ("count", ["c1_t1", "c2_t2"]),
+            ("avg_duration_sec", ["c1_t1", "c2_t2"]),
+            ("avg_interval_sec", ["c1_t1", "c2_t2"]),
+            ("rate_burst_per_min", ["c1_t1", "c2_t2"]),
+        ],
+    )
+    def test_create_bar_plot_burst_activity(
+        self, mock_widget, temp_burst_csv_file, burst_metric, expected_conditions
+    ):
+        """Test burst activity CSV parsing for different metrics."""
+        info = {
+            "parameter": "Burst Activity",
+            "suffix": "burst_activity",
+            "burst_metric": burst_metric,
+            "add_to_title": "(Inferred Spikes)",
+            "units": "Count",
+        }
+
+        # Mock necessary attributes
+        mock_widget.conditions = {}
+
+        # Call the function directly to test CSV parsing
+        # Note: _create_bar_plot_burst_activity doesn't call figure.clear itself
+        # That's handled by the main plot_csv_bar_plot function
+        try:
+            _create_bar_plot_burst_activity(
+                mock_widget, temp_burst_csv_file, info, burst_metric
+            )
+            # If we reach here, the function executed without error
+            test_passed = True
+        except Exception as e:
+            print(f"Function failed with error: {e}")
+            test_passed = False
+
+        # Verify the function executed successfully
+        assert test_passed, f"Function failed for burst metric: {burst_metric}"
+
+    def test_plot_csv_bar_plot_with_burst_metric(
+        self, mock_widget, temp_burst_csv_file
+    ):
+        """Test plot_csv_bar_plot with burst_metric parameter."""
+        info = {
+            "parameter": "Burst Count",
+            "suffix": "burst_activity",
+            "burst_metric": "count",
+            "add_to_title": "(Inferred Spikes)",
+            "units": "Count",
+        }
+
+        plot_csv_bar_plot(mock_widget, temp_burst_csv_file, info, mean_n_sem=False)
 
         mock_widget.figure.clear.assert_called_once()
 

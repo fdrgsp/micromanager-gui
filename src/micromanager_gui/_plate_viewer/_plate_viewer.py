@@ -42,6 +42,7 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 from micromanager_gui.readers import OMEZarrReader, TensorstoreZarrReader
 
 from ._analysis import EVOKED, _AnalyseCalciumTraces
+from ._analysis_gui import AnalysisSettingsData, ExperimentTypeData
 from ._fov_table import WellInfo, _FOVTable
 from ._graph_widgets import _MultilWellGraphWidget, _SingleWellGraphWidget
 from ._image_viewer import _ImageViewer
@@ -325,7 +326,7 @@ class PlateViewer(QMainWindow):
         """Initialize the widget with given datastore, labels and analysis path."""
         # CLEARING---------------------------------------------------------------------
 
-        self._clear_widget_before_initiialization()
+        self._clear_widget_before_initialization()
 
         # DATASTORE--------------------------------------------------------------------
 
@@ -396,7 +397,7 @@ class PlateViewer(QMainWindow):
         if init_dialog.exec():
             self.initialize_widget(*init_dialog.value())
 
-    def _clear_widget_before_initiialization(self) -> None:
+    def _clear_widget_before_initialization(self) -> None:
         """Clear the widget before initializing it with new data."""
         # clear the datastore
         self._data = None
@@ -417,8 +418,7 @@ class PlateViewer(QMainWindow):
         self._analysis_wdg.analysis_path = None
         self._analysis_wdg.stimulation_area_path = None
         # clear the plate map
-        self._analysis_wdg._plate_map_genotype.clear()
-        self._analysis_wdg._plate_map_treatment.clear()
+        self._analysis_wdg._analysis_settings_gui._plate_map_wdg.clear()
         # no plate flag
         self._default_plate_plan = False
 
@@ -564,8 +564,13 @@ class PlateViewer(QMainWindow):
             # if a file namend "stimulation_mask.tif" exists in the analysis path
             stim_mask = Path(self._analysis_wdg.analysis_path) / "stimulation_mask.tif"
             if stim_mask.exists():
-                self._analysis_wdg._experiment_type_combo.setCurrentText(EVOKED)
-                self._analysis_wdg.stimulation_area_path = str(stim_mask)
+                self._analysis_wdg._analysis_settings_gui.setValue(
+                    AnalysisSettingsData(
+                        experiment_type_data=ExperimentTypeData(
+                            experiment_type=EVOKED, stimulation_area_path=str(stim_mask)
+                        )
+                    )
+                )
 
     def _load_plate_plan(
         self, plate_plan: useq.WellPlatePlan | tuple[useq.Position, ...] | None = None

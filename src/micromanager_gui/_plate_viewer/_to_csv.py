@@ -48,7 +48,7 @@ BURST_ACTIVITY = "burst_activity"
 COUNT = "count"
 AVE_DURATION = "avg_duration_sec"
 AVE_INTERVAL = "avg_interval_sec"
-RATE = "rate_burst_per_min)"
+RATE = "rate_burst_per_min"
 
 CSV_PARAMETERS: dict[str, str] = {
     "calcium_peaks_amplitude": "peaks_amplitudes_dec_dff",

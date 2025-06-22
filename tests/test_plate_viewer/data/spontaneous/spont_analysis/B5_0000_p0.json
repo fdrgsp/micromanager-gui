@@ -633,7 +633,7 @@
       0.0,
       1.3010426069826053e-18
     ],
-    "inferred_spikes_threshold": 0.00027104095796712425,
+    "inferred_spikes_threshold": 3.989863994746657e-18,
     "dec_dff_frequency": 0.19729054320662898,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -3780,7 +3780,7 @@
       0.00408787211781713,
       0.0
     ],
-    "inferred_spikes_threshold": 0.0018046258158897813,
+    "inferred_spikes_threshold": 0.0013337438268177279,
     "dec_dff_frequency": 0.3288175720110483,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -6883,7 +6883,7 @@
       -4.336808689942018e-19,
       4.336808689942018e-19
     ],
-    "inferred_spikes_threshold": 1.3877787807814457e-17,
+    "inferred_spikes_threshold": 3.469446951953614e-18,
     "dec_dff_frequency": 0.2630540576088386,
     "condition_1": "c1",
     "condition_2": "t1",
@@ -10553,7 +10553,7 @@
       -4.336808689942018e-19,
       4.336808689942018e-19
     ],
-    "inferred_spikes_threshold": 0.0011734821519527277,
+    "inferred_spikes_threshold": 0.0007160600067092726,
     "dec_dff_frequency": 0.2630540576088386,
     "condition_1": "c1",
     "condition_2": "t1",

@@ -98,14 +98,19 @@ def test_analysis_code_evoked(qtbot: QtBot, dummy_data_loader, tmp_path: Path) -
     # fmt: off
     genotype_path = Path(TEST_ANALYSIS_PATH) / "genotype_plate_map.json"
     treatment_path = Path(TEST_ANALYSIS_PATH) / "treatment_plate_map.json"
-    pv._analysis_wdg._plate_map_genotype.setValue(genotype_path)
-    pv._analysis_wdg._plate_map_treatment.setValue(treatment_path)
-    assert pv._analysis_wdg._plate_map_genotype.value() == G_MAP
-    assert pv._analysis_wdg._plate_map_treatment.value() == T_MAP
+    plate_map_wdg = pv._analysis_wdg._analysis_settings_gui._plate_map_wdg
+    plate_map_wdg._plate_map_genotype.setValue(genotype_path)
+    plate_map_wdg._plate_map_treatment.setValue(treatment_path)
+    assert plate_map_wdg._plate_map_genotype.value() == G_MAP
+    assert plate_map_wdg._plate_map_treatment.value() == T_MAP
     # fmt: on
 
-    assert pv._analysis_wdg._experiment_type_combo.currentText() == EVOKED
+    experiment_type_wdg = pv._analysis_wdg._analysis_settings_gui._experiment_type_wdg
+    assert experiment_type_wdg._experiment_type_combo.currentText() == EVOKED
     assert pv._analysis_wdg.stimulation_area_path is not None
+
+    # Set the LED power equation to match expected test data
+    experiment_type_wdg._led_power_equation_le.setText("y = 11 * x - 6")
 
     pv._analysis_wdg.analysis_path = str(tmp_analysis_path)
 

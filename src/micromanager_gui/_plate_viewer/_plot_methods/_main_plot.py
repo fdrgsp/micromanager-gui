@@ -332,6 +332,10 @@ CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY = "Calcium Peaks Events Global Synchr
 CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY = "Inferred Spikes Global Synchrony Bar Plot"
 CSV_BAR_PLOT_PERCENTAGE_ACTIVE_CELLS = "Percentage of Active Cells (Based on Calcium Peaks) Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_CALCIUM_NETWORK_DENSITY = "Calcium Network Density Bar Plot"
+CSV_BAR_PLOT_BURST_COUNT = "Burst Count Bar Plot"
+CSV_BAR_PLOT_BURST_DURATION = "Burst Average Duration Bar Plot"
+CSV_BAR_PLOT_BURST_INTERVAL = "Burst Average Interval Bar Plot"
+CSV_BAR_PLOT_BURST_RATE = "Burst Rate Bar Plot"
 CSV_BAR_PLOT_CALCIUM_STIMULATED_AMPLITUDE = "Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 CSV_BAR_PLOT_CALCIUM_NON_STIMULATED_AMPLITUDE = "Non-Stimulated Calcium Peaks Amplitude Bar Plot"  # noqa: E501
 
@@ -341,9 +345,13 @@ MW_GENERAL_GROUP = {
     CSV_BAR_PLOT_AMPLITUDE: {"parameter": "Calcium Peaks Amplitude",  "suffix": "amplitude", "add_to_title": " (Deconvolved ΔF/F)"},  # noqa: E501
     CSV_BAR_PLOT_FREQUENCY: {"parameter": "Calcium Peaks Frequency",  "suffix": "frequency",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Hz"},  # noqa: E501
     CSV_BAR_PLOT_IEI: { "parameter": "Calcium Peaks Inter-Event Interval",  "suffix": "iei",  "add_to_title": " (Deconvolved ΔF/F)",  "units": "Sec"},  # noqa: E501
-    CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "peak_event_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
+    CSV_BAR_PLOT_CALCIUM_PEAKS_EVENT_SYNCHRONY: {"parameter": "Calcium Peak Events Global Synchrony",  "suffix": "calcium_peaks_synchrony",  "add_to_title": "(Median)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_INFERRED_SPIKE_SYNCHRONY: {"parameter": "Inferred Spikes Global Synchrony",  "suffix": "spike_synchrony",  "add_to_title": "(Median - Thresholded Data)",  "units": "Index"},  # noqa: E501
     CSV_BAR_PLOT_CALCIUM_NETWORK_DENSITY: {"parameter": "Calcium Network Density",  "suffix": "calcium_network_density",  "add_to_title": "(Percentile-Based Threshold)",  "units": "%"},  # noqa: E501
+    CSV_BAR_PLOT_BURST_COUNT: {"parameter": "Burst Count",  "suffix": "burst_activity",  "burst_metric": "count",  "add_to_title": "(Inferred Spikes)",  "units": "Count"},  # noqa: E501
+    CSV_BAR_PLOT_BURST_DURATION: {"parameter": "Burst Average Duration",  "suffix": "burst_activity",  "burst_metric": "avg_duration_sec",  "add_to_title": "(Inferred Spikes)",  "units": "Sec"},  # noqa: E501
+    CSV_BAR_PLOT_BURST_INTERVAL: {"parameter": "Burst Average Interval",  "suffix": "burst_activity",  "burst_metric": "avg_interval_sec",  "add_to_title": "(Inferred Spikes)",  "units": "Sec"},  # noqa: E501
+    CSV_BAR_PLOT_BURST_RATE: {"parameter": "Burst Rate",  "suffix": "burst_activity",  "burst_metric": "rate_burst_per_min",  "add_to_title": "(Inferred Spikes)",  "units": "Bursts/min"},  # noqa: E501
 }
 
 MW_EVOKED_GROUP = {
@@ -416,20 +424,35 @@ def _plot_csv_bar_plot_data(
     )
 
     if not csv_file:
+        LOGGER.error(f"CSV file for suffix '{suffix}' not found in {csv_path}.")
         widget.figure.clear()
         return
 
     # Create plot options from kwargs, filtering out non-plot parameters
     plot_options = {
-        k: v for k, v in kwargs.items() if k not in ["stimulated", "per_led_power"]
+        k: v
+        for k, v in kwargs.items()
+        if k not in ["stimulated", "per_led_power", "burst_metric"]
     }
+
+    # Special handling for burst activity plots
+    burst_metric = kwargs.get("burst_metric")
+    if suffix == "burst_activity" and burst_metric:
+        # Add burst_metric to plot_options for handling in plot_csv_bar_plot
+        plot_options["burst_metric"] = burst_metric
+        return plot_csv_bar_plot(
+            widget,
+            csv_file,
+            plot_options,
+            mean_n_sem=False,
+        )
 
     # Special handling for certain plot types that don't use mean_n_sem
     synchrony_suffixes = [
         "synchrony",
         "spike_synchrony",
-        "peak_event_synchrony",
         "calcium_network_density",
+        "calcium_peaks_synchrony" "",
     ]
     if any(sync_suffix in suffix for sync_suffix in synchrony_suffixes):
         return plot_csv_bar_plot(
