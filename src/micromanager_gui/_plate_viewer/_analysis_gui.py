@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 from fonticon_mdi6 import MDI6
 from qtpy.QtCore import Signal
-from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
@@ -25,8 +25,8 @@ from qtpy.QtWidgets import (
 from superqt.fonticon import icon
 
 # from ._plate_map import PlateMapWidget
-from micromanager_gui._plate_viewer._plate_map import PlateMapData, PlateMapWidget
-from micromanager_gui._plate_viewer._util import (
+from ._plate_map import PlateMapData, PlateMapDataOld, PlateMapWidget
+from ._util import (
     DEFAULT_BURST_GAUSS_SIGMA,
     DEFAULT_BURST_THRESHOLD,
     DEFAULT_CALCIUM_NETWORK_THRESHOLD,
@@ -36,14 +36,14 @@ from micromanager_gui._plate_viewer._util import (
     DEFAULT_MIN_BURST_DURATION,
     DEFAULT_SPIKE_SYNCHRONY_MAX_LAG,
     DEFAULT_SPIKE_THRESHOLD,
-    GREEN,
-    RED,
     _BrowseWidget,
     create_divider_line,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import useq
 
 FIXED = QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
 
@@ -57,44 +57,49 @@ GLOBAL_SPIKE_THRESHOLD = "global_spike_threshold"
 MULTIPLIER = "multiplier"
 
 
-class AnalysisSettingsData(NamedTuple):
+@dataclass(frozen=True)
+class AnalysisSettingsData:
     """Data structure to hold the analysis settings."""
 
-    plate_map_data: tuple[list[PlateMapData], list[PlateMapData]]
-    experiment_type_data: ExperimentTypeData
-    trace_extraction_data: TraceExtractionData
-    calcium_peaks_data: CalciumPeaksData
-    spikes_data: SpikeData
-    positions: str
+    plate_map_data: tuple[list[PlateMapData], list[PlateMapData]] | None = None
+    experiment_type_data: ExperimentTypeData | None = None
+    trace_extraction_data: TraceExtractionData | None = None
+    calcium_peaks_data: CalciumPeaksData | None = None
+    spikes_data: SpikeData | None = None
+    positions: str | None = None
 
 
-class ExperimentTypeData(NamedTuple):
+@dataclass(frozen=True)
+class ExperimentTypeData:
     """Data structure to hold the experiment type settings."""
 
-    experiment_type: str
-    led_power_equation: str
-    stimulation_area_path: str
+    experiment_type: str | None = None
+    led_power_equation: str | None = None
+    stimulation_area_path: str | None = None
 
 
-class TraceExtractionData(NamedTuple):
+@dataclass(frozen=True)
+class TraceExtractionData:
     """Data structure to hold the trace extraction settings."""
 
     dff_window_size: int
     decay_constant: float
 
 
-class CalciumPeaksData(NamedTuple):
+@dataclass(frozen=True)
+class CalciumPeaksData:
     """Data structure to hold the calcium peaks settings."""
 
     peaks_height: float
     peaks_height_mode: str
     peaks_distance: int
-    peaks_prominence: float
+    peaks_prominence_multiplier: float
     calcium_synchrony_jitter: int
     calcium_network_threshold: float
 
 
-class SpikeData(NamedTuple):
+@dataclass(frozen=True)
+class SpikeData:
     """Data structure to hold the spikes settings."""
 
     spike_threshold: float
@@ -145,7 +150,9 @@ class _PlateMapWidget(QWidget):
         return (self._plate_map_genotype.value(), self._plate_map_treatment.value())
 
     def setValue(
-        self, genotype_map: list[PlateMapData], treatment_map: list[PlateMapData]
+        self,
+        genotype_map: list[PlateMapData | PlateMapDataOld] | list | Path | str,
+        treatment_map: list[PlateMapData | PlateMapDataOld] | list | Path | str,
     ) -> None:
         """Set the plate map data."""
         self._plate_map_genotype.setValue(genotype_map)
@@ -154,6 +161,16 @@ class _PlateMapWidget(QWidget):
     def set_labels_width(self, width: int) -> None:
         """Set the width of the labels."""
         self._plate_map_lbl.setFixedWidth(width)
+
+    def setPlate(self, plate: useq.WellPlate) -> None:
+        """Set the plate for the plate maps."""
+        self._plate_map_genotype.setPlate(plate)
+        self._plate_map_treatment.setPlate(plate)
+
+    def clear(self) -> None:
+        """Clear the plate map data."""
+        self._plate_map_genotype.clear()
+        self._plate_map_treatment.clear()
 
     # PRIVATE METHODS ------------------------------------------------------------
 
@@ -257,11 +274,14 @@ class _ExperimentTypeWidget(QWidget):
 
     def setValue(self, value: ExperimentTypeData) -> None:
         """Set the values of the widget."""
-        self._experiment_type_combo.setCurrentText(value.experiment_type)
-        self._led_power_equation_le.setText(value.led_power_equation)
-        self._stimulation_area_path_dialog.setValue(value.stimulation_area_path)
-        # update visibility based on experiment type
-        self._on_activity_changed(value.experiment_type)
+        if value.led_power_equation is not None:
+            self._led_power_equation_le.setText(value.led_power_equation)
+        if value.stimulation_area_path is not None:
+            self._stimulation_area_path_dialog.setValue(value.stimulation_area_path)
+        if value.experiment_type is not None:
+            self._experiment_type_combo.setCurrentText(value.experiment_type)
+            # update visibility based on experiment type
+            self._on_activity_changed(value.experiment_type)
 
     # PRIVATE METHODS ------------------------------------------------------------
 
@@ -564,7 +584,9 @@ class _CalciumPeaksWidget(QWidget):
         """Set the values of the widget."""
         self._peaks_height.setValue((value.peaks_height, value.peaks_height_mode))
         self._peaks_distance_spin.setValue(value.peaks_distance)
-        self._peaks_prominence_multiplier_spin.setValue(value.peaks_prominence)
+        self._peaks_prominence_multiplier_spin.setValue(
+            value.peaks_prominence_multiplier
+        )
         self._calcium_synchrony_jitter_spin.setValue(value.calcium_synchrony_jitter)
         self._calcium_network_threshold_spin.setValue(value.calcium_network_threshold)
 
@@ -775,10 +797,17 @@ class _SpikeWidget(QWidget):
 
     def value(self) -> SpikeData:
         """Get the current values of the widget."""
+        spike_threshold, spike_threshold_mode = self._spike_threshold_wdg.value()
+        burst_threshold, burst_min_duration, burst_blur_sigma = self._burst_wdg.value()
+        synchrony_lag = self._spikes_sync_cross_corr_max_lag.value()
+
         return SpikeData(
-            *self._spike_threshold_wdg.value(),
-            *self._burst_wdg.value(),
-            self._spikes_sync_cross_corr_max_lag.value(),
+            spike_threshold=spike_threshold,
+            spike_threshold_mode=spike_threshold_mode,
+            burst_threshold=burst_threshold,
+            burst_min_duration=burst_min_duration,
+            burst_blur_sigma=burst_blur_sigma,
+            synchrony_lag=synchrony_lag,
         )
 
     def setValue(self, value: SpikeData) -> None:
@@ -823,7 +852,7 @@ class _ChoosePositionsWidget(QWidget):
 
     def value(self) -> str:
         """Get the current value of the positions line edit."""
-        return self._pos_le.text()
+        return cast(str, self._pos_le.text())
 
     def setValue(self, value: str) -> None:
         """Set the value of the positions line edit."""
@@ -831,7 +860,6 @@ class _ChoosePositionsWidget(QWidget):
 
 
 class _CalciumAnalysisGUI(QGroupBox):
-
     progress_bar_updated = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -886,12 +914,18 @@ class _CalciumAnalysisGUI(QGroupBox):
 
     def setValue(self, value: AnalysisSettingsData) -> None:
         """Set the values of the widget."""
-        self._plate_map_wdg.setValue(*value.plate_map_data)
-        self._experiment_type_wdg.setValue(value.experiment_type_data)
-        self._trace_extraction_wdg.setValue(value.trace_extraction_data)
-        self._calcium_peaks_wdg.setValue(value.calcium_peaks_data)
-        self._spike_wdg.setValue(value.spikes_data)
-        self._positions_wdg.setValue(value.positions)
+        if value.plate_map_data is not None:
+            self._plate_map_wdg.setValue(*value.plate_map_data)
+        if value.experiment_type_data is not None:
+            self._experiment_type_wdg.setValue(value.experiment_type_data)
+        if value.trace_extraction_data is not None:
+            self._trace_extraction_wdg.setValue(value.trace_extraction_data)
+        if value.calcium_peaks_data is not None:
+            self._calcium_peaks_wdg.setValue(value.calcium_peaks_data)
+        if value.spikes_data is not None:
+            self._spike_wdg.setValue(value.spikes_data)
+        if value.positions is not None:
+            self._positions_wdg.setValue(value.positions)
 
     def enable(self, enable: bool) -> None:
         """Enable or disable the widget."""
@@ -901,3 +935,56 @@ class _CalciumAnalysisGUI(QGroupBox):
         self._calcium_peaks_wdg.setEnabled(enable)
         self._spike_wdg.setEnabled(enable)
         self._positions_wdg.setEnabled(enable)
+
+
+class _AnalysisProgressBarWidget(QWidget):
+    """Widget to display the progress of the analysis."""
+
+    updated = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        # progress bar
+        self._progress_bar = QProgressBar(self)
+        self._progress_pos_label = QLabel()
+        self._elapsed_time_label = QLabel("00:00:00")
+
+        # main layout
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self._progress_bar)
+        main_layout.addWidget(self._progress_pos_label)
+        main_layout.addWidget(self._elapsed_time_label)
+
+    def maximum(self) -> int:
+        """Return the maximum value of the progress bar."""
+        return cast(int, self._progress_bar.maximum())
+
+    def set_progress_bar_label(self, text: str) -> None:
+        """Update the progress label with elapsed time."""
+        self._progress_pos_label.setText(text)
+
+    def set_time_label(self, elapsed_time: str) -> None:
+        """Update the elapsed time label."""
+        self._elapsed_time_label.setText(elapsed_time)
+
+    def set_range(self, minimum: int, maximum: int) -> None:
+        """Set the range of the progress bar."""
+        self._progress_bar.setRange(minimum, maximum)
+
+    def reset(self) -> None:
+        """Reset the progress bar and elapsed time label."""
+        self._progress_bar.reset()
+        self._progress_bar.setValue(0)
+        self._progress_pos_label.setText("[0/0]")
+        self._elapsed_time_label.setText("00:00:00")
+
+    def auto_update(self) -> None:
+        """Automatically update the progress bar value and label.
+
+        The value is incremented by 1 each time this method is called.
+        """
+        value = self._progress_bar.value() + 1
+        self._progress_bar.setValue(value)
+        self._progress_pos_label.setText(f"[{value}/{self._progress_bar.maximum()}]")
