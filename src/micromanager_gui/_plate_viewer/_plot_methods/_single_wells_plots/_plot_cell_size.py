@@ -60,7 +60,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
             x, y = sel.target
 
             # Create hover text with ROI and value information
-            roi = cast(str, label.split(" ")[1])
+            roi = cast("str", label.split(" ")[1])
 
             # Get the units from the y-axis label
             y_label = ax.get_ylabel()

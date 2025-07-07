@@ -52,7 +52,7 @@ def _plot_metrics(
     if amp and freq:
         if not roi_data.peaks_amplitudes_dec_dff or roi_data.dec_dff_frequency is None:
             return
-        mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+        mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
         sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
         _plot_errorbars(
             ax, mean_amp, roi_data.dec_dff_frequency, sem_amp, f"ROI {roi_key}"
@@ -62,7 +62,7 @@ def _plot_metrics(
             return
 
         # plot mean amplitude +- sem of each ROI
-        mean_amp = cast(list[float], np.mean(roi_data.peaks_amplitudes_dec_dff))
+        mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
         sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
         _plot_errorbars(ax, [int(roi_key)], mean_amp, sem_amp, f"ROI {roi_key}")
         ax.scatter(
@@ -131,7 +131,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
             x, y = sel.target
 
             # Create hover text with ROI and value information
-            roi = cast(str, label.split(" ")[1])
+            roi = cast("str", label.split(" ")[1])
 
             # Determine what type of plot this is based on axis labels
             x_label = ax.get_xlabel()

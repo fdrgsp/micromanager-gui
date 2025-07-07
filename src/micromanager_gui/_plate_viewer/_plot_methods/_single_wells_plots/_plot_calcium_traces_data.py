@@ -248,7 +248,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
         # Only show hover for ROI traces, not for peaks or other elements
         if label and "ROI" in label and not label.startswith("_"):
             sel.annotation.set(text=label, fontsize=8, color="black")
-            roi = cast(str, label.split(" ")[1])
+            roi = cast("str", label.split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
         else:

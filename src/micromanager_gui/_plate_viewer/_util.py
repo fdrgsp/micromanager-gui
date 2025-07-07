@@ -582,8 +582,7 @@ def equation_from_str(equation: str) -> Callable | None:
 
     except ValueError as e:
         msg = (
-            f"Error parsing equation coefficients: {e}\n"
-            "Using values from the metadata."
+            f"Error parsing equation coefficients: {e}\nUsing values from the metadata."
         )
         LOGGER.error(msg)
         return None

@@ -169,7 +169,7 @@ class _MenuBar(QMenuBar):
         # create 'Group and Presets' and 'MDA' widgets at the startup
         self._create_dock_widget("Groups and Presets", dock_area=LEFT)
         mda = self._create_dock_widget("MDA Widget")
-        self._mda = cast(MDAWidget, mda.main_widget)
+        self._mda = cast("MDAWidget", mda.main_widget)
 
     def _enable(self, enable: bool) -> None:
         """Enable or disable the actions."""
@@ -238,7 +238,7 @@ class _MenuBar(QMenuBar):
     def _show_widget(self) -> None:
         """Create or show a widget."""
         # get the action that triggered the signal
-        sender = cast(QAction, self.sender())
+        sender = cast("QAction", self.sender())
         # get action name
         action_name = sender.text()
 

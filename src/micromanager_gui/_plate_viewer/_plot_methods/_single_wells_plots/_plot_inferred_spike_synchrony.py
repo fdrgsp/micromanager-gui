@@ -57,7 +57,7 @@ def _plot_spike_synchrony_data(
 
     # Convert spike trains to spike data dict for correlation-based synchrony
     spike_data_dict = {
-        roi_name: cast(list[float], spike_train.astype(float).tolist())
+        roi_name: cast("list[float]", spike_train.astype(float).tolist())
         for roi_name, spike_train in spike_trains.items()
     }
 

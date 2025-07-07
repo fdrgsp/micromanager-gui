@@ -22,11 +22,12 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
     TIFF_SEQ,
     ZARR_TESNSORSTORE,
 )
-from micromanager_gui._widgets._viewers import MDAViewer
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from pytestqt.qtbot import QtBot
+
+    from micromanager_gui._widgets._viewers import MDAViewer
 
 
 def test_mda_viewer_no_saving(
@@ -97,7 +98,7 @@ def test_mda_viewer_saving(
     assert gui._core_link._viewer_tab.tabText(1) == save_name
 
     # saving datastore and MDAViewer datastore should be the same
-    viewer = cast(MDAViewer, gui._core_link._viewer_tab.widget(1))
+    viewer = cast("MDAViewer", gui._core_link._viewer_tab.widget(1))
     assert viewer.data == gui._core_link._mda.writer
 
 

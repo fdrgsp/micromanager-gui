@@ -78,7 +78,7 @@ def _mda_sequence_message(event: useq.MDAEvent) -> dict[str, Any]:
         lines = text.strip().split("\n")
         # insert the new line before the last line
         pos_text = f'  "stage_positions": {npos} (hiding because too many)'
-        new_lines = lines[:-1] + [pos_text] + [lines[-1]]
+        new_lines = [*lines[:-1], pos_text, lines[-1]]
         # join the lines back into a single string
         text = "\n".join(new_lines)
 
@@ -230,7 +230,7 @@ class CoreViewersLink(QObject):
         self._current_viewer = MDAViewer(parent=self._main_window, data=datastore)
 
         # rename the viewer if there is a save_name' in the metadata or add a digit
-        _meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        _meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         viewer_name = self._get_viewer_name(_meta.get("save_name"))
         self._viewer_tab.addTab(self._current_viewer, viewer_name)
         self._viewer_tab.setCurrentWidget(self._current_viewer)
@@ -293,7 +293,7 @@ class CoreViewersLink(QObject):
         if self._slackbot is None:
             return
 
-        meta = cast(dict, sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        meta = cast("dict", sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
         file_name = meta.get("save_name", "")
         if file_name:
             file_name = f" (file: `{file_name}`)"

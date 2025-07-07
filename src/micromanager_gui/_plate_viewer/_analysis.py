@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import tifffile
-import useq
 from fonticon_mdi6 import MDI6
 from oasis.functions import deconvolve
 from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
@@ -90,6 +89,7 @@ from ._util import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import useq
     from qtpy.QtGui import QCloseEvent
     from superqt.utils import GeneratorWorker
 
@@ -170,11 +170,11 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
-        pbar_layout = cast(QHBoxLayout, self._progress_bar_wdg.layout())
+        pbar_layout = cast("QHBoxLayout", self._progress_bar_wdg.layout())
         pbar_layout.insertWidget(0, self._run_btn)
         pbar_layout.insertWidget(1, self._cancel_btn)
         # add them to the analysis settings GUI layout
-        gui_layout = cast(QVBoxLayout, self._analysis_settings_gui.layout())
+        gui_layout = cast("QVBoxLayout", self._analysis_settings_gui.layout())
         gui_layout.addSpacing(5)
         gui_layout.addWidget(self._progress_bar_wdg)
 
@@ -590,7 +590,7 @@ class _AnalyseCalciumTraces(QWidget):
             return
 
         labels_masks = self._create_label_masks_dict(labels)
-        sequence = cast(useq.MDASequence, self._data.sequence)
+        sequence = cast("useq.MDASequence", self._data.sequence)
 
         # Check for cancellation after loading and processing labels
         if self._check_for_abort_requested():
@@ -615,7 +615,7 @@ class _AnalyseCalciumTraces(QWidget):
         # get the stimulation metadata if it is an evoked activity experiment
         evoked_experiment_meta: dict[str, Any] | None = None
         if evoked_experiment and (seq := self._data.sequence) is not None:
-            metadata = cast(dict, seq.metadata.get(PYMMCW_METADATA_KEY, {}))
+            metadata = cast("dict", seq.metadata.get(PYMMCW_METADATA_KEY, {}))
             evoked_experiment_meta = metadata.get("stimulation")
 
         msg = f"Extracting Traces Data from Well {fov_name}."
@@ -751,8 +751,8 @@ class _AnalyseCalciumTraces(QWidget):
             g = None
         # deconvolve the dff trace with adaptive penalty
         dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
-        dec_dff = cast(np.ndarray, dec_dff)
-        spikes = cast(np.ndarray, spikes)
+        dec_dff = cast("np.ndarray", dec_dff)
+        spikes = cast("np.ndarray", spikes)
         LOGGER.info(
             f"Decay constant: {t} seconds, "
             f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
@@ -836,7 +836,7 @@ class _AnalyseCalciumTraces(QWidget):
             height=peaks_height_dec_dff,
             distance=min_distance_frames,
         )
-        peaks_dec_dff = cast(np.ndarray, peaks_dec_dff)
+        peaks_dec_dff = cast("np.ndarray", peaks_dec_dff)
 
         # Check for cancellation after peak finding
         if self._check_for_abort_requested():
@@ -854,7 +854,7 @@ class _AnalyseCalciumTraces(QWidget):
         if evoked_exp and evoked_meta is not None:
             # get the stimulation info from the metadata (if any)
             stimulation_frames_and_powers = cast(
-                dict, evoked_meta.get("pulse_on_frame", {})
+                "dict", evoked_meta.get("pulse_on_frame", {})
             )
             led_pulse_duration = evoked_meta.get("led_pulse_duration", "unknown")
 
@@ -881,8 +881,8 @@ class _AnalyseCalciumTraces(QWidget):
         # store the data to the analysis dict as ROIData
         self._analysis_data[fov_name][str(label_value)] = ROIData(
             well_fov_position=fov_name,
-            raw_trace=cast(list[float], roi_trace.tolist()),
-            dff=cast(list[float], dff.tolist()),
+            raw_trace=cast("list[float]", roi_trace.tolist()),
+            dff=cast("list[float]", dff.tolist()),
             dec_dff=dec_dff.tolist(),
             peaks_dec_dff=peaks_dec_dff.tolist(),
             peaks_amplitudes_dec_dff=peaks_amplitudes_dec_dff,
@@ -1014,26 +1014,26 @@ class _AnalyseCalciumTraces(QWidget):
         """Update the widget form from the JSON settings file."""
         # fmt: off
         # load the settings from the JSON file
-        settings = cast(dict, json.load(f))
+        settings = cast("dict", json.load(f))
         # led power equation
-        led_eq = cast(str, settings.get(LED_POWER_EQUATION, ""))
+        led_eq = cast("str", settings.get(LED_POWER_EQUATION, ""))
         # trace extraction data
-        dff_window = cast(int, settings.get(DFF_WINDOW, DEFAULT_DFF_WINDOW))
-        decay = cast(float, settings.get(DECAY_CONSTANT, 0.0))
+        dff_window = cast("int", settings.get(DFF_WINDOW, DEFAULT_DFF_WINDOW))
+        decay = cast("float", settings.get(DECAY_CONSTANT, 0.0))
         # calcium peaks data
-        h_val = cast(float, settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
-        h_mode = cast(str, settings.get(PEAKS_HEIGHT_MODE, MULTIPLIER))
-        dist = cast(int, settings.get(PEAKS_DISTANCE, DEFAULT_PEAKS_DISTANCE))
-        prom_mult = cast(float, settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
-        jit = cast(int,settings.get(CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW))  # noqa: E501
-        network_threshold = cast(float,settings.get(CALCIUM_NETWORK_THRESHOLD, DEFAULT_CALCIUM_NETWORK_THRESHOLD))  # noqa: E501
+        h_val = cast("float", settings.get(PEAKS_HEIGHT_VALUE, DEFAULT_HEIGHT))
+        h_mode = cast("str", settings.get(PEAKS_HEIGHT_MODE, MULTIPLIER))
+        dist = cast("int", settings.get(PEAKS_DISTANCE, DEFAULT_PEAKS_DISTANCE))
+        prom_mult = cast("float", settings.get(PEAKS_PROMINENCE_MULTIPLIER, 1.0))
+        jit = cast("int",settings.get(CALCIUM_SYNC_JITTER_WINDOW, DEFAULT_CALCIUM_SYNC_JITTER_WINDOW))  # noqa: E501
+        network_threshold = cast("float",settings.get(CALCIUM_NETWORK_THRESHOLD, DEFAULT_CALCIUM_NETWORK_THRESHOLD))  # noqa: E501
         # spikes data
-        spike_thresh_val = cast(float, settings.get(SPIKE_THRESHOLD_VALUE, DEFAULT_SPIKE_THRESHOLD))  # noqa: E501
-        spike_thresh_mode = cast(str, settings.get(SPIKE_THRESHOLD_MODE, MULTIPLIER))
-        burst_the = cast(float, settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))
-        burst_d = cast(int, settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION))  # noqa: E501
-        burst_g = cast(float, settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA))  # noqa: E501
-        lag = cast(int,settings.get(SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG))  # noqa: E501
+        spike_thresh_val = cast("float", settings.get(SPIKE_THRESHOLD_VALUE, DEFAULT_SPIKE_THRESHOLD))  # noqa: E501
+        spike_thresh_mode = cast("str", settings.get(SPIKE_THRESHOLD_MODE, MULTIPLIER))
+        burst_the = cast("float", settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))
+        burst_d = cast("int", settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION))  # noqa: E501
+        burst_g = cast("float", settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA))  # noqa: E501
+        lag = cast("int",settings.get(SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG))  # noqa: E501
         # fmt: on
 
         value = AnalysisSettingsData(

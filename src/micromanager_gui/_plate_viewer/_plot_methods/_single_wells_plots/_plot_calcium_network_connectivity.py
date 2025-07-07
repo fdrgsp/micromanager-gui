@@ -184,7 +184,7 @@ def _plot_connectivity_network_data(
         f"Calcium Peaks Functional Connectivity Network\n"
         f"Threshold: {network_threshold:.1f}% | "
         f"Edges: {edge_count}/{total_possible_edges} | "
-        f"Density: {network_density*100:.1f}%",
+        f"Density: {network_density * 100:.1f}%",
         fontsize=12,
         pad=20,
     )

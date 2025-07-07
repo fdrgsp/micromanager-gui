@@ -663,7 +663,7 @@ def _get_calcium_peaks_event_synchrony_parameter(
 
             # Convert to the format expected by the synchrony matrix function
             peak_event_data_dict = {
-                roi_name: cast(list[float], peak_train.astype(float).tolist())
+                roi_name: cast("list[float]", peak_train.astype(float).tolist())
                 for roi_name, peak_train in peak_trains.items()
             }
 
