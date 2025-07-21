@@ -279,7 +279,7 @@ class PlateViewer(QMainWindow):
 
         data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
         self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
+        self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"
         self.initialize_widget(data, self._labels_path, self._analysis_path)
         # fmt: on
         # ____________________________________________________________________________
