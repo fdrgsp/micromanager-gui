@@ -1030,7 +1030,7 @@ class _AnalyseCalciumTraces(QWidget):
         # spikes data
         spike_thresh_val = cast("float", settings.get(SPIKE_THRESHOLD_VALUE, DEFAULT_SPIKE_THRESHOLD))  # noqa: E501
         spike_thresh_mode = cast("str", settings.get(SPIKE_THRESHOLD_MODE, MULTIPLIER))
-        burst_the = cast("float", settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))
+        burst_the = cast("float", settings.get(BURST_THRESHOLD, DEFAULT_BURST_THRESHOLD))  # noqa: E501
         burst_d = cast("int", settings.get(BURST_MIN_DURATION, DEFAULT_MIN_BURST_DURATION))  # noqa: E501
         burst_g = cast("float", settings.get(BURST_GAUSSIAN_SIGMA, DEFAULT_BURST_GAUSS_SIGMA))  # noqa: E501
         lag = cast("int",settings.get(SPIKES_SYNC_CROSS_CORR_MAX_LAG, DEFAULT_SPIKE_SYNCHRONY_MAX_LAG))  # noqa: E501

@@ -498,7 +498,7 @@ def get_overlap_roi_with_stimulated_area(
     # count overlapping pixels (logical AND operation)
     overlapping_pixels = np.count_nonzero(roi_mask & stimulation_mask)
 
-    return overlapping_pixels / cell_pixels
+    return float(overlapping_pixels / cell_pixels)
 
 
 def _get_spikes_over_threshold(

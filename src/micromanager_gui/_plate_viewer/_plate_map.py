@@ -383,7 +383,7 @@ class PlateMapWidget(QWidget):
                         self._plate_view.setWellColor(r, c, color_name)
                         well.setData(DATA_CONDITION, tuple(data.condition))
                     # update the condition table
-            self.list.setValue(list(add_to_conditions_list))
+            self.list.setValue(list(add_to_conditions_list))  # type: ignore
         except Exception as e:
             warnings.warn(f"Error loading the plate map: {e}", stacklevel=2)
             return
