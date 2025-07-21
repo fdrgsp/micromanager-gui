@@ -96,7 +96,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
             x, y = sel.target
 
             # Create hover text with ROI and value information
-            roi = cast(str, label.split(" ")[1])
+            roi = cast("str", label.split(" ")[1])
 
             # Show IEI value in seconds
             hover_text = f"{label}\nIEI: {y:.3f} sec"

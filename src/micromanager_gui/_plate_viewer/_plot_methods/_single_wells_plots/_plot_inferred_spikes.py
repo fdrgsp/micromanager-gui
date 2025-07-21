@@ -301,7 +301,7 @@ def _plot_inferred_spikes_normalized_with_bursts(
 
     # Set labels and formatting
     ax.set_title(
-        "Normalized Inferred Spikes with Network Bursts\n" "(Thresholded Spike Data)"
+        "Normalized Inferred Spikes with Network Bursts\n(Thresholded Spike Data)"
     )
     ax.set_ylabel("ROIs")
     ax.set_yticks([])

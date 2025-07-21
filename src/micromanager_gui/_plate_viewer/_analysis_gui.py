@@ -852,7 +852,7 @@ class _ChoosePositionsWidget(QWidget):
 
     def value(self) -> str:
         """Get the current value of the positions line edit."""
-        return cast(str, self._pos_le.text())
+        return cast("str", self._pos_le.text())
 
     def setValue(self, value: str) -> None:
         """Set the value of the positions line edit."""
@@ -959,7 +959,7 @@ class _AnalysisProgressBarWidget(QWidget):
 
     def maximum(self) -> int:
         """Return the maximum value of the progress bar."""
-        return cast(int, self._progress_bar.maximum())
+        return cast("int", self._progress_bar.maximum())
 
     def set_progress_bar_label(self, text: str) -> None:
         """Update the progress label with elapsed time."""

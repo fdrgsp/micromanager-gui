@@ -143,7 +143,7 @@ class _ConditionTable(QGroupBox):
         self._clear_table()
         for row, (condition, color) in enumerate(value):
             self._add_row()
-            wdg = cast(_ConditionWidget, self._table.cellWidget(row, 0))
+            wdg = cast("_ConditionWidget", self._table.cellWidget(row, 0))
             wdg.setValue((condition, color))
 
     def _clear_table(self) -> None:
@@ -351,7 +351,7 @@ class PlateMapWidget(QWidget):
             if isinstance(value, (Path, str)):
                 with open(value) as pmap:
                     data = json.load(pmap)
-                value = cast(list, data)
+                value = cast("list", data)
 
             add_to_conditions_list = set()
             for data in value:
@@ -383,7 +383,7 @@ class PlateMapWidget(QWidget):
                         self._plate_view.setWellColor(r, c, color_name)
                         well.setData(DATA_CONDITION, tuple(data.condition))
                     # update the condition table
-            self.list.setValue(list(add_to_conditions_list))
+            self.list.setValue(list(add_to_conditions_list))  # type: ignore
         except Exception as e:
             warnings.warn(f"Error loading the plate map: {e}", stacklevel=2)
             return

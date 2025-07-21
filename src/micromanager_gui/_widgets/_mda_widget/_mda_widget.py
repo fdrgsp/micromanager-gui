@@ -142,7 +142,7 @@ class CustomMDASequence(MDASequence):
 
     def events(self) -> list[MDAEvent]:
         """Return the events."""
-        return cast(list[MDAEvent], object.__getattribute__(self, "events"))
+        return cast("list[MDAEvent]", object.__getattribute__(self, "events"))
 
     def clear_events(self) -> None:
         """Clear the events."""
@@ -150,7 +150,7 @@ class CustomMDASequence(MDASequence):
 
     def add_events(self, event: MDAEvent | list[MDAEvent]) -> None:
         """Add an event to the sequence."""
-        events = cast(list[MDAEvent], object.__getattribute__(self, "events"))
+        events = cast("list[MDAEvent]", object.__getattribute__(self, "events"))
         if isinstance(event, list):
             object.__setattr__(self, "events", events + event)
         else:
@@ -170,7 +170,7 @@ class MDAWidget_(MDAWidget):
         # internal datastore.
         self.writer: OMETiffWriter | OMEZarrWriter | TensorStoreHandler | None = None
 
-        main_layout = cast(QBoxLayout, self.layout())
+        main_layout = cast("QBoxLayout", self.layout())
 
         # remove the existing save_info widget from the layout and replace it with
         # the custom SaveGroupBox widget that also handles tensorstore-zarr
@@ -194,7 +194,7 @@ class MDAWidget_(MDAWidget):
 
     def value(self) -> MDASequence:
         """Set the current state of the widget from a [`useq.MDASequence`][]."""
-        value = cast(MDASequence, super().value())
+        value = cast("MDASequence", super().value())
 
         arduino_settings = self._arduino_led_wdg.value()
         segment_settings = self._segmentation_wdg.value()

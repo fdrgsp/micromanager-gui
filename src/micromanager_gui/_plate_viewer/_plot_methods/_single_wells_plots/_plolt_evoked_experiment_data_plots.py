@@ -160,7 +160,7 @@ def _plot_stim_or_not_stim_peaks_amplitude(
             s=30,
         )
         all_artists.append(scatter)
-        all_metadata.append((rois_, cast(list[float], amps.tolist())))
+        all_metadata.append((rois_, cast("list[float]", amps.tolist())))
 
     _add_hover_to_stimulated_amp_plot(widget, all_artists, all_metadata)
 
@@ -480,10 +480,10 @@ def _normalize_trace_percentile(
     tr = np.array(trace)
     denom = p2 - p1
     if denom == 0:
-        return cast(list[float], np.zeros_like(tr).tolist())
+        return cast("list[float]", np.zeros_like(tr).tolist())
     normalized = (tr - p1) / denom
     normalized = np.clip(normalized, 0, 1)  # ensure values in [0, 1]
-    return cast(list[float], normalized.tolist())
+    return cast("list[float]", normalized.tolist())
 
 
 def _update_time_axis(
@@ -519,7 +519,7 @@ def _add_hover_functionality_stim_vs_non_stim(
         # Only show hover for ROI traces, not for peaks or other elements
         if label and "ROI" in label and not label.startswith("_"):
             sel.annotation.set(text=label, fontsize=8, color="black")
-            roi = cast(str, label.split(" ")[1])
+            roi = cast("str", label.split(" ")[1])
             if roi.isdigit():
                 widget.roiSelected.emit(roi)
         else:
@@ -602,8 +602,7 @@ def _plot_stimulated_vs_non_stimulated_spike_traces(
         )
 
     ax.set_title(
-        "Stimulated vs Non-Stimulated ROIs Spike Traces\n"
-        "(Thresholded Inferred Spikes)"
+        "Stimulated vs Non-Stimulated ROIs Spike Traces\n(Thresholded Inferred Spikes)"
     )
     ax.set_yticklabels([])
     ax.set_yticks([])

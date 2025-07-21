@@ -272,7 +272,7 @@ def _create_shared_bar_plot(
     # handle condition toggles
     cond_list: dict[str, bool] = widget.conditions
     if not cond_list or len(cond_list) != len(conditions):
-        cond_list = {cond: True for cond in conditions}
+        cond_list = dict.fromkeys(conditions, True)
         widget.conditions = cond_list
 
     # filter based on toggles

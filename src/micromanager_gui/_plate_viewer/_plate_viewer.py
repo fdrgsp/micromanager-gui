@@ -277,10 +277,10 @@ class PlateViewer(QMainWindow):
         # self._pv_analysis_path = "tests/test_plate_viewer/data/evoked/evk_analysis"
         # self.initialize_widget(data, self._pv_labels_path, self._pv_analysis_path)
 
-        data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
-        self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
-        self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis"  # noqa: E501
-        self.initialize_widget(data, self._labels_path, self._analysis_path)
+        # data = "tests/test_plate_viewer/data/spontaneous/spont.tensorstore.zarr"
+        # self._labels_path = "tests/test_plate_viewer/data/spontaneous/spont_labels"
+        # self._analysis_path = "tests/test_plate_viewer/data/spontaneous/spont_analysis" # noqa: E501
+        # self.initialize_widget(data, self._labels_path, self._analysis_path)
         # fmt: on
         # ____________________________________________________________________________
 
@@ -346,7 +346,6 @@ class PlateViewer(QMainWindow):
             )
             return
 
-        self._data = cast((TensorstoreZarrReader | OMEZarrReader), self._data)
         if self._data.sequence is None:
             show_error_dialog(
                 self,
@@ -475,7 +474,7 @@ class PlateViewer(QMainWindow):
                 with open(f) as file:
                     data = {}
                     try:
-                        data = cast(dict, json.load(file))
+                        data = cast("dict", json.load(file))
                     except json.JSONDecodeError as e:
                         msg = f"Error reading the analysis data: {e}"
                         LOGGER.error(msg)
@@ -492,7 +491,7 @@ class PlateViewer(QMainWindow):
                             self._analysis_data[roi] = data[roi]
                             continue
                         # get the data for the roi
-                        fov_data = cast(dict, data[roi])
+                        fov_data = cast("dict", data[roi])
                         # remove any key that is not in ROIData
                         for key in list(fov_data.keys()):
                             if key not in ROIData.__annotations__:
@@ -631,7 +630,7 @@ class PlateViewer(QMainWindow):
 
         try:
             with open(settings_json_file) as f:
-                settings = cast(dict, json.load(f))
+                settings = cast("dict", json.load(f))
                 pp = settings.get(PLATE_PLAN)
                 return useq.WellPlatePlan.model_validate(pp) if pp else None
         except (json.JSONDecodeError, ValidationError) as e:
@@ -684,7 +683,7 @@ class PlateViewer(QMainWindow):
         if self._data.sequence is None:
             return None
 
-        meta = cast(dict, self._data.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
+        meta = cast("dict", self._data.sequence.metadata.get(PYMMCW_METADATA_KEY, {}))
 
         plate_plan: useq.WellPlatePlan | None = None
 
@@ -739,7 +738,7 @@ class PlateViewer(QMainWindow):
                     plate=plate,
                     a1_center_xy=old_hcs_meta["calibration"]["well_A1_center"],
                     selected_wells=cast(
-                        tuple[tuple[int, int], tuple[int, int]], selected_wells
+                        "tuple[tuple[int, int], tuple[int, int]]", selected_wells
                     ),
                 )
             return plate_plan
@@ -937,7 +936,7 @@ class PlateViewer(QMainWindow):
 
         # get a single frame for the selected FOV (at 2/3 of the time points)
         t = int(len(self._data.sequence.stage_positions) / 3 * 2)
-        data = cast(np.ndarray, self._data.isel(p=value.pos_idx, t=t, c=0))
+        data = cast("np.ndarray", self._data.isel(p=value.pos_idx, t=t, c=0))
         # get labels if they exist
         labels = self._get_labels(value)
         # get the analysis data for the current fov if it exists

@@ -57,7 +57,7 @@ def _plot_peak_event_synchrony_data(
 
     # Convert peak trains to peak event data dict for correlation-based synchrony
     peak_event_data_dict = {
-        roi_name: cast(list[float], peak_train.astype(float).tolist())
+        roi_name: cast("list[float]", peak_train.astype(float).tolist())
         for roi_name, peak_train in peak_trains.items()
     }
 

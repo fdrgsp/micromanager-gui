@@ -195,8 +195,7 @@ def _add_hover_functionality_spike_corr(
             roi_x, roi_y = rois[x], rois[y]
             sel.annotation.set(
                 text=(
-                    f"ROI {roi_x} ↔ ROI {roi_y}\n"
-                    f"Spike Correlation: {values[y, x]:0.3f}"
+                    f"ROI {roi_x} ↔ ROI {roi_y}\nSpike Correlation: {values[y, x]:0.3f}"
                 ),
                 fontsize=8,
                 color="black",
@@ -375,8 +374,7 @@ def _add_hover_functionality_spike_clustering(
             roi_x, roi_y = rois[order[x]], rois[order[y]]
             sel.annotation.set(
                 text=(
-                    f"ROI {roi_x} ↔ ROI {roi_y}\n"
-                    f"Spike Correlation: {values[y, x]:0.3f}"
+                    f"ROI {roi_x} ↔ ROI {roi_y}\nSpike Correlation: {values[y, x]:0.3f}"
                 ),
                 fontsize=8,
                 color="black",
