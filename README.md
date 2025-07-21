@@ -9,6 +9,8 @@ It has been designed to record calcium imaging experiments with or without optic
 
 <img width="2560" alt="Screenshot 2025-05-30 at 4 23 04 PM" src="https://github.com/user-attachments/assets/53f9a79f-025c-47e7-b592-4881b8f4870d" />
 
+https://github.com/user-attachments/assets/0b9eb935-7693-4b47-bbf2-6b5e17dfd377
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -128,4 +130,6 @@ To run the `Plate Viewer` GUI, you can use:
 pv
 ```
 
-<img width="1728" alt="Screenshot 2024-07-17 at 10 21 24 PM" src="https://github.com/user-attachments/assets/b81d0ad3-a6d4-4ada-97b5-b4734c7d8eea">
+https://github.com/user-attachments/assets/9dfcb8d0-f4e8-4c1a-a14b-fb1a5668ea2a
+
+
