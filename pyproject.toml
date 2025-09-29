@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 name = "micromanager-gui"
 description = "A Micro-Manager GUI based on pymmcore-widgets and pymmcore-plus."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10, <3.13"
 license = { text = "BSD 3-Clause License" }
 authors = [
     { email = "federico.gasparoli@gmail.com", name = "Federico Gasparoli" },
@@ -50,7 +50,7 @@ dependencies = [
     "pyfirmata2",
     "scikit-image",
     "PyQt6",
-    "tensorstore!=0.1.72",
+    "tensorstore >=0.1.67,!=0.1.72",
     "pydantic<2.11.0",
     "pandas",
     "superqt[font-mi6]"

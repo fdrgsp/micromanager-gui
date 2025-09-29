@@ -18,27 +18,6 @@ if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
 
-class WindowsCompatibleTensorStoreHandler(TensorStoreHandler):
-    """TensorStoreHandler that fixes Windows file URI issues.
-
-    The original TensorStoreHandler creates kvstore URIs like "file://C:/path"
-    for Windows absolute paths, but the colon in "C:" gets parsed as a URI
-    authority separator, causing "file uris do not support authority" errors
-    in TensorStore 0.1.77+.
-
-    This handler ensures paths are converted to POSIX format before URI creation.
-    """
-
-    def __init__(self, path, **kwargs):
-        # Convert path to POSIX format to prevent URI parsing issues
-        # Original issue: f"file://{path}" with "C:\Users\..." becomes
-        # "file://C:/Users/..." where "C:" is parsed as authority and it should be
-        # instead "file:///C:/Users/..." (note the triple slash)
-        if isinstance(path, (str, Path)):
-            path = Path(path).as_posix()
-        super().__init__(path=path, **kwargs)
-
-
 # fmt: off
 files = [
     # indexers, expected files, file_to_check, expected shape
@@ -64,15 +43,9 @@ TENSOR_META = {
 
 writers = [
     (ZARR_META, "z.ome.zarr", "", OMEZarrReader),
-    (
-        TENSOR_META,
-        "ts.tensorstore.zarr",
-        WindowsCompatibleTensorStoreHandler,
-        TensorstoreZarrReader,
-    ),
+    (TENSOR_META, "ts.tensorstore.zarr", TensorStoreHandler, TensorstoreZarrReader),
 ]
 # fmt: on
-
 
 @pytest.mark.parametrize("writers", writers)
 @pytest.mark.parametrize("kwargs", [True, False])
@@ -100,8 +73,8 @@ def test_readers(
         }
     )
 
-    dest = tmp_path / name
-    writer = writer(path=dest) if writer else dest
+    dest = Path(tmp_path / name)
+    writer = writer(path=dest.as_posix()) if writer else dest
     with qtbot.waitSignal(global_mmcore.mda.events.sequenceFinished):
         global_mmcore.mda.run(mda, output=writer)
 
