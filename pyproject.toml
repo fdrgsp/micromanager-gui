@@ -30,7 +30,7 @@ dependencies = [
     "oasis-deconv!=0.2.1",
     "cvxpy",  # to not have the warning in oasis-deconv
     "pymmcore-widgets >=0.8.0",
-    "pymmcore-plus >=0.13.4",
+    "pymmcore-plus >=0.16.0",
     "qtpy",
     "vispy",
     "zarr==2.*",
