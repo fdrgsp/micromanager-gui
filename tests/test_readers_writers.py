@@ -114,7 +114,9 @@ def test_readers(
     assert (
         w.metadata
         if isinstance(w, TensorstoreZarrReader)
-        else w.metadata() if isinstance(w, OMEZarrReader) else None
+        else w.metadata()
+        if isinstance(w, OMEZarrReader)
+        else None
     )
 
     # test that the reader can accept the actual store as input on top of the path
