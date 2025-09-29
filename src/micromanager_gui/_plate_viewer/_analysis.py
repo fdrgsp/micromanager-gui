@@ -750,13 +750,13 @@ class _AnalyseCalciumTraces(QWidget):
         else:
             g = None
         # deconvolve the dff trace with adaptive penalty
-        dec_dff, spikes, _, t, _ = deconvolve(dff, penalty=1, g=(g,))
+        dec_dff, spikes, _, _t, _ = deconvolve(dff, penalty=1, g=(g,))
         dec_dff = cast("np.ndarray", dec_dff)
         spikes = cast("np.ndarray", spikes)
-        LOGGER.info(
-            f"Decay constant: {t} seconds, "
-            f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
-        )
+        # LOGGER.info(
+        #     f"Decay constant: {_t} seconds, "
+        #     f"Sampling frequency: {len(roi_trace) / tot_time_sec} Hz"
+        # )
 
         # Check for cancellation after deconvolution
         if self._check_for_abort_requested():
