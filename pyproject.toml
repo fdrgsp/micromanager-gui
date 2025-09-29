@@ -50,7 +50,8 @@ dependencies = [
     "pyfirmata2",
     "scikit-image",
     "PyQt6",
-    "tensorstore >=0.1.67,!=0.1.72",
+    # "tensorstore >=0.1.67,!=0.1.72",
+    "tensorstore == 0.1.75",
     "pydantic<2.11.0",
     "pandas",
     "superqt[font-mi6]"
