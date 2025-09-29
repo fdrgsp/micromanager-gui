@@ -403,18 +403,13 @@ def _calculate_bg(data: np.ndarray, window: int, percentile: int = 10) -> np.nda
     # Initialize background array
     background: np.ndarray = np.zeros_like(data)
 
-    # use the lower percentile (e.g., 10th percentile)
+    # Use a centered sliding window to calculate background from percentile
+    # This provides symmetric context around each point and reduces edge artifacts
     for y in range(len(data)):
-        x = max(0, y - window // 2)
-        lower_percentile = np.percentile(data[x : y + 1], percentile)
+        start = max(0, y - window // 2)
+        end = min(len(data), y + window // 2 + 1)
+        lower_percentile = np.percentile(data[start:end], percentile)
         background[y] = lower_percentile
-
-    # center the window around the current index
-    # for y in range(len(data)):
-    #     start = max(0, y - window // 2)
-    #     end = min(len(data), y + window // 2 + 1)
-    #     lower_percentile = np.percentile(data[start:end], percentile)
-    #     background[y] = lower_percentile
 
     return background
 
