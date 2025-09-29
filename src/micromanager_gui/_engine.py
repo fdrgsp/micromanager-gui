@@ -37,8 +37,9 @@ class ArduinoEngine(MDAEngine):
         arduino_led_pin: Pin | None = None,
         slackbot: MMSlackBot | None = None,
     ) -> None:
-        super().__init__(mmc, use_hardware_sequencing)
+        super().__init__(mmc, use_hardware_sequencing=use_hardware_sequencing)
 
+        self._mmc = self.mmcore
         self._slackbot = slackbot
 
         # for LED stimulation

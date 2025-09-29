@@ -45,12 +45,17 @@ class MMTensorstoreWrapper(DataWrapper["TensorStoreHandler"]):
 
         # TODO: find a way to save as ome-zarr
 
+        from pathlib import Path
+
         import tensorstore as ts
 
         if (store := self.data.store) is None:
             return
         new_spec = store.spec().to_json()
-        new_spec["kvstore"] = {"driver": "file", "path": str(save_loc)}
+        # Use as_posix() to ensure forward slashes on all platforms, which
+        # TensorStore expects for file paths
+        path_str = Path(save_loc).as_posix()
+        new_spec["kvstore"] = {"driver": "file", "path": path_str}
         new_ts = ts.open(new_spec, create=True).result()
         new_ts[:] = store.read().result()
         if meta_json := store.kvstore.read(".zattrs").result().value:

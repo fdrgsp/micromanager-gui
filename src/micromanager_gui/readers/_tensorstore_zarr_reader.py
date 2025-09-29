@@ -55,9 +55,16 @@ class TensorstoreZarrReader:
             _store = data
         else:
             self._path = data
+            # Use as_posix() to ensure forward slashes on all platforms, which
+            # TensorStore expects for file paths
+            path_str = (
+                Path(self._path).as_posix()
+                if isinstance(self._path, (str, Path))
+                else str(self._path)
+            )
             spec = {
                 "driver": "zarr",
-                "kvstore": {"driver": "file", "path": str(self._path)},
+                "kvstore": {"driver": "file", "path": path_str},
             }
             _store = ts.open(spec).result()
 
