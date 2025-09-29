@@ -103,10 +103,10 @@ def test_mda_viewer_saving(
 
 
 data = [
-    ("./test.ome.tiff", OME_TIFF, OMETiffWriter),
-    ("./test.ome.zarr", OME_ZARR, OMEZarrWriter),
-    ("./test.tensorstore.zarr", ZARR_TESNSORSTORE, TensorStoreHandler),
-    ("./test", TIFF_SEQ, None),
+    ("test.ome.tiff", OME_TIFF, OMETiffWriter),
+    ("test.ome.zarr", OME_ZARR, OMEZarrWriter),
+    ("test.tensorstore.zarr", ZARR_TESNSORSTORE, TensorStoreHandler),
+    ("test", TIFF_SEQ, None),
 ]
 
 
@@ -115,6 +115,7 @@ def test_mda_writer(qtbot: QtBot, tmp_path: Path, data: tuple) -> None:
     wdg = MDAWidget()
     qtbot.addWidget(wdg)
     wdg.show()
-    path, save_format, cls = data
-    writer = wdg._create_writer(save_format, Path(path))
+    filename, save_format, cls = data
+    path = tmp_path / filename
+    writer = wdg._create_writer(save_format, path)
     assert isinstance(writer, cls) if writer is not None else writer is None
