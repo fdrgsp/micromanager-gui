@@ -52,10 +52,11 @@ def _plot_metrics(
     if amp and freq:
         if not roi_data.peaks_amplitudes_dec_dff or roi_data.dec_dff_frequency is None:
             return
-        mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
-        sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+        mean_amp = cast("float", np.mean(roi_data.peaks_amplitudes_dec_dff))
+        std_amp = np.std(roi_data.peaks_amplitudes_dec_dff, ddof=1)  # sample std
+        sem_amp = std_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
         _plot_errorbars(
-            ax, mean_amp, roi_data.dec_dff_frequency, sem_amp, f"ROI {roi_key}"
+            ax, roi_data.dec_dff_frequency, mean_amp, sem_amp, f"ROI {roi_key}"
         )
     elif amp:
         if not roi_data.peaks_amplitudes_dec_dff:
