@@ -370,7 +370,6 @@ def calculate_dff(
     dff: np.ndarray = np.array([])
     bg: np.ndarray = _calculate_bg(data, window, percentile)
     dff = (data - bg) / bg
-    dff -= np.min(dff)
 
     # plot background and trace
     if plot:
