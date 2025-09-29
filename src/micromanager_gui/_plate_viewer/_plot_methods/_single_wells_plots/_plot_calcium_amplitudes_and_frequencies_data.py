@@ -56,16 +56,17 @@ def _plot_metrics(
         std_amp = np.std(roi_data.peaks_amplitudes_dec_dff, ddof=1)  # sample std
         sem_amp = std_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
         _plot_errorbars(
-            ax, roi_data.dec_dff_frequency, mean_amp, sem_amp, f"ROI {roi_key}"
+            ax, [roi_data.dec_dff_frequency], [mean_amp], [sem_amp], f"ROI {roi_key}"
         )
     elif amp:
         if not roi_data.peaks_amplitudes_dec_dff:
             return
 
         # plot mean amplitude +- sem of each ROI
-        mean_amp = cast("list[float]", np.mean(roi_data.peaks_amplitudes_dec_dff))
-        sem_amp = mean_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
-        _plot_errorbars(ax, [int(roi_key)], mean_amp, sem_amp, f"ROI {roi_key}")
+        mean_amp = cast("float", np.mean(roi_data.peaks_amplitudes_dec_dff))
+        std_amp = np.std(roi_data.peaks_amplitudes_dec_dff, ddof=1)  # sample std
+        sem_amp = std_amp / np.sqrt(len(roi_data.peaks_amplitudes_dec_dff))
+        _plot_errorbars(ax, [int(roi_key)], [mean_amp], [sem_amp], f"ROI {roi_key}")
         ax.scatter(
             [int(roi_key)] * len(roi_data.peaks_amplitudes_dec_dff),
             roi_data.peaks_amplitudes_dec_dff,
@@ -98,8 +99,8 @@ def _set_graph_title_and_labels(
         title = (
             "ROIs Mean Calcium Peaks Amplitude ± SEM vs Frequency (Deconvolved ΔF/F)"
         )
-        x_lbl = "Amplitude"
-        y_lbl = "Frequency (Hz)"
+        x_lbl = "Frequency (Hz)"
+        y_lbl = "Amplitude"
     elif amp:
         title = "Calcium Peaks Mean Amplitude ± SEM (Deconvolved ΔF/F)"
         x_lbl = "ROIs"
