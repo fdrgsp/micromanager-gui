@@ -47,9 +47,6 @@ writers = [
 ]
 # fmt: on
 
-
-# NOTE: the tensorstore reader works only if we use the internal TensorStoreHandler
-# TODO: fix the main TensorStoreHandler because it does not write the ".zattrs"
 @pytest.mark.parametrize("writers", writers)
 @pytest.mark.parametrize("kwargs", [True, False])
 @pytest.mark.parametrize("files", files)
