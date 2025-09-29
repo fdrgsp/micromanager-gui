@@ -73,8 +73,8 @@ def test_readers(
         }
     )
 
-    dest = tmp_path / name
-    writer = writer(path=dest) if writer else dest
+    dest = Path(tmp_path / name)
+    writer = writer(path=dest.as_posix()) if writer else dest
     with qtbot.waitSignal(global_mmcore.mda.events.sequenceFinished):
         global_mmcore.mda.run(mda, output=writer)
 
@@ -114,10 +114,13 @@ def test_readers(
         # skip if kwargs is False since we don't want to test it twice
         if not kwargs:
             return
-        w.write_tiff(dest, indexers[0], **indexers[1])
+        w.write_tiff(dest.as_posix(), indexers[0], **indexers[1])
     # depends om kwargs (once as dict and once as kwargs)
     else:
-        w.write_tiff(dest, **indexers) if kwargs else w.write_tiff(dest, indexers)
+        if kwargs:
+            w.write_tiff(dest.as_posix(), **indexers)
+        else:
+            w.write_tiff(dest.as_posix(), indexers)
     # all files in dest
     parent = dest.parent if indexers else dest
     dir_files = [f.name for f in parent.iterdir()]
