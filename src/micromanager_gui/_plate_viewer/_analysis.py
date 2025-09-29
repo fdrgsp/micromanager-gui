@@ -1110,7 +1110,6 @@ class _AnalyseCalciumTraces(QWidget):
 
             settings[PEAKS_HEIGHT_VALUE] = values.calcium_peaks_data.peaks_height
             settings[PEAKS_HEIGHT_MODE] = values.calcium_peaks_data.peaks_height_mode
-            print('------------', values.calcium_peaks_data.peaks_height_mode)
             settings[PEAKS_DISTANCE] = values.calcium_peaks_data.peaks_distance
             settings[PEAKS_PROMINENCE_MULTIPLIER] = values.calcium_peaks_data.peaks_prominence_multiplier  # noqa: E501
             settings[CALCIUM_NETWORK_THRESHOLD] = values.calcium_peaks_data.calcium_network_threshold  # noqa: E501
