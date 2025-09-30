@@ -16,9 +16,11 @@ from pymmcore_widgets.useq_widgets._mda_sequence import PYMMCW_METADATA_KEY
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -160,7 +162,7 @@ class _AnalyseCalciumTraces(QWidget):
 
         self._analysis_settings_gui = _CalciumAnalysisGUI(self)
 
-        # PROGRESS BAR AND RUN/CANCEL BUTTONS -------------------------------------
+        # PROGRESS BAR RUN/CANCEL BUTTONS AND CPUs --------------------------------
         self._progress_bar_wdg = _AnalysisProgressBarWidget(self)
         self._pbar = self._progress_bar_wdg  # for easier access in the GUI
 
@@ -170,9 +172,38 @@ class _AnalyseCalciumTraces(QWidget):
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setSizePolicy(*FIXED)
         self._cancel_btn.setIcon(QIcon(icon(MDI6.stop, color=RED)))
+
+        cpu_to_use = max((os.cpu_count() or 1) - 2, 1)
+        threads_wdg = QWidget()
+        threads_wdg.setToolTip(
+            "Specify number of threads to use in the Thread Pool for the analysis.\n\n"
+            "By default, the value is set to the number of CPUs - 2 "
+            f"(in your system: {cpu_to_use}).\n\n"
+            "Using the number of CPUs as reference because:\n"
+            "• This analysis is CPU-intensive (math calculations, image processing)\n"
+            "• More threads beyond CPU count creates context switching overhead\n"
+            "• Each thread processes memory-intensive data\n"
+            "• Optimal performance occurs when threads match available CPU cores.\n"
+            "By default using CPU count - 2 to reserves 2 CPUs for the operating "
+            "system and GUI responsiveness.\n"
+            "If your system becomes unresponsive, consider reducing this number."
+        )
+        threads_lbl = QLabel("Threads:")
+        threads_lbl.setSizePolicy(*FIXED)
+        self._threads = QSpinBox()
+        self._threads.setFixedWidth(60)
+        self._threads.setRange(1, 100)
+        self._threads.setValue(cpu_to_use)
+        threads_layout = QHBoxLayout(threads_wdg)
+        threads_layout.setContentsMargins(0, 0, 0, 0)
+        threads_layout.setSpacing(5)
+        threads_layout.addWidget(threads_lbl)
+        threads_layout.addWidget(self._threads)
+
         pbar_layout = cast("QHBoxLayout", self._progress_bar_wdg.layout())
         pbar_layout.insertWidget(0, self._run_btn)
         pbar_layout.insertWidget(1, self._cancel_btn)
+        pbar_layout.insertWidget(2, threads_wdg)
         # add them to the analysis settings GUI layout
         gui_layout = cast("QVBoxLayout", self._analysis_settings_gui.layout())
         gui_layout.addSpacing(5)
@@ -476,12 +507,12 @@ class _AnalyseCalciumTraces(QWidget):
         # save plate maps and update the stored _plate_map_data dict
         self._handle_plate_map()
 
-        cpu_count = os.cpu_count() or 1
-        cpu_count = max(1, cpu_count - 2)  # leave a couple of cores for the system
-        LOGGER.info("CPU count: %s", cpu_count)
+        # set number of threads to use
+        threads = self._threads.value()
+        LOGGER.info("Threads: %s", threads)
 
         try:
-            with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+            with ThreadPoolExecutor(max_workers=threads) as executor:
                 # Check for cancellation before submitting futures
                 if self._cancellation_event.is_set():
                     LOGGER.info("Cancellation requested before starting thread pool")
