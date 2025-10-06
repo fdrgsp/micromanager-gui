@@ -327,7 +327,7 @@ class TestInferredSpikesBurstActivity:
         # Make one ROI inactive
         burst_roi_data["2"].active = False
 
-        spike_trains, roi_names, time_axis = _get_population_spike_data(
+        spike_trains, roi_names, _time_axis = _get_population_spike_data(
             burst_roi_data, rois=[1, 2]
         )
 
@@ -337,7 +337,7 @@ class TestInferredSpikesBurstActivity:
 
     def test_time_axis_calculation(self, burst_roi_data):
         """Test that time axis is calculated correctly from recording time."""
-        spike_trains, roi_names, time_axis = _get_population_spike_data(
+        spike_trains, _roi_names, time_axis = _get_population_spike_data(
             burst_roi_data, rois=[1, 2]
         )
 
