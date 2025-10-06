@@ -313,7 +313,7 @@ class TestCellSizePlots:
         # Check that mplcursors.cursor was called with correct parameters
         mock_cursor.assert_called_once()
         # The cursor should be called with the axis and hover mode
-        args, kwargs = mock_cursor.call_args
+        args, _kwargs = mock_cursor.call_args
         assert mock_ax in args
 
     @patch(

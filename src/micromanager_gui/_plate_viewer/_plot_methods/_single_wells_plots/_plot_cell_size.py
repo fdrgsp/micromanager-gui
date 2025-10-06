@@ -57,7 +57,7 @@ def _add_hover_functionality(ax: Axes, widget: _SingleWellGraphWidget) -> None:
         # Only show hover for ROI traces, not for peaks or other elements
         if label and "ROI" in label and not label.startswith("_"):
             # Get the data point coordinates
-            x, y = sel.target
+            _x, y = sel.target
 
             # Create hover text with ROI and value information
             roi = cast("str", label.split(" ")[1])

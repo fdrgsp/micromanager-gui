@@ -359,7 +359,7 @@ class TestCorrelationPlots:
 
     def test_cross_correlation_mathematical_properties(self, sample_roi_data_active):
         """Test mathematical properties of cross-correlation."""
-        correlation_matrix, rois_idxs = _calculate_cross_correlation(
+        correlation_matrix, _rois_idxs = _calculate_cross_correlation(
             sample_roi_data_active
         )
 
@@ -408,7 +408,7 @@ class TestCorrelationPlots:
             ),
         }
 
-        correlation_matrix, rois_idxs = _calculate_cross_correlation(data)
+        correlation_matrix, _rois_idxs = _calculate_cross_correlation(data)
 
         # Identical traces should have correlation close to 1
         assert correlation_matrix is not None
@@ -435,7 +435,7 @@ class TestCorrelationPlots:
             ),
         }
 
-        correlation_matrix, rois_idxs = _calculate_cross_correlation(data)
+        correlation_matrix, _rois_idxs = _calculate_cross_correlation(data)
 
         assert correlation_matrix is not None
         # Off-diagonal elements should show low or negative correlation

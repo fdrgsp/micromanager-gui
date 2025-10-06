@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
@@ -24,6 +23,8 @@ from micromanager_gui._widgets._mda_widget._save_widget import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pymmcore_plus import CMMCorePlus
     from pytestqt.qtbot import QtBot
 
