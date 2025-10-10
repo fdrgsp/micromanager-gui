@@ -176,8 +176,19 @@ class ArduinoEngine(MDAEngine):
         n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
         iter_events = product(event.events, range(n_channels))
+
+        logged: bool = False
+
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
+
+            # check for user cancellation
+            if self._mmc.mda._canceled:
+                logger.warning("MDA Canceled: %s", event)
+                logged = True
+                self._mmc.stopSequenceAcquisition()
+                break
+
             if remaining := self._mmc.getRemainingImageCount():
                 yield self._next_seqimg_payload(
                     *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
@@ -194,6 +205,13 @@ class ArduinoEngine(MDAEngine):
             raise MemoryError("Buffer overflowed")
 
         while remaining := self._mmc.getRemainingImageCount():
+
+            # check for user cancellation
+            if self._mmc.mda._canceled:
+                if not logged:
+                    logger.warning("MDA Canceled: %s", event)
+                break
+
             yield self._next_seqimg_payload(
                 *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
             )
@@ -208,16 +226,6 @@ class ArduinoEngine(MDAEngine):
                 expected_images,
                 count,
             )
-
-    def _next_seqimg_payload(
-        self, event: MDAEvent, *args: Any, **kwargs: Any
-    ) -> PImagePayload:
-        """Grab next image from the circular buffer and return it as an ImagePayload."""
-        # TEMPORARY SOLUTION to cancel the sequence acquisition
-        if self._mmc.mda._wait_until_event(event):  # SLF001
-            self._mmc.mda.cancel()
-            self._mmc.stopSequenceAcquisition()
-        return super()._next_seqimg_payload(event, *args, **kwargs)
 
     def teardown_sequence(self, sequence: MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
