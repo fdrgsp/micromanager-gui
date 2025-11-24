@@ -469,7 +469,7 @@ class PlateMapWidget(QWidget):
                     wells[well_key].setData(
                         DATA_CONDITION, (condition_name, color_name)
                     )
-                # if the color is assigned but the condition is different, symply
+                # if the color is assigned but the condition is different, simply
                 # update the item data
                 elif cond != condition_name and col == color_name:
                     wells[well_key].setData(
