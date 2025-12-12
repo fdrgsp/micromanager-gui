@@ -20,10 +20,11 @@ repos:
     hooks:
       - id: validate-pyproject
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.0
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
         files: "^src/"
-        additional_dependencies:
-          - pymmcore-plus >=0.16.0
+        pass_filenames: false

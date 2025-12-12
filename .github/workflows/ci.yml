@@ -51,7 +51,7 @@ jobs:
           if (Test-Path -Path "C:\Windows\system32\opengl32.dll" -PathType Leaf) {Exit 0} else {Exit 1}
 
       - name: Install Micro-Manager
-        run: mmcore install
+        run: uv run --no-sync mmcore install
 
       - name: Run Tests
         run: uv run --no-sync coverage run -p -m pytest -v --color=yes
