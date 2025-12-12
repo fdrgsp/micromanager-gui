@@ -317,7 +317,7 @@ class _MenuBar(QMenuBar):
             pb.show()
 
     def _launch_cali(self) -> None:
-        """Show the plate viewer."""
+        """Show the Cali GUI."""
         try:
             from cali.gui import CaliGui
         except ImportError as e:
