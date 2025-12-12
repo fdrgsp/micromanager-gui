@@ -106,27 +106,27 @@ class SlackBot:
         self.listen_thread = threading.Thread(target=self._listen_for_messages)
         self.listen_thread.start()
 
-        @self._app.command("/run")  # type: ignore [misc]
+        @self._app.command("/run")  # type: ignore
         def handle_run_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
-        @self._app.command("/cancel")  # type: ignore [misc]
+        @self._app.command("/cancel")  # type: ignore
         def handle_cancel_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
-        @self._app.command("/progress")  # type: ignore [misc]
+        @self._app.command("/progress")  # type: ignore
         def handle_progress_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))
 
-        @self._app.command("/clear")  # type: ignore [misc]
+        @self._app.command("/clear")  # type: ignore
         def handle_clear_commands(ack: Ack, body: dict) -> None:
             ack()
             self._clear_chat()
 
-        @self._app.command("/mda")  # type: ignore [misc]
+        @self._app.command("/mda")  # type: ignore
         def handle_mda_commands(ack: Ack, body: dict) -> None:
             ack()
             self._forward_command(body.get("command", ""))

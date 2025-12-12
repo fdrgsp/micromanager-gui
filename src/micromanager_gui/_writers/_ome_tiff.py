@@ -80,7 +80,7 @@ class _OMETiffWriter(OMETiffWriter):
         # This line is important, as tifffile.memmap appears to lose singleton dims
         mmap.shape = shape
 
-        return mmap  # type: ignore
+        return mmap
 
     def _get_current_pos_name(self, position_key: str) -> str:
         """Get the position name from the position_key if any."""
@@ -126,4 +126,4 @@ class _OMETiffWriter(OMETiffWriter):
             metadata["PhysicalSizeY"] = self._px_size
             metadata["PhysicalSizeXUnit"] = "µm"
             metadata["PhysicalSizeYUnit"] = "µm"
-        return metadata
+        return metadata  # type: ignore
