@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 name = "micromanager-gui"
 description = "A Micro-Manager GUI based on pymmcore-widgets and pymmcore-plus."
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.11"
 license = { text = "BSD 3-Clause License" }
 authors = [
     { email = "federico.gasparoli@gmail.com", name = "Federico Gasparoli" },
@@ -18,37 +18,29 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Typing :: Typed",
 ]
 dynamic = ["version"]
 dependencies = [
-    "numpy<2.0.0; platform_system == 'Darwin'",  # Pin numpy to avoid compilation issues on macOS
-    "numpy; platform_system != 'Darwin'",  # No version constraint on other platforms
-    "oasis-deconv!=0.2.1",
-    "cvxpy",  # to not have the warning in oasis-deconv
     "pymmcore-widgets >=0.8.0",
     "pymmcore-plus >=0.16.0",
     "qtpy",
     "vispy",
-    "zarr==2.*",
+    # "zarr==2.*",
+    "zarr",
     "tifffile",
     "tqdm",
     "pyyaml",
     "cmap",
-    "cellpose<4",
     "pyconify",
     "slack_bolt",
     "python-dotenv",
     "rich",
-    "matplotlib",
-    "mplcursors",
     "ndv[vispy]==0.0.4",
     "qtconsole",
     "pyfirmata2",
-    "scikit-image",
     "PyQt6",
     # "tensorstore >=0.1.67,!=0.1.72",
     "tensorstore == 0.1.75",
@@ -57,9 +49,7 @@ dependencies = [
     "superqt[font-mi6]"
 ]
 
-# extras
-# https://peps.python.org/pep-0621/#dependencies-optional-dependencies
-[project.optional-dependencies]
+[dependency-groups]
 test = ["pytest>=6.0", "pytest-cov", "pytest-qt"]
 dev = [
     "black",
@@ -71,6 +61,21 @@ dev = [
     "pytest",
     "rich",
     "ruff",
+]
+
+[project.optional-dependencies]
+cali3 = ["cali[cp3]"]
+cali4 = ["cali[cp4]"]
+
+[tool.uv.sources]
+cali = { git = "https://github.com/fdrgsp/cali.git" }
+
+[tool.uv]
+conflicts = [
+    [
+      { extra = "cali3" },
+      { extra = "cali4" },
+    ],
 ]
 
 [project.urls]

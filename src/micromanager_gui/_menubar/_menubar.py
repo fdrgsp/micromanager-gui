@@ -25,7 +25,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from micromanager_gui._plate_viewer._plate_viewer import PlateViewer
 from micromanager_gui._widgets._install_widget import _InstallWidget
 from micromanager_gui._widgets._mda_widget import MDAWidget
 from micromanager_gui._widgets._mm_console import MMConsole
@@ -37,7 +36,7 @@ if TYPE_CHECKING:
 FLAGS = Qt.WindowType.Dialog
 CONSOLE = "Console"
 PROP_BROWSER = "Property Browser"
-PLATE_VIEWER = "pv"
+CALI = "cali"
 WIDGETS = {
     "Pixel Configuration": PixelConfigurationWidget,
     "Install Devices": _InstallWidget,
@@ -294,7 +293,7 @@ class _MenuBar(QMenuBar):
             MDA: self._mda,  # quick access to the MDA widget
             VIEWERS: self._get_current_mda_viewers(),  # dictionary of all the viewers
             PREVIEW: self._main_window._core_link._preview,  # access to preview widget
-            PLATE_VIEWER: self._show_plate_viewer,  # show the plate viewer
+            CALI: self._launch_cali,  # show the cali gui
         }
 
         self._mm_console = MMConsole(self)
@@ -317,14 +316,23 @@ class _MenuBar(QMenuBar):
             self._widgets[PROP_BROWSER] = pb
             pb.show()
 
-    def _show_plate_viewer(self) -> None:
+    def _launch_cali(self) -> None:
         """Show the plate viewer."""
-        if PLATE_VIEWER in self._widgets:
-            self._show_and_raise_wdg(PLATE_VIEWER)
+        try:
+            from cali.gui import CaliGui
+        except ImportError as e:
+            warnings.warn(
+                "Cali is not installed. Please install Cali to use this feature.",
+                ImportWarning,
+                stacklevel=2,
+            )
+            raise e
+        if CALI in self._widgets:
+            self._show_and_raise_wdg(CALI)
         else:
-            pv = PlateViewer(self)
+            pv = CaliGui(self)
             pv.setWindowFlags(FLAGS)
-            self._widgets[PLATE_VIEWER] = pv
+            self._widgets[CALI] = pv
             pv.show()
 
     def _show_and_raise_wdg(self, test: str) -> None:

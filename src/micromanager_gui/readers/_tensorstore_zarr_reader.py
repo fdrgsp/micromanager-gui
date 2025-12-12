@@ -11,12 +11,12 @@ from pymmcore_plus.metadata.serialize import json_loads
 from tifffile import imwrite
 from tqdm import tqdm
 
-from micromanager_gui._plate_viewer._util import EVENT_KEY
-
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     import numpy as np
+
+EVENT_KEY = "mda_event"
 
 
 class TensorstoreZarrReader:
