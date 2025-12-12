@@ -41,7 +41,7 @@ jobs:
           enable-cache: true
 
       - name: Install Dependencies
-        run: uv sync --no-dev --extra cp4 --group test --resolution ${{ matrix.resolution }}
+        run: uv sync --no-dev --extra cali4 --group test --resolution ${{ matrix.resolution }}
 
       - name: Install Windows OpenGL
         if: runner.os == 'Windows'
