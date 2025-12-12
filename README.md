@@ -64,7 +64,7 @@ The `OAuth & Permissions` Scope required are:
 - `chat:write`
 - `commands`
 
-Since this `SlackBot` comunicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
+Since this `SlackBot` communicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
 - `/run`: Start the MDA Sequence
 - `/cancel`: Cancel the current MDA Sequence
 - `/progress`: Get the current MDA Sequence progress

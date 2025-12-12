@@ -4,7 +4,6 @@ import time
 from itertools import product
 from typing import (
     TYPE_CHECKING,
-    Any,
     cast,
 )
 
@@ -181,7 +180,6 @@ class ArduinoEngine(MDAEngine):
 
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
-
             # check for user cancellation
             if self._mmc.mda._canceled:
                 logger.warning("MDA Canceled: %s", event)
@@ -205,7 +203,6 @@ class ArduinoEngine(MDAEngine):
             raise MemoryError("Buffer overflowed")
 
         while remaining := self._mmc.getRemainingImageCount():
-
             # check for user cancellation
             if self._mmc.mda._canceled:
                 if not logged:
