@@ -21,22 +21,16 @@ https://github.com/user-attachments/assets/0b9eb935-7693-4b47-bbf2-6b5e17dfd377
 
 ## To run
 
-If you have `uv` installed, you can run `cali` directly without installing it using:
+If you have [uv](https://docs.astral.sh/uv/) installed, you can run `micromanager-gui` directly without installing it using:
 
-`uvx git+https://github.com/fdrgsp/micromanager-gui`
-
-**Note:** optioinally, you can also install `cali` (see at the end of this README) together with `micromanager-gui` by using one of the following commands:
-
-- `uvx git+https://github.com/fdrgsp/cali[cali4]` for Cellpose 4.x (cellpose-sam)
-
-- `uvx git+https://github.com/fdrgsp/cali[cali3]` for Cellpose 3.x
+`uvx --from "git+https://github.com/fdrgsp/micromanager-gui" mmgui`
 
 ## Installation
 
-Create a virtual environment and install the package using `pip` or `uv`:
+Create a virtual environment and install the package using `uv` (pip):
 
 ```bash
-(uv) pip install git+https://github.com/fdrgsp/micromanager-gui
+uv pip install "git+https://github.com/fdrgsp/micromanager-gui"
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
@@ -136,10 +130,12 @@ settings:
 
 To explore the calcium imaging data acquired with `micromanager-gui`, you can use [cali](https://github.com/fdrgsp/cali), a GUI that allows you to segment, analyze and visualize the calcium imaging data.
 
-To install `micromanager-gui` and `cali` together, you can use:
+To run `micromanager-gui` and `cali` together, you can use:
 
-- `uvx git+https://github.com/fdrgsp/cali[cali4]` for Cellpose 4.x (cellpose-sam)
+- `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali4]" mmgui` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
 
-- `uvx git+https://github.com/fdrgsp/cali[cali3]` for Cellpose 3.x
+- `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali3]" mmgui` for Cellpose 3.x (use python 3.11 or greater)
+
+If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing cali() in the console.
 
 [screen shot of cali]
