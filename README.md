@@ -19,12 +19,24 @@ https://github.com/user-attachments/assets/0b9eb935-7693-4b47-bbf2-6b5e17dfd377
   - [SlackBot App Manifest example](#slackbot-app-manifest-example)
 - [Run the Plate Viewer GUI](#run-the-plate-viewer-gui)
 
+## To run
+
+If you have `uv` installed, you can run `cali` directly without installing it using:
+
+`uvx git+https://github.com/fdrgsp/micromanager-gui`
+
+**Note:** optioinally, you can also install `cali` (see at the end of this README) together with `micromanager-gui` by using one of the following commands:
+
+- `uvx git+https://github.com/fdrgsp/cali[cali4]` for Cellpose 4.x (cellpose-sam)
+
+- `uvx git+https://github.com/fdrgsp/cali[cali3]` for Cellpose 3.x
+
 ## Installation
 
-Create a virtual environment and install the package using `pip`:
+Create a virtual environment and install the package using `pip` or `uv`:
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui
+(uv) pip install git+https://github.com/fdrgsp/micromanager-gui
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
@@ -120,16 +132,14 @@ settings:
   token_rotation_enabled: false
 ```
 
-## Run the Plate Viewer GUI
+## Segment, Extract and Analyze Calcium Imaging Data with cali
 
-To explore the calcium imaging data acquired with `micromanager-gui`, you can use the `Plate Viewer`. This GUI allows you to visualize, segment (using [Cellpose3](https://www.cellpose.org)) and analyze the calcium imaging data (currently you can use it only if you save the acquired data as `tensorstore.zarr` or `ome.zarr`).
+To explore the calcium imaging data acquired with `micromanager-gui`, you can use [cali](https://github.com/fdrgsp/cali), a GUI that allows you to segment, analyze and visualize the calcium imaging data.
 
-To run the `Plate Viewer` GUI, you can use:
+To install `micromanager-gui` and `cali` together, you can use:
 
-```bash
-pv
-```
+- `uvx git+https://github.com/fdrgsp/cali[cali4]` for Cellpose 4.x (cellpose-sam)
 
-https://github.com/user-attachments/assets/9dfcb8d0-f4e8-4c1a-a14b-fb1a5668ea2a
+- `uvx git+https://github.com/fdrgsp/cali[cali3]` for Cellpose 3.x
 
-
+[screen shot of cali]
