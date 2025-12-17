@@ -86,7 +86,7 @@ class SlackBotProcess(QProcess):
         else:
             logging.info(f"SlackBotProcess -> sent: '{message}'")
 
-    @Slot()  # type: ignore [misc]
+    @Slot()  # type: ignore
     def handle_message(self) -> None:
         """Handle the message sent by the SlackBot in the new process process.
 
@@ -97,7 +97,7 @@ class SlackBotProcess(QProcess):
         logging.info(f"SlackBotProcess -> received: {message}")
         self.messageReceived.emit(message)
 
-    @Slot()  # type: ignore [misc]
+    @Slot()  # type: ignore
     def handle_error(self) -> None:
         """Handle the error sent by the SlackBot in the new process process.
 

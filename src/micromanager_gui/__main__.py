@@ -9,14 +9,13 @@ from typing import TYPE_CHECKING
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QApplication
 
-from micromanager_gui import CellposeBatchSegmentationMP, MicroManagerGUI, PlateViewer
+from micromanager_gui import MicroManagerGUI
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import TracebackType
 
 WALLE_ICON = Path(__file__).parent / "icons" / "wall_e_icon.png"
-CELLPOSE_ICON = Path(__file__).parent / "icons" / "cellpose_icon.png"
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -48,30 +47,6 @@ def main(args: Sequence[str] | None = None) -> None:
     win = MicroManagerGUI(config=parsed_args.config, slackbot=parsed_args.slack)
     win.show()
 
-    sys.excepthook = _our_excepthook
-    app.exec_()
-
-
-def plate_viewer() -> None:
-    """Open the Plate Viewer."""
-    from fonticon_mdi6 import MDI6
-    from qtpy.QtGui import QIcon
-    from superqt.fonticon import icon
-
-    app = QApplication([])
-    app.setWindowIcon(QIcon(icon(MDI6.view_comfy, color="#00FF00")))
-    pl = PlateViewer()
-    pl.show()
-    sys.excepthook = _our_excepthook
-    app.exec()
-
-
-def batch_cellpose() -> None:
-    """Open the Batch Cellpose Segmentation."""
-    app = QApplication([])
-    app.setWindowIcon(QIcon(str(CELLPOSE_ICON)))
-    cp = CellposeBatchSegmentationMP()
-    cp.show()
     sys.excepthook = _our_excepthook
     app.exec()
 

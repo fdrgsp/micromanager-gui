@@ -25,7 +25,7 @@ from traitlets import default
 try:
     import rich
 except ImportError:
-    rich = None  # type: ignore
+    rich = None
 
 if TYPE_CHECKING:
     from ipykernel.inprocess.ipkernel import InProcessInteractiveShell, InProcessKernel

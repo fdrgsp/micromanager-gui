@@ -37,7 +37,7 @@ class MDAViewer(NDViewer):
         # AFTER handling the event
         self._superframeReady = getattr(data, "frameReady", None)
         if callable(self._superframeReady):
-            data.frameReady = self._patched_frame_ready  # type: ignore
+            data.frameReady = self._patched_frame_ready
         else:  # pragma: no cover
             warnings.warn(
                 "MDAViewer: data does not have a frameReady method to patch, "

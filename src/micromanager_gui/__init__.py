@@ -10,10 +10,6 @@ except PackageNotFoundError:
 __author__ = "Federico Gasparoli"
 __email__ = "federico.gasparoli@gmail.com"
 
-
-from micromanager_gui._plate_viewer import PlateViewer
-
-from ._cellpose import CellposeBatchSegmentationMP
 from ._main_window import MicroManagerGUI
 
-__all__ = ["CellposeBatchSegmentationMP", "MicroManagerGUI", "PlateViewer"]
+__all__ = ["MicroManagerGUI"]

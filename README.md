@@ -7,7 +7,7 @@ A Micro-Manager GUI based on [pymmcore-widgets](https://pymmcore-plus.github.io/
 
 It has been designed to record calcium imaging experiments with or without optical stimulation using [Arduino](https://www.arduino.cc) and [Thorlabs](https://www.thorlabs.com) Components (paper in press...).
 
-https://github.com/user-attachments/assets/0b9eb935-7693-4b47-bbf2-6b5e17dfd377
+https://github.com/user-attachments/assets/3b8d973d-0259-4753-804d-880115057220
 
 ## Table of Contents
 
@@ -17,12 +17,18 @@ https://github.com/user-attachments/assets/0b9eb935-7693-4b47-bbf2-6b5e17dfd377
   - [SlackBot App Manifest example](#slackbot-app-manifest-example)
 - [Run the Plate Viewer GUI](#run-the-plate-viewer-gui)
 
+## To run
+
+If you have [uv](https://docs.astral.sh/uv/) installed, you can run `micromanager-gui` directly without installing it using:
+
+`uvx --from "git+https://github.com/fdrgsp/micromanager-gui" mmgui`
+
 ## Installation
 
-Create a virtual environment and install the package using `pip`:
+Create a virtual environment and install the package using `uv` (pip):
 
 ```bash
-pip install git+https://github.com/fdrgsp/micromanager-gui
+uv pip install "git+https://github.com/fdrgsp/micromanager-gui"
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
@@ -62,7 +68,7 @@ The `OAuth & Permissions` Scope required are:
 - `chat:write`
 - `commands`
 
-Since this `SlackBot` comunicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
+Since this `SlackBot` communicates with the Micro-Manager through a set of `Slack commands`, you also need to set up the following command in your Slack App `Slash Commands` section:
 - `/run`: Start the MDA Sequence
 - `/cancel`: Cancel the current MDA Sequence
 - `/progress`: Get the current MDA Sequence progress
@@ -118,16 +124,18 @@ settings:
   token_rotation_enabled: false
 ```
 
-## Run the Plate Viewer GUI
+## Segment, Extract and Analyze Calcium Imaging Data with cali
 
-To explore the calcium imaging data acquired with `micromanager-gui`, you can use the `Plate Viewer`. This GUI allows you to visualize, segment (using [Cellpose3](https://www.cellpose.org)) and analyze the calcium imaging data (currently you can use it only if you save the acquired data as `tensorstore.zarr` or `ome.zarr`).
+To explore the calcium imaging data acquired with `micromanager-gui`, you can use [cali](https://github.com/fdrgsp/cali), a GUI that allows you to segment, analyze and visualize the calcium imaging data.
 
-To run the `Plate Viewer` GUI, you can use:
+To run `micromanager-gui` and `cali` together, you can use:
 
-```bash
-pv
-```
+- `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali4]" mmgui` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
 
-https://github.com/user-attachments/assets/9dfcb8d0-f4e8-4c1a-a14b-fb1a5668ea2a
+- `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali3]" mmgui` for Cellpose 3.x (use python 3.11 or greater)
+
+If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing cali() in the console.
+
+<img width="1736" height="1093" alt="FigureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
 
 

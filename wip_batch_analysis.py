@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
+from micromanager_gui._plate_viewer._util import GENOTYPE_MAP, TREATMENT_MAP, ROIData
 from tqdm import tqdm
 
-from micromanager_gui._plate_viewer._util import GENOTYPE_MAP, TREATMENT_MAP, ROIData
 from micromanager_gui.readers import TensorstoreZarrReader
 
 

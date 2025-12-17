@@ -78,7 +78,7 @@ class MM5DWriterWrapper(DataWrapper["_5DWriterBase"]):
         except ImportError:
             from pymmcore_plus.mda.handlers import OMETiffWriter, OMEZarrWriter
 
-            _5DWriterBase = (OMETiffWriter, OMEZarrWriter)  # type: ignore
+            _5DWriterBase = (OMETiffWriter, OMEZarrWriter)
 
         return isinstance(obj, _5DWriterBase)
 

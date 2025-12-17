@@ -9,8 +9,6 @@ import zarr
 from tifffile import imwrite
 from tqdm import tqdm
 
-from micromanager_gui._plate_viewer._util import EVENT_KEY
-
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -21,7 +19,7 @@ try:  # if zarr < 3.0.0
 except ImportError:  # if zarr >= 3.0.0
     from zarr import Group
 
-
+EVENT_KEY = "mda_event"
 EVENT = "Event"
 FRAME_META = "frame_meta"
 ARRAY_DIMS = "_ARRAY_DIMENSIONS"

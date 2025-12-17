@@ -3,21 +3,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypedDict, cast
 
+from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QFileDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
-
-from micromanager_gui._plate_viewer._segmentation import _SelectModelPath
 
 CUSTOM = "custom"
 CYTO3 = "cyto3"
@@ -141,3 +142,88 @@ class RealTimeSegmentationDialog(QDialog):
         model_type = self._models_combo.currentText()
         model_path = self._browse_custom_model.value() if model_type == CUSTOM else ""
         return {"model_type": model_type, "model_path": model_path}
+
+
+class _BrowseWidget(QWidget):
+    pathSet = Signal(str)
+    filePathSet = Signal(str)
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        label: str = "",
+        path: str | None = None,
+        tooltip: str = "",
+        *,
+        is_dir: bool = True,
+    ) -> None:
+        super().__init__(parent)
+
+        self._is_dir = is_dir
+
+        self._current_path = path or ""
+
+        self._label_text = label
+
+        self._label = QLabel(f"{self._label_text}:")
+        self._label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._label.setToolTip(tooltip)
+
+        self._path = QLineEdit()
+        self._path.setText(self._current_path)
+        self._browse_btn = QPushButton("Browse")
+        self._browse_btn.clicked.connect(self._on_browse)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        layout.addWidget(self._label)
+        layout.addWidget(self._path)
+        layout.addWidget(self._browse_btn)
+
+    def value(self) -> str:
+        import os
+
+        path_text = self._path.text()
+        return str(os.path.normpath(path_text)) if path_text else ""
+
+    def setValue(self, path: str | Path) -> None:
+        self._path.setText(str(path))
+
+    def _on_browse(self) -> None:
+        if self._is_dir:
+            if path := QFileDialog.getExistingDirectory(
+                self, f"Select the {self._label_text}.", self._current_path
+            ):
+                self._path.setText(path)
+                self.pathSet.emit(path)
+        else:
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                f"Select the {self._label_text}.",
+                "",
+                "JSON (*.json); IMAGES (*.tif *.tiff)",
+            )
+            if path:
+                self._path.setText(path)
+                self.filePathSet.emit(path)
+
+
+class _SelectModelPath(_BrowseWidget):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        label: str = "Custom Model",
+        tooltip: str = "Choose the path to the custom Cellpose model.",
+    ) -> None:
+        super().__init__(parent, label, "", tooltip, is_dir=False)
+
+    def _on_browse(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            f"Select the {self._label_text}.",
+            "",
+            "",
+        )
+        if path:
+            self._path.setText(path)
