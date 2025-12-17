@@ -128,6 +128,8 @@ settings:
 
 To explore the calcium imaging data acquired with `micromanager-gui`, you can use [cali](https://github.com/fdrgsp/cali), a GUI that allows you to segment, analyze and visualize the calcium imaging data.
 
+<img width="1736" height="1093" alt="FigureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
+
 To run `micromanager-gui` and `cali` together, you can use:
 
 - `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali4]" mmgui` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
@@ -136,6 +138,8 @@ To run `micromanager-gui` and `cali` together, you can use:
 
 If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing cali() in the console.
 
-<img width="1736" height="1093" alt="FigureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
+To install `micromanager-gui` with `cali` support, you can use:
 
+- `uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cali4]"` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
 
+- `uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cali3]"` for Cellpose 3.x (use python 3.11 or greater)
