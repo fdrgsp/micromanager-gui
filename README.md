@@ -136,6 +136,6 @@ To run `micromanager-gui` and `cali` together, you can use:
 
 If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing cali() in the console.
 
-<img width="1736" height="1093" alt="FugureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
+<img width="1736" height="1093" alt="FigureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
 
 
