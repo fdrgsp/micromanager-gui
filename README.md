@@ -138,7 +138,7 @@ To run `micromanager-gui` and `cali` together, you can use:
 
 - `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali3]" mmgui` for Cellpose 3.x (use python 3.11 or greater)
 
-If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing cali() in the console.
+If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing `cali()` in the console.
 
 ### Install with cali
 
