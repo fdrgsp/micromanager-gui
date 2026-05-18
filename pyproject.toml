@@ -110,6 +110,15 @@ conflicts = [
       { extra = "cali3" },
       { extra = "cali4" },
     ],
+    # cp4 requires cellpose>=4, cali3 requires cellpose<4 (and vice-versa)
+    [
+      { extra = "cp4" },
+      { extra = "cali3" },
+    ],
+    [
+      { extra = "cp3" },
+      { extra = "cali4" },
+    ],
     [
       { extra = "cu126" },
       { extra = "cu128" },
