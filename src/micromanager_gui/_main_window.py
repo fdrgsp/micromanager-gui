@@ -22,7 +22,6 @@ from micromanager_gui.readers import TensorstoreZarrReader
 from ._core_link import CoreViewersLink
 from ._engine import ArduinoEngine
 from ._menubar._menubar import _MenuBar
-from ._realtime_cellpose_segmentation import RealTimeCellposeSegmentation
 from ._slackbot._mm_slackbot import MMSlackBot
 from ._toolbar._shutters_toolbar import _ShuttersToolbar
 from ._toolbar._snap_live import _SnapLive
@@ -79,7 +78,14 @@ class MicroManagerGUI(QMainWindow):
             self, mmcore=self._mmc, slackbot=self._slackbot
         )
 
-        self._realtime_cellpose = RealTimeCellposeSegmentation(self._mmc)
+        try:
+            from ._realtime_cellpose_segmentation import RealTimeCellposeSegmentation
+
+            self._realtime_cellpose: RealTimeCellposeSegmentation | None = (
+                RealTimeCellposeSegmentation(self._mmc)
+            )
+        except ImportError:
+            self._realtime_cellpose = None
 
         # extend size to fill the screen
         self.showMaximized()

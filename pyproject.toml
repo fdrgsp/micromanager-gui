@@ -55,7 +55,6 @@ dev = [
     "black",
     "ipython",
     "mypy",
-    "pdbpp",
     "pre-commit",
     "pytest-cov",
     "pytest",
@@ -64,17 +63,57 @@ dev = [
 ]
 
 [project.optional-dependencies]
+cp3 = ["cellpose>=3.0,<4.0"]
+cp4 = ["cellpose>=4.0,<5.0"]
 cali3 = ["cali[cp3]"]
 cali4 = ["cali[cp4]"]
+# CUDA variants for GPU-accelerated PyTorch (Windows/Linux only)
+cu126 = ["torch", "torchvision"]
+cu128 = ["torch", "torchvision"]
+cu130 = ["torch", "torchvision"]
 
 [tool.uv.sources]
 cali = { git = "https://github.com/fdrgsp/cali.git" }
+torch = [
+    { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+torchvision = [
+    { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.uv]
 conflicts = [
     [
+      { extra = "cp3" },
+      { extra = "cp4" },
+    ],
+    [
       { extra = "cali3" },
       { extra = "cali4" },
+    ],
+    [
+      { extra = "cu126" },
+      { extra = "cu128" },
+      { extra = "cu130" },
     ],
 ]
 

@@ -190,6 +190,10 @@ class MDAWidget_(MDAWidget):
         # ------------ Segmentation & Analysis ----------------
         self._segmentation_wdg = RealTimeCellposeSegmentationWidget(self)
         main_layout.insertWidget(5, self._segmentation_wdg)
+        try:
+            import cellpose
+        except ImportError:
+            self._segmentation_wdg.hide()
         # ----------------------------------------------------
 
     def value(self) -> MDASequence:

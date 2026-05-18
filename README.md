@@ -23,12 +23,34 @@ If you have [uv](https://docs.astral.sh/uv/) installed, you can run `micromanage
 
 `uvx --from "git+https://github.com/fdrgsp/micromanager-gui" mmgui`
 
+To enable real-time Cellpose segmentation, add the `cp3` or `cp4` extra:
+
+- `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp4]" mmgui` for Cellpose 4.x
+- `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp3]" mmgui` for Cellpose 3.x
+
+For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra (`cu126`, `cu128`, or `cu130`):
+
+- `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]" mmgui`
+
 ## Installation
 
 Create a virtual environment and install the package using `uv` (pip):
 
 ```bash
 uv pip install "git+https://github.com/fdrgsp/micromanager-gui"
+```
+
+To enable real-time Cellpose segmentation, add the `cp3` or `cp4` extra:
+
+```bash
+uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp4]"  # Cellpose 4.x
+uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp3]"  # Cellpose 3.x
+```
+
+For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra matching your driver (`cu126`, `cu128`, or `cu130`):
+
+```bash
+uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]"
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
