@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from itertools import product
 from typing import (
     TYPE_CHECKING,
     cast,
@@ -47,6 +46,10 @@ class ArduinoEngine(MDAEngine):
 
         self._stimulation_action: CustomAction | None = None
 
+        # for GCaMP shutter pre-open delay
+        self._gcamp_channel: str | None = None
+        self._gcamp_delay_ms: float = 0.0
+
     def setArduinoBoard(self, arduino_board: Arduino | None) -> None:
         """Set the Arduino board to use for LED stimulation."""
         self._arduino_board = arduino_board
@@ -54,6 +57,14 @@ class ArduinoEngine(MDAEngine):
     def setArduinoLedPin(self, arduino_led_pin: Pin | None) -> None:
         """Set the pin on the Arduino board to use for LED stimulation."""
         self._arduino_led_pin = arduino_led_pin
+
+    def setGCaMPChannel(self, channel: str | None) -> None:
+        """Set the channel name that requires a shutter pre-open delay."""
+        self._gcamp_channel = channel
+
+    def setGCaMPDelayMs(self, delay_ms: float) -> None:
+        """Set the shutter pre-open delay in milliseconds for the GCaMP channel."""
+        self._gcamp_delay_ms = delay_ms
 
     def setup_sequence(self, sequence: MDASequence) -> SummaryMetaV1 | None:
         """Setup the hardware for the entire sequence."""
@@ -112,13 +123,14 @@ class ArduinoEngine(MDAEngine):
         if self._arduino_board is None and self._af_was_engaged and self._af_succeeded:
             self._mmc.enableContinuousFocus(True)
 
-        # open the shutter for x sec before starting the acquisition when using GCaMP6
         if (
-            event.index.get("t", None) == 0
-            and self._mmc.getCurrentConfig("Channels") == "GCaMP6"
+            self._gcamp_channel is not None
+            and self._gcamp_delay_ms > 0
+            and event.index.get("t") == 0
+            and self._mmc.getCurrentConfig("Channels") == self._gcamp_channel
         ):
             self._mmc.setShutterOpen(True)
-            time.sleep(1)
+            time.sleep(self._gcamp_delay_ms / 1000)
 
         if isinstance(event, SequencedEvent):
             yield from self.exec_sequenced_event(event)
@@ -146,83 +158,19 @@ class ArduinoEngine(MDAEngine):
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
         """
-        # NOTE: only overriding because of the "Buffer Overflowed" slakbot message
-
-        n_events = len(event.events)
-
-        t0 = event.metadata.get("runner_t0") or time.perf_counter()
-        event_t0_ms = (time.perf_counter() - t0) * 1000
-
-        if event.slm_image is not None:
-            self._exec_event_slm_image(event.slm_image)
-
-        # execute LED stimulation if it was requested
+        # Fire LED stimulation just before the sequence starts
         if self._stimulation_action is not None:
             self._exec_led_stimulation(self._stimulation_action.data)
             self._stimulation_action = None
 
-        # Start sequence
-        # Note that the overload of startSequenceAcquisition that takes a camera
-        # label does NOT automatically initialize a circular buffer.  So if this call
-        # is changed to accept the camera in the future, that should be kept in mind.
-        self._mmc.startSequenceAcquisition(
-            n_events,
-            0,  # intervalMS  # TODO: add support for this
-            True,  # stopOnOverflow
-        )
-        self.post_sequence_started(event)
-
-        n_channels = self._mmc.getNumberOfCameraChannels()
-        count = 0
-        iter_events = product(event.events, range(n_channels))
-
-        logged: bool = False
-
-        # block until the sequence is done, popping images in the meantime
-        while self._mmc.isSequenceRunning():
-            # check for user cancellation
-            if self._mmc.mda._canceled:
-                logger.warning("MDA Canceled: %s", event)
-                logged = True
-                self._mmc.stopSequenceAcquisition()
-                break
-
-            if remaining := self._mmc.getRemainingImageCount():
-                yield self._next_seqimg_payload(
-                    *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
-                )
-                count += 1
-            else:
-                time.sleep(0.001)
-
-        if self._mmc.isBufferOverflowed():  # pragma: no cover
+        try:
+            yield from super().exec_sequenced_event(event)
+        except MemoryError:  # pragma: no cover
             if self._slackbot is not None:
                 self._slackbot.send_message(
                     {"icon_emoji": ALARM_EMOJI, "text": "Buffer Overflowed!"}
                 )
-            raise MemoryError("Buffer overflowed")
-
-        while remaining := self._mmc.getRemainingImageCount():
-            # check for user cancellation
-            if self._mmc.mda._canceled:
-                if not logged:
-                    logger.warning("MDA Canceled: %s", event)
-                break
-
-            yield self._next_seqimg_payload(
-                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
-            )
-            count += 1
-
-        # necessary?
-        expected_images = n_events * n_channels
-        if count != expected_images:
-            logger.warning(
-                "Unexpected number of images returned from sequence. "
-                "Expected %s, got %s",
-                expected_images,
-                count,
-            )
+            raise
 
     def teardown_sequence(self, sequence: MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""

@@ -19,6 +19,7 @@ from useq import CustomAction, MDAEvent, MDASequence
 from micromanager_gui._writers import _OMETiffWriter, _TiffSequenceWriter
 
 from ._arduino import ArduinoLedWidget
+from ._gcamp_delay_widget import GCaMPDelayWidget
 from ._realtime_cellpose_segmentation_wdg import RealTimeCellposeSegmentationWidget
 from ._save_widget import (
     OME_TIFF,
@@ -182,14 +183,19 @@ class MDAWidget_(MDAWidget):
         self.save_info.valueChanged.connect(self.valueChanged)
         main_layout.insertWidget(0, self.save_info)
 
+        # ------------ GCaMP Shutter Delay -------------------
+        self._gcamp_delay_wdg = GCaMPDelayWidget(self, mmcore=self._mmc)
+        main_layout.insertWidget(4, self._gcamp_delay_wdg)
+        # ----------------------------------------------------
+
         # ------------ Arduino -------------------------------
         self._arduino_led_wdg = ArduinoLedWidget(self)
-        main_layout.insertWidget(4, self._arduino_led_wdg)
+        main_layout.insertWidget(5, self._arduino_led_wdg)
         # ----------------------------------------------------
 
         # ------------ Segmentation & Analysis ----------------
         self._segmentation_wdg = RealTimeCellposeSegmentationWidget(self)
-        main_layout.insertWidget(5, self._segmentation_wdg)
+        main_layout.insertWidget(6, self._segmentation_wdg)
         try:
             import cellpose
         except ImportError:
@@ -337,6 +343,14 @@ class MDAWidget_(MDAWidget):
             self._set_arduino_props(arduino, led)
         # -----------------------------------------------------------------------------
 
+        # GCaMP shutter delay ---------------------------------------------------------
+        gcamp = self._gcamp_delay_wdg.value()
+        self._set_gcamp_props(
+            gcamp["channel"] if gcamp else None,
+            gcamp["delay_ms"] if gcamp else 0.0,
+        )
+        # -----------------------------------------------------------------------------
+
         sequence = self.value()
 
         # technically, this is in the metadata as well, but isChecked is more direct
@@ -397,6 +411,16 @@ class MDAWidget_(MDAWidget):
         engine: ArduinoEngine = self._mmc.mda.engine
         engine.setArduinoBoard(arduino)
         engine.setArduinoLedPin(led)
+
+    def _set_gcamp_props(self, channel: str | None, delay_ms: float) -> None:
+        """Set the GCaMP shutter delay channel and duration in the MDA engine."""
+        if not self._mmc.mda.engine:
+            return
+        if not hasattr(self._mmc.mda.engine, "setGCaMPChannel"):
+            return
+        engine: ArduinoEngine = self._mmc.mda.engine
+        engine.setGCaMPChannel(channel)
+        engine.setGCaMPDelayMs(delay_ms)
 
     def _test_arduino_connection(self, led: Pin) -> bool:
         """Test the connection with the Arduino."""
