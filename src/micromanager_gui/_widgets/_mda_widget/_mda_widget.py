@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -190,9 +191,7 @@ class MDAWidget_(MDAWidget):
         # ------------ Segmentation & Analysis ----------------
         self._segmentation_wdg = RealTimeCellposeSegmentationWidget(self)
         main_layout.insertWidget(5, self._segmentation_wdg)
-        try:
-            import cellpose
-        except ImportError:
+        if importlib.util.find_spec("cellpose") is None:
             self._segmentation_wdg.hide()
         # ----------------------------------------------------
 
