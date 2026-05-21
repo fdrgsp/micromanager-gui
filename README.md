@@ -28,9 +28,7 @@ To enable real-time Cellpose segmentation, add the `cp3` or `cp4` extra:
 - `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp4]" mmgui` for Cellpose 4.x
 - `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp3]" mmgui` for Cellpose 3.x
 
-For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra (`cu126`, `cu128`, or `cu130`) and pass the matching PyTorch index so the CUDA wheels are found (replace `cu128` with the version that matches your driver):
-
-- `uvx --index https://download.pytorch.org/whl/cu128 --from "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]" mmgui`
+***NOTE**: `uvx` supports GPU acceleration on **macOS only** (via Apple MPS — no CUDA required). On Windows/Linux, use `uv pip install` instead (see [Installation](#installation)).*
 
 ## Installation
 
@@ -47,11 +45,15 @@ uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp4]"  # Cellpose
 uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp3]"  # Cellpose 3.x
 ```
 
-For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra matching your driver (`cu126`, `cu128`, or `cu130`) and pass the matching PyTorch index:
+To use Cellpose with GPU on Windows/Linux, install PyTorch with the CUDA version matching your driver as a second step:
 
 ```bash
-uv pip install --index https://download.pytorch.org/whl/cu128 "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]"
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu{VERSION}
 ```
+
+Replace `{VERSION}` with your CUDA version (e.g. `cu126`, `cu128`, `cu130`). Run `nvidia-smi` to check which version your driver supports.
+
+***NOTE**: [NVIDIA Drivers](https://www.nvidia.com/en-us/drivers/) should be already installed.*
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
 
@@ -152,13 +154,15 @@ To explore the calcium imaging data acquired with `micromanager-gui`, you can us
 
 <img width="1736" height="1093" alt="FigureS3_1" src="https://github.com/user-attachments/assets/a01c4993-65bc-4840-a8be-54760c5b3fad" />
 
-### Run with cali 
+### Run with cali
 
 To run `micromanager-gui` and `cali` together, you can use:
 
 - `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali4]" mmgui` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
 
 - `uvx -p 3.12 --from "git+https://github.com/fdrgsp/micromanager-gui[cali3]" mmgui` for Cellpose 3.x (use python 3.11 or greater)
+
+***NOTE**: `uvx` supports GPU acceleration on **macOS only** (via Apple MPS — no CUDA required). On Windows/Linux, use `uv pip install` instead (see below).*
 
 If you open the console widget from the `micromanager-gui` menu (`Widget > Console`), you can run `cali` by typing `cali()` in the console.
 
@@ -169,3 +173,13 @@ To install `micromanager-gui` with `cali` support, you can use:
 - `uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cali4]"` for Cellpose 4.x (cellpose-sam) (use python 3.11 or greater)
 
 - `uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cali3]"` for Cellpose 3.x (use python 3.11 or greater)
+
+To use Cellpose with GPU on Windows/Linux, install PyTorch with the CUDA version matching your driver as a second step:
+
+```bash
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu{VERSION}
+```
+
+Replace `{VERSION}` with your CUDA version (e.g. `cu126`, `cu128`, `cu130`). Run `nvidia-smi` to check which version your driver supports.
+
+***NOTE**: [NVIDIA Drivers](https://www.nvidia.com/en-us/drivers/) should be already installed.*
