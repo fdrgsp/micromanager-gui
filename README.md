@@ -28,9 +28,9 @@ To enable real-time Cellpose segmentation, add the `cp3` or `cp4` extra:
 - `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp4]" mmgui` for Cellpose 4.x
 - `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp3]" mmgui` for Cellpose 3.x
 
-For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra (`cu126`, `cu128`, or `cu130`):
+For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra (`cu126`, `cu128`, or `cu130`) and pass the matching PyTorch index so the CUDA wheels are found (replace `cu128` with the version that matches your driver):
 
-- `uvx --from "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]" mmgui`
+- `uvx --index https://download.pytorch.org/whl/cu128 --from "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]" mmgui`
 
 ## Installation
 
@@ -47,10 +47,10 @@ uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp4]"  # Cellpose
 uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp3]"  # Cellpose 3.x
 ```
 
-For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra matching your driver (`cu126`, `cu128`, or `cu130`):
+For GPU acceleration (Windows/Linux only), combine a cellpose extra with a CUDA extra matching your driver (`cu126`, `cu128`, or `cu130`) and pass the matching PyTorch index:
 
 ```bash
-uv pip install "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]"
+uv pip install --index https://download.pytorch.org/whl/cu128 "git+https://github.com/fdrgsp/micromanager-gui[cp4,cu128]"
 ```
 
 Note: this is also installing the [PyQt6](https://pypi.org/project/PyQt6/) library for the GUI.
